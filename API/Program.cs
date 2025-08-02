@@ -1,6 +1,5 @@
 using MongoDB.Driver;
 using Infrastructure.Data;
-using Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 

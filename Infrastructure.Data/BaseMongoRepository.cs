@@ -22,8 +22,15 @@ namespace Infrastructure.Data
         /// <param name="database">The MongoDB database instance</param>
         public BaseMongoRepository(IMongoDatabase database)
         {
+            if (database == null)
+            {
+                throw new ArgumentNullException(nameof(database));
+            }
+
             _database = database;
-            _collection = _database.GetCollection<T>(typeof(T).Name);
+            // Use lowercase plural collection naming convention
+            var collectionName = typeof(T).Name.ToLowerInvariant() + "s";
+            _collection = _database.GetCollection<T>(collectionName);
         }
 
         /// <summary>
@@ -33,8 +40,15 @@ namespace Infrastructure.Data
         /// <returns>The entity if found, otherwise null</returns>
         public async Task<T> GetByIdAsync(Guid id)
         {
-            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-            return await _collection.Find(filter).FirstOrDefaultAsync();
+            try
+            {
+                var filter = Builders<T>.Filter.Eq(x => x.Id, id);
+                return await _collection.Find(filter).FirstOrDefaultAsync();
+            }
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException($"Error retrieving entity with ID {id}", ex);
+            }
         }
 
         /// <summary>
@@ -44,10 +58,22 @@ namespace Infrastructure.Data
         /// <returns>The created entity with updated timestamps</returns>
         public async Task<T> CreateAsync(T entity)
         {
-            entity.DateCreated = DateTimeOffset.UtcNow;
-            entity.DateUpdated = DateTimeOffset.UtcNow;
-            await _collection.InsertOneAsync(entity);
-            return entity;
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity));
+            }
+
+            try
+            {
+                entity.DateCreated = DateTimeOffset.UtcNow;
+                entity.DateUpdated = DateTimeOffset.UtcNow;
+                await _collection.InsertOneAsync(entity);
+                return entity;
+            }
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException("Error creating entity", ex);
+            }
         }
 
         /// <summary>
@@ -57,14 +83,31 @@ namespace Infrastructure.Data
         /// <returns>A task representing the asynchronous operation</returns>
         public async Task InsertManyAsync(IEnumerable<T> entities)
         {
-            var entitiesList = entities.ToList();
-            var now = DateTimeOffset.UtcNow;
-            foreach (var entity in entitiesList)
+            if (entities == null)
             {
-                entity.DateCreated = now;
-                entity.DateUpdated = now;
+                throw new ArgumentNullException(nameof(entities));
             }
-            await _collection.InsertManyAsync(entitiesList);
+
+            var entitiesList = entities.ToList();
+            if (!entitiesList.Any())
+            {
+                return;
+            }
+
+            try
+            {
+                var now = DateTimeOffset.UtcNow;
+                foreach (var entity in entitiesList)
+                {
+                    entity.DateCreated = now;
+                    entity.DateUpdated = now;
+                }
+                await _collection.InsertManyAsync(entitiesList);
+            }
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException("Error inserting multiple entities", ex);
+            }
         }
 
         /// <summary>
@@ -74,10 +117,28 @@ namespace Infrastructure.Data
         /// <returns>The updated entity with refreshed timestamp</returns>
         public async Task<T> UpdateAsync(T entity)
         {
-            entity.DateUpdated = DateTimeOffset.UtcNow;
-            var filter = Builders<T>.Filter.Eq(x => x.Id, entity.Id);
-            await _collection.ReplaceOneAsync(filter, entity);
-            return entity;
+            if (entity == null)
+            {
+                throw new ArgumentNullException(nameof(entity));
+            }
+
+            try
+            {
+                entity.DateUpdated = DateTimeOffset.UtcNow;
+                var filter = Builders<T>.Filter.Eq(x => x.Id, entity.Id);
+                var result = await _collection.ReplaceOneAsync(filter, entity);
+
+                if (result.MatchedCount == 0)
+                {
+                    throw new InvalidOperationException($"Entity with ID {entity.Id} not found");
+                }
+
+                return entity;
+            }
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException($"Error updating entity with ID {entity.Id}", ex);
+            }
         }
 
         /// <summary>
@@ -87,8 +148,20 @@ namespace Infrastructure.Data
         /// <returns>A task representing the asynchronous delete operation</returns>
         public async Task DeleteAsync(Guid id)
         {
-            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-            await _collection.DeleteOneAsync(filter);
+            try
+            {
+                var filter = Builders<T>.Filter.Eq(x => x.Id, id);
+                var result = await _collection.DeleteOneAsync(filter);
+
+                if (result.DeletedCount == 0)
+                {
+                    throw new InvalidOperationException($"Entity with ID {id} not found");
+                }
+            }
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException($"Error deleting entity with ID {id}", ex);
+            }
         }
 
         /// <summary>
@@ -100,11 +173,16 @@ namespace Infrastructure.Data
         /// <returns>A task representing the asynchronous patch operation</returns>
         public async Task PatchAsync(Guid id, object updates, params string[] propertyNames)
         {
-            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-            var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
-
-            if (updates != null)
+            if (updates == null)
             {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            try
+            {
+                var filter = Builders<T>.Filter.Eq(x => x.Id, id);
+                var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
+
                 foreach (var property in updates.GetType().GetProperties())
                 {
                     if (propertyNames.Length == 0 || propertyNames.Contains(property.Name))
@@ -116,52 +194,20 @@ namespace Infrastructure.Data
                         }
                     }
                 }
-            }
 
-            await _collection.UpdateOneAsync(filter, updateDefinition);
-        }
+                var result = await _collection.UpdateOneAsync(filter, updateDefinition);
 
-        /// <summary>
-        /// Partially updates an entity by applying only the specified field updates
-        /// </summary>
-        /// <param name="id">The unique identifier of the entity to update</param>
-        /// <param name="updates">An object containing the fields to update. Use anonymous objects with nameof() for type-safe field selection</param>
-        /// <returns>A task representing the asynchronous patch operation</returns>
-        public async Task PatchAsync(Guid id, object updates)
-        {
-            await PatchAsync(id, updates, new string[0]);
-        }
-
-        /// <summary>
-        /// Partially updates an entity by updating only the specified property names
-        /// </summary>
-        /// <param name="id">The unique identifier of the entity to update</param>
-        /// <param name="propertyNames">Array of property names to update</param>
-        /// <returns>A task representing the asynchronous patch operation</returns>
-        public async Task PatchAsync(Guid id, string[] propertyNames)
-        {
-            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-            var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
-
-            if (propertyNames != null && propertyNames.Length > 0)
-            {
-                var entity = await GetByIdAsync(id);
-                if (entity != null)
+                if (result.MatchedCount == 0)
                 {
-                    foreach (var propertyName in propertyNames)
-                    {
-                        var property = typeof(T).GetProperty(propertyName);
-                        if (property != null && property.CanRead)
-                        {
-                            var value = property.GetValue(entity);
-                            updateDefinition = updateDefinition.Set(propertyName, value);
-                        }
-                    }
+                    throw new InvalidOperationException($"Entity with ID {id} not found");
                 }
             }
-
-            await _collection.UpdateOneAsync(filter, updateDefinition);
+            catch (MongoException ex)
+            {
+                throw new InvalidOperationException($"Error patching entity with ID {id}", ex);
+            }
         }
+
 
     }
 }
