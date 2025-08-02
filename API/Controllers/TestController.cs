@@ -18,8 +18,8 @@ namespace API.Controllers
         [HttpGet("test-injection")]
         public IActionResult TestInjection()
         {
-            return Ok(new 
-            { 
+            return Ok(new
+            {
                 message = "Repository successfully injected",
                 repositoryType = _repository.GetType().Name,
                 isBaseMongoRepository = _repository is BaseMongoRepository<TestEntity>

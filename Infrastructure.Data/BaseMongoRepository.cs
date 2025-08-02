@@ -102,7 +102,7 @@ namespace Infrastructure.Data
         {
             var filter = Builders<T>.Filter.Eq(x => x.Id, id);
             var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
-            
+
             if (updates != null)
             {
                 foreach (var property in updates.GetType().GetProperties())
@@ -117,7 +117,7 @@ namespace Infrastructure.Data
                     }
                 }
             }
-            
+
             await _collection.UpdateOneAsync(filter, updateDefinition);
         }
 
