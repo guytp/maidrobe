@@ -119,10 +119,11 @@ namespace Infrastructure.Data
         }
 
         /// <summary>
-        /// Updates an existing entity by replacing it entirely
+        /// Updates an existing entity by replacing it entirely with optimistic concurrency control
         /// </summary>
         /// <param name="entity">The entity with updated values</param>
-        /// <returns>The updated entity with refreshed timestamp</returns>
+        /// <returns>The updated entity with refreshed timestamp and incremented version</returns>
+        /// <exception cref="InvalidOperationException">Thrown when entity is not found or version mismatch occurs</exception>
         public async Task<T> UpdateAsync(T entity)
         {
             if (entity == null)
@@ -132,13 +133,36 @@ namespace Infrastructure.Data
 
             try
             {
+                // Store the current version before incrementing
+                var currentVersion = entity.Version;
+                
+                // Increment version and update timestamp
+                entity.Version++;
                 entity.DateUpdated = DateTimeOffset.UtcNow;
-                var filter = Builders<T>.Filter.Eq(x => x.Id, entity.Id);
+                
+                // Filter by both ID and current version for optimistic concurrency
+                var filter = Builders<T>.Filter.And(
+                    Builders<T>.Filter.Eq(x => x.Id, entity.Id),
+                    Builders<T>.Filter.Eq(x => x.Version, currentVersion)
+                );
+                
                 var result = await _collection.ReplaceOneAsync(filter, entity);
 
                 if (result.MatchedCount == 0)
                 {
-                    throw new InvalidOperationException($"Entity with ID {entity.Id} not found");
+                    // Check if entity exists but version mismatched
+                    var existsFilter = Builders<T>.Filter.Eq(x => x.Id, entity.Id);
+                    using var cursor = await _collection.FindAsync(existsFilter);
+                    var existingEntity = await cursor.FirstOrDefaultAsync();
+                    
+                    if (existingEntity != null)
+                    {
+                        throw new InvalidOperationException($"Entity with ID {entity.Id} has been modified by another process. Current version: {existingEntity.Version}, attempted version: {currentVersion}");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Entity with ID {entity.Id} not found");
+                    }
                 }
 
                 return entity;
@@ -173,12 +197,13 @@ namespace Infrastructure.Data
         }
 
         /// <summary>
-        /// Partially updates an entity with specified updates and property names
+        /// Partially updates an entity with specified updates and property names using optimistic concurrency control
         /// </summary>
         /// <param name="id">The unique identifier of the entity to update</param>
         /// <param name="updates">An object containing the fields to update</param>
         /// <param name="propertyNames">Array of property names to update</param>
         /// <returns>A task representing the asynchronous patch operation</returns>
+        /// <exception cref="InvalidOperationException">Thrown when entity is not found or version mismatch occurs</exception>
         public async Task PatchAsync(Guid id, object updates, params string[] propertyNames)
         {
             if (updates == null)
@@ -188,8 +213,26 @@ namespace Infrastructure.Data
 
             try
             {
-                var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-                var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
+                // First retrieve the current entity to get its version
+                var existsFilter = Builders<T>.Filter.Eq(x => x.Id, id);
+                using var cursor = await _collection.FindAsync(existsFilter);
+                var currentEntity = await cursor.FirstOrDefaultAsync();
+                
+                if (currentEntity == null)
+                {
+                    throw new InvalidOperationException($"Entity with ID {id} not found");
+                }
+                
+                // Create filter with both ID and current version for optimistic concurrency
+                var filter = Builders<T>.Filter.And(
+                    Builders<T>.Filter.Eq(x => x.Id, id),
+                    Builders<T>.Filter.Eq(x => x.Version, currentEntity.Version)
+                );
+                
+                // Build update definition with incremented version and updated timestamp
+                var updateDefinition = Builders<T>.Update
+                    .Set(x => x.DateUpdated, DateTimeOffset.UtcNow)
+                    .Inc(x => x.Version, 1);
 
                 foreach (var property in updates.GetType().GetProperties())
                 {
@@ -207,7 +250,18 @@ namespace Infrastructure.Data
 
                 if (result.MatchedCount == 0)
                 {
-                    throw new InvalidOperationException($"Entity with ID {id} not found");
+                    // Re-check if entity still exists to determine if it was deleted or version mismatched
+                    using var recheckCursor = await _collection.FindAsync(existsFilter);
+                    var recheckEntity = await recheckCursor.FirstOrDefaultAsync();
+                    
+                    if (recheckEntity != null)
+                    {
+                        throw new InvalidOperationException($"Entity with ID {id} has been modified by another process. Current version: {recheckEntity.Version}, attempted version: {currentEntity.Version}");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Entity with ID {id} not found");
+                    }
                 }
             }
             catch (MongoException ex)
