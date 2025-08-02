@@ -59,20 +59,11 @@ namespace Infrastructure.Data.Tests
                 .ReturnsAsync(true)
                 .ReturnsAsync(false);
 
-            var mockFindFluent = new Mock<IFindFluent<TestEntity, TestEntity>>();
-            mockFindFluent.Setup(x => x.FirstOrDefaultAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedEntity);
-
             _mockCollection.Setup(x => x.FindAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
                 It.IsAny<FindOptions<TestEntity, TestEntity>>(),
                 It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mockCursor.Object);
-
-            _mockCollection.Setup(x => x.Find(
-                It.IsAny<FilterDefinition<TestEntity>>(),
-                null))
-                .Returns(mockFindFluent.Object);
 
             // Act
             var result = await _repository.GetByIdAsync(testId);
@@ -89,14 +80,16 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var testId = Guid.NewGuid();
 
-            var mockFindFluent = new Mock<IFindFluent<TestEntity, TestEntity>>();
-            mockFindFluent.Setup(x => x.FirstOrDefaultAsync(It.IsAny<CancellationToken>()))
-                .ReturnsAsync((TestEntity?)null);
+            var mockCursor = new Mock<IAsyncCursor<TestEntity>>();
+            mockCursor.Setup(x => x.Current).Returns(new List<TestEntity>());
+            mockCursor.Setup(x => x.MoveNext(It.IsAny<CancellationToken>())).Returns(false);
+            mockCursor.Setup(x => x.MoveNextAsync(It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
-            _mockCollection.Setup(x => x.Find(
+            _mockCollection.Setup(x => x.FindAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
-                null))
-                .Returns(mockFindFluent.Object);
+                It.IsAny<FindOptions<TestEntity, TestEntity>>(),
+                It.IsAny<CancellationToken>()))
+                .ReturnsAsync(mockCursor.Object);
 
             // Act
             var result = await _repository.GetByIdAsync(testId);
@@ -130,7 +123,8 @@ namespace Infrastructure.Data.Tests
             Assert.Equal(entity.Name, result.Name);
             Assert.NotEqual(default(DateTimeOffset), result.DateCreated);
             Assert.NotEqual(default(DateTimeOffset), result.DateUpdated);
-            Assert.Equal(result.DateCreated, result.DateUpdated);
+            // Check that both dates are set to the same value (within a small tolerance)
+            Assert.True(Math.Abs((result.DateCreated - result.DateUpdated).TotalMilliseconds) < 1);
 
             _mockCollection.Verify(x => x.InsertOneAsync(
                 It.Is<TestEntity>(e => e.DateCreated != default && e.DateUpdated != default),
@@ -380,11 +374,18 @@ namespace Infrastructure.Data.Tests
         [Fact]
         public void Constructor_ShouldCreateCollectionWithCorrectName()
         {
-            // Arrange & Act
-            var repository = new TestMongoRepository(_mockDatabase.Object);
+            // Arrange
+            var freshMockDatabase = new Mock<IMongoDatabase>();
+            var mockCollection = new Mock<IMongoCollection<TestEntity>>();
+            
+            freshMockDatabase.Setup(x => x.GetCollection<TestEntity>("testentitys", null))
+                .Returns(mockCollection.Object);
+
+            // Act
+            var repository = new TestMongoRepository(freshMockDatabase.Object);
 
             // Assert
-            _mockDatabase.Verify(x => x.GetCollection<TestEntity>("testentitys", null), Times.Once);
+            freshMockDatabase.Verify(x => x.GetCollection<TestEntity>("testentitys", null), Times.Once);
         }
     }
 

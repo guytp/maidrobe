@@ -6,7 +6,7 @@ namespace Domain
 {
     public interface IRepository<T> where T : BaseDataObject
     {
-        Task<T> GetByIdAsync(Guid id);
+        Task<T?> GetByIdAsync(Guid id);
         Task<T> CreateAsync(T entity);
         Task<T> UpdateAsync(T entity);
         Task InsertManyAsync(IEnumerable<T> entities);

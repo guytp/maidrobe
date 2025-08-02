@@ -38,12 +38,13 @@ namespace Infrastructure.Data
         /// </summary>
         /// <param name="id">The unique identifier of the entity</param>
         /// <returns>The entity if found, otherwise null</returns>
-        public async Task<T> GetByIdAsync(Guid id)
+        public async Task<T?> GetByIdAsync(Guid id)
         {
             try
             {
                 var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-                return await _collection.Find(filter).FirstOrDefaultAsync();
+                using var cursor = await _collection.FindAsync(filter);
+                return await cursor.FirstOrDefaultAsync();
             }
             catch (MongoException ex)
             {
