@@ -67,6 +67,12 @@ namespace Infrastructure.Data
 
             try
             {
+                // Check if entity.Id is Guid.Empty and assign a new Guid if needed
+                if (entity.Id == Guid.Empty)
+                {
+                    entity.Id = Guid.NewGuid();
+                }
+
                 entity.DateCreated = DateTimeOffset.UtcNow;
                 entity.DateUpdated = DateTimeOffset.UtcNow;
                 await _collection.InsertOneAsync(entity);
