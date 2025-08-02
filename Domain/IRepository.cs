@@ -8,9 +8,9 @@ namespace Domain
     {
         Task<T> GetByIdAsync(Guid id);
         Task<T> CreateAsync(T entity);
-        Task InsertAsync(IEnumerable<T> entities);
         Task<T> UpdateAsync(T entity);
+        Task InsertManyAsync(IEnumerable<T> entities);
         Task DeleteAsync(Guid id);
-        Task PatchAsync(Guid id, string[] propertyNames);
+        Task PatchAsync(Guid id, object updates, params string[] propertyNames);
     }
 }

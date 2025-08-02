@@ -55,7 +55,7 @@ namespace Infrastructure.Data
         /// </summary>
         /// <param name="entities">The collection of entities to insert</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        public async Task InsertAsync(IEnumerable<T> entities)
+        public async Task InsertManyAsync(IEnumerable<T> entities)
         {
             var entitiesList = entities.ToList();
             var now = DateTimeOffset.UtcNow;
@@ -92,15 +92,32 @@ namespace Infrastructure.Data
         }
 
         /// <summary>
-        /// Partially updates an entity using property names (currently only updates timestamp)
+        /// Partially updates an entity with specified updates and property names
         /// </summary>
         /// <param name="id">The unique identifier of the entity to update</param>
+        /// <param name="updates">An object containing the fields to update</param>
         /// <param name="propertyNames">Array of property names to update</param>
         /// <returns>A task representing the asynchronous patch operation</returns>
-        public async Task PatchAsync(Guid id, string[] propertyNames)
+        public async Task PatchAsync(Guid id, object updates, params string[] propertyNames)
         {
             var filter = Builders<T>.Filter.Eq(x => x.Id, id);
             var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
+            
+            if (updates != null)
+            {
+                foreach (var property in updates.GetType().GetProperties())
+                {
+                    if (propertyNames.Length == 0 || propertyNames.Contains(property.Name))
+                    {
+                        var value = property.GetValue(updates);
+                        if (value != null)
+                        {
+                            updateDefinition = updateDefinition.Set(property.Name, value);
+                        }
+                    }
+                }
+            }
+            
             await _collection.UpdateOneAsync(filter, updateDefinition);
         }
 
@@ -112,19 +129,8 @@ namespace Infrastructure.Data
         /// <returns>A task representing the asynchronous patch operation</returns>
         public async Task PatchAsync(Guid id, object updates)
         {
-            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
-            var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
-            
-            foreach (var property in updates.GetType().GetProperties())
-            {
-                var value = property.GetValue(updates);
-                if (value != null)
-                {
-                    updateDefinition = updateDefinition.Set(property.Name, value);
-                }
-            }
-            
-            await _collection.UpdateOneAsync(filter, updateDefinition);
+            await PatchAsync(id, updates, new string[0]);
         }
+
     }
 }
