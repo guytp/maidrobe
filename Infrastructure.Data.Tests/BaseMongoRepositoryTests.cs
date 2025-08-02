@@ -12,11 +12,19 @@ using Xunit;
 
 namespace Infrastructure.Data.Tests
 {
+    // Concrete implementation for testing
+    public class TestMongoRepository : BaseMongoRepository<TestEntity>
+    {
+        public TestMongoRepository(IMongoDatabase database) : base(database)
+        {
+        }
+    }
+
     public class BaseMongoRepositoryTests
     {
         private readonly Mock<IMongoDatabase> _mockDatabase;
         private readonly Mock<IMongoCollection<TestEntity>> _mockCollection;
-        private readonly BaseMongoRepository<TestEntity> _repository;
+        private readonly TestMongoRepository _repository;
 
         public BaseMongoRepositoryTests()
         {
@@ -26,7 +34,7 @@ namespace Infrastructure.Data.Tests
             _mockDatabase.Setup(x => x.GetCollection<TestEntity>(It.IsAny<string>(), null))
                 .Returns(_mockCollection.Object);
 
-            _repository = new BaseMongoRepository<TestEntity>(_mockDatabase.Object);
+            _repository = new TestMongoRepository(_mockDatabase.Object);
         }
 
         [Fact]
@@ -366,14 +374,14 @@ namespace Infrastructure.Data.Tests
         public void Constructor_ShouldThrowArgumentNullException_WhenDatabaseIsNull()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new BaseMongoRepository<TestEntity>(null!));
+            Assert.Throws<ArgumentNullException>(() => new TestMongoRepository(null!));
         }
 
         [Fact]
         public void Constructor_ShouldCreateCollectionWithCorrectName()
         {
             // Arrange & Act
-            var repository = new BaseMongoRepository<TestEntity>(_mockDatabase.Object);
+            var repository = new TestMongoRepository(_mockDatabase.Object);
 
             // Assert
             _mockDatabase.Verify(x => x.GetCollection<TestEntity>("testentitys", null), Times.Once);

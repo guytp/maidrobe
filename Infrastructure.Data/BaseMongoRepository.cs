@@ -11,7 +11,7 @@ namespace Infrastructure.Data
     /// Base implementation of MongoDB repository providing CRUD operations for entities
     /// </summary>
     /// <typeparam name="T">The entity type, must inherit from BaseDataObject</typeparam>
-    public class BaseMongoRepository<T> : IMongoRepository<T> where T : BaseDataObject
+    public abstract class BaseMongoRepository<T> : IMongoRepository<T> where T : BaseDataObject
     {
         private readonly IMongoDatabase _database;
         private readonly IMongoCollection<T> _collection;
