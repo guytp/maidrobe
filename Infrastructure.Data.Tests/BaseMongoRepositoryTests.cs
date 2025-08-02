@@ -22,10 +22,10 @@ namespace Infrastructure.Data.Tests
         {
             _mockDatabase = new Mock<IMongoDatabase>();
             _mockCollection = new Mock<IMongoCollection<TestEntity>>();
-            
+
             _mockDatabase.Setup(x => x.GetCollection<TestEntity>(It.IsAny<string>(), null))
                 .Returns(_mockCollection.Object);
-            
+
             _repository = new BaseMongoRepository<TestEntity>(_mockDatabase.Object);
         }
 
@@ -34,9 +34,9 @@ namespace Infrastructure.Data.Tests
         {
             // Arrange
             var testId = Guid.NewGuid();
-            var expectedEntity = new TestEntity 
-            { 
-                Id = testId, 
+            var expectedEntity = new TestEntity
+            {
+                Id = testId,
                 Name = "Test Entity",
                 DateCreated = DateTimeOffset.UtcNow,
                 DateUpdated = DateTimeOffset.UtcNow
@@ -101,10 +101,10 @@ namespace Infrastructure.Data.Tests
         public async Task CreateAsync_ShouldSetDateFieldsAndInsertEntity()
         {
             // Arrange
-            var entity = new TestEntity 
-            { 
-                Id = Guid.NewGuid(), 
-                Name = "New Entity" 
+            var entity = new TestEntity
+            {
+                Id = Guid.NewGuid(),
+                Name = "New Entity"
             };
 
             _mockCollection.Setup(x => x.InsertOneAsync(
@@ -159,9 +159,9 @@ namespace Infrastructure.Data.Tests
 
             // Assert
             _mockCollection.Verify(x => x.InsertManyAsync(
-                It.Is<IEnumerable<TestEntity>>(e => e.All(entity => 
-                    entity.DateCreated != default && 
-                    entity.DateUpdated != default && 
+                It.Is<IEnumerable<TestEntity>>(e => e.All(entity =>
+                    entity.DateCreated != default &&
+                    entity.DateUpdated != default &&
                     entity.DateCreated == entity.DateUpdated)),
                 It.IsAny<InsertManyOptions>(),
                 It.IsAny<CancellationToken>()), Times.Once);
@@ -187,9 +187,9 @@ namespace Infrastructure.Data.Tests
         public async Task UpdateAsync_ShouldUpdateDateUpdatedAndReplaceEntity()
         {
             // Arrange
-            var entity = new TestEntity 
-            { 
-                Id = Guid.NewGuid(), 
+            var entity = new TestEntity
+            {
+                Id = Guid.NewGuid(),
                 Name = "Updated Entity",
                 DateCreated = DateTimeOffset.UtcNow.AddDays(-1),
                 DateUpdated = DateTimeOffset.UtcNow.AddDays(-1)
@@ -247,7 +247,7 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var testId = Guid.NewGuid();
             var deleteResult = new DeleteResult.Acknowledged(1);
-            
+
             _mockCollection.Setup(x => x.DeleteOneAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
                 It.IsAny<CancellationToken>()))
@@ -268,7 +268,7 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var testId = Guid.NewGuid();
             var deleteResult = new DeleteResult.Acknowledged(0);
-            
+
             _mockCollection.Setup(x => x.DeleteOneAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
                 It.IsAny<CancellationToken>()))
@@ -285,7 +285,7 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var testId = Guid.NewGuid();
             var updates = new { Name = "Patched Name", Value = 42 };
-            
+
             var updateResult = new UpdateResult.Acknowledged(1, 1, BsonNull.Value);
             _mockCollection.Setup(x => x.UpdateOneAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
@@ -312,7 +312,7 @@ namespace Infrastructure.Data.Tests
             var testId = Guid.NewGuid();
             var updates = new { Name = "Patched Name", Value = 42, Description = "New Description" };
             var propertyNames = new[] { "Name", "Value" };
-            
+
             var updateResult = new UpdateResult.Acknowledged(1, 1, BsonNull.Value);
             _mockCollection.Setup(x => x.UpdateOneAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
@@ -338,7 +338,7 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var testId = Guid.NewGuid();
             var updates = new { Name = "Patched Name" };
-            
+
             var updateResult = new UpdateResult.Acknowledged(0, 0, BsonNull.Value);
             _mockCollection.Setup(x => x.UpdateOneAsync(
                 It.IsAny<FilterDefinition<TestEntity>>(),
