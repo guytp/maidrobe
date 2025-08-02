@@ -132,5 +132,36 @@ namespace Infrastructure.Data
             await PatchAsync(id, updates, new string[0]);
         }
 
+        /// <summary>
+        /// Partially updates an entity by updating only the specified property names
+        /// </summary>
+        /// <param name="id">The unique identifier of the entity to update</param>
+        /// <param name="propertyNames">Array of property names to update</param>
+        /// <returns>A task representing the asynchronous patch operation</returns>
+        public async Task PatchAsync(Guid id, string[] propertyNames)
+        {
+            var filter = Builders<T>.Filter.Eq(x => x.Id, id);
+            var updateDefinition = Builders<T>.Update.Set(x => x.DateUpdated, DateTimeOffset.UtcNow);
+
+            if (propertyNames != null && propertyNames.Length > 0)
+            {
+                var entity = await GetByIdAsync(id);
+                if (entity != null)
+                {
+                    foreach (var propertyName in propertyNames)
+                    {
+                        var property = typeof(T).GetProperty(propertyName);
+                        if (property != null && property.CanRead)
+                        {
+                            var value = property.GetValue(entity);
+                            updateDefinition = updateDefinition.Set(propertyName, value);
+                        }
+                    }
+                }
+            }
+
+            await _collection.UpdateOneAsync(filter, updateDefinition);
+        }
+
     }
 }
