@@ -20,7 +20,8 @@ namespace Infrastructure.Data
         /// Initializes a new instance of the BaseMongoRepository class
         /// </summary>
         /// <param name="database">The MongoDB database instance</param>
-        public BaseMongoRepository(IMongoDatabase database)
+        /// <param name="collectionName">Optional collection name. If not provided, defaults to typeof(T).Name</param>
+        public BaseMongoRepository(IMongoDatabase database, string? collectionName = null)
         {
             if (database == null)
             {
@@ -28,9 +29,9 @@ namespace Infrastructure.Data
             }
 
             _database = database;
-            // Use lowercase plural collection naming convention
-            var collectionName = typeof(T).Name.ToLowerInvariant() + "s";
-            _collection = _database.GetCollection<T>(collectionName);
+            // Use provided collection name or default to typeof(T).Name
+            var finalCollectionName = collectionName ?? typeof(T).Name;
+            _collection = _database.GetCollection<T>(finalCollectionName);
         }
 
         /// <summary>

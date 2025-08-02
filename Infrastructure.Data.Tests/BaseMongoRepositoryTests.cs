@@ -12,13 +12,6 @@ using Xunit;
 
 namespace Infrastructure.Data.Tests
 {
-    // Concrete implementation for testing
-    public class TestMongoRepository : BaseMongoRepository<TestEntity>
-    {
-        public TestMongoRepository(IMongoDatabase database) : base(database)
-        {
-        }
-    }
 
     public class BaseMongoRepositoryTests
     {
@@ -378,14 +371,32 @@ namespace Infrastructure.Data.Tests
             var freshMockDatabase = new Mock<IMongoDatabase>();
             var mockCollection = new Mock<IMongoCollection<TestEntity>>();
             
-            freshMockDatabase.Setup(x => x.GetCollection<TestEntity>("testentitys", null))
+            freshMockDatabase.Setup(x => x.GetCollection<TestEntity>("TestEntity", null))
                 .Returns(mockCollection.Object);
 
             // Act
             var repository = new TestMongoRepository(freshMockDatabase.Object);
 
             // Assert
-            freshMockDatabase.Verify(x => x.GetCollection<TestEntity>("testentitys", null), Times.Once);
+            freshMockDatabase.Verify(x => x.GetCollection<TestEntity>("TestEntity", null), Times.Once);
+        }
+
+        [Fact]
+        public void Constructor_ShouldUseProvidedCollectionName()
+        {
+            // Arrange
+            var freshMockDatabase = new Mock<IMongoDatabase>();
+            var mockCollection = new Mock<IMongoCollection<TestEntity>>();
+            var customCollectionName = "customTestCollection";
+            
+            freshMockDatabase.Setup(x => x.GetCollection<TestEntity>(customCollectionName, null))
+                .Returns(mockCollection.Object);
+
+            // Act
+            var repository = new TestMongoRepository(freshMockDatabase.Object, customCollectionName);
+
+            // Assert
+            freshMockDatabase.Verify(x => x.GetCollection<TestEntity>(customCollectionName, null), Times.Once);
         }
     }
 
@@ -395,5 +406,17 @@ namespace Infrastructure.Data.Tests
         public string Name { get; set; } = string.Empty;
         public int Value { get; set; }
         public string? Description { get; set; }
+    }
+
+    // Test repository implementation that accepts optional collection name
+    public class TestMongoRepository : BaseMongoRepository<TestEntity>
+    {
+        public TestMongoRepository(IMongoDatabase database) : base(database)
+        {
+        }
+
+        public TestMongoRepository(IMongoDatabase database, string collectionName) : base(database, collectionName)
+        {
+        }
     }
 }
