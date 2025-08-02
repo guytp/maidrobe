@@ -370,7 +370,7 @@ namespace Infrastructure.Data.Tests
             // Arrange
             var freshMockDatabase = new Mock<IMongoDatabase>();
             var mockCollection = new Mock<IMongoCollection<TestEntity>>();
-            
+
             freshMockDatabase.Setup(x => x.GetCollection<TestEntity>("TestEntity", null))
                 .Returns(mockCollection.Object);
 
@@ -388,7 +388,7 @@ namespace Infrastructure.Data.Tests
             var freshMockDatabase = new Mock<IMongoDatabase>();
             var mockCollection = new Mock<IMongoCollection<TestEntity>>();
             var customCollectionName = "customTestCollection";
-            
+
             freshMockDatabase.Setup(x => x.GetCollection<TestEntity>(customCollectionName, null))
                 .Returns(mockCollection.Object);
 
