@@ -26,9 +26,4 @@ namespace API.Controllers
             });
         }
     }
-
-    public class TestEntity : BaseDataObject
-    {
-        public string Name { get; set; } = string.Empty;
-    }
 }
