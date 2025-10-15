@@ -3,6 +3,7 @@
     "name": "code",
     "slug": "code",
     "version": "1.0.0",
+    "scheme": "maidrobe",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
