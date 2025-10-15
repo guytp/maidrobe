@@ -1,11 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-
-// Sample user type
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+import { User } from '../types';
 
 // Mock API function - in a real app, this would fetch from your API
 const fetchUser = async (userId: string): Promise<User> => {
