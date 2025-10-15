@@ -1,7 +1,8 @@
 {
   "common": {
     "welcome": "Welcome to Maidrobe",
-    "appName": "Maidrobe"
+    "appName": "Maidrobe",
+    "loading": "Loading..."
   },
   "auth": {
     "signIn": "Sign In",
@@ -13,6 +14,14 @@
   },
   "home": {
     "title": "Welcome to Maidrobe",
-    "subtitle": "Your personal closet assistant"
+    "subtitle": "Your personal closet assistant",
+    "reactQueryDemo": "React Query Demo:",
+    "zustandDemo": "Zustand Demo:",
+    "loadingUser": "Loading user...",
+    "currentTheme": "Current theme: {{theme}}",
+    "toggleTheme": "Toggle Theme",
+    "userId": "User ID: {{id}}",
+    "userName": "Name: {{name}}",
+    "userEmail": "Email: {{email}}"
   }
 }

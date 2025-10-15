@@ -1,9 +1,12 @@
 import { View, Text, StyleSheet, Button } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useUser } from '../../src/features/user';
 import { useUIStore } from '../../src/stores/useUIStore';
 import { textSecondary, borderLight } from '../../src/theme/tokens';
+import '../../src/i18n';
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const { data: user, isLoading, error } = useUser('user-123');
   const theme = useUIStore((state) => state.theme);
   const setTheme = useUIStore((state) => state.setTheme);
@@ -58,28 +61,24 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text
-        style={styles.title}
-        accessibilityLabel="App title: Welcome to Maidrobe"
-      >
-        Welcome to Maidrobe
+      <Text style={styles.title} accessibilityLabel={t('home.title')}>
+        {t('home.title')}
       </Text>
-      <Text
-        style={styles.subtitle}
-        accessibilityLabel="App description: Your personal closet assistant"
-      >
-        Your personal closet assistant
+      <Text style={styles.subtitle} accessibilityLabel={t('home.subtitle')}>
+        {t('home.subtitle')}
       </Text>
 
       <View style={styles.demoSection}>
         <Text
           style={styles.sectionTitle}
-          accessibilityLabel="Section: React Query Demo"
+          accessibilityLabel={t('home.reactQueryDemo')}
         >
-          React Query Demo:
+          {t('home.reactQueryDemo')}
         </Text>
         {isLoading && (
-          <Text accessibilityLabel="Loading user data">Loading user...</Text>
+          <Text accessibilityLabel={t('home.loadingUser')}>
+            {t('home.loadingUser')}
+          </Text>
         )}
         {error && (
           <Text accessibilityLabel={`Error: ${getErrorMessage(error)}`}>
@@ -88,14 +87,16 @@ export default function HomeScreen() {
         )}
         {user && (
           <View>
-            <Text accessibilityLabel={`User ID: ${user.id}`}>
-              User ID: {user.id}
+            <Text accessibilityLabel={t('home.userId', { id: user.id })}>
+              {t('home.userId', { id: user.id })}
             </Text>
-            <Text accessibilityLabel={`Name: ${user.name}`}>
-              Name: {user.name}
+            <Text accessibilityLabel={t('home.userName', { name: user.name })}>
+              {t('home.userName', { name: user.name })}
             </Text>
-            <Text accessibilityLabel={`Email: ${user.email}`}>
-              Email: {user.email}
+            <Text
+              accessibilityLabel={t('home.userEmail', { email: user.email })}
+            >
+              {t('home.userEmail', { email: user.email })}
             </Text>
           </View>
         )}
@@ -104,14 +105,14 @@ export default function HomeScreen() {
       <View style={styles.demoSection}>
         <Text
           style={styles.sectionTitle}
-          accessibilityLabel="Section: Zustand Demo"
+          accessibilityLabel={t('home.zustandDemo')}
         >
-          Zustand Demo:
+          {t('home.zustandDemo')}
         </Text>
-        <Text accessibilityLabel={`Current theme is ${theme}`}>
-          Current theme: {theme}
+        <Text accessibilityLabel={t('home.currentTheme', { theme })}>
+          {t('home.currentTheme', { theme })}
         </Text>
-        <Button title="Toggle Theme" onPress={toggleTheme} />
+        <Button title={t('home.toggleTheme')} onPress={toggleTheme} />
       </View>
     </View>
   );
