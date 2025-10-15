@@ -1,0 +1,18 @@
+{
+  "common": {
+    "welcome": "Welcome to Maidrobe",
+    "appName": "Maidrobe"
+  },
+  "auth": {
+    "signIn": "Sign In",
+    "signInSubtitle": "Sign in to continue",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "Enter your email",
+    "passwordPlaceholder": "Enter your password"
+  },
+  "home": {
+    "title": "Welcome to Maidrobe",
+    "subtitle": "Your personal closet assistant"
+  }
+}
