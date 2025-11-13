@@ -7,6 +7,11 @@ import { useTheme } from '../src/core/theme';
 /**
  * Home screen component displaying the app title and description.
  * Uses i18n for text content and theme for colors.
+ * Implements WCAG 2.1 AA accessibility standards:
+ * - Semantic accessibility roles for screen readers
+ * - Dynamic text scaling support
+ * - Reduced motion preference detection (via theme)
+ * - Descriptive labels for assistive technologies
  *
  * @returns The home screen component
  */
@@ -43,11 +48,29 @@ export default function App(): React.JSX.Element {
     [colors]
   );
 
+  // Note: useTheme provides isReduceMotionEnabled for future animation implementations
+  // This screen currently has no animations, so it is not destructured from the hook
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('screens.home.title')}</Text>
-      <Text style={styles.subtitle}>{t('screens.home.subtitle')}</Text>
-      <Text style={styles.description}>{t('screens.home.description')}</Text>
+    <View
+      style={styles.container}
+      accessibilityLabel={t('screens.home.accessibility.screenLabel')}
+      accessibilityHint={t('screens.home.accessibility.screenHint')}
+    >
+      <Text
+        style={styles.title}
+        accessibilityRole="header"
+        allowFontScaling={true}
+        maxFontSizeMultiplier={3}
+      >
+        {t('screens.home.title')}
+      </Text>
+      <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
+        {t('screens.home.subtitle')}
+      </Text>
+      <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
+        {t('screens.home.description')}
+      </Text>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>
   );

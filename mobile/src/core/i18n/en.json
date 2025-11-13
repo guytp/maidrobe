@@ -3,7 +3,11 @@
     "home": {
       "title": "Maidrobe",
       "subtitle": "Digital Closet Management",
-      "description": "Your AI-powered wardrobe assistant"
+      "description": "Your AI-powered wardrobe assistant",
+      "accessibility": {
+        "screenLabel": "Home screen",
+        "screenHint": "Main screen showing app introduction"
+      }
     }
   }
 }
