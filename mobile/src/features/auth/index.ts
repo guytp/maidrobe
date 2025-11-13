@@ -11,5 +11,6 @@ export * from './api/useSignUp';
 export * from './api/useResendVerification';
 export * from './utils/validation';
 export * from './hooks/useAuthStateListener';
+export * from './hooks/useProtectedRoute';
 export * from './components/SignupScreen';
 export * from './components/VerificationPromptScreen';
