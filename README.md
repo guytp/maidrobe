@@ -1,6 +1,6 @@
 # Maidrobe
 
-[![CI](https://github.com/yourusername/maidrobe/workflows/CI/badge.svg)](https://github.com/yourusername/maidrobe/actions)
+[![CI](https://github.com/maidrobe/maidrobe/workflows/CI/badge.svg)](https://github.com/maidrobe/maidrobe/actions)
 
 A mobile app that helps people manage their clothes without the usual faff. Snap photos of each item, build a searchable closet, and get AI-powered outfit suggestions based on your catalogue, occasion, and preferences.
 
@@ -44,7 +44,7 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the repository
 
 ```
-git clone https://github.com/yourusername/maidrobe.git
+git clone https://github.com/maidrobe/maidrobe.git
 cd maidrobe
 ```
 

@@ -29,7 +29,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/maidrobe.git"
+    "url": "git+https://github.com/maidrobe/maidrobe.git"
   },
   "keywords": [
     "wardrobe",
