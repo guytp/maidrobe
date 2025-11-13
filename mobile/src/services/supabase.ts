@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Supabase client singleton for the mobile application.
@@ -6,6 +7,10 @@ import { createClient } from '@supabase/supabase-js';
  * Initializes the Supabase JavaScript client with URL and anonymous key
  * from environment variables. The anonymous key is safe to use in client-side
  * code as Row Level Security (RLS) policies protect all data access.
+ *
+ * Authentication sessions are persisted using AsyncStorage, allowing users
+ * to remain logged in across app restarts. This provides a seamless
+ * authentication experience without requiring re-login.
  *
  * Environment variables required:
  * - EXPO_PUBLIC_SUPABASE_URL: Your Supabase project URL
@@ -39,11 +44,15 @@ if (!supabaseAnonKey) {
  * - Storage (supabase.storage)
  * - Edge Functions (supabase.functions)
  * - Realtime subscriptions (supabase.channel)
+ *
+ * Auth configuration:
+ * - Uses AsyncStorage for session persistence across app restarts
+ * - Auto-refreshes tokens to maintain active sessions
+ * - Sessions persist indefinitely until explicit logout
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Store session in async storage for persistence
-    storage: undefined, // Will be configured with AsyncStorage in future
+    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Not applicable for mobile
