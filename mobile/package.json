@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.12",
     "@types/react": "~19.1.0",
