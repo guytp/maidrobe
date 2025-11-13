@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": false,
+    "checkJs": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "lint": {
+    "include": ["supabase/functions/"],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": []
+    }
+  },
+  "fmt": {
+    "include": ["supabase/functions/"],
+    "options": {
+      "useTabs": false,
+      "lineWidth": 100,
+      "indentWidth": 2,
+      "singleQuote": true,
+      "proseWrap": "preserve"
+    }
+  },
+  "test": {
+    "include": ["supabase/functions/**/*.test.ts", "tests/**/*.test.ts"]
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.208.0/",
+    "supabase": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
