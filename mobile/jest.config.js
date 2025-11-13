@@ -11,7 +11,6 @@ module.exports = {
     '!**/jest.config.js',
     '!**/.expo/**',
   ],
-  setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect'],
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testEnvironment: 'node',
