@@ -5,15 +5,10 @@ import { t } from '../src/core/i18n';
 import { useTheme } from '../src/core/theme';
 
 /**
- * Home screen component displaying the app title and description.
- * Uses i18n for text content and theme for colors.
- * Implements WCAG 2.1 AA accessibility standards:
- * - Semantic accessibility roles for screen readers
- * - Dynamic text scaling support
- * - Reduced motion preference detection (via theme)
- * - Descriptive labels for assistive technologies
+ * Home screen component displaying app title and description.
+ * Implements i18n, theming, and WCAG 2.1 AA accessibility standards.
  *
- * @returns The home screen component
+ * @returns Home screen component with accessibility support
  */
 export default function App(): React.JSX.Element {
   const { colors, colorScheme } = useTheme();
