@@ -18,9 +18,9 @@ Before you begin, ensure you have the following installed:
   - Download from https://nodejs.org/
   - Verify: `node --version`
 
-- **pnpm** (v8.x or later)
-  - Install: `npm install -g pnpm`
-  - Verify: `pnpm --version`
+- **npm** (v8.x or later)
+  - Comes with Node.js
+  - Verify: `npm --version`
 
 - **Expo CLI**
   - No global install needed, use: `npx expo`
@@ -44,7 +44,7 @@ cd maidrobe
 ### 2. Install dependencies
 
 ```
-pnpm install
+npm install
 ```
 
 ### 3. Setup environment variables
@@ -59,12 +59,12 @@ Edit `.env` and add your Supabase credentials.
 
 **Mobile app:**
 ```
-pnpm mobile:start
+npm run mobile:start
 ```
 
 **Edge functions (local Supabase):**
 ```
-pnpm edge:dev
+npm run edge:dev
 ```
 
 ## Project Structure
@@ -82,23 +82,23 @@ maidrobe/
 
 ### Mobile Workspace
 
-- `pnpm mobile:start` - Start Expo development server
-- `pnpm mobile:lint` - Run ESLint
-- `pnpm mobile:typecheck` - Run TypeScript compiler check
-- `pnpm mobile:test` - Run unit tests
+- `npm run mobile:start` - Start Expo development server
+- `npm run mobile:lint` - Run ESLint
+- `npm run mobile:typecheck` - Run TypeScript compiler check
+- `npm run mobile:test` - Run unit tests
 
 ### Edge Functions Workspace
 
-- `pnpm edge:dev` - Start local Supabase (includes Edge Functions)
-- `pnpm edge:lint` - Run Deno linter
-- `pnpm edge:typecheck` - Run Deno type checker
-- `pnpm edge:test` - Run Deno tests
+- `npm run edge:dev` - Start local Supabase (includes Edge Functions)
+- `npm run edge:lint` - Run Deno linter
+- `npm run edge:typecheck` - Run Deno type checker
+- `npm run edge:test` - Run Deno tests
 
 ### All Workspaces
 
-- `pnpm lint` - Lint all packages
-- `pnpm typecheck` - Type-check all packages
-- `pnpm test` - Test all packages
+- `npm run lint` - Lint all packages
+- `npm run typecheck` - Type-check all packages
+- `npm run test` - Test all packages
 
 ## Technology Stack
 
@@ -115,8 +115,8 @@ maidrobe/
 
 1. Create a feature branch from `main`
 2. Make your changes
-3. Ensure all tests pass: `pnpm test`
-4. Ensure code quality: `pnpm lint && pnpm typecheck`
+3. Ensure all tests pass: `npm run test`
+4. Ensure code quality: `npm run lint && npm run typecheck`
 5. Commit using conventional commits
 6. Open a pull request
 

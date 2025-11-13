@@ -8,23 +8,22 @@
     "edge-functions"
   ],
   "scripts": {
-    "mobile:start": "pnpm --filter mobile start",
-    "mobile:lint": "pnpm --filter mobile lint",
-    "mobile:typecheck": "pnpm --filter mobile typecheck",
-    "mobile:test": "pnpm --filter mobile test",
-    "edge:dev": "pnpm --filter edge-functions dev",
-    "edge:lint": "pnpm --filter edge-functions lint",
-    "edge:typecheck": "pnpm --filter edge-functions typecheck",
-    "edge:test": "pnpm --filter edge-functions test",
-    "lint": "pnpm -r lint",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "mobile:start": "npm run start --workspace=mobile",
+    "mobile:lint": "npm run lint --workspace=mobile",
+    "mobile:typecheck": "npm run typecheck --workspace=mobile",
+    "mobile:test": "npm run test --workspace=mobile",
+    "edge:dev": "npm run dev --workspace=edge-functions",
+    "edge:lint": "npm run lint --workspace=edge-functions",
+    "edge:typecheck": "npm run typecheck --workspace=edge-functions",
+    "edge:test": "npm run test --workspace=edge-functions",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "npm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yourusername/maidrobe.git"
