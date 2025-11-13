@@ -19,13 +19,4 @@ module.exports = {
     'prefer-const': 'error',
     'no-var': 'error',
   },
-  ignorePatterns: [
-    'node_modules/',
-    'dist/',
-    'build/',
-    'coverage/',
-    '.expo/',
-    '.supabase/',
-    '*.config.js',
-  ],
 };
