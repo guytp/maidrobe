@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import App from '../app/index';
+import HomeScreen from '../app/home/index';
 import { ThemeProvider } from '../src/core/theme';
 
 /**
@@ -10,28 +10,28 @@ function TestWrapper({ children }: { children: React.ReactNode }): React.JSX.Ele
   return <ThemeProvider colorScheme="light">{children}</ThemeProvider>;
 }
 
-describe('App', () => {
+describe('HomeScreen', () => {
   it('renders without crashing', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
   });
 
   it('displays the app title', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Maidrobe')).toBeTruthy();
   });
 
   it('displays the subtitle', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Digital Closet Management')).toBeTruthy();
   });
 
   it('displays the description', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Your AI-powered wardrobe assistant')).toBeTruthy();
   });
 
   it('has proper accessibility attributes', () => {
-    const { getByText, getByLabelText } = render(<App />, { wrapper: TestWrapper });
+    const { getByText, getByLabelText } = render(<HomeScreen />, { wrapper: TestWrapper });
 
     // Verify screen-level accessibility
     const mainView = getByLabelText('Home screen');
@@ -44,7 +44,7 @@ describe('App', () => {
   });
 
   it('supports dynamic text scaling', () => {
-    const { getByText } = render(<App />, { wrapper: TestWrapper });
+    const { getByText } = render(<HomeScreen />, { wrapper: TestWrapper });
 
     const title = getByText('Maidrobe');
     const subtitle = getByText('Digital Closet Management');

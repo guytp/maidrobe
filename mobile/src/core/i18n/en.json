@@ -8,6 +8,15 @@
         "screenLabel": "Home screen",
         "screenHint": "Main screen showing app introduction"
       }
+    },
+    "auth": {
+      "title": "Sign In",
+      "subtitle": "Access Your Digital Closet",
+      "description": "Authentication placeholder - login flow will be implemented in future steps",
+      "accessibility": {
+        "screenLabel": "Authentication screen",
+        "screenHint": "Sign in to access your wardrobe"
+      }
     }
   }
 }
