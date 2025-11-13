@@ -73,7 +73,7 @@ export function VerificationPromptScreen() {
     if (!user || !user.email) {
       Alert.alert(
         t('screens.auth.verify.errors.noEmail'),
-        'Please sign up again to continue.',
+        t('screens.auth.verify.errors.verificationPrompt'),
         [{ text: 'OK' }]
       );
       return;

@@ -59,7 +59,8 @@
         "errors": {
           "resendFailed": "Unable to resend email. Please try again.",
           "tooManyRequests": "Too many requests. Please wait before trying again.",
-          "noEmail": "Email address not found. Please sign up again."
+          "noEmail": "Email address not found. Please sign up again.",
+          "verificationPrompt": "Please sign up again to continue."
         },
         "accessibility": {
           "screenLabel": "Email verification screen",

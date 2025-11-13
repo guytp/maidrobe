@@ -335,7 +335,7 @@ export function SignupScreen() {
               }
             >
               <Text style={styles.passwordToggleText}>
-                {showPassword ? 'Hide' : 'Show'}
+                {showPassword ? t('screens.auth.signup.hidePassword') : t('screens.auth.signup.showPassword')}
               </Text>
             </TouchableOpacity>
           </View>
