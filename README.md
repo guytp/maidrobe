@@ -26,11 +26,16 @@ Before you begin, ensure you have the following installed:
   - No global install needed, use: `npx expo`
   - Or install globally: `npm install -g expo-cli`
 
-- **Supabase CLI**
+- **Supabase CLI** (for edge-functions workspace)
   - macOS: `brew install supabase/tap/supabase`
   - Windows: `scoop bucket add supabase https://github.com/supabase/scoop-bucket.git && scoop install supabase`
   - Linux: See https://supabase.com/docs/guides/cli
   - Verify: `supabase --version`
+
+- **Deno** (for edge-functions workspace)
+  - Install: `curl -fsSL https://deno.land/install.sh | sh`
+  - Or visit: https://deno.land/manual/getting_started/installation
+  - Verify: `deno --version`
 
 ## Getting Started
 
