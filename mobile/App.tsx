@@ -7,9 +7,7 @@ export default function App(): React.JSX.Element {
     <View style={styles.container}>
       <Text style={styles.title}>Maidrobe</Text>
       <Text style={styles.subtitle}>Digital Closet Management</Text>
-      <Text style={styles.description}>
-        Your AI-powered wardrobe assistant
-      </Text>
+      <Text style={styles.description}>Your AI-powered wardrobe assistant</Text>
       <StatusBar style="auto" />
     </View>
   );

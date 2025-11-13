@@ -63,11 +63,13 @@ Edit `.env` and add your Supabase credentials.
 ### 4. Start development
 
 **Mobile app:**
+
 ```
 npm run mobile:start
 ```
 
 **Edge functions (local Supabase):**
+
 ```
 npm run edge:dev
 ```
