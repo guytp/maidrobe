@@ -1,0 +1,9 @@
+{
+  "screens": {
+    "home": {
+      "title": "Maidrobe",
+      "subtitle": "Digital Closet Management",
+      "description": "Your AI-powered wardrobe assistant"
+    }
+  }
+}
