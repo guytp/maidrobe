@@ -1,20 +1,36 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
+import { useStore } from '../../src/core/state/store';
 
 /**
  * Authentication screen placeholder.
  * Implements i18n, theming, and WCAG 2.1 AA accessibility standards.
  *
- * This is a placeholder view that will be replaced with full authentication
- * flow (login, signup, password reset) in future implementation steps.
+ * Demonstrates Zustand state management with a toggle button that sets/clears
+ * a demo user. The state change can be observed across navigation to prove
+ * the store works correctly.
  *
  * @returns Auth screen placeholder component with accessibility support
  */
 export default function AuthScreen(): React.JSX.Element {
   const { colors, colorScheme } = useTheme();
+  const user = useStore((state) => state.user);
+  const setUser = useStore((state) => state.setUser);
+  const clearUser = useStore((state) => state.clearUser);
+
+  const handleToggleUser = () => {
+    if (user) {
+      clearUser();
+    } else {
+      setUser({
+        id: 'demo-123',
+        name: 'Demo User',
+      });
+    }
+  };
 
   const styles = useMemo(
     () =>
@@ -42,6 +58,44 @@ export default function AuthScreen(): React.JSX.Element {
           color: colors.textSecondary,
           textAlign: 'center',
         },
+        userStatusContainer: {
+          marginTop: 32,
+          padding: 16,
+          borderRadius: 8,
+          backgroundColor: colors.background,
+          borderWidth: 1,
+          borderColor: colors.textSecondary,
+          minWidth: 250,
+          alignItems: 'center',
+        },
+        userStatusLabel: {
+          fontSize: 12,
+          color: colors.textSecondary,
+          marginBottom: 8,
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+        },
+        userStatusValue: {
+          fontSize: 16,
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginBottom: 16,
+        },
+        button: {
+          backgroundColor: colors.textPrimary,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          borderRadius: 8,
+          minHeight: 44,
+          minWidth: 120,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        buttonText: {
+          color: colors.background,
+          fontSize: 16,
+          fontWeight: '600',
+        },
       }),
     [colors]
   );
@@ -66,6 +120,34 @@ export default function AuthScreen(): React.JSX.Element {
       <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
         {t('screens.auth.description')}
       </Text>
+
+      <View
+        style={styles.userStatusContainer}
+        accessibilityLabel="User state demonstration"
+        accessibilityRole="text"
+      >
+        <Text style={styles.userStatusLabel} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          Current User
+        </Text>
+        <Text style={styles.userStatusValue} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          {user ? user.name : 'Not logged in'}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleToggleUser}
+          accessibilityRole="button"
+          accessibilityLabel={user ? 'Clear user button' : 'Set demo user button'}
+          accessibilityHint={
+            user ? 'Tap to clear the current user' : 'Tap to set a demo user for testing'
+          }
+        >
+          <Text style={styles.buttonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+            {user ? 'Clear User' : 'Set User'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>
   );

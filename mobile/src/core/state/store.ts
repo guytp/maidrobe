@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { SessionSlice, createSessionSlice } from '../../features/auth/store/sessionSlice';
 
 /**
  * Root application state interface.
@@ -6,36 +7,35 @@ import { create } from 'zustand';
  * Combines all Zustand slices for local ephemeral UI state.
  * Server state is managed separately via React Query.
  *
- * Pattern: Each feature can define its own slice (e.g., SessionSlice, PreferencesSlice)
- * and they are combined here into a single store for type-safe access.
+ * Currently includes:
+ * - SessionSlice: User authentication state (user, setUser, clearUser)
  *
- * Example slice integration:
+ * Future slices can be added using intersection types:
  * ```
- * type RootState = SessionSlice & PreferencesSlice;
- *
- * export const useStore = create<RootState>()((...args) => ({
- *   ...createSessionSlice(...args),
- *   ...createPreferencesSlice(...args),
- * }));
+ * type RootState = SessionSlice & PreferencesSlice & OtherSlice;
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface RootState {
-  // Slices will be added here as features are developed.
-  // Currently empty - waiting for sessionSlice and other feature slices.
-}
+export type RootState = SessionSlice;
 
 /**
  * Typed Zustand store hook for accessing local application state.
  *
+ * Combines multiple slices into a single store while maintaining type safety
+ * and separation of concerns. Each slice is created with its own factory function
+ * and spread into the root store.
+ *
  * Usage:
  * ```
+ * // Access state
  * const user = useStore((state) => state.user);
+ *
+ * // Access actions
  * const setUser = useStore((state) => state.setUser);
+ * const clearUser = useStore((state) => state.clearUser);
  * ```
  *
  * Note: Only use for ephemeral UI state. Server state belongs in React Query.
  */
-export const useStore = create<RootState>()(() => ({
-  // Initial empty state - slices will be combined here in future steps
+export const useStore = create<RootState>()((...args) => ({
+  ...createSessionSlice(...args),
 }));
