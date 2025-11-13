@@ -1,4 +1,17 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Run quality checks serially before allowing commit
+# All checks must pass to ensure guideline compliance
+
+echo "Running lint on mobile workspace..."
+npm run lint --workspace=mobile || exit 1
+
+echo "Running typecheck on mobile workspace..."
+npm run typecheck --workspace=mobile || exit 1
+
+echo "Running tests on mobile workspace..."
+npm run test --workspace=mobile || exit 1
+
+echo "Running lint-staged..."
 npx lint-staged

@@ -14,4 +14,5 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/jest.setup.js'],
 };

@@ -1,37 +1,51 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import App from '../app/index';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import HomeScreen from '../app/home/index';
 import { ThemeProvider } from '../src/core/theme';
 
 /**
- * Test wrapper that provides theme context to components.
+ * Test wrapper that provides theme and query client context to components.
  */
 function TestWrapper({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <ThemeProvider colorScheme="light">{children}</ThemeProvider>;
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+    },
+  });
+
+  return (
+    <ThemeProvider colorScheme="light">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
+  );
 }
 
-describe('App', () => {
+describe('HomeScreen', () => {
   it('renders without crashing', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
   });
 
   it('displays the app title', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Maidrobe')).toBeTruthy();
   });
 
   it('displays the subtitle', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Digital Closet Management')).toBeTruthy();
   });
 
   it('displays the description', () => {
-    render(<App />, { wrapper: TestWrapper });
+    render(<HomeScreen />, { wrapper: TestWrapper });
     expect(screen.getByText('Your AI-powered wardrobe assistant')).toBeTruthy();
   });
 
   it('has proper accessibility attributes', () => {
-    const { getByText, getByLabelText } = render(<App />, { wrapper: TestWrapper });
+    const { getByText, getByLabelText } = render(<HomeScreen />, { wrapper: TestWrapper });
 
     // Verify screen-level accessibility
     const mainView = getByLabelText('Home screen');
@@ -44,7 +58,7 @@ describe('App', () => {
   });
 
   it('supports dynamic text scaling', () => {
-    const { getByText } = render(<App />, { wrapper: TestWrapper });
+    const { getByText } = render(<HomeScreen />, { wrapper: TestWrapper });
 
     const title = getByText('Maidrobe');
     const subtitle = getByText('Digital Closet Management');

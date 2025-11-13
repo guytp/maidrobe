@@ -1,17 +1,36 @@
 /**
- * @fileoverview Theme system providing light/dark mode support with color tokens.
+ * @fileoverview Theme system providing design tokens including colors, spacing, and radius.
+ * Supports light/dark mode with accessibility preferences.
  * @module core/theme
  */
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
-import { darkColors, lightColors, type ColorScheme, type Colors } from './colors';
+import {
+  darkColors,
+  lightColors,
+  radius,
+  spacing,
+  type ColorScheme,
+  type Colors,
+  type Radius,
+  type Spacing,
+} from './colors';
 
 /**
- * Theme context value containing current colors, color scheme, and accessibility preferences.
+ * Theme context value containing design tokens and accessibility preferences.
+ *
+ * Provides access to:
+ * - colors: Theme-specific color palette (light/dark)
+ * - spacing: Consistent spacing scale (xs to xl)
+ * - radius: Border radius scale (sm to lg)
+ * - colorScheme: Current theme mode
+ * - isReduceMotionEnabled: Accessibility preference for animations
  */
 interface ThemeContextValue {
   colors: Colors;
+  spacing: Spacing;
+  radius: Radius;
   colorScheme: ColorScheme;
   isReduceMotionEnabled: boolean;
 }
@@ -27,8 +46,14 @@ interface ThemeProviderProps {
 }
 
 /**
- * Theme provider that manages color scheme and provides theme context to child components.
+ * Theme provider that manages design tokens and provides theme context to child components.
  * Automatically detects system color scheme and accessibility preferences if not explicitly set.
+ *
+ * Provides centralized access to:
+ * - Color tokens (theme-aware: light/dark)
+ * - Spacing tokens (consistent across themes)
+ * - Radius tokens (consistent across themes)
+ * - Accessibility preferences
  *
  * @param props - Component props
  * @returns Theme provider component
@@ -71,6 +96,8 @@ export function ThemeProvider({
   const value = useMemo<ThemeContextValue>(
     () => ({
       colors: colorScheme === 'dark' ? darkColors : lightColors,
+      spacing,
+      radius,
       colorScheme,
       isReduceMotionEnabled,
     }),
@@ -81,14 +108,18 @@ export function ThemeProvider({
 }
 
 /**
- * Hook to access the current theme context.
+ * Hook to access the current theme context with design tokens.
  *
- * @returns Theme context value with colors, color scheme, and accessibility preferences
+ * @returns Theme context value with colors, spacing, radius, color scheme, and accessibility preferences
  * @throws Error if used outside of ThemeProvider
  *
  * @example
- * const { colors, isReduceMotionEnabled } = useTheme();
- * <View style={{ backgroundColor: colors.background }} />
+ * const { colors, spacing, radius, isReduceMotionEnabled } = useTheme();
+ * <View style={{
+ *   backgroundColor: colors.background,
+ *   padding: spacing.md,
+ *   borderRadius: radius.md,
+ * }} />
  */
 export function useTheme(): ThemeContextValue {
   const context = useContext(ThemeContext);

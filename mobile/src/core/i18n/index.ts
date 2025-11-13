@@ -3,7 +3,14 @@
  * @module core/i18n
  */
 
+import { I18nManager } from 'react-native';
 import translations from './en.json';
+
+/**
+ * List of locale codes that use Right-to-Left text direction.
+ * Includes Arabic, Hebrew, Persian, Urdu, and Yiddish.
+ */
+const RTL_LOCALES = ['ar', 'he', 'fa', 'ur', 'yi', 'iw'] as const;
 
 type TranslationKeys = typeof translations;
 
@@ -53,4 +60,86 @@ export function t(key: TranslationKey): string {
  */
 export function getTranslations(): TranslationKeys {
   return translations;
+}
+
+/**
+ * Checks if a given locale uses Right-to-Left text direction.
+ *
+ * @param locale - BCP 47 language tag (e.g., 'ar', 'ar-SA', 'he-IL')
+ * @returns true if the locale is RTL, false otherwise
+ *
+ * @example
+ * isRTL('ar'); // true (Arabic)
+ * isRTL('ar-SA'); // true (Arabic - Saudi Arabia)
+ * isRTL('he'); // true (Hebrew)
+ * isRTL('en'); // false (English)
+ * isRTL('en-US'); // false (English - United States)
+ */
+export function isRTL(locale: string): boolean {
+  const baseLocale = locale.split('-')[0].toLowerCase();
+  return RTL_LOCALES.includes(baseLocale as (typeof RTL_LOCALES)[number]);
+}
+
+/**
+ * Configures the app's layout direction based on the chosen locale.
+ *
+ * Call this function during app initialization or when the user changes their
+ * language preference. It enables RTL support and forces RTL layout if the
+ * locale requires it.
+ *
+ * IMPORTANT: On iOS, changing RTL direction requires an app reload to take
+ * effect. On Android, it applies immediately.
+ *
+ * @param locale - BCP 47 language tag (e.g., 'ar', 'en-US', 'he-IL')
+ *
+ * @example
+ * // During app initialization or language change
+ * configureRTL('ar'); // Enables RTL for Arabic
+ * configureRTL('en'); // Disables RTL for English
+ *
+ * @remarks
+ * Layout behavior in RTL mode:
+ * - Flex direction reverses (row starts from right)
+ * - Margin/padding properties mirror (marginLeft becomes marginRight)
+ * - Text alignment reverses (textAlign: 'left' becomes 'right')
+ * - Absolute positioning mirrors (left becomes right)
+ * - Icons and images may need manual flipping for semantic correctness
+ *
+ * To check current direction in components:
+ * - Use I18nManager.isRTL for conditional rendering
+ * - Use I18nManager.getConstants().isRTL for initial values
+ */
+export function configureRTL(locale: string): void {
+  I18nManager.allowRTL(true);
+  if (isRTL(locale)) {
+    I18nManager.forceRTL(true);
+  } else {
+    I18nManager.forceRTL(false);
+  }
+}
+
+/**
+ * Forces RTL layout direction for testing and development purposes.
+ *
+ * Use this function to test RTL layouts without changing the app locale.
+ * Useful for UI testing and verifying layout behavior in RTL mode.
+ *
+ * IMPORTANT: On iOS, this requires an app reload to take effect.
+ *
+ * @param enabled - true to force RTL, false to force LTR
+ *
+ * @example
+ * // Enable RTL for testing
+ * forceRTL(true);
+ *
+ * // Disable RTL after testing
+ * forceRTL(false);
+ *
+ * @remarks
+ * This is primarily for development and testing. In production, use
+ * configureRTL() which automatically detects the locale's direction.
+ */
+export function forceRTL(enabled: boolean): void {
+  I18nManager.allowRTL(true);
+  I18nManager.forceRTL(enabled);
 }
