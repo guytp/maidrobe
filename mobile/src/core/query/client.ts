@@ -30,7 +30,8 @@ export const queryClient = new QueryClient({
         // Retry up to 3 times for network/server errors
         return failureCount < 3;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retryDelay: (attemptIndex) =>
+        Math.min(1000 * 2 ** attemptIndex + Math.random() * 1000, 30000),
       // Don't refetch on window focus in mobile context
       refetchOnWindowFocus: false,
       // Refetch on reconnect to handle offline scenarios
