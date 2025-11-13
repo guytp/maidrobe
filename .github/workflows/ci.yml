@@ -68,6 +68,54 @@ jobs:
       - name: Run tests
         run: npm run mobile:test
 
+  edge:lint:
+    name: Edge Functions Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run lint
+        run: deno lint
+        working-directory: edge-functions
+
+  edge:typecheck:
+    name: Edge Functions Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run type check
+        run: deno check supabase/functions/**/*.ts
+        working-directory: edge-functions
+
+  edge:test:
+    name: Edge Functions Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Run tests
+        run: deno test --allow-all
+        working-directory: edge-functions
+
   # Placeholder for future Expo EAS build job
   # Uncomment and configure when ready to build mobile app
   # build-mobile:
