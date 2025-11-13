@@ -39,6 +39,14 @@ describe('SignupScreen', () => {
       },
     });
     jest.clearAllMocks();
+
+    // Default mock for useSignUp
+    jest.spyOn(useSignUpModule, 'useSignUp').mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+      error: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
   });
 
   it('should render signup form with all fields', () => {
