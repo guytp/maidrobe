@@ -16,6 +16,46 @@
       "accessibility": {
         "screenLabel": "Authentication screen",
         "screenHint": "Sign in to access your wardrobe"
+      },
+      "signup": {
+        "title": "Create Account",
+        "subtitle": "Join Maidrobe",
+        "emailLabel": "Email",
+        "emailPlaceholder": "your@email.com",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Enter password",
+        "submitButton": "Sign Up",
+        "submitting": "Creating account...",
+        "passwordRequirements": "Password must be at least 8 characters with uppercase, lowercase, and number",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "errors": {
+          "invalidEmail": "Please enter a valid email address",
+          "weakPassword": "Password does not meet requirements",
+          "emailRequired": "Email is required",
+          "passwordRequired": "Password is required",
+          "signupFailed": "Unable to complete signup. Please try again.",
+          "networkError": "Unable to connect. Please check your internet connection.",
+          "serverError": "Service temporarily unavailable. Please try again later."
+        },
+        "accessibility": {
+          "screenLabel": "Sign up screen",
+          "screenHint": "Create a new account to access Maidrobe",
+          "emailInput": "Email address input field",
+          "passwordInput": "Password input field",
+          "passwordToggle": "Toggle password visibility",
+          "submitButton": "Create account button",
+          "errorMessage": "Error message"
+        }
+      },
+      "verify": {
+        "title": "Verify Your Email",
+        "subtitle": "Check your inbox",
+        "description": "We have sent a verification link to your email address. Please check your inbox and click the link to verify your account.",
+        "accessibility": {
+          "screenLabel": "Email verification screen",
+          "screenHint": "Instructions to verify your email address"
+        }
       }
     }
   }
