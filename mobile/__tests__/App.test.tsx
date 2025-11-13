@@ -1,13 +1,27 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomeScreen from '../app/home/index';
 import { ThemeProvider } from '../src/core/theme';
 
 /**
- * Test wrapper that provides theme context to components.
+ * Test wrapper that provides theme and query client context to components.
  */
 function TestWrapper({ children }: { children: React.ReactNode }): React.JSX.Element {
-  return <ThemeProvider colorScheme="light">{children}</ThemeProvider>;
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+    },
+  });
+
+  return (
+    <ThemeProvider colorScheme="light">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </ThemeProvider>
+  );
 }
 
 describe('HomeScreen', () => {
