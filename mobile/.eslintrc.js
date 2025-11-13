@@ -7,5 +7,4 @@ module.exports = {
       jsx: true,
     },
   },
-  ignorePatterns: ['node_modules/', '.expo/', 'dist/', 'coverage/', '*.config.js'],
 };
