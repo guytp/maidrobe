@@ -29,6 +29,35 @@ export interface ErrorContext {
 }
 
 /**
+ * Maps error classification to user-friendly message suitable for display.
+ *
+ * Converts technical error classifications into clear, actionable messages
+ * that end users can understand without technical knowledge.
+ *
+ * @param classification - The error classification type
+ * @returns User-friendly error message with actionable guidance
+ *
+ * @example
+ * ```ts
+ * const classification = classifyError(error);
+ * const message = getUserFriendlyMessage(classification);
+ * // message: "Unable to connect. Please check your internet connection."
+ * ```
+ */
+export function getUserFriendlyMessage(classification: ErrorClassification): string {
+  switch (classification) {
+    case 'network':
+      return 'Unable to connect. Please check your internet connection.';
+    case 'server':
+      return 'Service temporarily unavailable. Please try again later.';
+    case 'schema':
+      return 'Received unexpected response. Please contact support if this persists.';
+    case 'user':
+      return 'Invalid request. Please check your input and try again.';
+  }
+}
+
+/**
  * Logs an error with classification and context to telemetry system.
  *
  * In production, this would send errors to Sentry or similar service.

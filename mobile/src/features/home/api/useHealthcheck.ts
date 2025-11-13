@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
-import { logError, type ErrorClassification } from '../../../core/telemetry';
+import {
+  logError,
+  getUserFriendlyMessage,
+  type ErrorClassification,
+} from '../../../core/telemetry';
 
 /**
  * Zod schema for validating the healthcheck edge function response.
@@ -54,25 +58,6 @@ function classifyError(error: unknown): ErrorClassification {
 
   // Default to server error for edge function failures
   return 'server';
-}
-
-/**
- * Maps error classification to user-friendly message.
- *
- * @param classification - The error classification
- * @returns User-friendly error message
- */
-function getUserFriendlyMessage(classification: ErrorClassification): string {
-  switch (classification) {
-    case 'network':
-      return 'Unable to connect. Please check your internet connection.';
-    case 'server':
-      return 'Service temporarily unavailable. Please try again later.';
-    case 'schema':
-      return 'Received unexpected response. Please contact support if this persists.';
-    case 'user':
-      return 'Invalid request. Please check your input and try again.';
-  }
 }
 
 /**
