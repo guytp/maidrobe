@@ -11,11 +11,13 @@
  * @param _req - HTTP request object (unused, required by Deno.serve)
  * @returns Response with status 200 and 'OK' text/plain content
  */
-Deno.serve((_req: Request): Response => {
+export function handler(_req: Request): Response {
   return new Response('OK', {
     status: 200,
     headers: {
       'Content-Type': 'text/plain',
     },
   });
-});
+}
+
+Deno.serve(handler);

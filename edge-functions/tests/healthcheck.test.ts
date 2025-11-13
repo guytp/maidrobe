@@ -1,42 +1,43 @@
 /**
  * Healthcheck Edge Function Tests
  *
- * Tests the healthcheck endpoint to ensure it returns the expected response.
+ * Tests the healthcheck endpoint handler to ensure it returns the expected response.
  */
 
 import { assertEquals } from 'std/assert/mod.ts';
+import { handler } from '../supabase/functions/healthcheck/index.ts';
 
-Deno.test('healthcheck handler returns 200 OK', async () => {
-  // Create a mock request
+Deno.test('healthcheck handler returns 200 OK status', async () => {
   const request = new Request('http://localhost:54321/functions/v1/healthcheck');
+  const response = handler(request);
 
-  // Create expected response
-  const response = new Response('OK', {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/plain',
-    },
-  });
-
-  // Verify response status
   assertEquals(response.status, 200);
+});
 
-  // Verify response body
+Deno.test('healthcheck handler returns correct body', async () => {
+  const request = new Request('http://localhost:54321/functions/v1/healthcheck');
+  const response = handler(request);
+
   const body = await response.text();
   assertEquals(body, 'OK');
+});
 
-  // Verify content type header
+Deno.test('healthcheck handler returns correct content type', async () => {
+  const request = new Request('http://localhost:54321/functions/v1/healthcheck');
+  const response = handler(request);
+
   assertEquals(response.headers.get('Content-Type'), 'text/plain');
 });
 
-Deno.test('healthcheck response has correct status code', () => {
-  const response = new Response('OK', { status: 200 });
+Deno.test('healthcheck handler returns complete response', async () => {
+  const request = new Request('http://localhost:54321/functions/v1/healthcheck');
+  const response = handler(request);
+
   assertEquals(response.status, 200);
   assertEquals(response.ok, true);
-});
 
-Deno.test('healthcheck response has correct body', async () => {
-  const response = new Response('OK', { status: 200 });
-  const text = await response.text();
-  assertEquals(text, 'OK');
+  const body = await response.text();
+  assertEquals(body, 'OK');
+
+  assertEquals(response.headers.get('Content-Type'), 'text/plain');
 });
