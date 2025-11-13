@@ -17,11 +17,13 @@ export interface User {
  *
  * @property user - Currently authenticated user or null if not authenticated
  * @property setUser - Action to set the authenticated user
+ * @property updateEmailVerified - Action to update the emailVerified status
  * @property clearUser - Action to clear the authenticated user (logout)
  */
 export interface SessionSlice {
   user: User | null;
   setUser: (user: User) => void;
+  updateEmailVerified: (verified: boolean) => void;
   clearUser: () => void;
 }
 
@@ -50,5 +52,9 @@ export interface SessionSlice {
 export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice> = (set) => ({
   user: null,
   setUser: (user) => set({ user }),
+  updateEmailVerified: (verified) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, emailVerified: verified } : null,
+    })),
   clearUser: () => set({ user: null }),
 });
