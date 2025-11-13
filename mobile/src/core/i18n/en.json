@@ -52,9 +52,22 @@
         "title": "Verify Your Email",
         "subtitle": "Check your inbox",
         "description": "We have sent a verification link to your email address. Please check your inbox and click the link to verify your account.",
+        "resendButton": "Resend Verification Email",
+        "resending": "Sending...",
+        "resendSuccess": "Verification email sent successfully",
+        "cooldownMessage": "Please wait {seconds} seconds before resending",
+        "errors": {
+          "resendFailed": "Unable to resend email. Please try again.",
+          "tooManyRequests": "Too many requests. Please wait before trying again.",
+          "noEmail": "Email address not found. Please sign up again."
+        },
         "accessibility": {
           "screenLabel": "Email verification screen",
-          "screenHint": "Instructions to verify your email address"
+          "screenHint": "Instructions to verify your email address",
+          "resendButton": "Resend verification email button",
+          "cooldownTimer": "Cooldown timer",
+          "successMessage": "Success message",
+          "errorMessage": "Error message"
         }
       }
     }
