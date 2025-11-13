@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
-import App from '../App';
+import App from '../app/index';
 
 describe('App', () => {
   it('renders without crashing', () => {
