@@ -1,0 +1,55 @@
+{
+  "name": "maidrobe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Digital closet management with AI-powered outfit suggestions",
+  "workspaces": [
+    "mobile",
+    "edge-functions"
+  ],
+  "scripts": {
+    "prepare": "husky install",
+    "mobile:start": "npm run start --workspace=mobile",
+    "mobile:lint": "npm run lint --workspace=mobile",
+    "mobile:typecheck": "npm run typecheck --workspace=mobile",
+    "mobile:test": "npm run test --workspace=mobile",
+    "edge:dev": "npm run dev --workspace=edge-functions",
+    "edge:lint": "npm run lint --workspace=edge-functions",
+    "edge:typecheck": "npm run typecheck --workspace=edge-functions",
+    "edge:test": "npm run test --workspace=edge-functions",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=20.19.4",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maidrobe/maidrobe.git"
+  },
+  "keywords": [
+    "wardrobe",
+    "closet",
+    "outfit",
+    "fashion",
+    "ai",
+    "react-native"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@commitlint/cli": "^18.6.1",
+    "@commitlint/config-conventional": "^18.6.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3"
+  }
+}

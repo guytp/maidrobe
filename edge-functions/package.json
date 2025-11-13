@@ -1,0 +1,13 @@
+{
+  "name": "@maidrobe/edge-functions",
+  "version": "0.1.0",
+  "description": "Supabase Edge Functions for Maidrobe",
+  "scripts": {
+    "dev": "supabase start",
+    "stop": "supabase stop",
+    "lint": "deno lint supabase/functions",
+    "typecheck": "deno check supabase/functions/**/*.ts",
+    "test": "deno test --allow-all"
+  },
+  "private": true
+}
