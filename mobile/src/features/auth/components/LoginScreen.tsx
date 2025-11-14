@@ -221,7 +221,7 @@ export function LoginScreen() {
           minHeight: 44,
         },
         inputError: {
-          borderColor: '#d32f2f',
+          borderColor: colors.error,
         },
         passwordContainer: {
           position: 'relative',
@@ -241,7 +241,7 @@ export function LoginScreen() {
           fontWeight: '600',
         },
         errorText: {
-          color: '#d32f2f',
+          color: colors.error,
           fontSize: 14,
           marginTop: spacing.xs,
         },

@@ -37,7 +37,7 @@ import { useTheme } from '../theme';
 export function SessionExpiredBanner() {
   const logoutReason = useStore((state) => state.logoutReason);
   const setLogoutReason = useStore((state) => state.setLogoutReason);
-  const { spacing } = useTheme();
+  const { colors, spacing } = useTheme();
 
   // Don't render if no logout reason
   if (!logoutReason) {
@@ -50,7 +50,7 @@ export function SessionExpiredBanner() {
 
   const styles = StyleSheet.create({
     container: {
-      backgroundColor: '#D32F2F', // Material Design Red 700 for error
+      backgroundColor: colors.error,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,
       flexDirection: 'row',
@@ -62,7 +62,7 @@ export function SessionExpiredBanner() {
       marginRight: spacing.md,
     },
     message: {
-      color: '#FFFFFF',
+      color: colors.errorText,
       fontSize: 14,
       fontWeight: '500',
     },
@@ -74,7 +74,7 @@ export function SessionExpiredBanner() {
       alignItems: 'center',
     },
     dismissText: {
-      color: '#FFFFFF',
+      color: colors.errorText,
       fontSize: 18,
       fontWeight: 'bold',
     },

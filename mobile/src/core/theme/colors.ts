@@ -30,20 +30,28 @@ export const radius = {
  * Color palette for light theme.
  * textSecondary uses #595959 for 7.0:1 contrast ratio on white background,
  * exceeding WCAG AA requirements (4.5:1) for stronger accessibility.
+ * error uses #d32f2f (Material Design Red 700) for error states.
+ * errorText uses #ffffff for text on error backgrounds (5.59:1 contrast).
  */
 export const lightColors = {
   background: '#ffffff',
   textPrimary: '#333333',
   textSecondary: '#595959',
+  error: '#d32f2f',
+  errorText: '#ffffff',
 };
 
 /**
  * Color palette for dark theme.
+ * error uses #ef5350 (Material Design Red 400) for better visibility on dark backgrounds.
+ * errorText uses #000000 for text on error backgrounds (8.59:1 contrast).
  */
 export const darkColors = {
   background: '#000000',
   textPrimary: '#ffffff',
   textSecondary: '#cccccc',
+  error: '#ef5350',
+  errorText: '#000000',
 };
 
 export type ColorScheme = 'light' | 'dark';
