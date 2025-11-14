@@ -14,9 +14,47 @@ import * as SecureStore from 'expo-secure-store';
  * Security Configuration:
  * - keychainAccessible: ALWAYS_THIS_DEVICE_ONLY (iOS)
  *   Prevents backup to iCloud, limits access to this device only
- * - requireAuthentication: false
- *   Allows background token refresh without user authentication
- *   (Supabase needs to refresh tokens when app is backgrounded)
+ *
+ * - requireAuthentication: false (CRITICAL DESIGN DECISION)
+ *
+ *   TRADE-OFF ANALYSIS:
+ *   This setting allows token access without biometric/passcode authentication.
+ *
+ *   UX Benefits:
+ *   - Enables seamless background token refresh (tokens can expire while app backgrounded)
+ *   - No user interruption when Supabase refreshes tokens automatically
+ *   - Smooth session management without authentication prompts
+ *   - Background refresh works even when device is locked
+ *
+ *   Security Costs:
+ *   - Tokens accessible without biometric/passcode authentication
+ *   - If device is unlocked and compromised, tokens can be extracted
+ *   - Lower barrier to token access than requireAuthentication: true
+ *   - Relies solely on device unlock as authentication barrier
+ *
+ *   Project Requirements Alignment:
+ *   - Prioritizes seamless UX over maximum security (consumer mobile app)
+ *   - Assumes device-level security (screen lock) as primary defense layer
+ *   - Platform encryption (iOS Keychain AES-256, Android EncryptedSharedPreferences)
+ *     still protects tokens at rest from external access
+ *   - Acceptable risk profile for non-critical consumer data
+ *   - Background token refresh is essential for uninterrupted user experience
+ *
+ *   Alternative Approaches Considered:
+ *   - requireAuthentication: true
+ *     Rejected: Would break background token refresh entirely
+ *     User would see "Session expired" after backgrounding app
+ *   - Manual refresh on app foreground
+ *     Rejected: Poor UX with session interruptions and re-login prompts
+ *   - Shorter token TTL with frequent refresh
+ *     Rejected: Increases refresh frequency but doesn't solve background issue
+ *
+ *   When to Reconsider This Decision:
+ *   - App begins handling highly sensitive data (financial, health, PII)
+ *   - Regulatory compliance requires additional authentication barriers
+ *   - Security audit recommends stricter token access controls
+ *   - Background token refresh becomes less critical to core UX
+ *   - Platform provides alternative background refresh mechanisms
  *
  * Storage Keys:
  * - Supabase stores session data under keys managed by the auth client
@@ -53,9 +91,30 @@ const SECURE_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
   // Prevents token backup to iCloud and limits access to this device
   keychainAccessible: SecureStore.ALWAYS_THIS_DEVICE_ONLY,
 
-  // Do not require biometric/passcode authentication for token access
-  // This is necessary for background token refresh when app is not active
-  // Supabase needs to refresh tokens automatically without user interaction
+  // requireAuthentication: false - CRITICAL DESIGN DECISION
+  //
+  // This allows token access without biometric/passcode authentication.
+  //
+  // TRADE-OFF: Enables seamless background token refresh at the cost of making
+  // tokens accessible without additional authentication if device is unlocked.
+  //
+  // JUSTIFICATION: This project prioritizes user experience (seamless session
+  // management) over maximum security. Device-level security (screen lock) and
+  // platform encryption (AES-256) provide baseline protection. This is an
+  // acceptable risk for consumer mobile apps with non-critical data.
+  //
+  // CONTEXT: Supabase needs to refresh tokens automatically when the app is
+  // backgrounded or inactive. Setting requireAuthentication: true would break
+  // this functionality, causing session expiration and forcing re-login after
+  // backgrounding the app - a poor user experience.
+  //
+  // IMPORTANT: Only change this to true if:
+  // - App begins handling highly sensitive data (financial, health, PII)
+  // - Regulatory compliance requires stricter token access controls
+  // - Security audit identifies this as unacceptable risk
+  // - Background token refresh is no longer essential to UX
+  //
+  // WARNING: Setting to true will break automatic background token refresh.
   requireAuthentication: false,
 };
 
