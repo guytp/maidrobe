@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { validateEmail, validateLoginPassword } from '../utils/validation';
@@ -29,6 +29,13 @@ import { useLogin } from '../api/useLogin';
  * Business logic (authentication and token storage) is handled by the
  * useLogin mutation hook. This component focuses purely on UI concerns.
  *
+ * Post-Login Navigation:
+ * - Supports optional 'redirect' query parameter for flexible navigation
+ * - Example: /auth/login?redirect=/profile redirects to /profile after login
+ * - Defaults to /home if no redirect parameter provided
+ * - Validates redirect to prevent open redirect vulnerabilities (internal routes only)
+ * - Useful for deep-link flows and protected route redirects
+ *
  * Password Validation:
  * - Non-empty check only (no complexity requirements for login)
  * - Server handles credential verification
@@ -38,8 +45,51 @@ import { useLogin } from '../api/useLogin';
  * - Network errors: "Network error. Please try again."
  * - Version mismatch: "Please update your app."
  */
+/**
+ * Sanitizes redirect parameter to prevent open redirect vulnerabilities.
+ *
+ * Security checks:
+ * - Only allows internal routes (must start with /)
+ * - Rejects external URLs, javascript:, data:, and other dangerous schemes
+ * - Returns default path if redirect is invalid or missing
+ *
+ * @param redirect - Redirect path from query parameter
+ * @param defaultPath - Default path to use if redirect is invalid
+ * @returns Sanitized redirect path (internal route only) or default
+ */
+function sanitizeRedirect(redirect: string | string[] | undefined, defaultPath: string): string {
+  // Handle array or undefined
+  if (!redirect || Array.isArray(redirect)) {
+    return defaultPath;
+  }
+
+  // Only allow internal routes (must start with /)
+  if (!redirect.startsWith('/')) {
+    return defaultPath;
+  }
+
+  // Reject dangerous schemes (case-insensitive check)
+  const lowerRedirect = redirect.toLowerCase();
+  if (
+    lowerRedirect.includes('javascript:') ||
+    lowerRedirect.includes('data:') ||
+    lowerRedirect.includes('vbscript:') ||
+    lowerRedirect.includes('file:')
+  ) {
+    return defaultPath;
+  }
+
+  // Reject protocol-relative URLs (starting with //)
+  if (redirect.startsWith('//')) {
+    return defaultPath;
+  }
+
+  return redirect;
+}
+
 export function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ redirect?: string }>();
   const { colors, spacing, radius } = useTheme();
 
   const [email, setEmail] = useState('');
@@ -49,6 +99,10 @@ export function LoginScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const { mutate: login, isPending } = useLogin();
+
+  // Determine post-login redirect destination
+  // Sanitize redirect parameter to prevent open redirect vulnerabilities
+  const redirectTo = sanitizeRedirect(params.redirect, '/home');
 
   /**
    * Validates email field and updates error state
@@ -109,8 +163,8 @@ export function LoginScreen() {
       {
         onSuccess: () => {
           // User is automatically set in store by useLogin mutation
-          // Navigate to home screen
-          router.replace('/home');
+          // Navigate to redirect destination (or /home if no redirect specified)
+          router.replace(redirectTo);
         },
         onError: (error) => {
           // Error is already logged by useLogin mutation
