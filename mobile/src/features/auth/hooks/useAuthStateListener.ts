@@ -56,6 +56,7 @@ export function useAuthStateListener() {
   const setUser = useStore((state) => state.setUser);
   const clearUser = useStore((state) => state.clearUser);
   const setInitialized = useStore((state) => state.setInitialized);
+  const setTokenMetadata = useStore((state) => state.setTokenMetadata);
 
   // Use refs to store latest router and segments values
   // This allows the effect to access current values without re-running
@@ -93,10 +94,12 @@ export function useAuthStateListener() {
             emailVerified: !!user.email_confirmed_at,
           });
 
+          // SECURITY: Do NOT log the session object - it contains tokens
           // eslint-disable-next-line no-console
           console.log('[Auth] Initial session loaded', {
             userId: user.id,
             emailVerified: !!user.email_confirmed_at,
+            // Note: session object is [REDACTED] - contains sensitive tokens
           });
         }
 
@@ -119,10 +122,12 @@ export function useAuthStateListener() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // SECURITY: Do NOT log the session object - it contains tokens
       // eslint-disable-next-line no-console
       console.log('[Auth] State change:', event, {
         hasSession: !!session,
         emailConfirmed: !!session?.user?.email_confirmed_at,
+        // Note: session object is [REDACTED] - contains sensitive tokens
       });
 
       try {
@@ -138,6 +143,16 @@ export function useAuthStateListener() {
               email: user.email || '',
               emailVerified: isEmailVerified,
             });
+
+            // Update token metadata when tokens are refreshed
+            // SECURITY: We only store metadata (expiry time), NOT the tokens themselves
+            if (session.expires_at) {
+              // Supabase provides expires_at as unix timestamp (seconds)
+              // Convert to milliseconds for JavaScript Date
+              const expiresAt = session.expires_at * 1000;
+              const tokenType = session.token_type || 'bearer';
+              setTokenMetadata(expiresAt, tokenType);
+            }
 
             // If email was just verified, refresh session and navigate
             if (isEmailVerified && event === 'USER_UPDATED') {
@@ -201,5 +216,5 @@ export function useAuthStateListener() {
     };
     // Stable Zustand store actions - don't cause re-runs
     // router and segments accessed via refs to get current values
-  }, [setUser, clearUser, setInitialized]);
+  }, [setUser, clearUser, setInitialized, setTokenMetadata]);
 }

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { secureStorage } from './secureStorage';
 
 /**
  * Supabase client singleton for the mobile application.
@@ -8,9 +8,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * from environment variables. The anonymous key is safe to use in client-side
  * code as Row Level Security (RLS) policies protect all data access.
  *
- * Authentication sessions are persisted using AsyncStorage, allowing users
- * to remain logged in across app restarts. This provides a seamless
- * authentication experience without requiring re-login.
+ * Authentication sessions are persisted using Expo SecureStore with platform-
+ * appropriate encryption (AES-256 equivalent). Tokens are stored securely in:
+ * - iOS: Keychain with device-only access
+ * - Android: EncryptedSharedPreferences with AES-256-GCM
+ *
+ * SECURITY: Access tokens and refresh tokens are stored encrypted and are
+ * never exposed to AsyncStorage, logs, or debugging tools. Only token metadata
+ * (expiry time, token type) is exposed via the Zustand session store.
  *
  * Environment variables required:
  * - EXPO_PUBLIC_SUPABASE_URL: Your Supabase project URL
@@ -46,13 +51,19 @@ if (!supabaseAnonKey) {
  * - Realtime subscriptions (supabase.channel)
  *
  * Auth configuration:
- * - Uses AsyncStorage for session persistence across app restarts
+ * - Uses SecureStore for encrypted session persistence
  * - Auto-refreshes tokens to maintain active sessions
  * - Sessions persist indefinitely until explicit logout
+ * - Tokens stored with AES-256 equivalent encryption
+ * - Device-only access (no iCloud backup on iOS)
+ *
+ * SECURITY WARNING:
+ * The storage adapter handles sensitive authentication tokens.
+ * Never log, inspect, or expose the session data stored by this client.
  */
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: secureStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Not applicable for mobile

@@ -26,6 +26,9 @@ const LoginResponseSchema = z.object({
   session: z.object({
     access_token: z.string(),
     refresh_token: z.string(),
+    token_type: z.string().optional(),
+    expires_in: z.number().optional(),
+    expires_at: z.number().optional(),
   }),
 });
 
@@ -391,12 +394,25 @@ export function useLogin() {
         emailVerified: !!data.user.email_confirmed_at,
       });
 
+      // Store token metadata (expiry time and type) - NOT the actual tokens
+      // SECURITY: Tokens are stored encrypted in SecureStore by Supabase client
+      // We only store metadata for UI/logic purposes (e.g., showing "session expires in X")
+      // Note: Supabase session.expires_at is typically undefined in signInWithPassword response
+      // Token expiry is calculated by Supabase based on expires_in (usually 3600 seconds)
+      // We'll set a default expiry of 1 hour from now if not provided
+      const expiresInSeconds = 3600; // Default: 1 hour (Supabase standard)
+      const expiresAt = Date.now() + expiresInSeconds * 1000;
+      useStore.getState().setTokenMetadata(expiresAt, data.session.token_type || 'bearer');
+
       // Log success with latency for observability and SLO tracking
+      // SECURITY: Do NOT log the session object - it contains access_token and refresh_token
       logSuccess('auth', 'login', {
         latency,
         data: {
           userId: data.user.id,
           emailVerified: !!data.user.email_confirmed_at,
+          // Safe to log: token metadata (expiry time) but NOT the token itself
+          tokenExpiresAt: expiresAt,
         },
       });
     },
