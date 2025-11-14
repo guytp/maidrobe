@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ResetPasswordScreen } from '../../src/features/auth/components/ResetPasswordScreen';
 import { ThemeProvider } from '../../src/core/theme';
@@ -70,20 +71,19 @@ jest.mock('../../src/core/state/store', () => ({
     }),
 }));
 
-// Mock Toast component
-jest.mock('../../src/core/components/Toast', () => {
-  const { View, Text, TouchableOpacity } = require('react-native');
-  return {
-    Toast: ({ visible, message, onDismiss }: { visible: boolean; message: string; onDismiss: () => void }) =>
-      visible ? (
-        <TouchableOpacity testID="success-toast" onPress={onDismiss}>
-          <View>
-            <Text>{message}</Text>
-          </View>
-        </TouchableOpacity>
-      ) : null,
-  };
-});
+// Mock Toast component - define before mocking to use in factory
+const MockToast = ({ visible, message, onDismiss }: { visible: boolean; message: string; onDismiss: () => void }) =>
+  visible ? (
+    <TouchableOpacity testID="success-toast" onPress={onDismiss}>
+      <View>
+        <Text>{message}</Text>
+      </View>
+    </TouchableOpacity>
+  ) : null;
+
+jest.mock('../../src/core/components/Toast', () => ({
+  Toast: MockToast,
+}));
 
 describe('ResetPasswordScreen', () => {
   let queryClient: QueryClient;
