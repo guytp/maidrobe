@@ -94,11 +94,41 @@ export function useAuthStateListener() {
             emailVerified: !!user.email_confirmed_at,
           });
 
+          // Store token metadata (expiry time and type) - NOT the actual tokens
+          // SECURITY: Tokens are stored encrypted in SecureStore by Supabase client
+          // We only store metadata for proactive refresh scheduling
+          //
+          // Token expiry derivation strategy (three-tier fallback):
+          // 1. Use session.expires_at if provided (absolute timestamp in seconds)
+          // 2. Calculate from session.expires_in if provided (relative seconds)
+          // 3. Fall back to 3600 seconds (1 hour) if neither provided
+          //
+          // This ensures the proactive refresh system always has valid metadata,
+          // even when Supabase events don't include expires_at.
+          let expiresAt: number;
+          let fallbackUsed = 'none';
+          if (data.session.expires_at) {
+            // Supabase provides expires_at as unix timestamp in seconds
+            // Convert to milliseconds for JavaScript Date
+            expiresAt = data.session.expires_at * 1000;
+          } else if (data.session.expires_in) {
+            // Calculate absolute expiry from relative expires_in (seconds)
+            expiresAt = Date.now() + data.session.expires_in * 1000;
+            fallbackUsed = 'expires_in';
+          } else {
+            // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
+            expiresAt = Date.now() + 3600 * 1000;
+            fallbackUsed = 'default_ttl';
+          }
+          const tokenType = data.session.token_type || 'bearer';
+          setTokenMetadata(expiresAt, tokenType);
+
           // SECURITY: Do NOT log the session object - it contains tokens
           // eslint-disable-next-line no-console
           console.log('[Auth] Initial session loaded', {
             userId: user.id,
             emailVerified: !!user.email_confirmed_at,
+            tokenMetadata: { expiresAt, tokenType, fallbackUsed },
             // Note: session object is [REDACTED] - contains sensitive tokens
           });
         }
@@ -146,12 +176,41 @@ export function useAuthStateListener() {
 
             // Update token metadata when tokens are refreshed
             // SECURITY: We only store metadata (expiry time), NOT the tokens themselves
+            //
+            // Token expiry derivation strategy (three-tier fallback):
+            // 1. Use session.expires_at if provided (absolute timestamp in seconds)
+            // 2. Calculate from session.expires_in if provided (relative seconds)
+            // 3. Fall back to 3600 seconds (1 hour) if neither provided
+            //
+            // This ensures the proactive refresh system always has valid metadata,
+            // even when Supabase events don't include expires_at.
+            let expiresAt: number;
+            let fallbackUsed = 'none';
             if (session.expires_at) {
-              // Supabase provides expires_at as unix timestamp (seconds)
+              // Supabase provides expires_at as unix timestamp in seconds
               // Convert to milliseconds for JavaScript Date
-              const expiresAt = session.expires_at * 1000;
-              const tokenType = session.token_type || 'bearer';
-              setTokenMetadata(expiresAt, tokenType);
+              expiresAt = session.expires_at * 1000;
+            } else if (session.expires_in) {
+              // Calculate absolute expiry from relative expires_in (seconds)
+              expiresAt = Date.now() + session.expires_in * 1000;
+              fallbackUsed = 'expires_in';
+            } else {
+              // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
+              expiresAt = Date.now() + 3600 * 1000;
+              fallbackUsed = 'default_ttl';
+            }
+            const tokenType = session.token_type || 'bearer';
+            setTokenMetadata(expiresAt, tokenType);
+
+            // Log token metadata for observability (helps debug refresh issues)
+            if (fallbackUsed !== 'none') {
+              // eslint-disable-next-line no-console
+              console.log('[Auth] Token metadata fallback used', {
+                event,
+                fallbackUsed,
+                expiresAt,
+                tokenType,
+              });
             }
 
             // If email was just verified, refresh session and navigate
