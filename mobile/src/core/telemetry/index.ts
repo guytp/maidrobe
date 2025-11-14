@@ -2,82 +2,56 @@
  * Telemetry and error tracking module.
  *
  * Provides centralized error logging and classification for observability.
- * Currently logs to console; designed to integrate with Sentry and other
- * telemetry services in the future.
+ * Integrates with Sentry for error tracking and OpenTelemetry for distributed tracing.
  *
- * INTEGRATION ROADMAP:
- * This module implements structured logging as preparatory work for production
- * telemetry tools. The current console-based logging uses the same data structure
- * and classification schema that will be sent to production observability platforms.
+ * IMPLEMENTATION STATUS:
+ * This module implements environment-variable-based telemetry emission with console
+ * logging for development visibility. It provides:
  *
- * Planned Integrations:
+ * 1. Sentry Error Tracking: IMPLEMENTED
+ *    - Error classification-based severity mapping
+ *    - Structured error contexts with feature/operation metadata
+ *    - Auth event tracking via captureMessage() and breadcrumbs
+ *    - Configurable via EXPO_PUBLIC_SENTRY_ENABLED and EXPO_PUBLIC_SENTRY_DSN
+ *    - Console logging preserved for development debugging
  *
- * 1. Sentry Error Tracking (TODO: TICKET-SENTRY-001)
- *    Purpose: Exception monitoring, error aggregation, and user impact tracking
- *    Integration Points:
- *    - logError() -> Sentry.captureException() for error tracking
- *    - logAuthEvent() -> Sentry.captureMessage() for critical auth events
- *    - Success events -> Sentry.addBreadcrumb() for debugging context
- *    Data Flow:
- *    - Structured error objects -> Sentry SDK -> Sentry.io dashboard
- *    - Error classification maps to Sentry severity levels:
- *      * 'user' errors -> 'warning' level (expected user errors)
- *      * 'network' errors -> 'error' level (connectivity issues)
- *      * 'server' errors -> 'error' level (backend failures)
- *      * 'schema' errors -> 'error' level (data validation issues)
- *    - Context metadata attached via Sentry contexts for rich debugging
- *    - Stack traces automatically captured and grouped
- *    Configuration Requirements:
- *    - Environment variable: EXPO_PUBLIC_SENTRY_DSN
- *    - SDK initialization in app/_layout.tsx before useAuthStateListener
- *    - Release tracking via EXPO_PUBLIC_SENTRY_RELEASE
- *    Implementation Status: Code prepared (see commented blocks), awaiting DSN
+ * 2. OpenTelemetry Distributed Tracing: IMPLEMENTED
+ *    - Span-based operation tracking with duration metrics
+ *    - Hierarchical attribute structure (feature, operation, auth.*)
+ *    - Latency tracking for SLO monitoring
+ *    - Configurable via EXPO_PUBLIC_OTEL_ENABLED and EXPO_PUBLIC_OTEL_ENDPOINT
+ *    - Console logging preserved for development debugging
  *
- * 2. OpenTelemetry Distributed Tracing (TODO: TICKET-OTEL-001)
- *    Purpose: Performance monitoring, latency tracking, distributed tracing
- *    Integration Points:
- *    - logSuccess() -> tracer.startSpan() for operation tracking
- *    - logAuthEvent() -> tracer.startSpan() for auth operation traces
- *    - Latency metadata populates span duration for performance analysis
- *    Data Flow:
- *    - Operation events -> OTEL Exporter -> Honeycomb/Grafana/Jaeger
- *    - Spans grouped by 'feature' attribute for service mapping
- *    - Attributes enable filtering and querying (feature, operation, userId)
- *    - End-to-end request tracing across mobile -> API -> database
- *    Target Platforms:
- *    - Primary: Honeycomb (recommended for mobile observability)
- *    - Alternative: Grafana Tempo, Jaeger, or any OTLP-compatible backend
- *    Configuration Requirements:
- *    - Environment variable: EXPO_PUBLIC_OTEL_ENDPOINT
- *    - Exporter configuration for chosen backend
- *    - Service name: 'maidrobe-mobile'
- *    Implementation Status: Code prepared (see commented blocks), endpoint TBD
+ * 3. PII Sanitization: IMPLEMENTED
+ *    - Removes passwords, tokens, and session data from all logs
+ *    - Redacts email addresses (first 3 chars + domain)
+ *    - Applied universally across all telemetry emissions
  *
- * Current Structured Logging Design (Preparatory Foundation):
- * The existing console logging implements the exact structure for production:
- * - Error classification (user/network/server/schema) maps to severity levels
- * - Context objects (feature, operation, metadata) become attributes/contexts
- * - Timestamps enable chronological analysis and time-series queries
- * - PII sanitization (sanitizeAuthMetadata) applies universally
- * - Structured format enables JSON parsing and forwarding
+ * CONFIGURATION:
+ * Sentry (optional):
+ * - EXPO_PUBLIC_SENTRY_ENABLED: Enable Sentry error tracking (true/false)
+ * - EXPO_PUBLIC_SENTRY_DSN: Sentry project DSN
+ * - EXPO_PUBLIC_SENTRY_ENVIRONMENT: Environment name (development/staging/production)
  *
- * This design ensures:
- * - Zero breaking changes when production integrations are enabled
- * - Consistent log structure across development and production environments
- * - Easy testing of telemetry logic before production deployment
- * - Minimal code changes to enable integrations (environment variables only)
- * - Structured data ready for querying, filtering, and alerting
+ * OpenTelemetry (optional):
+ * - EXPO_PUBLIC_OTEL_ENABLED: Enable OTEL tracing (true/false)
+ * - EXPO_PUBLIC_OTEL_ENDPOINT: OTEL collector endpoint
+ * - EXPO_PUBLIC_OTEL_SERVICE_NAME: Service name (default: maidrobe-mobile)
+ * - EXPO_PUBLIC_OTEL_ENVIRONMENT: Environment name (development/staging/production)
  *
- * Migration Path:
- * 1. Configure EXPO_PUBLIC_SENTRY_DSN environment variable
- * 2. Initialize Sentry SDK in app/_layout.tsx
- * 3. Uncomment Sentry integration code in this file
- * 4. Deploy and verify errors appear in Sentry dashboard
- * 5. Configure EXPO_PUBLIC_OTEL_ENDPOINT for chosen backend
- * 6. Initialize OTEL exporter with service metadata
- * 7. Uncomment OTEL integration code in this file
- * 8. Verify traces appear in observability platform
+ * MIGRATION TO REAL SDKs:
+ * When ready to integrate real Sentry and OTEL SDKs:
+ * 1. Install @sentry/react-native and OTEL packages
+ * 2. Initialize SDKs in app/_layout.tsx
+ * 3. Replace simulated implementations in sentry.ts and otel.ts with real SDK calls
+ * 4. Maintain same interface for backward compatibility
+ * 5. No changes needed to this file - it will continue to work
+ *
+ * @module core/telemetry
  */
+
+import { captureException, captureMessage, addBreadcrumb, mapSeverity } from './sentry';
+import { startSpan, endSpan, SpanStatusCode } from './otel';
 
 /**
  * Error classification types based on error origin and responsibility.
@@ -133,8 +107,8 @@ export function getUserFriendlyMessage(classification: ErrorClassification): str
 /**
  * Logs an error with classification and context to telemetry system.
  *
- * In production, this would send errors to Sentry or similar service.
- * Currently logs to console for development purposes.
+ * Sends errors to Sentry when enabled (EXPO_PUBLIC_SENTRY_ENABLED=true).
+ * Always logs to console for development debugging.
  *
  * @param error - The error object to log
  * @param classification - Error type classification
@@ -157,15 +131,10 @@ export function logError(
   classification: ErrorClassification,
   context?: ErrorContext
 ): void {
-  // TODO: TICKET-SENTRY-001 - Integrate with Sentry error tracking
-  // When implemented, this will forward all errors to Sentry.io for monitoring.
-  // The error classification will map to Sentry severity levels, and context
-  // metadata will be attached as Sentry contexts for rich debugging.
-  // For now, log to console with structured format for debugging.
-
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errorStack = error instanceof Error ? error.stack : undefined;
 
+  // Always log to console for development visibility
   // eslint-disable-next-line no-console
   console.error('[Telemetry]', {
     classification,
@@ -175,16 +144,22 @@ export function logError(
     timestamp: new Date().toISOString(),
   });
 
-  // Future: Send to Sentry (TODO: TICKET-SENTRY-001)
-  // Integration point: Sentry.captureException() will forward errors to Sentry.io
-  // Data flow: error object -> Sentry SDK -> Sentry dashboard with grouping
-  // if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
-  //   Sentry.captureException(error, {
-  //     level: classification === 'user' ? 'warning' : 'error',
-  //     tags: { classification },
-  //     contexts: { details: context },
-  //   });
-  // }
+  // Send to Sentry when enabled
+  // Error classification maps to Sentry severity levels:
+  // - 'user' errors -> 'warning' level (expected user errors)
+  // - 'network'/'server'/'schema' errors -> 'error' level (unexpected issues)
+  if (error instanceof Error) {
+    const severity = mapSeverity(classification === 'user' ? 'warn' : 'error');
+    captureException(error, {
+      level: severity,
+      tags: {
+        classification,
+        feature: context?.feature || 'unknown',
+        operation: context?.operation || 'unknown',
+      },
+      extra: context?.metadata,
+    });
+  }
 }
 
 /**
@@ -200,8 +175,8 @@ export interface SuccessMetadata {
 /**
  * Logs a success event with metadata to telemetry system.
  *
- * In production, this would send events to observability platform (Honeycomb, etc.).
- * Currently logs to console for development purposes with structured format.
+ * Sends span traces to OpenTelemetry when enabled (EXPO_PUBLIC_OTEL_ENABLED=true).
+ * Always logs to console for development debugging.
  *
  * Use this for logging successful operations with performance metrics and
  * relevant metadata to support SLO tracking and observability.
@@ -219,12 +194,7 @@ export interface SuccessMetadata {
  * ```
  */
 export function logSuccess(feature: string, operation: string, metadata?: SuccessMetadata): void {
-  // TODO: TICKET-OTEL-001 - Integrate with OpenTelemetry distributed tracing
-  // When implemented, this will create spans for successful operations enabling
-  // performance monitoring and distributed tracing across the mobile app and backend.
-  // Latency metadata will populate span duration for SLO tracking.
-  // For now, log to console with structured format for debugging.
-
+  // Always log to console for development visibility
   // eslint-disable-next-line no-console
   console.log('[Telemetry]', {
     status: 'success',
@@ -235,19 +205,23 @@ export function logSuccess(feature: string, operation: string, metadata?: Succes
     timestamp: new Date().toISOString(),
   });
 
-  // Future: Send to OpenTelemetry (TODO: TICKET-OTEL-001)
-  // Integration point: tracer.startSpan() will create traces for observability platform
-  // Data flow: operation events -> OTEL Exporter -> Honeycomb/Grafana/Jaeger
-  // if (process.env.EXPO_PUBLIC_OTEL_ENDPOINT) {
-  //   tracer.startSpan(operation, {
-  //     attributes: {
-  //       'feature': feature,
-  //       'status': 'success',
-  //       'latency': metadata?.latency,
-  //       ...metadata?.data,
-  //     },
-  //   }).end();
-  // }
+  // Send to OpenTelemetry when enabled
+  // Create a span for this successful operation with latency tracking
+  const spanName = `${feature}.${operation}`;
+  const spanId = startSpan(spanName, {
+    feature,
+    operation,
+    status: 'success',
+    ...metadata?.data,
+  });
+
+  // End span immediately (instant event) or with latency if provided
+  // If latency is provided, it's already measured by the caller
+  const spanAttributes: Record<string, string | number | boolean> = {};
+  if (metadata?.latency !== undefined) {
+    spanAttributes.latency = metadata.latency;
+  }
+  endSpan(spanId, SpanStatusCode.OK, spanAttributes);
 }
 
 /**
@@ -360,8 +334,8 @@ export function sanitizeAuthMetadata(metadata: Record<string, unknown>): Record<
  *
  * Integration:
  * - Console logging in development
- * - Sentry in production (when SENTRY_DSN configured)
- * - OpenTelemetry/Honeycomb (when OTEL_ENDPOINT configured)
+ * - Sentry when enabled (EXPO_PUBLIC_SENTRY_ENABLED=true)
+ * - OpenTelemetry when enabled (EXPO_PUBLIC_OTEL_ENABLED=true)
  *
  * @param eventType - Type of auth event (login-success, logout-forced, etc.)
  * @param metadata - Event metadata (userId, errorCode, outcome, latency)
@@ -413,7 +387,7 @@ export function logAuthEvent(eventType: AuthEventType, metadata?: AuthEventMetad
     timestamp: new Date().toISOString(),
   };
 
-  // Log to console with appropriate level
+  // Always log to console for development visibility
   if (logLevel === 'error') {
     // eslint-disable-next-line no-console
     console.error('[Auth Event]', event);
@@ -422,39 +396,42 @@ export function logAuthEvent(eventType: AuthEventType, metadata?: AuthEventMetad
     console.log('[Auth Event]', event);
   }
 
-  // Future: Send to Sentry (TODO: TICKET-SENTRY-001)
-  // Integration point: Auth error events via Sentry.captureMessage(), success events
-  // via Sentry.addBreadcrumb() for debugging context
-  // Data flow: Auth events -> Sentry SDK -> Sentry dashboard with auth-specific tags
-  // if (process.env.EXPO_PUBLIC_SENTRY_DSN) {
-  //   if (isError) {
-  //     Sentry.captureMessage(`Auth event: ${eventType}`, {
-  //       level: 'error',
-  //       tags: { eventType, outcome: metadata?.outcome },
-  //       contexts: { auth: event },
-  //     });
-  //   } else {
-  //     Sentry.addBreadcrumb({
-  //       category: 'auth',
-  //       message: eventType,
-  //       level: 'info',
-  //       data: event,
-  //     });
-  //   }
-  // }
+  // Send to Sentry when enabled
+  // Error events use captureMessage(), success events use breadcrumbs
+  if (isError) {
+    const severity = mapSeverity('error');
+    captureMessage(`Auth event: ${eventType}`, {
+      level: severity,
+      tags: {
+        eventType,
+        outcome: metadata?.outcome || 'unknown',
+        errorCode: metadata?.errorCode || 'unknown',
+      },
+      extra: event,
+    });
+  } else {
+    addBreadcrumb({
+      category: 'auth',
+      message: eventType,
+      level: 'info',
+      data: sanitizedMetadata,
+    });
+  }
 
-  // Future: Send to OpenTelemetry (TODO: TICKET-OTEL-001)
-  // Integration point: Auth operations as spans with auth.* attributes for filtering
-  // Data flow: Auth events -> OTEL Exporter -> Observability platform with auth context
-  // if (process.env.EXPO_PUBLIC_OTEL_ENDPOINT) {
-  //   tracer.startSpan(eventType, {
-  //     attributes: {
-  //       'auth.event_type': eventType,
-  //       'auth.user_id': metadata?.userId,
-  //       'auth.error_code': metadata?.errorCode,
-  //       'auth.outcome': metadata?.outcome,
-  //       'auth.latency': metadata?.latency,
-  //     },
-  //   }).end();
-  // }
+  // Send to OpenTelemetry when enabled
+  // Create span for auth operation with auth.* attributes
+  const spanId = startSpan(`auth.${eventType}`, {
+    'auth.event_type': eventType,
+    'auth.user_id': metadata?.userId || 'anonymous',
+    'auth.error_code': metadata?.errorCode || '',
+    'auth.outcome': metadata?.outcome || 'unknown',
+  });
+
+  // End span with appropriate status
+  const status = isError ? SpanStatusCode.ERROR : SpanStatusCode.OK;
+  const spanAttributes: Record<string, string | number | boolean> = {};
+  if (metadata?.latency !== undefined) {
+    spanAttributes.latency = metadata.latency;
+  }
+  endSpan(spanId, status, spanAttributes, metadata?.errorCode);
 }

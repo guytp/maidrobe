@@ -254,10 +254,13 @@ export function createInterceptedFetch(): typeof fetch {
     // Execute original request
     const response = await originalFetch(input, init);
 
+    // Convert input to RequestInfo if it's a URL
+    const requestInfo: RequestInfo = input instanceof URL ? input.toString() : input;
+
     // Check if we should intercept this response
     const shouldIntercept =
       response.status === 401 && // Unauthorized response
-      !hasBeenRetried(input) && // Not already retried
+      !hasBeenRetried(requestInfo) && // Not already retried
       !isAuthEndpoint(input.toString()); // Not an auth endpoint
 
     if (!shouldIntercept) {
