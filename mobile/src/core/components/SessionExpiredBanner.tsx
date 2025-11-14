@@ -83,7 +83,9 @@ export function SessionExpiredBanner() {
   return (
     <View style={styles.container} accessibilityRole="alert">
       <View style={styles.messageContainer}>
-        <Text style={styles.message}>{logoutReason}</Text>
+        <Text style={styles.message} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          {logoutReason}
+        </Text>
       </View>
       <TouchableOpacity
         style={styles.dismissButton}
@@ -92,7 +94,9 @@ export function SessionExpiredBanner() {
         accessibilityLabel="Dismiss session expired message"
         accessibilityHint="Closes the session expired notification"
       >
-        <Text style={styles.dismissText}>×</Text>
+        <Text style={styles.dismissText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          ×
+        </Text>
       </TouchableOpacity>
     </View>
   );
