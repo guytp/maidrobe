@@ -34,6 +34,13 @@ export type SignUpRequest = z.infer<typeof SignUpRequestSchema>;
 export type SignUpResponse = z.infer<typeof SignUpResponseSchema>;
 
 /**
+ * Context type for signup mutation (used for latency tracking)
+ */
+interface SignUpMutationContext {
+  startTime: number;
+}
+
+/**
  * Classifies Supabase Auth errors into standard error categories.
  *
  * @param error - The error object from Supabase or network failure
@@ -112,7 +119,11 @@ function classifyAuthError(error: unknown): ErrorClassification {
  * ```
  */
 export function useSignUp() {
-  return useMutation<SignUpResponse, Error, SignUpRequest>({
+  return useMutation<SignUpResponse, Error, SignUpRequest, SignUpMutationContext>({
+    onMutate: () => {
+      // Capture start timestamp for latency tracking
+      return { startTime: Date.now() };
+    },
     mutationFn: async (request: SignUpRequest) => {
       try {
         // Validate request
@@ -177,7 +188,10 @@ export function useSignUp() {
         throw new Error(getUserFriendlyMessage('server'));
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, _variables, context) => {
+      // Calculate request latency for performance monitoring
+      const latency = context?.startTime ? Date.now() - context.startTime : undefined;
+
       // Business logic: Update Zustand session store with authenticated user
       // This runs automatically for all signup calls, keeping UI components
       // free of business logic concerns
@@ -185,6 +199,36 @@ export function useSignUp() {
         id: data.user.id,
         email: data.user.email,
         emailVerified: !!data.user.email_confirmed_at,
+      });
+
+      // Log success with latency for observability
+      // eslint-disable-next-line no-console
+      console.log('[Telemetry]', {
+        feature: 'auth',
+        operation: 'signup',
+        status: 'success',
+        latency,
+        metadata: {
+          userId: data.user.id,
+          emailVerified: !!data.user.email_confirmed_at,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    },
+    onError: (_error, _variables, context) => {
+      // Calculate request latency for performance monitoring in error path
+      const latency = context?.startTime ? Date.now() - context.startTime : undefined;
+
+      // Log error latency for observability
+      // Note: Detailed error logging is already handled in mutationFn
+      // This captures the latency metric for failed requests
+      // eslint-disable-next-line no-console
+      console.log('[Telemetry]', {
+        feature: 'auth',
+        operation: 'signup',
+        status: 'error',
+        latency,
+        timestamp: new Date().toISOString(),
       });
     },
   });
