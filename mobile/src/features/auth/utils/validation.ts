@@ -168,3 +168,37 @@ export function validateEmail(email: string): EmailValidationResult {
     isValid: true,
   };
 }
+
+/**
+ * Validates a password for login (non-empty check only).
+ *
+ * Unlike signup password validation which enforces complexity requirements,
+ * login password validation only checks that a password was provided.
+ * This is appropriate because:
+ * - The password was already validated during signup
+ * - The server will reject invalid credentials regardless
+ * - We don't want to give hints about password requirements to attackers
+ *
+ * @param password - The password string to validate
+ * @returns Object containing validation result and optional error message
+ *
+ * @example
+ * ```typescript
+ * const result = validateLoginPassword(password);
+ * if (!result.isValid) {
+ *   setError(result.error); // Show error to user
+ * }
+ * ```
+ */
+export function validateLoginPassword(password: string): EmailValidationResult {
+  if (!password) {
+    return {
+      isValid: false,
+      error: 'Password is required',
+    };
+  }
+
+  return {
+    isValid: true,
+  };
+}

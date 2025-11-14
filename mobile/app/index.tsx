@@ -24,8 +24,8 @@ import { useStore } from '../src/core/state/store';
  *
  * Without isInitialized check:
  * - Component would see user=null immediately
- * - Would redirect to /auth/signup prematurely
- * - User with valid session would be sent to signup screen incorrectly
+ * - Would redirect to /auth/login prematurely
+ * - User with valid session would be sent to login screen incorrectly
  * - useProtectedRoute would redirect back, causing navigation flash
  *
  * With isInitialized check:
@@ -35,9 +35,15 @@ import { useStore } from '../src/core/state/store';
  * - No navigation flash or incorrect redirects
  *
  * Redirect logic (after initialization):
- * - No user -> /auth/signup
+ * - No user -> /auth/login (where users can sign in or navigate to signup)
  * - User but not verified -> /auth/verify
  * - User and verified -> /home
+ *
+ * The redirect to /auth/login (rather than /auth/signup) is intentional:
+ * - Returning users can immediately sign in
+ * - Session expired messages are displayed on the login screen via SessionExpiredBanner
+ * - New users can navigate to signup from login screen
+ * - Provides better UX for users with forced logout due to token expiration
  *
  * Note: The protected route guard in /home (useProtectedRoute) also checks
  * isInitialized and provides additional authorization checks. This root-level
@@ -68,7 +74,7 @@ export default function Index(): React.JSX.Element {
 
   // Auth initialization complete - redirect based on actual state
   if (!user) {
-    return <Redirect href="/auth/signup" />;
+    return <Redirect href="/auth/login" />;
   }
 
   if (!user.emailVerified) {

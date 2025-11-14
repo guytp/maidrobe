@@ -4,10 +4,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/core/theme';
 import { queryClient } from '../src/core/query/client';
 import { useAuthStateListener } from '../src/features/auth/hooks/useAuthStateListener';
+import { useTokenRefreshManager } from '../src/features/auth/hooks/useTokenRefreshManager';
 
 export default function RootLayout(): React.JSX.Element {
   // Global auth state listener - syncs Supabase auth with local store
   useAuthStateListener();
+
+  // Token refresh coordinator - handles proactive and reactive refresh
+  useTokenRefreshManager();
 
   return (
     <ThemeProvider>

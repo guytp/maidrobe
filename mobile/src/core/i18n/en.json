@@ -17,6 +17,35 @@
         "screenLabel": "Authentication screen",
         "screenHint": "Sign in to access your wardrobe"
       },
+      "login": {
+        "title": "Log In",
+        "subtitle": "Welcome Back",
+        "emailLabel": "Email",
+        "emailPlaceholder": "your@email.com",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Enter password",
+        "submitButton": "Log In",
+        "submitting": "Logging in...",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "errors": {
+          "invalidEmail": "Please enter a valid email address",
+          "passwordRequired": "Password is required",
+          "invalidCredentials": "Invalid email or password.",
+          "networkError": "Network error. Please try again.",
+          "updateRequired": "Please update your app.",
+          "rateLimitExceeded": "Too many login attempts. Please wait {seconds} seconds.",
+          "serviceUnavailable": "Login is temporarily unavailable. Please try again later."
+        },
+        "accessibility": {
+          "screenLabel": "Log in screen",
+          "screenHint": "Log in to access your Maidrobe account",
+          "emailInput": "Email address input field",
+          "passwordInput": "Password input field",
+          "passwordToggle": "Toggle password visibility",
+          "submitButton": "Log in button"
+        }
+      },
       "signup": {
         "title": "Create Account",
         "subtitle": "Join Maidrobe",
