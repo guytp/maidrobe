@@ -129,7 +129,7 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * - Request validation with Zod (accessToken, refreshToken, password, confirmPassword, optional userId)
  * - Session establishment via Supabase setSession with tokens from deep link
  * - Client-side password policy enforcement (length, character classes, symbol)
- * - Password reuse checking when userId is provided (stub implementation, TODO: backend integration)
+ * - Password reuse checking when userId is provided (via Edge Function backend)
  * - Supabase Auth updateUser API call to change password
  * - Telemetry event logging (reset_succeeded, reset_failed)
  * - Sentry error capture for failures (via logError)
@@ -142,7 +142,7 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * - At least 1 lowercase letter
  * - At least 1 number
  * - At least 1 special character/symbol
- * - No reuse of last 3 passwords (stub - needs backend integration)
+ * - No reuse of last 3 passwords (enforced via Edge Function)
  *
  * Token Handling (Supabase Deep Link Flow):
  * - User receives email with reset link: maidrobe://reset-password#access_token=XXX&refresh_token=YYY&type=recovery
@@ -303,9 +303,9 @@ export function useResetPassword() {
           throw error;
         }
 
-        // 3. Check password reuse (stub implementation)
-        // TODO: Replace with actual backend integration
-        // For now, this always returns isReused: false
+        // 3. Check password reuse via Edge Function
+        // Calls 'check-password-reuse' Edge Function which securely compares
+        // the new password against last 3 password hashes stored in password_history table
         // Password reuse checking only runs when userId is provided by the calling component
         if (userId) {
           const reuseCheck = await checkPasswordReuse(userId, password);

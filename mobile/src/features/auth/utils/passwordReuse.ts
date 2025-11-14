@@ -5,24 +5,32 @@
  * This module provides client-side coordination for password reuse validation.
  * The actual password comparison MUST occur server-side using secure hashing.
  *
- * Backend Requirements:
- * - Store password hashes (bcrypt/argon2) in secure password history table
- * - Implement RPC function or Edge Function to compare new password against history
- * - Return only boolean result (never expose hashes to client)
- * - Enforce PASSWORD_HISTORY_LIMIT on server side as well
- * - Clean up old password history entries beyond the limit
+ * Backend Implementation:
+ * Uses Supabase Edge Function 'check-password-reuse' located at:
+ * edge-functions/supabase/functions/check-password-reuse/index.ts
+ *
+ * The Edge Function:
+ * - Receives userId and newPassword over HTTPS
+ * - Queries password_history table for last 3 password hashes
+ * - Uses bcrypt to compare new password against historical hashes
+ * - Returns { isReused: boolean } (never exposes hashes to client)
+ * - Fails open on errors to prevent DoS
+ *
+ * Database Requirements:
+ * - password_history table with user_id, password_hash, created_at columns
+ * - Index on (user_id, created_at DESC) for query performance
+ * - Table populated via trigger when passwords are changed
+ * - If table doesn't exist, function fails open (allows password change)
  *
  * Client-Side Role:
- * - Call backend API to check password reuse
+ * - Call Edge Function via supabase.functions.invoke()
  * - Display user-friendly error messages
  * - Handle network/server errors gracefully
- * - Never send or store plaintext passwords
- *
- * Integration Points:
- * - Supabase RPC function: supabase.rpc('check_password_reuse', { userId, newPassword })
- * - Supabase Edge Function: POST /functions/v1/check-password-reuse
- * - Custom backend API endpoint
+ * - Never send or store plaintext passwords beyond API call
+ * - Fail open on errors to prevent user being locked out
  */
+
+import { supabase } from '../../../services/supabase';
 
 /**
  * Number of previous passwords to check for reuse.
@@ -39,121 +47,47 @@ export interface PasswordReuseCheckResult {
 }
 
 /**
- * Checks if a new password has been used recently (stub implementation).
+ * Checks if a new password has been used recently.
  *
- * CURRENT IMPLEMENTATION:
- * This is a stub that always returns { isReused: false } to allow
- * development to proceed. It must be replaced with actual backend
- * integration before production deployment.
+ * IMPLEMENTATION:
+ * Calls the 'check-password-reuse' Supabase Edge Function which:
+ * - Queries password_history table for user's last 3 password hashes
+ * - Uses bcrypt to securely compare new password against historical hashes
+ * - Returns { isReused: boolean } without exposing any password hashes
+ * - Fails open on errors (returns isReused: false) to prevent user lockout
  *
- * PRODUCTION IMPLEMENTATION REQUIRED:
- * Replace this stub with one of the following backend integrations:
- *
- * Option 1: Supabase RPC Function
- * ```typescript
- * const { data, error } = await supabase.rpc('check_password_reuse', {
- *   user_id: userId,
- *   new_password: newPassword,
- * });
- *
- * if (error) {
- *   return { isReused: false, error: 'Unable to verify password' };
- * }
- *
- * return { isReused: data.is_reused };
- * ```
- *
- * Option 2: Supabase Edge Function
- * ```typescript
- * const { data, error } = await supabase.functions.invoke('check-password-reuse', {
- *   body: { userId, newPassword },
- * });
- *
- * if (error) {
- *   return { isReused: false, error: 'Unable to verify password' };
- * }
- *
- * return { isReused: data.isReused };
- * ```
- *
- * Option 3: Custom API Endpoint
- * ```typescript
- * const response = await fetch('/api/auth/check-password-reuse', {
- *   method: 'POST',
- *   headers: { 'Content-Type': 'application/json' },
- *   body: JSON.stringify({ userId, newPassword }),
- * });
- *
- * const data = await response.json();
- * return { isReused: data.isReused };
- * ```
- *
- * BACKEND REQUIREMENTS:
- * The backend implementation must:
- * 1. Hash the new password using the same algorithm as signup (bcrypt/argon2)
- * 2. Query password_history table for user's last N password hashes
- * 3. Compare new password hash against each historical hash
- * 4. Return { is_reused: boolean } (never expose the hashes)
- * 5. Handle errors gracefully (fail-open: allow password if check fails)
- * 6. Log attempts for security monitoring
- * 7. Rate limit to prevent abuse
- *
- * SECURITY CONSIDERATIONS:
- * - NEVER send plaintext passwords over the network unencrypted (use HTTPS)
- * - NEVER store plaintext passwords in database
- * - NEVER log plaintext passwords
- * - Backend must hash password before comparison
+ * SECURITY:
+ * - Password sent over HTTPS (encrypted in transit)
+ * - Comparison happens server-side using bcrypt
  * - Client receives only boolean result
- * - Fail-open on errors to prevent DoS (user can proceed if check fails)
- * - Rate limit backend endpoint to prevent brute force
+ * - Never logs plaintext passwords
+ * - Fails open on errors to prevent DoS
  *
- * DATABASE SCHEMA EXAMPLE:
+ * DATABASE REQUIREMENTS:
+ * Requires password_history table with schema:
  * ```sql
  * CREATE TABLE password_history (
  *   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
  *   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
  *   password_hash TEXT NOT NULL,
- *   created_at TIMESTAMPTZ DEFAULT NOW(),
- *   CONSTRAINT unique_user_password UNIQUE (user_id, password_hash)
+ *   created_at TIMESTAMPTZ DEFAULT NOW()
  * );
- *
  * CREATE INDEX idx_password_history_user_created
  *   ON password_history(user_id, created_at DESC);
  * ```
  *
- * RPC FUNCTION EXAMPLE:
- * ```sql
- * CREATE OR REPLACE FUNCTION check_password_reuse(
- *   user_id UUID,
- *   new_password TEXT
- * )
- * RETURNS TABLE(is_reused BOOLEAN) AS $$
- * DECLARE
- *   historical_hash TEXT;
- *   new_hash TEXT;
- * BEGIN
- *   -- Hash the new password (using crypt function with stored salt)
- *   -- This is pseudocode - actual implementation depends on hash algorithm
- *   new_hash := crypt(new_password, gen_salt('bf'));
+ * The table should be populated via database trigger when passwords change.
+ * If the table doesn't exist, the Edge Function will fail open (allow password).
  *
- *   -- Check against last N passwords
- *   FOR historical_hash IN
- *     SELECT password_hash
- *     FROM password_history
- *     WHERE user_id = user_id
- *     ORDER BY created_at DESC
- *     LIMIT 3
- *   LOOP
- *     IF new_hash = historical_hash THEN
- *       RETURN QUERY SELECT TRUE;
- *       RETURN;
- *     END IF;
- *   END LOOP;
+ * ERROR HANDLING:
+ * This function implements fail-open behavior:
+ * - Network errors: Allow password change (return isReused: false)
+ * - Backend errors: Allow password change (return isReused: false)
+ * - Missing table: Allow password change (return isReused: false)
+ * - Invalid response: Allow password change (return isReused: false)
  *
- *   RETURN QUERY SELECT FALSE;
- * END;
- * $$ LANGUAGE plpgsql SECURITY DEFINER;
- * ```
+ * This ensures users are never locked out due to infrastructure issues
+ * while still providing security when the system is functioning correctly.
  *
  * @param userId - The user ID to check password history for
  * @param newPassword - The new password to validate (will be hashed server-side)
@@ -175,61 +109,48 @@ export async function checkPasswordReuse(
   userId: string,
   newPassword: string
 ): Promise<PasswordReuseCheckResult> {
-  // STUB IMPLEMENTATION
-  // TODO: Replace with actual backend integration before production
-  //
-  // This stub allows development and testing to proceed without
-  // blocking on backend implementation. The password reset flow
-  // will work but will not enforce the reuse restriction.
-  //
-  // PRODUCTION DEPLOYMENT BLOCKER:
-  // This function must be replaced with real backend integration
-  // before deploying to production. The user story requires:
-  // "Disallow reuse of last three passwords"
-  //
-  // See function JSDoc above for implementation options and examples.
-
-  // Simulate async operation
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  // For development: log when this stub is called
-  // eslint-disable-next-line no-console
-  console.warn('[PasswordReuse] STUB: Password reuse check called for user:', userId);
-  // eslint-disable-next-line no-console
-  console.warn('[PasswordReuse] STUB: Production implementation required');
-
-  // Always return not reused (permissive stub)
-  return {
-    isReused: false,
-  };
-
-  // PRODUCTION IMPLEMENTATION EXAMPLE (commented out):
-  /*
   try {
-    const { data, error } = await supabase.rpc('check_password_reuse', {
-      user_id: userId,
-      new_password: newPassword,
+    // Call Supabase Edge Function to check password reuse
+    const { data, error } = await supabase.functions.invoke('check-password-reuse', {
+      body: {
+        userId,
+        newPassword,
+      },
     });
 
+    // Handle Edge Function invocation errors
     if (error) {
       // Log error but fail-open (allow password change)
-      console.error('[PasswordReuse] Backend check failed:', error);
+      // eslint-disable-next-line no-console
+      console.error('[PasswordReuse] Edge Function error:', error);
       return {
         isReused: false,
         error: 'Unable to verify password history',
       };
     }
 
+    // Validate response structure
+    if (!data || typeof data.isReused !== 'boolean') {
+      // eslint-disable-next-line no-console
+      console.error('[PasswordReuse] Invalid response format:', data);
+      return {
+        isReused: false,
+        error: 'Invalid response from password check service',
+      };
+    }
+
+    // Return the result from Edge Function
     return {
-      isReused: data?.is_reused || false,
+      isReused: data.isReused,
+      error: data.error,
     };
   } catch (error) {
     // Network or unexpected error - fail-open
+    // eslint-disable-next-line no-console
     console.error('[PasswordReuse] Unexpected error:', error);
     return {
       isReused: false,
       error: 'Unable to verify password history',
     };
   }
-  */
 }
