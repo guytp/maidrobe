@@ -405,11 +405,26 @@ export function useLogin() {
       // Store token metadata (expiry time and type) - NOT the actual tokens
       // SECURITY: Tokens are stored encrypted in SecureStore by Supabase client
       // We only store metadata for UI/logic purposes (e.g., showing "session expires in X")
-      // Note: Supabase session.expires_at is typically undefined in signInWithPassword response
-      // Token expiry is calculated by Supabase based on expires_in (usually 3600 seconds)
-      // We'll set a default expiry of 1 hour from now if not provided
-      const expiresInSeconds = 3600; // Default: 1 hour (Supabase standard)
-      const expiresAt = Date.now() + expiresInSeconds * 1000;
+      //
+      // Token expiry derivation strategy:
+      // 1. Use session.expires_at if provided (absolute timestamp in seconds)
+      // 2. Calculate from session.expires_in if provided (relative seconds)
+      // 3. Fall back to 3600 seconds (1 hour) if neither provided
+      //
+      // This ensures token metadata accurately reflects the actual token lifetime
+      // from Supabase, enabling precise proactive refresh scheduling.
+      let expiresAt: number;
+      if (data.session.expires_at) {
+        // Supabase provides expires_at as unix timestamp in seconds
+        // Convert to milliseconds for JavaScript Date
+        expiresAt = data.session.expires_at * 1000;
+      } else if (data.session.expires_in) {
+        // Calculate absolute expiry from relative expires_in (seconds)
+        expiresAt = Date.now() + data.session.expires_in * 1000;
+      } else {
+        // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
+        expiresAt = Date.now() + 3600 * 1000;
+      }
       useStore.getState().setTokenMetadata(expiresAt, data.session.token_type || 'bearer');
 
       // Clear any logout reason from forced logout
