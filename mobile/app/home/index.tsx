@@ -4,15 +4,19 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
 import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
+import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 
 /**
  * Home screen component displaying app title and description.
  * Implements i18n, theming, and WCAG 2.1 AA accessibility standards.
  * Demonstrates server-state integration with healthcheck status.
  *
+ * Protected route: requires authenticated user with verified email.
+ *
  * @returns Home screen component with accessibility support
  */
 export default function HomeScreen(): React.JSX.Element {
+  const isAuthorized = useProtectedRoute();
   const { colors, colorScheme } = useTheme();
   const { data: healthcheck, isLoading, error } = useHealthcheck();
 
@@ -72,6 +76,22 @@ export default function HomeScreen(): React.JSX.Element {
       }),
     [colors]
   );
+
+  // Show nothing while checking authorization or redirecting
+  if (!isAuthorized) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.textPrimary} />
+      </View>
+    );
+  }
 
   // Note: useTheme provides isReduceMotionEnabled for future animation implementations
   // This screen currently has no animations, so it is not destructured from the hook

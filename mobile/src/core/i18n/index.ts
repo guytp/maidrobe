@@ -1,6 +1,52 @@
 /**
  * @fileoverview Internationalization (i18n) utilities for app-wide translations.
  * @module core/i18n
+ *
+ * INTERPOLATION STRATEGY:
+ * This i18n implementation uses manual string replacement for dynamic values rather
+ * than automatic interpolation. This keeps the system simple, lightweight, and
+ * dependency-free while providing full control over value formatting.
+ *
+ * Template Syntax:
+ * - Use single curly braces: {placeholder}
+ * - Example: "Please wait {seconds} seconds"
+ * - NOT supported: {{placeholder}}, ${placeholder}, %s, etc.
+ *
+ * How to Use Dynamic Values:
+ * 1. Define translation with placeholder: "Cooldown: {seconds} seconds"
+ * 2. Retrieve translation: t('screens.auth.verify.cooldownMessage')
+ * 3. Replace manually: .replace('{seconds}', value.toString())
+ *
+ * Example Usage:
+ * ```typescript
+ * // In en.json:
+ * "message": "Hello {name}, you have {count} items"
+ *
+ * // In component:
+ * const msg = t('message')
+ *   .replace('{name}', userName)
+ *   .replace('{count}', itemCount.toString());
+ * ```
+ *
+ * Why Manual Interpolation?
+ * - Simple: No additional dependencies or complex configuration
+ * - Explicit: Clear what values are being inserted where
+ * - Flexible: Full control over formatting, type conversion, and escaping
+ * - Type-safe: TypeScript validates translation keys at compile time
+ * - Lightweight: Minimal bundle size impact
+ *
+ * Limitations:
+ * - No automatic pluralization (must define separate keys for singular/plural)
+ * - No automatic number/date formatting (handle in component before .replace())
+ * - No nested object interpolation (use multiple .replace() calls)
+ * - No automatic HTML escaping (ensure values are safe before interpolation)
+ *
+ * Future Migration:
+ * If advanced interpolation features are needed (pluralization, date formatting,
+ * gender agreement), consider migrating to i18next or react-intl. The current
+ * {placeholder} syntax is compatible with most i18n libraries.
+ *
+ * @see en.json for translation file structure and placeholder conventions
  */
 
 import { I18nManager } from 'react-native';
@@ -32,11 +78,31 @@ type TranslationKey = NestedKeyOf<TranslationKeys>;
 /**
  * Retrieves a translation string by its nested key path.
  *
+ * This function returns plain strings WITHOUT automatic interpolation.
+ * For dynamic values, use manual .replace() calls on the returned string.
+ *
  * @param key - Dot-notation path to the translation (e.g., 'screens.home.title')
- * @returns The translated string
+ * @returns The translated string with placeholders intact (e.g., "Wait {seconds}s")
  *
  * @example
+ * // Simple translation (no placeholders)
  * const title = t('screens.home.title'); // Returns "Maidrobe"
+ *
+ * @example
+ * // Translation with manual interpolation
+ * const cooldown = t('screens.auth.verify.cooldownMessage')
+ *   .replace('{seconds}', '30'); // Returns "Please wait 30 seconds before resending"
+ *
+ * @example
+ * // Multiple placeholders
+ * const message = t('some.message')
+ *   .replace('{name}', userName)
+ *   .replace('{count}', itemCount.toString());
+ *
+ * @remarks
+ * The function does NOT perform automatic interpolation. Placeholders like {seconds}
+ * will be returned as-is in the string. You must manually call .replace() to
+ * substitute dynamic values.
  */
 export function t(key: TranslationKey): string {
   const keys = key.split('.');

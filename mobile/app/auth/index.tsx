@@ -27,7 +27,8 @@ export default function AuthScreen(): React.JSX.Element {
     } else {
       setUser({
         id: 'demo-123',
-        name: 'Demo User',
+        email: 'demo@example.com',
+        emailVerified: true,
       });
     }
   };
@@ -130,7 +131,7 @@ export default function AuthScreen(): React.JSX.Element {
           Current User
         </Text>
         <Text style={styles.userStatusValue} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {user ? user.name : 'Not logged in'}
+          {user ? user.email : 'Not logged in'}
         </Text>
 
         <TouchableOpacity

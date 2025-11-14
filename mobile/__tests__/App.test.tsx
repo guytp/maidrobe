@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomeScreen from '../app/home/index';
 import { ThemeProvider } from '../src/core/theme';
 
+// Mock useProtectedRoute to return true (authorized) by default
+jest.mock('../src/features/auth/hooks/useProtectedRoute', () => ({
+  useProtectedRoute: jest.fn(() => true),
+}));
+
 /**
  * Test wrapper that provides theme and query client context to components.
  */

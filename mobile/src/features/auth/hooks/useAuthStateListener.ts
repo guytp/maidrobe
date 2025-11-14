@@ -1,0 +1,205 @@
+import { useEffect, useRef } from 'react';
+import { useRouter, useSegments } from 'expo-router';
+import { supabase } from '../../../services/supabase';
+import { useStore } from '../../../core/state/store';
+import { logError } from '../../../core/telemetry';
+
+/**
+ * Global auth state listener hook.
+ *
+ * This hook subscribes to Supabase auth state changes and:
+ * - Syncs auth state with the local Zustand store
+ * - Updates emailVerified status when user confirms email
+ * - Refreshes session to get latest user data
+ * - Navigates from verification screen to home when verified
+ * - Handles sign out by clearing local state
+ * - Fetches initial session on mount
+ *
+ * Should be called once at app root level (_layout.tsx).
+ *
+ * Events handled:
+ * - SIGNED_IN: User signs in
+ * - SIGNED_OUT: User signs out
+ * - USER_UPDATED: User data changed (email verified)
+ * - TOKEN_REFRESHED: Token refreshed
+ *
+ * Navigation rules:
+ * - Only navigates when on /auth/verify screen
+ * - Navigates to /home when email is verified
+ * - Uses router.replace to prevent back navigation
+ *
+ * Implementation notes:
+ * - Effect runs once on mount and sets up persistent subscription
+ * - router and segments accessed via refs to get current values
+ * - Refs updated on every render to ensure navigation uses latest route state
+ * - Prevents effect re-runs while allowing access to current router/segments
+ * - Zustand store actions (setUser, clearUser) are stable and safe in deps
+ *
+ * Edge cases handled:
+ * - Route changes during auth state transition: refs ensure current route checked
+ * - Component unmount: subscription cleanup prevents memory leaks
+ * - Multiple rapid auth changes: each handled with current route state
+ * - Navigation during listener active: refs provide latest router reference
+ *
+ * @example
+ * ```typescript
+ * // In app/_layout.tsx
+ * export default function RootLayout() {
+ *   useAuthStateListener();
+ *   return <Stack />;
+ * }
+ * ```
+ */
+export function useAuthStateListener() {
+  const router = useRouter();
+  const segments = useSegments();
+  const setUser = useStore((state) => state.setUser);
+  const clearUser = useStore((state) => state.clearUser);
+  const setInitialized = useStore((state) => state.setInitialized);
+
+  // Use refs to store latest router and segments values
+  // This allows the effect to access current values without re-running
+  const routerRef = useRef(router);
+  const segmentsRef = useRef(segments);
+
+  // Update refs on every render to ensure they're current
+  useEffect(() => {
+    routerRef.current = router;
+    segmentsRef.current = segments;
+  });
+
+  useEffect(() => {
+    // Fetch initial session on mount
+    const initializeAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          logError(error, 'server', {
+            feature: 'auth',
+            operation: 'get-session',
+            metadata: { message: error.message },
+          });
+          // Mark as initialized even on error to prevent indefinite waiting
+          setInitialized(true);
+          return;
+        }
+
+        if (data.session?.user) {
+          const user = data.session.user;
+          setUser({
+            id: user.id,
+            email: user.email || '',
+            emailVerified: !!user.email_confirmed_at,
+          });
+
+          // eslint-disable-next-line no-console
+          console.log('[Auth] Initial session loaded', {
+            userId: user.id,
+            emailVerified: !!user.email_confirmed_at,
+          });
+        }
+
+        // Mark auth initialization as complete
+        setInitialized(true);
+      } catch (error) {
+        logError(error instanceof Error ? error : new Error('Unknown error'), 'server', {
+          feature: 'auth',
+          operation: 'initialize-auth',
+        });
+        // Mark as initialized even on error to prevent indefinite waiting
+        setInitialized(true);
+      }
+    };
+
+    // Initialize auth state
+    initializeAuth();
+
+    // Subscribe to auth state changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // eslint-disable-next-line no-console
+      console.log('[Auth] State change:', event, {
+        hasSession: !!session,
+        emailConfirmed: !!session?.user?.email_confirmed_at,
+      });
+
+      try {
+        // Handle sign in and user updates
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+          if (session?.user) {
+            const user = session.user;
+            const isEmailVerified = !!user.email_confirmed_at;
+
+            // Update user in store
+            setUser({
+              id: user.id,
+              email: user.email || '',
+              emailVerified: isEmailVerified,
+            });
+
+            // If email was just verified, refresh session and navigate
+            if (isEmailVerified && event === 'USER_UPDATED') {
+              // eslint-disable-next-line no-console
+              console.log('[Auth] Email verified, refreshing session');
+
+              // Refresh session to ensure we have latest data
+              const { error: refreshError } = await supabase.auth.refreshSession();
+              if (refreshError) {
+                logError(refreshError, 'server', {
+                  feature: 'auth',
+                  operation: 'refresh-session',
+                  metadata: { event },
+                });
+              }
+
+              // Navigate to home if currently on verify screen
+              // Use ref to access current segments without effect re-running
+              const isOnVerifyScreen = segmentsRef.current.includes('verify');
+              if (isOnVerifyScreen) {
+                // eslint-disable-next-line no-console
+                console.log('[Auth] Navigating from verify screen to home');
+                // Use ref to access current router without effect re-running
+                routerRef.current.replace('/home');
+              }
+
+              // Log telemetry
+              // eslint-disable-next-line no-console
+              console.log('[Telemetry]', {
+                feature: 'auth',
+                operation: 'email-verified',
+                metadata: {
+                  userId: user.id,
+                  navigated: isOnVerifyScreen,
+                },
+              });
+            }
+          }
+        }
+
+        // Handle sign out
+        if (event === 'SIGNED_OUT') {
+          // eslint-disable-next-line no-console
+          console.log('[Auth] User signed out, clearing store');
+          clearUser();
+        }
+      } catch (error) {
+        logError(error instanceof Error ? error : new Error('Unknown error'), 'server', {
+          feature: 'auth',
+          operation: 'auth-state-change',
+          metadata: { event },
+        });
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log('[Auth] Unsubscribing from auth state changes');
+      subscription.unsubscribe();
+    };
+    // Stable Zustand store actions - don't cause re-runs
+    // router and segments accessed via refs to get current values
+  }, [setUser, clearUser, setInitialized]);
+}
