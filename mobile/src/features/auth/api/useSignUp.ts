@@ -90,6 +90,14 @@ function classifyAuthError(error: unknown): ErrorClassification {
  * - Error classification and telemetry logging
  * - User-friendly error message generation
  * - Automatic user session state management (sets authenticated user in store)
+ * - Retry logic with exponential backoff and jitter for transient failures
+ *
+ * Retry Strategy:
+ * - Retries up to 3 times for network/server errors
+ * - Does NOT retry user validation or schema errors (permanent failures)
+ * - Uses exponential backoff: 1s, 2s, 4s (plus jitter)
+ * - Jitter (0-1000ms) prevents thundering herd problem
+ * - Max delay capped at 30 seconds
  *
  * Business logic (setting user in Zustand store) is handled automatically
  * in the mutation's onSuccess handler. Components can provide additional
@@ -120,6 +128,33 @@ function classifyAuthError(error: unknown): ErrorClassification {
  */
 export function useSignUp() {
   return useMutation<SignUpResponse, Error, SignUpRequest, SignUpMutationContext>({
+    // Retry configuration with exponential backoff and jitter
+    // Only retry on network/server errors, not user validation errors
+    retry: (failureCount, error) => {
+      // Don't retry user validation errors or schema errors
+      // These are permanent failures that won't succeed on retry
+      const message = error.message;
+      if (
+        message.includes('Invalid request') ||
+        message.includes('unexpected response') ||
+        message.includes('check your input')
+      ) {
+        return false;
+      }
+
+      // Retry up to 3 times for transient network/server errors
+      return failureCount < 3;
+    },
+    // Exponential backoff with jitter to avoid thundering herd
+    // Formula: min(baseDelay * 2^attempt + random jitter, maxDelay)
+    retryDelay: (attemptIndex) => {
+      const baseDelay = 1000; // 1 second base
+      const exponentialDelay = baseDelay * Math.pow(2, attemptIndex);
+      const jitter = Math.random() * 1000; // 0-1000ms jitter
+      const totalDelay = exponentialDelay + jitter;
+      const maxDelay = 30000; // Cap at 30 seconds
+      return Math.min(totalDelay, maxDelay);
+    },
     onMutate: () => {
       // Capture start timestamp for latency tracking
       return { startTime: Date.now() };
