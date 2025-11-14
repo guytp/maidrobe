@@ -33,7 +33,9 @@
           "passwordRequired": "Password is required",
           "invalidCredentials": "Invalid email or password.",
           "networkError": "Network error. Please try again.",
-          "updateRequired": "Please update your app."
+          "updateRequired": "Please update your app.",
+          "rateLimitExceeded": "Too many login attempts. Please wait {seconds} seconds.",
+          "serviceUnavailable": "Login is temporarily unavailable. Please try again later."
         },
         "accessibility": {
           "screenLabel": "Log in screen",

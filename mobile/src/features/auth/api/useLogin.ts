@@ -5,6 +5,7 @@ import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/te
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
+import { t } from '../../../core/i18n';
 
 /**
  * Zod schema for login request validation
@@ -134,7 +135,7 @@ function classifyLoginError(error: unknown): ErrorClassification {
  * Gets user-friendly error message for login failures.
  *
  * Maps error classifications to specific user-facing messages that match
- * the acceptance criteria.
+ * the acceptance criteria. Uses i18n for all user-facing text.
  *
  * @param classification - The error classification
  * @param error - The original error object for specific message detection
@@ -150,17 +151,17 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
       message.includes('incorrect') ||
       message.includes('wrong')
     ) {
-      return 'Invalid email or password.';
+      return t('screens.auth.login.errors.invalidCredentials');
     }
   }
 
   // Map classification to acceptance criteria messages
   if (classification === 'network') {
-    return 'Network error. Please try again.';
+    return t('screens.auth.login.errors.networkError');
   }
 
   if (classification === 'user') {
-    return 'Invalid email or password.';
+    return t('screens.auth.login.errors.invalidCredentials');
   }
 
   // Default to server error message
@@ -228,11 +229,11 @@ export function useLogin() {
       // Don't retry user validation errors or invalid credentials
       const message = error.message;
       if (
-        message.includes('Invalid email or password') ||
+        message.includes(t('screens.auth.login.errors.invalidCredentials')) ||
         message.includes('Invalid request') ||
         message.includes('check your input') ||
-        message.includes('Rate limit') ||
-        message.includes('Please update')
+        (message.includes('wait') && message.includes('seconds')) || // Rate limit check
+        message.includes(t('screens.auth.login.errors.updateRequired'))
       ) {
         return false;
       }
@@ -261,7 +262,10 @@ export function useLogin() {
         const rateLimit = checkRateLimit();
         if (!rateLimit.allowed) {
           const error = new Error(
-            `Too many login attempts. Please wait ${rateLimit.remainingSeconds} seconds.`
+            t('screens.auth.login.errors.rateLimitExceeded').replace(
+              '{seconds}',
+              rateLimit.remainingSeconds.toString()
+            )
           );
           logError(error, 'user', {
             feature: 'auth',
@@ -278,7 +282,7 @@ export function useLogin() {
         const featureFlag = await checkFeatureFlag('auth.login');
 
         if (featureFlag.requiresUpdate) {
-          const error = new Error('Please update your app.');
+          const error = new Error(t('screens.auth.login.errors.updateRequired'));
           logError(error, 'user', {
             feature: 'auth',
             operation: 'login',
@@ -291,7 +295,7 @@ export function useLogin() {
         }
 
         if (!featureFlag.enabled) {
-          const error = new Error('Login is temporarily unavailable. Please try again later.');
+          const error = new Error(t('screens.auth.login.errors.serviceUnavailable'));
           logError(error, 'server', {
             feature: 'auth',
             operation: 'login',
