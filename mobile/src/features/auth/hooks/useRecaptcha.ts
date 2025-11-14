@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { logAuthEvent } from '../../../core/telemetry';
+import { supabase } from '../../../services/supabase';
 
 /**
  * useRecaptcha hook - Google reCAPTCHA v3 integration for React Native
@@ -12,22 +13,50 @@ import { logAuthEvent } from '../../../core/telemetry';
  *
  * SECURITY DESIGN:
  * - Uses reCAPTCHA v3 for invisible bot detection
- * - Returns token for server-side verification
+ * - Token generated client-side, verified server-side
+ * - Backend checks score threshold (0.0-1.0, default 0.5)
  * - Emits telemetry for monitoring abuse patterns
  * - Fails open (returns success) if reCAPTCHA unavailable
  *
- * IMPLEMENTATION STATUS:
- * Currently returns a stub implementation that:
- * - Checks feature flag
- * - Emits telemetry events
- * - Always succeeds (returns empty token)
- * - Ready for actual reCAPTCHA SDK integration
+ * IMPLEMENTATION:
+ * This hook integrates with Google reCAPTCHA v3 using a two-step process:
+ * 1. Client generates token (currently mock, see TODO below)
+ * 2. Backend verification via 'verify-recaptcha' Edge Function
  *
- * TODO: Integrate actual reCAPTCHA SDK when ready
- * - Install @google-cloud/recaptcha-enterprise or similar
- * - Add reCAPTCHA site key to env config
- * - Implement token generation
- * - Add server-side verification endpoint
+ * The Edge Function:
+ * - Calls Google reCAPTCHA verification API
+ * - Validates token authenticity
+ * - Checks risk score against threshold
+ * - Returns success/failure result
+ *
+ * REACT NATIVE LIMITATION:
+ * Google reCAPTCHA v3 requires a web browser context (DOM, grecaptcha object).
+ * For full implementation in React Native, use one of these approaches:
+ *
+ * Option A: WebView Integration (Recommended)
+ * - Install: react-native-webview
+ * - Create hidden WebView with reCAPTCHA HTML
+ * - Execute grecaptcha.execute() in WebView
+ * - Extract token via postMessage bridge
+ * - See implementation guide in README
+ *
+ * Option B: Web Platform Only
+ * - Use Expo's web build with standard reCAPTCHA script
+ * - Mobile apps skip or use alternative verification
+ *
+ * CURRENT STATUS:
+ * - Backend verification: IMPLEMENTED (verify-recaptcha Edge Function)
+ * - Client token generation: MOCK (for testing, see TODO below)
+ * - Feature flag integration: COMPLETE
+ * - Telemetry: COMPLETE
+ *
+ * TODO: Full WebView Integration
+ * - Add react-native-webview dependency
+ * - Create RecaptchaWebView component
+ * - Load HTML with reCAPTCHA v3 script
+ * - Implement postMessage bridge for token extraction
+ * - Replace mock token generation with real WebView execution
+ * - Add EXPO_PUBLIC_RECAPTCHA_SITE_KEY environment variable
  *
  * @example
  * ```typescript
@@ -53,6 +82,23 @@ export interface RecaptchaResult {
 export interface UseRecaptchaReturn {
   executeRecaptcha: (action: string) => Promise<RecaptchaResult>;
   isLoading: boolean;
+}
+
+/**
+ * Generates a mock reCAPTCHA token for testing backend integration.
+ *
+ * TODO: Replace with real token generation using WebView
+ * This mock allows backend verification endpoint to be developed and tested.
+ *
+ * @param action - The action name for this reCAPTCHA execution
+ * @returns Mock token string
+ */
+function generateMockToken(action: string): string {
+  // Generate a mock token that looks realistic for testing
+  // Format: action_timestamp_random
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 15);
+  return `mock_${action}_${timestamp}_${random}`;
 }
 
 /**
@@ -93,42 +139,116 @@ export function useRecaptcha(): UseRecaptchaReturn {
         },
       });
 
-      // STUB IMPLEMENTATION
-      // TODO: Replace with actual reCAPTCHA SDK integration
-      // Example integration:
-      // ```typescript
-      // import { GoogleReCaptcha } from '@google-cloud/recaptcha-enterprise';
+      // STEP 1: Generate reCAPTCHA token
+      // TODO: Replace with real WebView-based token generation
+      // For now, generate a mock token for testing backend integration
       //
-      // const recaptcha = new GoogleReCaptcha({
-      //   siteKey: process.env.RECAPTCHA_SITE_KEY,
-      // });
+      // Full WebView implementation would:
+      // 1. Create hidden WebView with reCAPTCHA HTML
+      // 2. Execute grecaptcha.execute(siteKey, {action})
+      // 3. Extract token via postMessage
+      // 4. Return token for verification
       //
-      // const token = await recaptcha.execute(action);
+      // Example WebView HTML:
+      // ```html
+      // <script src="https://www.google.com/recaptcha/api.js?render=SITE_KEY"></script>
+      // <script>
+      //   grecaptcha.ready(() => {
+      //     grecaptcha.execute('SITE_KEY', {action: 'ACTION'})
+      //       .then(token => window.ReactNativeWebView.postMessage(JSON.stringify({token})));
+      //   });
+      // </script>
       // ```
+      const clientToken = generateMockToken(action);
 
-      // Simulate async operation
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // STEP 2: Verify token with backend
+      // Call Edge Function to verify the token with Google's API
+      const { data, error } = await supabase.functions.invoke('verify-recaptcha', {
+        body: {
+          token: clientToken,
+          action,
+        },
+      });
 
-      // For now, always return success with empty token
-      // Server should handle missing token gracefully
-      const result: RecaptchaResult = {
-        success: true,
-        token: '', // Empty token indicates stub mode
-      };
+      // Handle Edge Function invocation errors
+      if (error) {
+        // Log error but fail open
+        // eslint-disable-next-line no-console
+        console.error('[ReCAPTCHA] Verification error:', error);
+        logAuthEvent('recaptcha-failed', {
+          outcome: 'verification_error',
+          metadata: {
+            action,
+            error: error.message,
+          },
+        });
 
+        // Fail open - allow user to proceed
+        return {
+          success: true,
+          token: clientToken,
+          error: 'Verification unavailable',
+        };
+      }
+
+      // Check verification result
+      if (!data || data.success === undefined) {
+        // Invalid response format
+        // eslint-disable-next-line no-console
+        console.error('[ReCAPTCHA] Invalid response:', data);
+        logAuthEvent('recaptcha-failed', {
+          outcome: 'invalid_response',
+          metadata: {
+            action,
+          },
+        });
+
+        // Fail open
+        return {
+          success: true,
+          token: clientToken,
+          error: 'Invalid verification response',
+        };
+      }
+
+      if (!data.success) {
+        // Verification failed (low score or other issue)
+        logAuthEvent('recaptcha-failed', {
+          outcome: 'verification_failed',
+          metadata: {
+            action,
+            score: data.score,
+            error: data.error,
+          },
+        });
+
+        return {
+          success: false,
+          token: clientToken,
+          error: data.error || 'Verification failed',
+        };
+      }
+
+      // Verification succeeded
       logAuthEvent('recaptcha-succeeded', {
         outcome: 'success',
         metadata: {
           action,
-          stubMode: true,
+          score: data.score,
+          mockMode: true, // Remove when real tokens are generated
         },
       });
 
-      return result;
+      return {
+        success: true,
+        token: clientToken,
+      };
     } catch (error) {
-      // Log failure
+      // Unexpected error - log and fail open
+      // eslint-disable-next-line no-console
+      console.error('[ReCAPTCHA] Unexpected error:', error);
       logAuthEvent('recaptcha-failed', {
-        outcome: 'failure',
+        outcome: 'unexpected_error',
         metadata: {
           action,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -136,7 +256,6 @@ export function useRecaptcha(): UseRecaptchaReturn {
       });
 
       // Fail open - return success to not block users
-      // In production, consider failing closed for high-security actions
       return {
         success: true,
         token: '',
