@@ -80,7 +80,7 @@ describe('SignupScreen', () => {
     });
 
     const passwordInput = getByPlaceholderText('Enter password');
-    const toggleButton = getByText('Show');
+    const toggleButton = getByText('Show password');
 
     // Initially password should be hidden
     expect(passwordInput.props.secureTextEntry).toBe(true);
@@ -90,7 +90,7 @@ describe('SignupScreen', () => {
     expect(passwordInput.props.secureTextEntry).toBe(false);
 
     // Click to hide password again
-    const hideButton = getByText('Hide');
+    const hideButton = getByText('Hide password');
     fireEvent.press(hideButton);
     expect(passwordInput.props.secureTextEntry).toBe(true);
   });
@@ -213,6 +213,179 @@ describe('SignupScreen', () => {
 
     await waitFor(() => {
       expect(queryByText('Please enter a valid email address')).toBeNull();
+    });
+  });
+
+  describe('Email Normalization', () => {
+    it('should trim leading and trailing spaces from email before submission', async () => {
+      const mockMutate = jest.fn();
+      jest.spyOn(useSignUpModule, 'useSignUp').mockReturnValue({
+        mutate: mockMutate,
+        isPending: false,
+        error: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const { getByPlaceholderText, getByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+      const passwordInput = getByPlaceholderText('Enter password');
+      const submitButton = getByText('Sign Up');
+
+      // Enter email with leading and trailing spaces
+      fireEvent.changeText(emailInput, '  user@example.com  ');
+      fireEvent.changeText(passwordInput, 'SecurePass123');
+      fireEvent.press(submitButton);
+
+      await waitFor(() => {
+        expect(mockMutate).toHaveBeenCalledWith(
+          { email: 'user@example.com', password: 'SecurePass123' },
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('should convert uppercase email to lowercase before submission', async () => {
+      const mockMutate = jest.fn();
+      jest.spyOn(useSignUpModule, 'useSignUp').mockReturnValue({
+        mutate: mockMutate,
+        isPending: false,
+        error: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const { getByPlaceholderText, getByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+      const passwordInput = getByPlaceholderText('Enter password');
+      const submitButton = getByText('Sign Up');
+
+      // Enter email with uppercase characters
+      fireEvent.changeText(emailInput, 'User@EXAMPLE.COM');
+      fireEvent.changeText(passwordInput, 'SecurePass123');
+      fireEvent.press(submitButton);
+
+      await waitFor(() => {
+        expect(mockMutate).toHaveBeenCalledWith(
+          { email: 'user@example.com', password: 'SecurePass123' },
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('should trim and lowercase email with both spaces and uppercase', async () => {
+      const mockMutate = jest.fn();
+      jest.spyOn(useSignUpModule, 'useSignUp').mockReturnValue({
+        mutate: mockMutate,
+        isPending: false,
+        error: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const { getByPlaceholderText, getByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+      const passwordInput = getByPlaceholderText('Enter password');
+      const submitButton = getByText('Sign Up');
+
+      // Enter email with spaces and uppercase characters
+      fireEvent.changeText(emailInput, '  User@EXAMPLE.COM  ');
+      fireEvent.changeText(passwordInput, 'SecurePass123');
+      fireEvent.press(submitButton);
+
+      await waitFor(() => {
+        expect(mockMutate).toHaveBeenCalledWith(
+          { email: 'user@example.com', password: 'SecurePass123' },
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('should normalize email with mixed case and internal spaces correctly', async () => {
+      const mockMutate = jest.fn();
+      jest.spyOn(useSignUpModule, 'useSignUp').mockReturnValue({
+        mutate: mockMutate,
+        isPending: false,
+        error: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      const { getByPlaceholderText, getByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+      const passwordInput = getByPlaceholderText('Enter password');
+      const submitButton = getByText('Sign Up');
+
+      // Enter email with leading/trailing spaces and uppercase
+      fireEvent.changeText(emailInput, '   TEST.User@Example.Com   ');
+      fireEvent.changeText(passwordInput, 'SecurePass123');
+      fireEvent.press(submitButton);
+
+      await waitFor(() => {
+        expect(mockMutate).toHaveBeenCalledWith(
+          { email: 'test.user@example.com', password: 'SecurePass123' },
+          expect.any(Object)
+        );
+      });
+    });
+
+    it('should validate normalized email on blur with leading/trailing spaces', async () => {
+      const { getByPlaceholderText, queryByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+
+      // Enter valid email with spaces
+      fireEvent.changeText(emailInput, '  user@example.com  ');
+      fireEvent(emailInput, 'blur');
+
+      // Should not show error because normalized email is valid
+      await waitFor(() => {
+        expect(queryByText('Please enter a valid email address')).toBeNull();
+      });
+    });
+
+    it('should validate normalized email on blur with uppercase characters', async () => {
+      const { getByPlaceholderText, queryByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+
+      // Enter valid email with uppercase
+      fireEvent.changeText(emailInput, 'User@Example.COM');
+      fireEvent(emailInput, 'blur');
+
+      // Should not show error because normalized email is valid
+      await waitFor(() => {
+        expect(queryByText('Please enter a valid email address')).toBeNull();
+      });
+    });
+
+    it('should show error for invalid email even after normalization', async () => {
+      const { getByPlaceholderText, getByText } = render(<SignupScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const emailInput = getByPlaceholderText('your@email.com');
+
+      // Enter invalid email with spaces and uppercase
+      fireEvent.changeText(emailInput, '  INVALID-EMAIL  ');
+      fireEvent(emailInput, 'blur');
+
+      // Should show error because normalized email is still invalid
+      await waitFor(() => {
+        expect(getByText('Please enter a valid email address')).toBeTruthy();
+      });
     });
   });
 });
