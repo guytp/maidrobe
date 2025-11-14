@@ -23,3 +23,4 @@ export * from './components/SignupScreen';
 export * from './components/VerificationPromptScreen';
 export * from './components/LoginScreen';
 export * from './components/ForgotPasswordScreen';
+export * from './components/ResetPasswordScreen';
