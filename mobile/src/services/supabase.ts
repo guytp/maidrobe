@@ -52,10 +52,44 @@ if (!supabaseAnonKey) {
  *
  * Auth configuration:
  * - Uses SecureStore for encrypted session persistence
- * - Auto-refreshes tokens to maintain active sessions
  * - Sessions persist indefinitely until explicit logout
  * - Tokens stored with AES-256 equivalent encryption
  * - Device-only access (no iCloud backup on iOS)
+ *
+ * TOKEN REFRESH STRATEGY:
+ * This client has autoRefreshToken DISABLED because we use a custom token
+ * refresh manager (useTokenRefreshManager) that provides:
+ *
+ * 1. Proactive refresh: Tokens refreshed 5 minutes before expiry to prevent
+ *    401 errors during normal app usage. Supabase's built-in refresh timing
+ *    is opaque and cannot guarantee this specific window.
+ *
+ * 2. Network-aware refresh: Pauses scheduled refresh when offline and resumes
+ *    when connectivity restored. Prevents unnecessary failed requests and
+ *    battery drain.
+ *
+ * 3. Exponential backoff: Transient failures retry with 1s base delay, 2x
+ *    multiplier, max 3 attempts as required by acceptance criteria. Supabase's
+ *    built-in retry logic does not match these specific requirements.
+ *
+ * 4. Structured telemetry: All refresh attempts logged to Sentry/Honeycomb
+ *    with userId, latency, outcome for observability. Supabase refresh events
+ *    provide limited telemetry visibility.
+ *
+ * 5. Deduplication: Concurrent refresh requests share a single promise to
+ *    prevent redundant network calls and race conditions.
+ *
+ * 6. Reactive refresh: Exposed refreshToken() function ready for API
+ *    interceptor integration to handle 401 responses (implementation in
+ *    future step).
+ *
+ * The custom refresh manager is implemented in:
+ * mobile/src/features/auth/hooks/useTokenRefreshManager.ts
+ *
+ * IMPORTANT: Do NOT re-enable autoRefreshToken. Running both systems
+ * simultaneously causes race conditions, redundant refresh requests, and
+ * unpredictable behavior. The custom manager is the single source of truth
+ * for all token refresh operations.
  *
  * SECURITY WARNING:
  * The storage adapter handles sensitive authentication tokens.
@@ -64,7 +98,7 @@ if (!supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: secureStorage,
-    autoRefreshToken: true,
+    autoRefreshToken: false, // DISABLED: Custom refresh manager used instead
     persistSession: true,
     detectSessionInUrl: false, // Not applicable for mobile
   },

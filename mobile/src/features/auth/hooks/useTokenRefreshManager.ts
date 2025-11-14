@@ -8,6 +8,10 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
 /**
  * Token refresh coordinator that handles proactive and reactive token refresh.
  *
+ * IMPORTANT: This is the SOLE mechanism for token refresh in the application.
+ * Supabase's autoRefreshToken is DISABLED in mobile/src/services/supabase.ts
+ * to prevent conflicts, race conditions, and unpredictable behavior.
+ *
  * This hook manages the lifecycle of authentication tokens by:
  * 1. Scheduling proactive refresh 5 minutes before token expiry
  * 2. Providing reactive refresh function for 401 error handling
@@ -24,7 +28,7 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  *
  * Reactive Refresh:
  * - Exposed via refreshToken() function
- * - Called from API interceptors on 401 errors
+ * - Ready for API interceptor integration on 401 errors (future step)
  * - Shares deduplication with proactive refresh
  * - Returns promise for caller to await
  *
@@ -46,6 +50,18 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  * - Max retries exceeded: force logout
  * - Surfaces "Session expired. Please log in again."
  *
+ * Network Awareness:
+ * - Monitors connectivity via @react-native-community/netinfo
+ * - Cancels scheduled refresh when offline
+ * - Reschedules refresh when connectivity restored
+ * - Prevents battery drain from failed requests
+ *
+ * Telemetry:
+ * - Logs all refresh attempts with structured data
+ * - Tracks success/failure, latency, attempt count
+ * - Integrates with Sentry/Honeycomb for observability
+ * - Never logs tokens or session objects (security)
+ *
  * SECURITY:
  * - Never logs session objects (contain tokens)
  * - Only logs metadata (userId, expiresAt)
@@ -59,8 +75,8 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  *   return <Stack />;
  * }
  *
- * // In API interceptor
- * const refreshToken = useTokenRefreshManager.refreshToken;
+ * // In API interceptor (future implementation)
+ * const { refreshToken } = useTokenRefreshManager();
  * if (error.status === 401) {
  *   await refreshToken();
  *   return retryRequest();
