@@ -1,26 +1,27 @@
 /**
  * Feature flags client for remote configuration and version compatibility checks.
  *
- * CRITICAL LIMITATION - STUB IMPLEMENTATION:
- * This module currently implements a STUB that ALWAYS returns all feature flags
- * as enabled=true and requiresUpdate=false. This means:
+ * IMPLEMENTATION STATUS:
+ * This module implements environment-variable-based feature flag evaluation with
+ * version compatibility checks. It provides:
  *
- * 1. Remote Feature Control: NOT IMPLEMENTED
- *    - All features are always enabled regardless of remote configuration
- *    - Cannot remotely disable features for gradual rollouts or emergency shutdowns
- *    - Cannot A/B test features or perform canary deployments
+ * 1. Feature Control via Environment Variables: IMPLEMENTED
+ *    - Features can be enabled/disabled via EXPO_PUBLIC_FEATURE_*_ENABLED
+ *    - Configuration survives across app restarts
+ *    - No network dependency (offline-capable)
+ *    - Easy to configure for different environments (dev/staging/prod)
  *
- * 2. Version Compatibility Enforcement: NOT IMPLEMENTED
- *    - requiresUpdate is always false, so outdated clients are never blocked
- *    - Clients with incompatible versions can access features with breaking changes
- *    - No forced update mechanism when API introduces breaking changes
- *    - Risk of runtime errors from schema mismatches between client and server
+ * 2. Version Compatibility Enforcement: IMPLEMENTED
+ *    - Minimum version requirements via EXPO_PUBLIC_FEATURE_*_MIN_VERSION
+ *    - Semver comparison between client and required versions
+ *    - requiresUpdate flag triggers update prompts
+ *    - Prevents incompatible clients from accessing features with breaking changes
  *
- * 3. Security and Stability Implications:
- *    - Cannot remotely disable compromised features
- *    - Cannot enforce minimum client version for security patches
- *    - No gradual rollout capability to detect issues early
- *    - All clients access all features simultaneously (no feature gating)
+ * 3. Security and Stability Benefits:
+ *    - Can enforce minimum client version for security patches
+ *    - Version-based feature gating prevents schema mismatches
+ *    - Fail-safe defaults (enabled=true, minVersion=0.0.0) on errors
+ *    - Clear error messages guide users to update
  *
  * INTEGRATION ROADMAP:
  * This stub implementation uses the same data structure and interface that will
@@ -61,6 +62,8 @@
  * @module core/featureFlags
  */
 
+import { getFlagConfig } from './config';
+
 /**
  * Feature flag check result with version compatibility information.
  */
@@ -89,8 +92,11 @@ interface ClientVersion {
 
 /**
  * Current client version (from package.json or build config).
- * TODO: TICKET-UNLEASH-001 - Read from actual build configuration and use for
- * version compatibility checks against feature flag metadata
+ *
+ * This matches the version in mobile/package.json and is used for version
+ * compatibility checks against feature flag minimum version requirements.
+ * In production builds, this should be automatically populated from the
+ * build configuration or package.json during the build process.
  */
 const CLIENT_VERSION: ClientVersion = {
   major: 0,
@@ -99,48 +105,109 @@ const CLIENT_VERSION: ClientVersion = {
 };
 
 /**
+ * Parses a semver version string into a ClientVersion object.
+ *
+ * Supports standard semver format: 'major.minor.patch'
+ * Examples: '1.2.3', '0.1.0', '2.0.0'
+ *
+ * Invalid formats return { major: 0, minor: 0, patch: 0 } as a fail-safe
+ * to prevent blocking users on parsing errors.
+ *
+ * @param version - Semver version string (e.g., '1.2.3')
+ * @returns Parsed ClientVersion object
+ *
+ * @example
+ * ```typescript
+ * parseVersion('1.2.3') // { major: 1, minor: 2, patch: 3 }
+ * parseVersion('invalid') // { major: 0, minor: 0, patch: 0 }
+ * ```
+ */
+function parseVersion(version: string): ClientVersion {
+  const parts = version.split('.');
+
+  if (parts.length !== 3) {
+    // Invalid format, return 0.0.0 as fail-safe
+    return { major: 0, minor: 0, patch: 0 };
+  }
+
+  const major = parseInt(parts[0], 10);
+  const minor = parseInt(parts[1], 10);
+  const patch = parseInt(parts[2], 10);
+
+  // Validate that all parts are valid numbers
+  if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(patch)) {
+    return { major: 0, minor: 0, patch: 0 };
+  }
+
+  return { major, minor, patch };
+}
+
+/**
+ * Compares two semver versions.
+ *
+ * Returns:
+ * - -1 if a < b (a is older than b)
+ * -  0 if a === b (versions are equal)
+ * -  1 if a > b (a is newer than b)
+ *
+ * Comparison is done hierarchically: major -> minor -> patch
+ *
+ * @param a - First version to compare
+ * @param b - Second version to compare
+ * @returns Comparison result (-1, 0, or 1)
+ *
+ * @example
+ * ```typescript
+ * compareVersions({ major: 1, minor: 0, patch: 0 }, { major: 2, minor: 0, patch: 0 }) // -1
+ * compareVersions({ major: 1, minor: 2, patch: 3 }, { major: 1, minor: 2, patch: 3 }) // 0
+ * compareVersions({ major: 2, minor: 0, patch: 0 }, { major: 1, minor: 9, patch: 9 }) // 1
+ * ```
+ */
+function compareVersions(a: ClientVersion, b: ClientVersion): number {
+  // Compare major version first
+  if (a.major < b.major) return -1;
+  if (a.major > b.major) return 1;
+
+  // Major versions equal, compare minor
+  if (a.minor < b.minor) return -1;
+  if (a.minor > b.minor) return 1;
+
+  // Major and minor equal, compare patch
+  if (a.patch < b.patch) return -1;
+  if (a.patch > b.patch) return 1;
+
+  // All components equal
+  return 0;
+}
+
+/**
  * Checks if a feature flag is enabled and if the client version is compatible.
  *
- * CRITICAL LIMITATION - STUB IMPLEMENTATION:
- * This function currently ALWAYS returns { enabled: true, requiresUpdate: false }
- * regardless of the flagName parameter or any remote configuration. This means:
+ * CURRENT IMPLEMENTATION:
+ * This function reads feature flag configuration from environment variables and
+ * performs semver version comparison to determine if the client is compatible.
  *
- * Security Risk:
- * - Outdated clients with security vulnerabilities are NOT blocked from accessing features
- * - Cannot enforce minimum version for security patches
- * - No forced update mechanism when critical vulnerabilities are discovered
+ * Configuration:
+ * - Feature state: EXPO_PUBLIC_FEATURE_{FLAG_NAME}_ENABLED (true/false)
+ * - Minimum version: EXPO_PUBLIC_FEATURE_{FLAG_NAME}_MIN_VERSION (semver)
+ * - Update message: EXPO_PUBLIC_FEATURE_UPDATE_MESSAGE (string)
  *
- * Compatibility Risk:
- * - Clients with incompatible schemas can access features with breaking changes
- * - Runtime errors may occur from data structure mismatches
- * - No graceful degradation for API version incompatibilities
+ * Version Compatibility:
+ * - Compares CLIENT_VERSION against minimum required version from config
+ * - Returns requiresUpdate=true if CLIENT_VERSION < minimum required
+ * - Uses semver comparison (major.minor.patch)
  *
- * Operational Risk:
- * - Cannot remotely disable broken or compromised features
- * - No gradual rollout capability (all users get all features immediately)
- * - Cannot perform emergency feature shutdowns
- * - No A/B testing or canary deployment support
+ * Fail-Safe Behavior:
+ * - On error: returns { enabled: true, requiresUpdate: false }
+ * - On invalid version: treats as 0.0.0 (no restriction)
+ * - Logs errors to console for debugging
  *
- * This stub implementation uses a fail-safe pattern (allow all operations) during
- * development. In production with Unleash integration, this function will:
- *
- * 1. Fetch flags from Unleash proxy with client context (userId, version)
- * 2. Check CLIENT_VERSION against minClientVersion from flag metadata
- * 3. Return enabled=false if feature is disabled remotely
- * 4. Return requiresUpdate=true if CLIENT_VERSION < minClientVersion
- * 5. Cache results with stale-while-revalidate for offline support
- * 6. Log flag checks to telemetry for monitoring
- *
- * TODO: TICKET-UNLEASH-001 - Replace stub with Unleash SDK integration
- *
- * Integration Requirements:
- * - Initialize Unleash SDK in app/_layout.tsx with proxy URL and client key
- * - Implement getUnleashClient() singleton for shared SDK instance
- * - Add semver comparison: compareVersions(CLIENT_VERSION, minClientVersion)
- * - Parse minClientVersion from flag variant metadata
- * - Handle offline mode with cached flag values
- * - Add error handling with fail-safe fallback (enabled=true, requiresUpdate=false)
- * - Integrate with telemetry module for flag check monitoring
+ * Future Migration to Unleash:
+ * When ready to integrate Unleash, this function can be updated to:
+ * 1. Call Unleash SDK instead of reading environment variables
+ * 2. Use Unleash context for user-specific targeting
+ * 3. Leverage Unleash's gradual rollout and A/B testing capabilities
+ * 4. Maintain same interface for backward compatibility
  *
  * @param flagName - The name of the feature flag to check
  * @returns Promise resolving to flag status and version compatibility
@@ -157,61 +224,42 @@ const CLIENT_VERSION: ClientVersion = {
  * ```
  */
 export async function checkFeatureFlag(flagName: FeatureFlagName): Promise<FeatureFlagResult> {
-  // TODO: TICKET-UNLEASH-001 - Replace stub with Unleash SDK integration
-  //
-  // Current behavior: STUB that always returns enabled=true, requiresUpdate=false
-  // This means version compatibility is NOT enforced and all features are enabled.
-  //
-  // Future implementation will:
-  // 1. Call Unleash SDK: const unleashClient = getUnleashClient();
-  // 2. Check flag status: const isEnabled = unleashClient.isEnabled(flagName, context);
-  // 3. Get version metadata: const variant = unleashClient.getVariant(flagName);
-  // 4. Parse minimum version: const minVersion = parseVersion(variant.payload.minClientVersion);
-  // 5. Compare versions: const requiresUpdate = compareVersions(CLIENT_VERSION, minVersion) < 0;
-  // 6. Return result: { enabled: isEnabled, requiresUpdate, message: variant.payload.message }
-  // 7. Cache result with stale-while-revalidate for offline support
-  // 8. Log to telemetry for monitoring flag check patterns
-
   try {
-    // Simulate network delay for realistic behavior
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Simulate minimal async delay to maintain async interface
+    // (allows for future network-based implementations without breaking callers)
+    await new Promise((resolve) => setTimeout(resolve, 1));
 
-    // STUB IMPLEMENTATION: All features enabled, no update required
-    // WARNING: This prevents version compatibility enforcement
+    // Get flag configuration from environment variables
+    const config = getFlagConfig(flagName);
+
+    // Parse minimum required version from configuration
+    const minVersion = parseVersion(config.minVersion);
+
+    // Compare client version against minimum required version
+    // requiresUpdate is true if client version is older than required
+    const requiresUpdate = compareVersions(CLIENT_VERSION, minVersion) < 0;
+
+    // Return result with flag status and version compatibility
     return {
-      enabled: true,
-      requiresUpdate: false,
+      enabled: config.enabled,
+      requiresUpdate,
+      message: requiresUpdate ? config.message : undefined,
     };
-
-    // Future Unleash integration example (TODO: TICKET-UNLEASH-001):
-    // const unleashClient = getUnleashClient();
-    // const context = {
-    //   userId: useStore.getState().user?.id,
-    //   properties: {
-    //     version: `${CLIENT_VERSION.major}.${CLIENT_VERSION.minor}.${CLIENT_VERSION.patch}`,
-    //   },
-    // };
-    // const isEnabled = unleashClient.isEnabled(flagName, context);
-    // const variant = unleashClient.getVariant(flagName, context);
-    // const minVersion = parseVersion(variant.payload?.minClientVersion || '0.0.0');
-    // const requiresUpdate = compareVersions(CLIENT_VERSION, minVersion) < 0;
-    // return {
-    //   enabled: isEnabled,
-    //   requiresUpdate,
-    //   message: requiresUpdate ? variant.payload?.message : undefined,
-    // };
   } catch (error) {
     // On error, fail safe by allowing the operation
     // Log the error for monitoring
+    // eslint-disable-next-line no-console
     console.error('[FeatureFlags] Error checking feature flag:', error);
 
-    // TODO: TICKET-UNLEASH-001 - Integrate with telemetry module
-    // logError(error, 'network', {
+    // Future: Integrate with telemetry module
+    // logError(error, 'schema', {
     //   feature: 'featureFlags',
     //   operation: 'checkFeatureFlag',
     //   metadata: { flagName },
     // });
 
+    // Fail-safe: enable feature and don't require update
+    // This ensures app remains functional even if flag system fails
     return {
       enabled: true,
       requiresUpdate: false,
