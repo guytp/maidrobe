@@ -154,14 +154,47 @@ async function recordAttempt(): Promise<void> {
 /**
  * Classifies Supabase Auth login errors into standard error categories.
  *
+ * Uses HTTP status codes for reliable classification when available,
+ * falling back to message-based classification for errors without status codes.
+ *
+ * Status Code Classification:
+ * - 401, 403: Authentication failures (invalid credentials, unauthorized)
+ * - 400, 422, other 4xx: Client validation or request errors
+ * - 500, 502, 503, 504, other 5xx: Server errors
+ *
  * @param error - The error object from Supabase or network failure
  * @returns The error classification type
  */
 function classifyLoginError(error: unknown): ErrorClassification {
+  // Check for HTTP status code first (most reliable)
+  if (error && typeof error === 'object' && 'status' in error) {
+    const status = (error as { status?: number }).status;
+
+    if (typeof status === 'number') {
+      // Authentication errors (401 Unauthorized, 403 Forbidden)
+      // These indicate invalid credentials or auth failures
+      if (status === 401 || status === 403) {
+        return 'user';
+      }
+
+      // Other client errors (400 Bad Request, 422 Unprocessable Entity, etc.)
+      // These indicate validation errors or malformed requests
+      if (status >= 400 && status < 500) {
+        return 'user';
+      }
+
+      // Server errors (500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, etc.)
+      if (status >= 500 && status < 600) {
+        return 'server';
+      }
+    }
+  }
+
+  // Fallback to message-based classification when status code unavailable
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
-    // Network-related errors
+    // Network-related errors (connection issues, timeouts)
     if (
       message.includes('network') ||
       message.includes('fetch') ||
@@ -182,7 +215,7 @@ function classifyLoginError(error: unknown): ErrorClassification {
       return 'user';
     }
 
-    // Server errors
+    // Server errors detected by message content
     if (message.includes('500') || message.includes('503') || message.includes('502')) {
       return 'server';
     }
