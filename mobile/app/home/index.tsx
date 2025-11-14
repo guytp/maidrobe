@@ -80,7 +80,14 @@ export default function HomeScreen(): React.JSX.Element {
   // Show nothing while checking authorization or redirecting
   if (!isAuthorized) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
