@@ -1,4 +1,8 @@
-import { validateEmail, validatePassword } from '../../src/features/auth/utils/validation';
+import {
+  validateEmail,
+  validatePassword,
+  validateLoginPassword,
+} from '../../src/features/auth/utils/validation';
 
 describe('Email Validation', () => {
   it('should validate correct email addresses', () => {
@@ -88,6 +92,34 @@ describe('Password Validation', () => {
       const result = validatePassword(password);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
+    });
+  });
+});
+
+describe('Login Password Validation', () => {
+  it('should accept any non-empty password', () => {
+    const passwords = ['weak', 'simple', 'pass', 'a', '123', 'SecurePass123'];
+
+    passwords.forEach((password) => {
+      const result = validateLoginPassword(password);
+      expect(result.isValid).toBe(true);
+      expect(result.error).toBeUndefined();
+    });
+  });
+
+  it('should reject empty password', () => {
+    const result = validateLoginPassword('');
+    expect(result.isValid).toBe(false);
+    expect(result.error).toBe('Password is required');
+  });
+
+  it('should not check password complexity requirements', () => {
+    // These would fail signup validation but should pass login validation
+    const weakPasswords = ['weak', 'pass', '123', 'abc'];
+
+    weakPasswords.forEach((password) => {
+      const result = validateLoginPassword(password);
+      expect(result.isValid).toBe(true);
     });
   });
 });

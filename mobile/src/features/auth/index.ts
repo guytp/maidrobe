@@ -14,3 +14,4 @@ export * from './hooks/useAuthStateListener';
 export * from './hooks/useProtectedRoute';
 export * from './components/SignupScreen';
 export * from './components/VerificationPromptScreen';
+export * from './components/LoginScreen';
