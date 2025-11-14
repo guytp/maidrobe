@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -97,6 +97,9 @@ export function ResetPasswordScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
+  // Ref to store success navigation timeout for cleanup
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Token validation - show error if tokens are missing or invalid format
   // Both access_token and refresh_token are required for password reset
   const hasValidToken = accessToken.trim().length > 0 && refreshToken.trim().length > 0;
@@ -114,6 +117,15 @@ export function ResetPasswordScreen() {
       },
     });
   }, [hasValidToken, isRecoveryType]);
+
+  // Cleanup success navigation timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Calculate password strength in real-time
   const passwordStrength = useMemo(() => {
@@ -226,10 +238,11 @@ export function ResetPasswordScreen() {
           // Show success toast
           setShowSuccessToast(true);
 
-          // Navigate to login after brief delay to show toast
-          setTimeout(() => {
+          // Navigate to login after brief delay to show toast (1.5s)
+          // User can tap toast to navigate immediately
+          successTimeoutRef.current = setTimeout(() => {
             router.push('/auth/login');
-          }, 2000);
+          }, 1500);
         },
         onError: (error) => {
           // Error is already logged by useResetPassword mutation
@@ -256,6 +269,20 @@ export function ResetPasswordScreen() {
    * Navigate to login screen
    */
   const handleBackToLogin = () => {
+    router.push('/auth/login');
+  };
+
+  /**
+   * Handle success toast dismissal - navigates to login immediately
+   * Clears any pending timeout to prevent duplicate navigation
+   */
+  const handleSuccessToastDismiss = () => {
+    // Clear timeout if user taps toast to navigate early
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+    setShowSuccessToast(false);
     router.push('/auth/login');
   };
 
@@ -813,7 +840,7 @@ export function ResetPasswordScreen() {
         visible={showSuccessToast}
         message={t('screens.auth.resetPassword.success.passwordResetShort')}
         type="success"
-        onDismiss={() => setShowSuccessToast(false)}
+        onDismiss={handleSuccessToastDismiss}
       />
     </SafeAreaView>
   );
