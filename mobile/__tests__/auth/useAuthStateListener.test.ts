@@ -39,21 +39,25 @@ describe('useAuthStateListener', () => {
   let mockSetUser: jest.Mock;
   let mockUpdateEmailVerified: jest.Mock;
   let mockClearUser: jest.Mock;
+  let mockSetInitialized: jest.Mock;
   let mockSubscription: { unsubscribe: jest.Mock };
 
   beforeEach(() => {
     mockSetUser = jest.fn();
     mockUpdateEmailVerified = jest.fn();
     mockClearUser = jest.fn();
+    mockSetInitialized = jest.fn();
     mockSubscription = { unsubscribe: jest.fn() };
 
     // Setup store mock
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: null,
+        isInitialized: false,
         setUser: mockSetUser,
         updateEmailVerified: mockUpdateEmailVerified,
         clearUser: mockClearUser,
+        setInitialized: mockSetInitialized,
       })
     );
 
@@ -265,6 +269,206 @@ describe('useAuthStateListener', () => {
         email: 'test@example.com',
         emailVerified: true,
       });
+    });
+  });
+
+  describe('Initialization with existing session', () => {
+    it('should initialize with verified session and set user state', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: {
+            user: {
+              id: 'user-123',
+              email: 'test@example.com',
+              email_confirmed_at: '2024-01-01T00:00:00Z',
+            },
+          },
+        },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetUser).toHaveBeenCalledWith({
+          id: 'user-123',
+          email: 'test@example.com',
+          emailVerified: true,
+        });
+      });
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+    });
+
+    it('should initialize with unverified session and set user state', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: {
+            user: {
+              id: 'user-456',
+              email: 'unverified@example.com',
+              email_confirmed_at: null,
+            },
+          },
+        },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetUser).toHaveBeenCalledWith({
+          id: 'user-456',
+          email: 'unverified@example.com',
+          emailVerified: false,
+        });
+      });
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+    });
+
+    it('should initialize with no session and set initialized to true', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: null },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+
+      // Should not call setUser when no session
+      expect(mockSetUser).not.toHaveBeenCalled();
+    });
+
+    it('should set initialized to true even on error', async () => {
+      const error = new Error('Session fetch failed');
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: null },
+        error,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+
+      // Should not call setUser on error
+      expect(mockSetUser).not.toHaveBeenCalled();
+    });
+
+    it('should not navigate during initial session load', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: {
+            user: {
+              id: 'user-123',
+              email: 'test@example.com',
+              email_confirmed_at: '2024-01-01T00:00:00Z',
+            },
+          },
+        },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetUser).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+
+      // Should not navigate during initial load even with verified email
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
+
+    it('should initialize before subscription starts handling events', async () => {
+      const callOrder: string[] = [];
+
+      mockSetUser.mockImplementation(() => {
+        callOrder.push('setUser');
+      });
+
+      mockSetInitialized.mockImplementation(() => {
+        callOrder.push('setInitialized');
+      });
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: {
+            user: {
+              id: 'user-123',
+              email: 'test@example.com',
+              email_confirmed_at: '2024-01-01T00:00:00Z',
+            },
+          },
+        },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(callOrder).toContain('setUser');
+        expect(callOrder).toContain('setInitialized');
+      });
+
+      // Verify setUser was called before setInitialized
+      const setUserIndex = callOrder.indexOf('setUser');
+      const setInitializedIndex = callOrder.indexOf('setInitialized');
+      expect(setUserIndex).toBeLessThan(setInitializedIndex);
+    });
+
+    it('should handle session with missing email gracefully', async () => {
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: {
+            user: {
+              id: 'user-789',
+              email: null,
+              email_confirmed_at: null,
+            },
+          },
+        },
+        error: null,
+      });
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetUser).toHaveBeenCalledWith({
+          id: 'user-789',
+          email: '',
+          emailVerified: false,
+        });
+      });
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+    });
+
+    it('should set initialized on exception during initialization', async () => {
+      (supabase.auth.getSession as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+      renderHook(() => useAuthStateListener());
+
+      await waitFor(() => {
+        expect(mockSetInitialized).toHaveBeenCalledWith(true);
+      });
+
+      // Should not call setUser on exception
+      expect(mockSetUser).not.toHaveBeenCalled();
     });
   });
 });
