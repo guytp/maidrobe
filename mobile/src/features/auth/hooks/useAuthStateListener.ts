@@ -55,6 +55,7 @@ export function useAuthStateListener() {
   const segments = useSegments();
   const setUser = useStore((state) => state.setUser);
   const clearUser = useStore((state) => state.clearUser);
+  const setInitialized = useStore((state) => state.setInitialized);
 
   // Use refs to store latest router and segments values
   // This allows the effect to access current values without re-running
@@ -79,6 +80,8 @@ export function useAuthStateListener() {
             operation: 'get-session',
             metadata: { message: error.message },
           });
+          // Mark as initialized even on error to prevent indefinite waiting
+          setInitialized(true);
           return;
         }
 
@@ -96,11 +99,16 @@ export function useAuthStateListener() {
             emailVerified: !!user.email_confirmed_at,
           });
         }
+
+        // Mark auth initialization as complete
+        setInitialized(true);
       } catch (error) {
         logError(error instanceof Error ? error : new Error('Unknown error'), 'server', {
           feature: 'auth',
           operation: 'initialize-auth',
         });
+        // Mark as initialized even on error to prevent indefinite waiting
+        setInitialized(true);
       }
     };
 
@@ -193,5 +201,5 @@ export function useAuthStateListener() {
     };
     // Stable Zustand store actions - don't cause re-runs
     // router and segments accessed via refs to get current values
-  }, [setUser, clearUser]);
+  }, [setUser, clearUser, setInitialized]);
 }

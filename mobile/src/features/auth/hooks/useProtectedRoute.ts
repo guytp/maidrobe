@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useStore } from '../../../core/state/store';
 
@@ -17,14 +17,19 @@ import { useStore } from '../../../core/state/store';
  * - Prevents redirect loops by checking current route
  * - Uses router.replace to prevent back button to protected routes
  * - Handles deep link scenarios
- * - Includes loading state to prevent flash of redirect
+ * - Waits for auth initialization before making redirect decisions
+ *
+ * Initialization coordination:
+ * The hook waits for isInitialized flag from the store before redirecting.
+ * This flag is set by useAuthStateListener after initial session fetch completes,
+ * preventing race conditions where the hook might redirect before auth state loads.
  *
  * Usage:
  * Call this hook at the top of any protected route component.
  * The hook returns true when authorized, false otherwise.
  * Render loading state or null while unauthorized.
  *
- * @returns boolean - true if user is authorized, false if redirecting
+ * @returns boolean - true if user is authorized, false if redirecting or initializing
  *
  * @example
  * ```typescript
@@ -43,20 +48,12 @@ export function useProtectedRoute(): boolean {
   const router = useRouter();
   const segments = useSegments();
   const user = useStore((state) => state.user);
-  const [isChecking, setIsChecking] = useState(true);
+  const isInitialized = useStore((state) => state.isInitialized);
 
   useEffect(() => {
-    // Allow one tick for store to initialize
-    const timer = setTimeout(() => {
-      setIsChecking(false);
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    // Don't redirect while still checking initial state
-    if (isChecking) {
+    // Wait for auth initialization to complete before making redirect decisions
+    // This prevents race conditions where we might redirect before initial session loads
+    if (!isInitialized) {
       return;
     }
 
@@ -87,11 +84,11 @@ export function useProtectedRoute(): boolean {
     // User is authenticated and verified - allow access
     // eslint-disable-next-line no-console
     console.log('[AuthGuard] User authorized');
-  }, [user, segments, router, isChecking]);
+  }, [user, segments, router, isInitialized]);
 
   // Return authorization status
-  if (isChecking) {
-    return false; // Still checking
+  if (!isInitialized) {
+    return false; // Still initializing
   }
 
   if (!user) {

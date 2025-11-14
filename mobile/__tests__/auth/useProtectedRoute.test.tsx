@@ -29,23 +29,25 @@ describe('useProtectedRoute', () => {
     mockSegments.push('home');
   });
 
-  it('should return false initially while checking', () => {
+  it('should return false initially while not initialized', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
+        isInitialized: false,
       })
     );
 
     const { result } = renderHook(() => useProtectedRoute());
 
-    // Initial state should be false (checking)
+    // Initial state should be false (not initialized)
     expect(result.current).toBe(false);
   });
 
-  it('should return true for authenticated and verified user after check', async () => {
+  it('should return true for authenticated and verified user after initialization', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
+        isInitialized: true,
       })
     );
 
@@ -63,6 +65,7 @@ describe('useProtectedRoute', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: null,
+        isInitialized: true,
       })
     );
 
@@ -79,6 +82,7 @@ describe('useProtectedRoute', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
+        isInitialized: true,
       })
     );
 
@@ -95,6 +99,7 @@ describe('useProtectedRoute', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: null,
+        isInitialized: true,
       })
     );
 
@@ -116,6 +121,7 @@ describe('useProtectedRoute', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
+        isInitialized: true,
       })
     );
 
@@ -137,6 +143,7 @@ describe('useProtectedRoute', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
+        isInitialized: true,
       })
     );
 
@@ -151,16 +158,17 @@ describe('useProtectedRoute', () => {
     });
   });
 
-  it('should return false when checking initial state', () => {
+  it('should return false when not yet initialized', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
+        isInitialized: false,
       })
     );
 
     const { result } = renderHook(() => useProtectedRoute());
 
-    // Should return false immediately while checking
+    // Should return false immediately while not initialized
     expect(result.current).toBe(false);
   });
 });
