@@ -3,6 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError } from '../../../core/telemetry';
+import { deriveTokenExpiry } from '../utils/tokenExpiry';
 
 /**
  * Global auth state listener hook.
@@ -97,29 +98,7 @@ export function useAuthStateListener() {
           // Store token metadata (expiry time and type) - NOT the actual tokens
           // SECURITY: Tokens are stored encrypted in SecureStore by Supabase client
           // We only store metadata for proactive refresh scheduling
-          //
-          // Token expiry derivation strategy (three-tier fallback):
-          // 1. Use session.expires_at if provided (absolute timestamp in seconds)
-          // 2. Calculate from session.expires_in if provided (relative seconds)
-          // 3. Fall back to 3600 seconds (1 hour) if neither provided
-          //
-          // This ensures the proactive refresh system always has valid metadata,
-          // even when Supabase events don't include expires_at.
-          let expiresAt: number;
-          let fallbackUsed = 'none';
-          if (data.session.expires_at) {
-            // Supabase provides expires_at as unix timestamp in seconds
-            // Convert to milliseconds for JavaScript Date
-            expiresAt = data.session.expires_at * 1000;
-          } else if (data.session.expires_in) {
-            // Calculate absolute expiry from relative expires_in (seconds)
-            expiresAt = Date.now() + data.session.expires_in * 1000;
-            fallbackUsed = 'expires_in';
-          } else {
-            // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
-            expiresAt = Date.now() + 3600 * 1000;
-            fallbackUsed = 'default_ttl';
-          }
+          const { expiresAt, fallbackUsed } = deriveTokenExpiry(data.session);
           const tokenType = data.session.token_type || 'bearer';
           setTokenMetadata(expiresAt, tokenType);
 
@@ -176,29 +155,7 @@ export function useAuthStateListener() {
 
             // Update token metadata when tokens are refreshed
             // SECURITY: We only store metadata (expiry time), NOT the tokens themselves
-            //
-            // Token expiry derivation strategy (three-tier fallback):
-            // 1. Use session.expires_at if provided (absolute timestamp in seconds)
-            // 2. Calculate from session.expires_in if provided (relative seconds)
-            // 3. Fall back to 3600 seconds (1 hour) if neither provided
-            //
-            // This ensures the proactive refresh system always has valid metadata,
-            // even when Supabase events don't include expires_at.
-            let expiresAt: number;
-            let fallbackUsed = 'none';
-            if (session.expires_at) {
-              // Supabase provides expires_at as unix timestamp in seconds
-              // Convert to milliseconds for JavaScript Date
-              expiresAt = session.expires_at * 1000;
-            } else if (session.expires_in) {
-              // Calculate absolute expiry from relative expires_in (seconds)
-              expiresAt = Date.now() + session.expires_in * 1000;
-              fallbackUsed = 'expires_in';
-            } else {
-              // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
-              expiresAt = Date.now() + 3600 * 1000;
-              fallbackUsed = 'default_ttl';
-            }
+            const { expiresAt, fallbackUsed } = deriveTokenExpiry(session);
             const tokenType = session.token_type || 'bearer';
             setTokenMetadata(expiresAt, tokenType);
 
