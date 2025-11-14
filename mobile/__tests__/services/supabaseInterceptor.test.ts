@@ -5,7 +5,6 @@
  * attempts token refresh, and retries the original request.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   createInterceptedFetch,
   registerRefreshTokenFn,
@@ -14,19 +13,19 @@ import {
 } from '../../src/services/supabaseInterceptor';
 
 // Mock global fetch
-const mockFetch = vi.fn();
+const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
 describe('supabaseInterceptor', () => {
-  let mockRefreshToken: ReturnType<typeof vi.fn>;
-  let mockForceLogout: ReturnType<typeof vi.fn>;
+  let mockRefreshToken: jest.Mock;
+  let mockForceLogout: jest.Mock;
   let interceptedFetch: ReturnType<typeof createInterceptedFetch>;
 
   beforeEach(() => {
     // Reset mocks
     mockFetch.mockReset();
-    mockRefreshToken = vi.fn();
-    mockForceLogout = vi.fn();
+    mockRefreshToken = jest.fn();
+    mockForceLogout = jest.fn();
 
     // Register mock functions
     registerRefreshTokenFn(mockRefreshToken);
@@ -40,7 +39,7 @@ describe('supabaseInterceptor', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('non-401 responses', () => {
