@@ -235,7 +235,12 @@ export type AuthEventType =
   | 'logout-forced'
   | 'token-refresh-success'
   | 'token-refresh-failure'
-  | 'token-refresh-reactive';
+  | 'token-refresh-reactive'
+  | 'password-reset-requested'
+  | 'password-reset-email-sent'
+  | 'password-reset-failed'
+  | 'password-reset-succeeded'
+  | 'password-reset-link-opened';
 
 /**
  * Metadata for authentication event logging.
