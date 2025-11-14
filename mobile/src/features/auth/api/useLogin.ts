@@ -284,6 +284,14 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
  * - Invalid requests do NOT trigger feature flag evaluations
  * - Fails fast for malformed input with minimal resource usage
  *
+ * Email Normalization:
+ * - Normalizes email addresses (trim whitespace, lowercase) in mutation logic
+ * - Ensures consistent authentication across all callers (UI and non-UI)
+ * - Handles case variations (User@Example.COM -> user@example.com)
+ * - Handles whitespace (  user@example.com   -> user@example.com)
+ * - UI-level normalization still provides immediate feedback to users
+ * - Double normalization is idempotent and safe (no side effects)
+ *
  * Rate Limiting:
  * - Maximum 5 login attempts per 60-second sliding window
  * - Only applies to valid, well-formed requests
@@ -403,6 +411,15 @@ export function useLogin() {
         throw error;
       }
 
+      // Normalize email for consistent authentication
+      // Trim whitespace and convert to lowercase to ensure case-insensitive matching
+      // This normalization applies to all callers (UI and non-UI) for consistency
+      // Examples:
+      //   "User@Example.COM  " -> "user@example.com"
+      //   "  user@example.com" -> "user@example.com"
+      // UI-level normalization provides immediate feedback; mutation-level ensures correctness
+      const normalizedEmail = validatedRequest.email.trim().toLowerCase();
+
       try {
         // 2. Check rate limit (only for valid requests)
         const rateLimit = await checkRateLimit();
@@ -457,7 +474,7 @@ export function useLogin() {
 
         // 5. Call Supabase Auth login
         const { data, error } = await supabase.auth.signInWithPassword({
-          email: validatedRequest.email,
+          email: normalizedEmail,
           password: validatedRequest.password,
         });
 
