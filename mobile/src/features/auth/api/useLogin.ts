@@ -267,9 +267,9 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
  * React Query mutation hook for user login with email and password.
  *
  * This hook handles:
+ * - Request validation with Zod (validates before rate limit/feature flag checks)
  * - Feature flag and version compatibility checks
- * - Client-side rate limiting (5 attempts per minute)
- * - Request validation with Zod
+ * - Client-side rate limiting (5 attempts per minute for valid requests)
  * - Supabase Auth signInWithPassword API call
  * - Response validation and parsing
  * - Error classification and telemetry logging
@@ -278,8 +278,15 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
  * - Automatic user session state management
  * - Retry logic with exponential backoff for transient failures
  *
+ * Request Validation:
+ * - Validates email format and password presence before any other checks
+ * - Invalid requests do NOT consume rate limit quota
+ * - Invalid requests do NOT trigger feature flag evaluations
+ * - Fails fast for malformed input with minimal resource usage
+ *
  * Rate Limiting:
  * - Maximum 5 login attempts per 60-second sliding window
+ * - Only applies to valid, well-formed requests
  * - Persists to AsyncStorage (survives app restarts)
  * - Returns cooldown message with remaining seconds when exceeded
  * - Does not count attempts during cooldown period
@@ -287,12 +294,14 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
  *
  * Feature Flags:
  * - Checks 'auth.login' feature flag before attempting login
+ * - Only evaluated for valid requests that pass rate limiting
  * - Enforces client-API version compatibility
  * - Returns "Please update your app." if version incompatible
  *
  * Retry Strategy:
  * - Retries up to 3 times for network/server errors
  * - Does NOT retry invalid credentials (permanent failures)
+ * - Does NOT retry validation errors (permanent failures)
  * - Uses exponential backoff: 1s, 2s, 4s (plus jitter)
  * - Max delay capped at 30 seconds
  *
@@ -353,8 +362,30 @@ export function useLogin() {
     mutationFn: async (request: LoginRequest) => {
       const startTime = Date.now();
 
+      // 1. Validate request first (before rate limit or feature flag checks)
+      // This ensures invalid requests do not consume rate limit quota or trigger
+      // unnecessary feature flag evaluations
+      let validatedRequest: LoginRequest;
       try {
-        // 1. Check rate limit first (before any network calls)
+        validatedRequest = LoginRequestSchema.parse(request);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          const latency = Date.now() - startTime;
+          logError(error, 'user', {
+            feature: 'auth',
+            operation: 'login',
+            metadata: {
+              validationErrors: error.issues,
+              latency,
+            },
+          });
+          throw new Error(getUserFriendlyMessage('user'));
+        }
+        throw error;
+      }
+
+      try {
+        // 2. Check rate limit (only for valid requests)
         const rateLimit = await checkRateLimit();
         if (!rateLimit.allowed) {
           const error = new Error(
@@ -374,7 +405,7 @@ export function useLogin() {
           throw error;
         }
 
-        // 2. Check feature flag and version compatibility
+        // 3. Check feature flag and version compatibility (only for valid requests)
         const featureFlag = await checkFeatureFlag('auth.login');
 
         if (featureFlag.requiresUpdate) {
@@ -401,9 +432,6 @@ export function useLogin() {
           });
           throw error;
         }
-
-        // 3. Validate request
-        const validatedRequest = LoginRequestSchema.parse(request);
 
         // 4. Record attempt for rate limiting (before actual API call)
         await recordAttempt();
@@ -461,10 +489,11 @@ export function useLogin() {
 
         return validatedResponse;
       } catch (error) {
-        // Handle Zod validation errors
+        // Handle Zod validation errors (for response validation)
+        // Note: Request validation errors are handled earlier in the flow
         if (error instanceof z.ZodError) {
           const latency = Date.now() - startTime;
-          logError(error, 'user', {
+          logError(error, 'schema', {
             feature: 'auth',
             operation: 'login',
             metadata: {
@@ -472,7 +501,7 @@ export function useLogin() {
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('user'));
+          throw new Error(getUserFriendlyMessage('schema'));
         }
 
         // Re-throw if already an Error
