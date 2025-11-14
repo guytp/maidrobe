@@ -10,10 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * - Automatically cleans up expired attempts
  *
  * SECURITY DESIGN:
- * - Rate limit is keyed by token hash (first 8 chars) to prevent tracking
+ * - Rate limit is keyed by SHA-256 hash of token to prevent tracking and collisions
+ * - Uses first 16 hex characters of hash for storage key (64 bits of entropy)
  * - Fails open on storage errors to avoid blocking legitimate users
  * - Uses sliding window for fairness
  * - Emits telemetry for monitoring abuse patterns
+ *
+ * COLLISION RESISTANCE:
+ * - Previous implementation used first 8 chars of JWT tokens (low entropy due to
+ *   deterministic header structure: JWTs typically start with "eyJ")
+ * - New implementation uses cryptographic hash (SHA-256) for uniform distribution
+ * - 16 hex chars = 64 bits of entropy (1 in 18 quintillion collision probability)
  *
  * @example
  * ```typescript
@@ -31,11 +38,61 @@ const MAX_ATTEMPTS = 3;
 const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
- * Creates a storage key for a token hash
- * Uses first 8 chars of token to avoid storing full tokens
+ * Generates a SHA-256 hash of the token and returns the first 16 hex characters.
+ * Uses Web Crypto API for secure, collision-resistant hashing.
+ *
+ * @param token - The reset token to hash
+ * @returns First 16 characters of SHA-256 hex digest (64 bits of entropy)
  */
-function getStorageKey(token: string): string {
-  const tokenHash = token.substring(0, 8);
+async function hashToken(token: string): Promise<string> {
+  try {
+    // Convert token string to Uint8Array
+    const encoder = new TextEncoder();
+    const data = encoder.encode(token);
+
+    // Generate SHA-256 hash using Web Crypto API
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+    // Convert ArrayBuffer to hex string
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    // Return first 16 characters (64 bits of entropy)
+    return hashHex.substring(0, 16);
+  } catch (error) {
+    // Fallback to simple hash if crypto API unavailable
+    // This should not happen in modern React Native, but provide graceful degradation
+    console.warn('[Rate Limit] Crypto API unavailable, using fallback hash:', error);
+    return simpleFallbackHash(token);
+  }
+}
+
+/**
+ * Simple fallback hash function for environments without crypto.subtle.
+ * Uses DJB2 hash algorithm - not cryptographically secure but better than substring.
+ *
+ * @param token - The token to hash
+ * @returns Hex string representation of hash (16 characters)
+ */
+function simpleFallbackHash(token: string): string {
+  let hash = 5381;
+  for (let i = 0; i < token.length; i++) {
+    hash = (hash * 33) ^ token.charCodeAt(i);
+  }
+  // Convert to unsigned 32-bit integer and then to hex, padded to 16 chars
+  const hex = (hash >>> 0).toString(16).padStart(8, '0');
+  return hex + hex; // Double it to reach 16 chars
+}
+
+/**
+ * Creates a storage key for a token using SHA-256 hash.
+ * Ensures collision resistance and privacy preservation.
+ *
+ * @param token - The reset token
+ * @returns Storage key based on token hash
+ */
+async function getStorageKey(token: string): Promise<string> {
+  const tokenHash = await hashToken(token);
   return `${STORAGE_KEY_PREFIX}.${tokenHash}`;
 }
 
@@ -48,7 +105,7 @@ function getStorageKey(token: string): string {
  */
 async function getAttempts(token: string): Promise<number[]> {
   try {
-    const key = getStorageKey(token);
+    const key = await getStorageKey(token);
     const stored = await AsyncStorage.getItem(key);
 
     if (!stored) {
@@ -76,7 +133,7 @@ async function getAttempts(token: string): Promise<number[]> {
  */
 async function setAttempts(token: string, attempts: number[]): Promise<void> {
   try {
-    const key = getStorageKey(token);
+    const key = await getStorageKey(token);
     await AsyncStorage.setItem(key, JSON.stringify(attempts));
   } catch (error) {
     // Fail open - don't block user if storage fails
@@ -140,7 +197,7 @@ export async function recordResetAttempt(token: string): Promise<void> {
  */
 export async function clearResetAttempts(token: string): Promise<void> {
   try {
-    const key = getStorageKey(token);
+    const key = await getStorageKey(token);
     await AsyncStorage.removeItem(key);
   } catch (error) {
     console.warn('[Rate Limit] Failed to clear attempts:', error);
