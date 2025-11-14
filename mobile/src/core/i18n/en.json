@@ -66,7 +66,9 @@
           "screenLabel": "Email verification screen",
           "screenHint": "Instructions to verify your email address",
           "resendButton": "Resend verification email button",
+          "resendButtonHint": "Tap to resend verification email",
           "cooldownTimer": "Cooldown timer",
+          "cooldownHint": "Cooldown: {seconds} seconds remaining",
           "successMessage": "Success message",
           "errorMessage": "Error message"
         }

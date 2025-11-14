@@ -232,8 +232,11 @@ export function VerificationPromptScreen() {
           accessibilityLabel={t('screens.auth.verify.accessibility.resendButton')}
           accessibilityHint={
             cooldownSeconds > 0
-              ? `Cooldown: ${cooldownSeconds} seconds remaining`
-              : 'Tap to resend verification email'
+              ? t('screens.auth.verify.accessibility.cooldownHint').replace(
+                  '{seconds}',
+                  cooldownSeconds.toString()
+                )
+              : t('screens.auth.verify.accessibility.resendButtonHint')
           }
           accessibilityState={{ disabled: isResendDisabled }}
         >
