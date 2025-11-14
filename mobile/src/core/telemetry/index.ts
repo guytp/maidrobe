@@ -108,3 +108,61 @@ export function logError(
   //   });
   // }
 }
+
+/**
+ * Metadata for success event logging.
+ */
+export interface SuccessMetadata {
+  /** Request latency in milliseconds */
+  latency?: number;
+  /** Additional non-PII metadata for observability */
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Logs a success event with metadata to telemetry system.
+ *
+ * In production, this would send events to observability platform (Honeycomb, etc.).
+ * Currently logs to console for development purposes with structured format.
+ *
+ * Use this for logging successful operations with performance metrics and
+ * relevant metadata to support SLO tracking and observability.
+ *
+ * @param feature - Feature or module where operation succeeded
+ * @param operation - Specific operation that completed successfully
+ * @param metadata - Optional metadata including latency and additional data
+ *
+ * @example
+ * ```ts
+ * logSuccess('auth', 'signup', {
+ *   latency: 250,
+ *   data: { userId: 'abc-123', emailVerified: false }
+ * });
+ * ```
+ */
+export function logSuccess(feature: string, operation: string, metadata?: SuccessMetadata): void {
+  // TODO: Integrate with OpenTelemetry/Honeycomb when configured
+  // For now, log to console with structured format for debugging
+
+  // eslint-disable-next-line no-console
+  console.log('[Telemetry]', {
+    status: 'success',
+    feature,
+    operation,
+    latency: metadata?.latency,
+    metadata: metadata?.data,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Future: Send to OpenTelemetry
+  // if (process.env.EXPO_PUBLIC_OTEL_ENDPOINT) {
+  //   tracer.startSpan(operation, {
+  //     attributes: {
+  //       'feature': feature,
+  //       'status': 'success',
+  //       'latency': metadata?.latency,
+  //       ...metadata?.data,
+  //     },
+  //   }).end();
+  // }
+}

@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage } from '../../../core/telemetry';
+import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 
@@ -87,7 +87,8 @@ function classifyAuthError(error: unknown): ErrorClassification {
  * - Request validation with Zod
  * - Supabase Auth signup API call
  * - Response validation and parsing
- * - Error classification and telemetry logging
+ * - Error classification and telemetry logging (centralized utilities)
+ * - Success event logging with latency metrics for SLO tracking
  * - User-friendly error message generation
  * - Automatic user session state management (sets authenticated user in store)
  * - Retry logic with exponential backoff and jitter for transient failures
@@ -236,18 +237,13 @@ export function useSignUp() {
         emailVerified: !!data.user.email_confirmed_at,
       });
 
-      // Log success with latency for observability
-      // eslint-disable-next-line no-console
-      console.log('[Telemetry]', {
-        feature: 'auth',
-        operation: 'signup',
-        status: 'success',
+      // Log success with latency for observability and SLO tracking
+      logSuccess('auth', 'signup', {
         latency,
-        metadata: {
+        data: {
           userId: data.user.id,
           emailVerified: !!data.user.email_confirmed_at,
         },
-        timestamp: new Date().toISOString(),
       });
     },
     onError: (_error, _variables, context) => {
