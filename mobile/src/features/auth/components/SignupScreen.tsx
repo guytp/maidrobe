@@ -50,9 +50,11 @@ export function SignupScreen() {
 
   /**
    * Validates email field and updates error state
+   * Normalizes email (trim and lowercase) before validation
    */
   const handleEmailBlur = () => {
-    const validation = validateEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    const validation = validateEmail(normalizedEmail);
     if (!validation.isValid) {
       setEmailError(validation.error || t('screens.auth.signup.errors.invalidEmail'));
     } else {
@@ -74,14 +76,18 @@ export function SignupScreen() {
 
   /**
    * Handles form submission with validation and signup API call
+   * Normalizes email (trim and lowercase) before validation and submission
    */
   const handleSignUp = () => {
     // Clear previous errors
     setEmailError(null);
     setPasswordError(null);
 
+    // Normalize email to ensure consistent casing and no whitespace
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Validate email
-    const emailValidation = validateEmail(email);
+    const emailValidation = validateEmail(normalizedEmail);
     if (!emailValidation.isValid) {
       setEmailError(emailValidation.error || t('screens.auth.signup.errors.invalidEmail'));
       return;
@@ -94,9 +100,9 @@ export function SignupScreen() {
       return;
     }
 
-    // Submit signup request
+    // Submit signup request with normalized email
     signUp(
-      { email, password },
+      { email: normalizedEmail, password },
       {
         onSuccess: () => {
           // User is automatically set in store by useSignUp mutation
