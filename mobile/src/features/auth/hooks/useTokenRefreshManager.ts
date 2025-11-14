@@ -26,14 +26,21 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  * - Rescheduled after successful refresh
  * - Cancelled on logout or component unmount
  *
- * Reactive Refresh (Not Yet Implemented):
- * - Exported refreshToken() function is available but NOT currently integrated
- * - 401 error handling is NOT automatically triggered
- * - Current behavior: 401 errors from API calls will fail and may require re-login
- * - Proactive refresh (5 min before expiry) prevents most 401 scenarios
- * - Future enhancement: Integrate refreshToken() with API/HTTP interceptor
- * - When implemented: will share deduplication with proactive refresh
+ * Reactive Refresh (Ready for Integration):
+ * - Exported refreshToken() function is available for manual/interceptor use
+ * - Designed for HTTP interceptor integration with custom backend APIs
+ * - Current app architecture: Supabase SDK handles all API calls internally
+ * - Supabase SDK manages its own auth state and token refresh automatically
+ * - For custom backend endpoints (future): integrate refreshToken() with interceptor
+ * - Proactive refresh (5 min before expiry) prevents token expiry in normal operation
+ * - Function shares deduplication with proactive refresh
  * - Returns promise for caller to await (ready for future integration)
+ *
+ * Note on 401 Handling Strategy:
+ * - Supabase client APIs: Token refresh managed by Supabase SDK internally
+ * - Custom backend APIs (when added): Use refreshToken() in HTTP interceptor
+ * - Example integration: axios.interceptors.response -> catch 401 -> refreshToken()
+ * - Proactive refresh ensures tokens rarely expire during active use
  *
  * Deduplication:
  * - Only one refresh in-flight at a time
