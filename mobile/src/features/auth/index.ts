@@ -22,3 +22,4 @@ export * from './hooks/useTokenRefreshManager';
 export * from './components/SignupScreen';
 export * from './components/VerificationPromptScreen';
 export * from './components/LoginScreen';
+export * from './components/ForgotPasswordScreen';

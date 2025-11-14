@@ -28,6 +28,7 @@
         "submitting": "Logging in...",
         "showPassword": "Show password",
         "hidePassword": "Hide password",
+        "forgotPasswordLink": "Forgot password?",
         "errors": {
           "invalidEmail": "Please enter a valid email address",
           "passwordRequired": "Password is required",
@@ -43,7 +44,9 @@
           "emailInput": "Email address input field",
           "passwordInput": "Password input field",
           "passwordToggle": "Toggle password visibility",
-          "submitButton": "Log in button"
+          "submitButton": "Log in button",
+          "forgotPasswordLink": "Forgot password link",
+          "forgotPasswordLinkHint": "Navigate to password reset screen"
         }
       },
       "signup": {
