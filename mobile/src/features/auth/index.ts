@@ -12,6 +12,8 @@ export * from './api/useResendVerification';
 export * from './api/useLogin';
 export * from './api/useLogout';
 export * from './utils/validation';
+export * from './utils/passwordResetSchemas';
+export * from './utils/passwordReuse';
 export * from './hooks/useAuthStateListener';
 export * from './hooks/useProtectedRoute';
 export * from './hooks/useTokenRefreshManager';
