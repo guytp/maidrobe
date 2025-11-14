@@ -91,11 +91,9 @@ export function VerificationPromptScreen() {
         },
         onError: (error) => {
           // Show error alert
-          Alert.alert(
-            t('screens.auth.verify.errors.resendFailed'),
-            error.message,
-            [{ text: 'OK' }]
-          );
+          Alert.alert(t('screens.auth.verify.errors.resendFailed'), error.message, [
+            { text: 'OK' },
+          ]);
         },
       }
     );
@@ -217,18 +215,10 @@ export function VerificationPromptScreen() {
           >
             {t('screens.auth.verify.title')}
           </Text>
-          <Text
-            style={styles.subtitle}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2.5}
-          >
+          <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={2.5}>
             {t('screens.auth.verify.subtitle')}
           </Text>
-          <Text
-            style={styles.description}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={2}>
             {t('screens.auth.verify.description')}
           </Text>
         </View>
@@ -250,16 +240,10 @@ export function VerificationPromptScreen() {
           {isPending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={colors.background} />
-              <Text style={styles.loadingText}>
-                {t('screens.auth.verify.resending')}
-              </Text>
+              <Text style={styles.loadingText}>{t('screens.auth.verify.resending')}</Text>
             </View>
           ) : (
-            <Text
-              style={styles.buttonText}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.buttonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {getButtonText()}
             </Text>
           )}
@@ -272,11 +256,7 @@ export function VerificationPromptScreen() {
             accessibilityLabel={t('screens.auth.verify.accessibility.successMessage')}
             accessibilityLiveRegion="polite"
           >
-            <Text
-              style={styles.successText}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.successText} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.verify.resendSuccess')}
             </Text>
           </View>

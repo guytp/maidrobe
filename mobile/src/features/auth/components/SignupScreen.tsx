@@ -110,11 +110,9 @@ export function SignupScreen() {
         },
         onError: (error) => {
           // Error already logged and user-friendly message set by useSignUp
-          Alert.alert(
-            t('screens.auth.signup.errors.signupFailed'),
-            error.message,
-            [{ text: 'OK' }]
-          );
+          Alert.alert(t('screens.auth.signup.errors.signupFailed'), error.message, [
+            { text: 'OK' },
+          ]);
         },
       }
     );
@@ -237,10 +235,7 @@ export function SignupScreen() {
       accessibilityLabel={t('screens.auth.signup.accessibility.screenLabel')}
       accessibilityHint={t('screens.auth.signup.accessibility.screenHint')}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text
             style={styles.title}
@@ -250,11 +245,7 @@ export function SignupScreen() {
           >
             {t('screens.auth.signup.title')}
           </Text>
-          <Text
-            style={styles.subtitle}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2.5}
-          >
+          <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={2.5}>
             {t('screens.auth.signup.subtitle')}
           </Text>
         </View>
@@ -335,7 +326,9 @@ export function SignupScreen() {
               }
             >
               <Text style={styles.passwordToggleText}>
-                {showPassword ? t('screens.auth.signup.hidePassword') : t('screens.auth.signup.showPassword')}
+                {showPassword
+                  ? t('screens.auth.signup.hidePassword')
+                  : t('screens.auth.signup.showPassword')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -350,11 +343,7 @@ export function SignupScreen() {
               {passwordError}
             </Text>
           ) : (
-            <Text
-              style={styles.requirementsText}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.requirementsText} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.signup.passwordRequirements')}
             </Text>
           )}
@@ -373,9 +362,7 @@ export function SignupScreen() {
           {isPending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={colors.background} />
-              <Text style={styles.loadingText}>
-                {t('screens.auth.signup.submitting')}
-              </Text>
+              <Text style={styles.loadingText}>{t('screens.auth.signup.submitting')}</Text>
             </View>
           ) : (
             <Text style={styles.buttonText}>{t('screens.auth.signup.submitButton')}</Text>

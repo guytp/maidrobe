@@ -48,11 +48,7 @@ function classifyResendError(error: unknown): ErrorClassification {
     }
 
     // User-related errors
-    if (
-      message.includes('invalid') ||
-      message.includes('not found') ||
-      message.includes('user')
-    ) {
+    if (message.includes('invalid') || message.includes('not found') || message.includes('user')) {
       return 'user';
     }
 
