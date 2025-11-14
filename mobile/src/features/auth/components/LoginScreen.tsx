@@ -8,11 +8,12 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { validateEmail, validateLoginPassword } from '../utils/validation';
+import { useLogin } from '../api/useLogin';
 
 /**
  * LoginScreen component - User authentication with email and password
@@ -38,8 +39,7 @@ import { validateEmail, validateLoginPassword } from '../utils/validation';
  * - Version mismatch: "Please update your app."
  */
 export function LoginScreen() {
-  // TODO: Step 2 - useRouter will be used for navigation after successful login
-  // const router = useRouter();
+  const router = useRouter();
   const { colors, spacing, radius } = useTheme();
 
   const [email, setEmail] = useState('');
@@ -48,8 +48,7 @@ export function LoginScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // TODO: Replace with useLogin hook in Step 2
-  const isPending = false;
+  const { mutate: login, isPending } = useLogin();
 
   /**
    * Validates email field and updates error state
@@ -104,9 +103,22 @@ export function LoginScreen() {
       return;
     }
 
-    // TODO: Step 2 - Call useLogin mutation with normalized email and password
-    // For now, just show an alert
-    Alert.alert('Login', 'Login functionality will be implemented in Step 2', [{ text: 'OK' }]);
+    // Call login mutation with normalized email and password
+    login(
+      { email: normalizedEmail, password },
+      {
+        onSuccess: () => {
+          // User is automatically set in store by useLogin mutation
+          // Navigate to home screen
+          router.replace('/home');
+        },
+        onError: (error) => {
+          // Error is already logged by useLogin mutation
+          // Display user-friendly error message
+          setPasswordError(error.message);
+        },
+      }
+    );
   };
 
   // Dynamic styles based on theme
