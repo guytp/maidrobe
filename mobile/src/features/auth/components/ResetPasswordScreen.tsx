@@ -28,6 +28,7 @@ import {
   recordResetAttempt,
   clearResetAttempts,
 } from '../utils/resetAttemptRateLimit';
+import { useStore } from '../../../core/state/store';
 
 /**
  * ResetPasswordScreen component - Complete password reset via deep link
@@ -74,6 +75,9 @@ export function ResetPasswordScreen() {
     type?: string;
     email?: string;
   }>();
+
+  // Extract user from store for password reuse checking
+  const user = useStore((state) => state.user);
 
   // Extract token from URL parameters
   // Supabase might send token in query param or as access_token in hash
@@ -207,8 +211,9 @@ export function ResetPasswordScreen() {
     await recordResetAttempt(token);
 
     // Call password reset mutation
+    // Pass userId from store to enable password reuse checking
     resetPassword(
-      { token, password, confirmPassword },
+      { token, password, confirmPassword, userId: user?.id },
       {
         onSuccess: () => {
           // Clear rate limit attempts on success

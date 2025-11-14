@@ -8,7 +8,6 @@ import type { ResetPasswordRequest } from '../utils/passwordResetSchemas';
 import { validatePassword } from '../utils/validation';
 import { checkPasswordReuse } from '../utils/passwordReuse';
 import { t } from '../../../core/i18n';
-import { useStore } from '../../../core/state/store';
 
 /**
  * Response type for password reset mutation
@@ -127,9 +126,9 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * React Query mutation hook for resetting user password.
  *
  * This hook handles:
- * - Request validation with Zod (token, password, confirmPassword)
+ * - Request validation with Zod (token, password, confirmPassword, optional userId)
  * - Client-side password policy enforcement (length, character classes, symbol)
- * - Password reuse checking (stub implementation, TODO: backend integration)
+ * - Password reuse checking when userId is provided (stub implementation, TODO: backend integration)
  * - Supabase Auth updateUser API call to change password
  * - Telemetry event logging (reset_succeeded, reset_failed)
  * - Sentry error capture for failures (via logError)
@@ -161,11 +160,17 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * - password-reset-succeeded: When password successfully changed
  * - password-reset-failed: When reset fails (with error details)
  *
+ * Refactored API:
+ * - Calling components must provide userId via the request parameter
+ * - This removes direct dependency on Zustand store (useStore.getState())
+ * - Enables better testability and separation of concerns
+ *
  * @returns React Query mutation object with password reset function
  *
  * @example
  * ```typescript
  * const { mutate: resetPassword, isPending } = useResetPassword();
+ * const user = useStore((state) => state.user);
  *
  * const handleResetPassword = () => {
  *   resetPassword(
@@ -173,6 +178,7 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  *       token: 'reset-token-from-deep-link',
  *       password: 'NewP@ssw0rd123',
  *       confirmPassword: 'NewP@ssw0rd123',
+ *       userId: user?.id, // Optional - enables password reuse checking
  *     },
  *     {
  *       onSuccess: () => {
@@ -265,7 +271,7 @@ export function useResetPassword() {
       }
 
       // Extract values
-      const { token, password } = validatedRequest;
+      const { token, password, userId } = validatedRequest;
 
       try {
         // 2. Validate password meets policy requirements
@@ -295,10 +301,9 @@ export function useResetPassword() {
         // 3. Check password reuse (stub implementation)
         // TODO: Replace with actual backend integration
         // For now, this always returns isReused: false
-        // The user ID should be obtained from the current session after token verification
-        const currentUser = useStore.getState().user;
-        if (currentUser) {
-          const reuseCheck = await checkPasswordReuse(currentUser.id, password);
+        // Password reuse checking only runs when userId is provided by the calling component
+        if (userId) {
+          const reuseCheck = await checkPasswordReuse(userId, password);
           if (reuseCheck.isReused) {
             const error = new Error(t('screens.auth.resetPassword.errors.passwordReused'));
             const latency = Date.now() - startTime;
