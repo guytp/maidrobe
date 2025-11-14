@@ -260,7 +260,8 @@ export type AuthEventType =
   | 'logout-failure'
   | 'logout-forced'
   | 'token-refresh-success'
-  | 'token-refresh-failure';
+  | 'token-refresh-failure'
+  | 'token-refresh-reactive';
 
 /**
  * Metadata for authentication event logging.

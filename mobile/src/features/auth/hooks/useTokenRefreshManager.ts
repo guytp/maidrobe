@@ -4,6 +4,11 @@ import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError, logAuthEvent } from '../../../core/telemetry';
+import {
+  registerRefreshTokenFn,
+  registerForceLogoutFn,
+  resetInterceptor,
+} from '../../../services/supabaseInterceptor';
 
 /**
  * Token refresh coordinator that handles proactive and reactive token refresh.
@@ -26,21 +31,21 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  * - Rescheduled after successful refresh
  * - Cancelled on logout or component unmount
  *
- * Reactive Refresh (Ready for Integration):
- * - Exported refreshToken() function is available for manual/interceptor use
- * - Designed for HTTP interceptor integration with custom backend APIs
- * - Current app architecture: Supabase SDK handles all API calls internally
- * - Supabase SDK manages its own auth state and token refresh automatically
- * - For custom backend endpoints (future): integrate refreshToken() with interceptor
- * - Proactive refresh (5 min before expiry) prevents token expiry in normal operation
- * - Function shares deduplication with proactive refresh
- * - Returns promise for caller to await (ready for future integration)
+ * Reactive Refresh (Active):
+ * - Integrated with HTTP interceptor in mobile/src/services/supabaseInterceptor.ts
+ * - Automatically triggered on 401 Unauthorized responses from any API call
+ * - Interceptor calls refreshToken(), waits for completion, then retries request
+ * - Shares deduplication logic with proactive refresh (single in-flight promise)
+ * - Returns promise for caller to await
+ * - On refresh failure: forces logout with session expired message
  *
- * Note on 401 Handling Strategy:
- * - Supabase client APIs: Token refresh managed by Supabase SDK internally
- * - Custom backend APIs (when added): Use refreshToken() in HTTP interceptor
- * - Example integration: axios.interceptors.response -> catch 401 -> refreshToken()
- * - Proactive refresh ensures tokens rarely expire during active use
+ * 401 Handling Strategy:
+ * - All Supabase API calls pass through custom fetch interceptor
+ * - 401 detected -> refreshToken() invoked -> request retried once
+ * - Refresh failure -> forceLogout() with "Session expired" message
+ * - Auth endpoints (/token, /logout, /signup) bypass interception to prevent loops
+ * - Proactive refresh (5 min before expiry) minimizes 401 occurrence
+ * - Reactive refresh provides defense-in-depth for edge cases
  *
  * Deduplication:
  * - Only one refresh in-flight at a time
@@ -167,12 +172,14 @@ export function useTokenRefreshManager() {
    * Called on unrecoverable errors:
    * - Invalid/expired refresh token
    * - Max retry attempts exhausted
+   * - Reactive refresh failures from 401 interceptor
    *
    * This function:
    * - Sets logout reason in store for UI display
    * - Clears all auth state and tokens
    * - Navigates to login screen
    * - Logs forced logout event
+   * - Resets interceptor state to prevent stale refresh promises
    *
    * @param reason - Reason for forced logout
    */
@@ -205,6 +212,9 @@ export function useTokenRefreshManager() {
 
       // Clear refresh promise
       refreshPromiseRef.current = null;
+
+      // Reset interceptor state to prevent stale refresh promises
+      resetInterceptor();
 
       // Set logout reason for UI display
       useStore.getState().setLogoutReason('Session expired. Please log in again.');
@@ -595,6 +605,11 @@ export function useTokenRefreshManager() {
     // eslint-disable-next-line no-console
     console.log('[TokenRefresh] Initializing token refresh manager');
 
+    // Register refresh and logout functions with the interceptor
+    // This allows the interceptor to call these functions when handling 401 responses
+    registerRefreshTokenFn(refreshToken);
+    registerForceLogoutFn(forceLogout);
+
     // Get initial connectivity state
     NetInfo.fetch().then((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
@@ -633,21 +648,23 @@ export function useTokenRefreshManager() {
 
       // Note: Don't clear refreshPromiseRef - let in-flight refresh complete
     };
-  }, [scheduleProactiveRefresh, handleConnectivityChange]);
+  }, [scheduleProactiveRefresh, handleConnectivityChange, refreshToken, forceLogout]);
 
-  // Expose refreshToken function for future API interceptor integration
+  // Expose refreshToken function for API interceptor integration
   //
-  // IMPORTANT: This function is exported but NOT currently called automatically.
-  // It is ready for future integration with an API/HTTP interceptor that would
-  // invoke it on 401 responses. Currently, 401 errors from Supabase API calls
-  // will not trigger automatic token refresh.
+  // This function is now actively integrated with the Supabase request interceptor
+  // (mobile/src/services/supabaseInterceptor.ts) which automatically calls it when
+  // any authenticated API request returns a 401 Unauthorized response.
   //
-  // The proactive refresh strategy (5 minutes before expiry) is designed to
-  // refresh tokens before they expire, minimizing the occurrence of 401 errors
-  // during normal app usage.
+  // Integration flow:
+  // 1. API request fails with 401 response
+  // 2. Interceptor detects 401 and calls refreshToken()
+  // 3. refreshToken() performs token refresh with retry logic
+  // 4. On success: interceptor retries original request with new token
+  // 5. On failure: forceLogout() is called with session expired message
   //
-  // Future enhancement: Implement an API interceptor that calls refreshToken()
-  // when receiving 401 responses, then retries the original request with the
-  // new token.
+  // The proactive refresh strategy (5 minutes before expiry) minimizes the
+  // occurrence of 401 errors during normal app usage, and reactive refresh
+  // provides defense-in-depth for edge cases.
   return { refreshToken };
 }

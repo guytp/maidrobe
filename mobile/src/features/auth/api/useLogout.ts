@@ -5,6 +5,7 @@ import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/te
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
+import { resetInterceptor } from '../../../services/supabaseInterceptor';
 
 /**
  * Context type for logout mutation (used for latency tracking)
@@ -141,6 +142,9 @@ export function useLogout() {
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
 
+        // Reset interceptor state to clear any in-flight refresh promises
+        resetInterceptor();
+
         // Log structured auth event
         logAuthEvent('logout-success', {
           userId,
@@ -152,6 +156,7 @@ export function useLogout() {
         // This is a fail-safe to prevent user from being stuck logged in
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
+        resetInterceptor();
 
         // Re-throw if already an Error
         if (error instanceof Error) {
@@ -181,6 +186,7 @@ export function useLogout() {
       // Ensure user is cleared from store even on error (fail-safe)
       useStore.getState().clearUser();
       useStore.getState().setLogoutReason(null);
+      resetInterceptor();
 
       // Navigate to login even on error (user is logged out locally)
       router.replace('/auth/login');

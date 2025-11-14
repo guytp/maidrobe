@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { secureStorage } from './secureStorage';
+import { createInterceptedFetch } from './supabaseInterceptor';
 
 /**
  * Supabase client singleton for the mobile application.
@@ -79,12 +80,16 @@ if (!supabaseAnonKey) {
  * 5. Deduplication: Concurrent refresh requests share a single promise to
  *    prevent redundant network calls and race conditions.
  *
- * 6. Reactive refresh: Exposed refreshToken() function ready for API
- *    interceptor integration to handle 401 responses (implementation in
- *    future step).
+ * 6. Reactive refresh: HTTP-level interceptor catches 401 responses from
+ *    any authenticated API call, invokes refreshToken(), and retries the
+ *    failed request once on successful refresh. Forces logout if refresh
+ *    fails or refresh token is invalid/expired.
  *
  * The custom refresh manager is implemented in:
  * mobile/src/features/auth/hooks/useTokenRefreshManager.ts
+ *
+ * The reactive refresh interceptor is implemented in:
+ * mobile/src/services/supabaseInterceptor.ts
  *
  * IMPORTANT: Do NOT re-enable autoRefreshToken. Running both systems
  * simultaneously causes race conditions, redundant refresh requests, and
@@ -101,5 +106,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: false, // DISABLED: Custom refresh manager used instead
     persistSession: true,
     detectSessionInUrl: false, // Not applicable for mobile
+  },
+  global: {
+    fetch: createInterceptedFetch(), // Custom fetch for 401 interception and retry
   },
 });
