@@ -452,6 +452,63 @@ export function useTokenRefreshManager() {
     // Calculate time until expiry
     const now = Date.now();
     const expiresAt = tokenMetadata.expiresAt;
+
+    // Validate expiresAt is a valid future timestamp
+    // This prevents mis-scheduled or runaway refresh attempts from invalid values
+    if (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt)) {
+      // eslint-disable-next-line no-console
+      console.warn('[TokenRefresh] Invalid token expiry timestamp (not a finite number)', {
+        expiresAt,
+        type: typeof expiresAt,
+        isNaN: Number.isNaN(expiresAt),
+        isFinite: Number.isFinite(expiresAt),
+      });
+      logError(new Error('Invalid token expiry timestamp: not a finite number'), 'schema', {
+        feature: 'auth',
+        operation: 'schedule-refresh',
+        metadata: {
+          expiresAt,
+          type: typeof expiresAt,
+          isNaN: typeof expiresAt === 'number' ? Number.isNaN(expiresAt) : false,
+          isFinite: typeof expiresAt === 'number' ? Number.isFinite(expiresAt) : false,
+        },
+      });
+      return; // Skip scheduling to prevent runaway refresh attempts
+    }
+
+    // Check if expiresAt is in the past
+    if (expiresAt <= now) {
+      // eslint-disable-next-line no-console
+      console.warn('[TokenRefresh] Token expiry is in the past', {
+        expiresAt,
+        now,
+        diff: expiresAt - now,
+      });
+      logError(new Error('Invalid token expiry timestamp: in the past'), 'schema', {
+        feature: 'auth',
+        operation: 'schedule-refresh',
+        metadata: {
+          expiresAt,
+          now,
+          diff: expiresAt - now,
+        },
+      });
+      return; // Skip scheduling - token is already expired
+    }
+
+    // Warn if expiresAt is unreasonably far in the future (> 1 year)
+    // This might indicate a data issue but we'll still schedule the refresh
+    const oneYearFromNow = now + 365 * 24 * 60 * 60 * 1000;
+    if (expiresAt > oneYearFromNow) {
+      // eslint-disable-next-line no-console
+      console.warn('[TokenRefresh] Token expiry is unreasonably far in future', {
+        expiresAt,
+        expiresAtDate: new Date(expiresAt).toISOString(),
+        yearsFromNow: (expiresAt - now) / (365 * 24 * 60 * 60 * 1000),
+      });
+      // Continue with scheduling - might be intentional long-lived token
+    }
+
     const timeUntilExpiry = expiresAt - now;
 
     // Calculate when to refresh (5 minutes before expiry)
