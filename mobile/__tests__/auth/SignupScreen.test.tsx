@@ -14,7 +14,9 @@ jest.mock('expo-router', () => ({
 
 // Mock auth store
 jest.mock('../../src/core/state/store', () => ({
-  useStore: (selector: (state: { user: null; setUser: () => void; clearUser: () => void }) => unknown) =>
+  useStore: (
+    selector: (state: { user: null; setUser: () => void; clearUser: () => void }) => unknown
+  ) =>
     selector({
       user: null,
       setUser: jest.fn(),
@@ -192,12 +194,9 @@ describe('SignupScreen', () => {
   });
 
   it('should clear errors when user starts typing', async () => {
-    const { getByPlaceholderText, getByText, queryByText } = render(
-      <SignupScreen />,
-      {
-        wrapper: TestWrapper,
-      }
-    );
+    const { getByPlaceholderText, getByText, queryByText } = render(<SignupScreen />, {
+      wrapper: TestWrapper,
+    });
 
     const emailInput = getByPlaceholderText('your@email.com');
 

@@ -82,12 +82,7 @@ describe('Password Validation', () => {
   });
 
   it('should accept passwords meeting minimum requirements', () => {
-    const validPasswords = [
-      'Password1',
-      'SecurePass123',
-      'MyP@ssw0rd',
-      'Abcdefgh1',
-    ];
+    const validPasswords = ['Password1', 'SecurePass123', 'MyP@ssw0rd', 'Abcdefgh1'];
 
     validPasswords.forEach((password) => {
       const result = validatePassword(password);

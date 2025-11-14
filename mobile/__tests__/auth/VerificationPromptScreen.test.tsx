@@ -8,7 +8,9 @@ import * as useResendVerificationModule from '../../src/features/auth/api/useRes
 // Mock auth store
 jest.mock('../../src/core/state/store', () => ({
   useStore: (
-    selector: (state: { user: { email: string; id: string; emailVerified: boolean } | null }) => unknown
+    selector: (state: {
+      user: { email: string; id: string; emailVerified: boolean } | null;
+    }) => unknown
   ) =>
     selector({
       user: { email: 'test@example.com', id: '123', emailVerified: false },
