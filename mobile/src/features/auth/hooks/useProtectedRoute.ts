@@ -60,12 +60,12 @@ export function useProtectedRoute(): boolean {
     // Get current route segments
     const inAuthGroup = segments[0] === 'auth';
 
-    // If no user, redirect to signup (unless already on auth screen)
+    // If no user, redirect to login (unless already on auth screen)
     if (!user) {
       if (!inAuthGroup) {
         // eslint-disable-next-line no-console
-        console.log('[AuthGuard] No user found, redirecting to signup');
-        router.replace('/auth/signup');
+        console.log('[AuthGuard] No user found, redirecting to login');
+        router.replace('/auth/login');
       }
       return;
     }

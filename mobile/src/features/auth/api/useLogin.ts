@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
+import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
@@ -329,6 +329,14 @@ export function useLogin() {
               latency,
             },
           });
+
+          // Log structured auth event
+          logAuthEvent('login-failure', {
+            errorCode: error.status?.toString(),
+            outcome: 'failure',
+            latency,
+          });
+
           throw new Error(getLoginErrorMessage(classification, error));
         }
 
@@ -404,15 +412,17 @@ export function useLogin() {
       const expiresAt = Date.now() + expiresInSeconds * 1000;
       useStore.getState().setTokenMetadata(expiresAt, data.session.token_type || 'bearer');
 
-      // Log success with latency for observability and SLO tracking
+      // Clear any logout reason from forced logout
+      useStore.getState().setLogoutReason(null);
+
+      // Log structured auth event for observability
       // SECURITY: Do NOT log the session object - it contains access_token and refresh_token
-      logSuccess('auth', 'login', {
+      logAuthEvent('login-success', {
+        userId: data.user.id,
+        outcome: 'success',
         latency,
-        data: {
-          userId: data.user.id,
+        metadata: {
           emailVerified: !!data.user.email_confirmed_at,
-          // Safe to log: token metadata (expiry time) but NOT the token itself
-          tokenExpiresAt: expiresAt,
         },
       });
     },

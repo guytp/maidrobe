@@ -1,8 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
-import { logError, logSuccess } from '../../../core/telemetry';
+import { logError, logAuthEvent } from '../../../core/telemetry';
 
 /**
  * Token refresh coordinator that handles proactive and reactive token refresh.
@@ -67,11 +68,19 @@ import { logError, logSuccess } from '../../../core/telemetry';
  * ```
  */
 export function useTokenRefreshManager() {
+  const router = useRouter();
+
   // Refs for mutable state that doesn't trigger re-renders
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
   const scheduledTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const attemptCountRef = useRef<number>(0);
   const isOnlineRef = useRef<boolean>(true);
+  const routerRef = useRef(router);
+
+  // Update router ref on every render to ensure we have current router
+  useEffect(() => {
+    routerRef.current = router;
+  });
 
   /**
    * Calculates exponential backoff delay with jitter.
@@ -132,16 +141,32 @@ export function useTokenRefreshManager() {
    * - Invalid/expired refresh token
    * - Max retry attempts exhausted
    *
+   * This function:
+   * - Sets logout reason in store for UI display
+   * - Clears all auth state and tokens
+   * - Navigates to login screen
+   * - Logs forced logout event
+   *
    * @param reason - Reason for forced logout
    */
   const forceLogout = useCallback(async (reason: string) => {
     try {
+      // Get user ID before clearing (for telemetry)
+      const userId = useStore.getState().user?.id;
+
       // Log the forced logout
       // eslint-disable-next-line no-console
       console.error('[TokenRefresh] Forcing logout:', reason);
       logError(new Error(reason), 'user', {
         feature: 'auth',
         operation: 'token-refresh-force-logout',
+        metadata: { reason },
+      });
+
+      // Log structured auth event
+      logAuthEvent('logout-forced', {
+        userId,
+        outcome: 'forced',
         metadata: { reason },
       });
 
@@ -154,14 +179,25 @@ export function useTokenRefreshManager() {
       // Clear refresh promise
       refreshPromiseRef.current = null;
 
+      // Set logout reason for UI display
+      useStore.getState().setLogoutReason('Session expired. Please log in again.');
+
       // Sign out (clears SecureStore)
       await supabase.auth.signOut();
 
       // Clear session state
       useStore.getState().clearUser();
+
+      // Navigate to login screen
+      routerRef.current.replace('/auth/login');
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[TokenRefresh] Error during forced logout:', error);
+
+      // Ensure state is cleared even on error
+      useStore.getState().setLogoutReason('Session expired. Please log in again.');
+      useStore.getState().clearUser();
+      routerRef.current.replace('/auth/login');
     }
   }, []);
 
@@ -205,6 +241,19 @@ export function useTokenRefreshManager() {
           },
         });
 
+        // Log structured auth event for failure
+        const userId = useStore.getState().user?.id;
+        logAuthEvent('token-refresh-failure', {
+          userId,
+          errorCode: transient ? 'network_error' : 'auth_error',
+          outcome: 'failure',
+          latency,
+          metadata: {
+            attempt: attemptCountRef.current + 1,
+            transient,
+          },
+        });
+
         throw error;
       }
 
@@ -241,11 +290,12 @@ export function useTokenRefreshManager() {
       // Reset attempt count on success
       attemptCountRef.current = 0;
 
-      // Log success
-      logSuccess('auth', 'token-refresh', {
+      // Log structured auth event
+      logAuthEvent('token-refresh-success', {
+        userId: data.user.id,
+        outcome: 'success',
         latency,
-        data: {
-          userId: data.user.id,
+        metadata: {
           // Safe to log: token metadata but NOT the token itself
           tokenExpiresAt: data.session.expires_at ? data.session.expires_at * 1000 : undefined,
         },

@@ -38,23 +38,27 @@ export interface TokenMetadata {
  * @property user - Currently authenticated user or null if not authenticated
  * @property isInitialized - Whether initial auth state has been loaded from Supabase
  * @property tokenMetadata - Token expiry and type metadata (NOT the actual tokens)
+ * @property logoutReason - Reason for forced logout (e.g., session expired) for UI display
  * @property setUser - Action to set the authenticated user
  * @property updateEmailVerified - Action to update the emailVerified status
  * @property setTokenMetadata - Action to store token metadata (expiry, type)
  * @property isTokenExpired - Getter to check if access token is expired
  * @property clearUser - Action to clear the authenticated user (logout)
  * @property setInitialized - Action to mark auth initialization as complete
+ * @property setLogoutReason - Action to set the logout reason for UI display
  */
 export interface SessionSlice {
   user: User | null;
   isInitialized: boolean;
   tokenMetadata: TokenMetadata | null;
+  logoutReason: string | null;
   setUser: (user: User) => void;
   updateEmailVerified: (verified: boolean) => void;
   setTokenMetadata: (expiresAt: number, tokenType: string) => void;
   isTokenExpired: () => boolean;
   clearUser: () => void;
   setInitialized: (initialized: boolean) => void;
+  setLogoutReason: (reason: string | null) => void;
 }
 
 /**
@@ -85,6 +89,7 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
   user: null,
   isInitialized: false,
   tokenMetadata: null,
+  logoutReason: null,
 
   setUser: (user) => set({ user }),
 
@@ -137,4 +142,15 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
     }),
 
   setInitialized: (initialized) => set({ isInitialized: initialized }),
+
+  /**
+   * Sets the logout reason for UI display.
+   *
+   * This is used to communicate forced logout reasons (e.g., session expired)
+   * to the user interface. The reason is displayed on the login screen and
+   * cleared when the user logs in successfully or dismisses the message.
+   *
+   * @param reason - Logout reason message or null to clear
+   */
+  setLogoutReason: (reason) => set({ logoutReason: reason }),
 });

@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
+import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
@@ -51,16 +52,22 @@ function classifyLogoutError(error: unknown): ErrorClassification {
  * - Clearing local session state in Zustand store
  * - Error classification and telemetry logging
  * - Success event logging with latency metrics
+ * - Navigation to login screen after logout
  *
  * State Management:
  * - Clears user from Zustand session store
+ * - Clears logoutReason (user-initiated logout)
  * - Supabase client automatically clears stored tokens
- * - No explicit navigation (caller handles routing)
+ *
+ * Navigation:
+ * - Automatically navigates to /auth/login using router.replace()
+ * - Prevents back navigation to protected screens
  *
  * Error Handling:
  * - Logs errors but still clears local state (fail-safe)
  * - Network errors during logout don't prevent local cleanup
  * - User is considered logged out even if API call fails
+ * - Still navigates to login screen after error
  *
  * @returns React Query mutation object with logout function
  *
@@ -69,19 +76,12 @@ function classifyLogoutError(error: unknown): ErrorClassification {
  * const { mutate: logout, isPending } = useLogout();
  *
  * const handleLogout = () => {
- *   logout(undefined, {
- *     onSuccess: () => {
- *       router.replace('/auth/login');
- *     },
- *     onError: (error) => {
- *       // Still logged out locally, just log the error
- *       console.error('Logout API error:', error.message);
- *     },
- *   });
+ *   logout(); // Navigation handled automatically
  * };
  * ```
  */
 export function useLogout() {
+  const router = useRouter();
   return useMutation<void, Error, void, LogoutMutationContext>({
     onMutate: () => {
       // Capture start timestamp for latency tracking
@@ -91,6 +91,9 @@ export function useLogout() {
       const startTime = Date.now();
 
       try {
+        // Get user ID before clearing (for telemetry)
+        const userId = useStore.getState().user?.id;
+
         // Check feature flag (optional for logout)
         const featureFlag = await checkFeatureFlag('auth.logout');
 
@@ -118,24 +121,37 @@ export function useLogout() {
             },
           });
 
+          // Log structured auth event
+          logAuthEvent('logout-failure', {
+            userId,
+            errorCode: error.status?.toString(),
+            outcome: 'failure',
+            latency,
+          });
+
           // Still clear local state even if API call failed
           // User should be logged out locally for security
           useStore.getState().clearUser();
+          useStore.getState().setLogoutReason(null);
 
           throw new Error(getUserFriendlyMessage(classification));
         }
 
-        // Clear local session state
+        // Clear local session state and logout reason
         useStore.getState().clearUser();
+        useStore.getState().setLogoutReason(null);
 
-        // Log success
-        logSuccess('auth', 'logout', {
+        // Log structured auth event
+        logAuthEvent('logout-success', {
+          userId,
+          outcome: 'success',
           latency,
         });
       } catch (error) {
         // Ensure local state is cleared even on error
         // This is a fail-safe to prevent user from being stuck logged in
         useStore.getState().clearUser();
+        useStore.getState().setLogoutReason(null);
 
         // Re-throw if already an Error
         if (error instanceof Error) {
@@ -153,12 +169,21 @@ export function useLogout() {
         throw new Error(getUserFriendlyMessage('server'));
       }
     },
+    onSuccess: () => {
+      // Navigate to login screen after successful logout
+      // Use replace to prevent back navigation to protected screens
+      router.replace('/auth/login');
+    },
     onError: (_error, _variables, context) => {
       // Calculate request latency for performance monitoring in error path
       const latency = context?.startTime ? Date.now() - context.startTime : undefined;
 
       // Ensure user is cleared from store even on error (fail-safe)
       useStore.getState().clearUser();
+      useStore.getState().setLogoutReason(null);
+
+      // Navigate to login even on error (user is logged out locally)
+      router.replace('/auth/login');
 
       // Log error latency for observability
       // eslint-disable-next-line no-console

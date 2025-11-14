@@ -68,7 +68,7 @@ export default function Index(): React.JSX.Element {
 
   // Auth initialization complete - redirect based on actual state
   if (!user) {
-    return <Redirect href="/auth/signup" />;
+    return <Redirect href="/auth/login" />;
   }
 
   if (!user.emailVerified) {
