@@ -293,9 +293,27 @@ export function useTokenRefreshManager() {
       }
 
       // Update user in store
+      // Handle potentially missing email with explicit logging
+      const userEmail = data.user.email;
+      if (!userEmail) {
+        // Log warning for missing email - this indicates potential data quality issue
+        // eslint-disable-next-line no-console
+        console.warn('[TokenRefresh] Missing user email in refresh response', {
+          userId: data.user.id,
+        });
+        logError(new Error('Missing user email in token refresh response'), 'schema', {
+          feature: 'auth',
+          operation: 'token-refresh',
+          metadata: {
+            userId: data.user.id,
+            hasEmail: false,
+          },
+        });
+      }
+
       useStore.getState().setUser({
         id: data.user.id,
-        email: data.user.email || '',
+        email: userEmail || '',
         emailVerified: !!data.user.email_confirmed_at,
       });
 
