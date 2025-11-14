@@ -267,9 +267,9 @@ export function ResetPasswordScreen() {
       case 'weak':
         return colors.error;
       case 'medium':
-        return '#F59E0B'; // Amber/yellow color for medium
+        return colors.warning;
       case 'strong':
-        return '#10B981'; // Green color for strong
+        return colors.success;
       default:
         return colors.textSecondary;
     }
@@ -634,7 +634,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasMinLength ? '#10B981' : colors.textSecondary,
+                    backgroundColor: policyRules.hasMinLength ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -651,7 +651,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasUppercase ? '#10B981' : colors.textSecondary,
+                    backgroundColor: policyRules.hasUppercase ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -668,7 +668,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasLowercase ? '#10B981' : colors.textSecondary,
+                    backgroundColor: policyRules.hasLowercase ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -684,7 +684,7 @@ export function ResetPasswordScreen() {
               <View
                 style={[
                   styles.policyRuleIndicator,
-                  { backgroundColor: policyRules.hasNumber ? '#10B981' : colors.textSecondary },
+                  { backgroundColor: policyRules.hasNumber ? colors.success : colors.textSecondary },
                 ]}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: policyRules.hasNumber }}
@@ -699,7 +699,7 @@ export function ResetPasswordScreen() {
               <View
                 style={[
                   styles.policyRuleIndicator,
-                  { backgroundColor: policyRules.hasSymbol ? '#10B981' : colors.textSecondary },
+                  { backgroundColor: policyRules.hasSymbol ? colors.success : colors.textSecondary },
                 ]}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: policyRules.hasSymbol }}
