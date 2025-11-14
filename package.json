@@ -8,7 +8,6 @@
     "edge-functions"
   ],
   "scripts": {
-    "prepare": "husky install",
     "mobile:start": "npm run start --workspace=mobile",
     "mobile:lint": "npm run lint --workspace=mobile",
     "mobile:typecheck": "npm run typecheck --workspace=mobile",
@@ -26,6 +25,9 @@
   "engines": {
     "node": ">=20.19.4",
     "npm": ">=10.0.0"
+  },
+  "overrides": {
+    "react-test-renderer": "19.2.0"
   },
   "repository": {
     "type": "git",
