@@ -297,11 +297,28 @@ export function useTokenRefreshManager() {
 
       // Update token metadata
       // SECURITY: We only store metadata (expiry time), NOT the tokens
+      //
+      // Token expiry derivation strategy (same as useLogin):
+      // 1. Use session.expires_at if provided (absolute timestamp in seconds)
+      // 2. Calculate from session.expires_in if provided (relative seconds)
+      // 3. Fall back to 3600 seconds (1 hour) if neither provided
+      //
+      // This ensures token metadata is always updated after successful refresh,
+      // allowing scheduleProactiveRefresh to continue scheduling future refreshes.
+      let expiresAt: number;
       if (data.session.expires_at) {
-        const expiresAt = data.session.expires_at * 1000; // Convert to milliseconds
-        const tokenType = data.session.token_type || 'bearer';
-        useStore.getState().setTokenMetadata(expiresAt, tokenType);
+        // Supabase provides expires_at as unix timestamp in seconds
+        // Convert to milliseconds for JavaScript Date
+        expiresAt = data.session.expires_at * 1000;
+      } else if (data.session.expires_in) {
+        // Calculate absolute expiry from relative expires_in (seconds)
+        expiresAt = Date.now() + data.session.expires_in * 1000;
+      } else {
+        // Fallback: Default to 1 hour (3600 seconds) - Supabase standard
+        expiresAt = Date.now() + 3600 * 1000;
       }
+      const tokenType = data.session.token_type || 'bearer';
+      useStore.getState().setTokenMetadata(expiresAt, tokenType);
 
       // Reset attempt count on success
       attemptCountRef.current = 0;
@@ -313,7 +330,7 @@ export function useTokenRefreshManager() {
         latency,
         metadata: {
           // Safe to log: token metadata but NOT the token itself
-          tokenExpiresAt: data.session.expires_at ? data.session.expires_at * 1000 : undefined,
+          tokenExpiresAt: expiresAt,
         },
       });
 
