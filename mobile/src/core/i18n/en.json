@@ -113,6 +113,9 @@
         "submitButton": "Send Reset Link",
         "submitting": "Sending...",
         "successMessage": "If an account exists, we've sent a link.",
+        "successTitle": "Check Your Email",
+        "successInstruction": "Please check your email inbox for password reset instructions. If you don't see the email, check your spam folder.",
+        "backToLogin": "Back to Login",
         "description": "Enter your email address and we'll send you a link to reset your password.",
         "errors": {
           "invalidEmail": "Please enter a valid email address",
@@ -125,8 +128,10 @@
           "screenLabel": "Forgot password screen",
           "screenHint": "Request a password reset link",
           "emailInput": "Email address input field",
+          "emailInputHint": "Enter your email address to receive a password reset link",
           "submitButton": "Send reset link button",
           "submitButtonHint": "Tap to send password reset link",
+          "backToLoginHint": "Return to the login screen",
           "successMessage": "Success message",
           "errorMessage": "Error message"
         }

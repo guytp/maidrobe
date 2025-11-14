@@ -271,7 +271,7 @@ export function ForgotPasswordScreen() {
 
           <View style={styles.successContainer} accessibilityLiveRegion="polite">
             <Text style={styles.successTitle} allowFontScaling={true} maxFontSizeMultiplier={2.5}>
-              Check Your Email
+              {t('screens.auth.forgotPassword.successTitle')}
             </Text>
             <Text style={styles.successMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.forgotPassword.successMessage')}
@@ -281,8 +281,7 @@ export function ForgotPasswordScreen() {
               allowFontScaling={true}
               maxFontSizeMultiplier={2}
             >
-              Please check your email inbox for password reset instructions. If you don't see the
-              email, check your spam folder.
+              {t('screens.auth.forgotPassword.successInstruction')}
             </Text>
           </View>
 
@@ -290,11 +289,11 @@ export function ForgotPasswordScreen() {
             style={styles.backButton}
             onPress={handleBackToLogin}
             accessibilityRole="button"
-            accessibilityLabel="Back to login"
-            accessibilityHint="Return to the login screen"
+            accessibilityLabel={t('screens.auth.forgotPassword.backToLogin')}
+            accessibilityHint={t('screens.auth.forgotPassword.accessibility.backToLoginHint')}
           >
             <Text style={styles.backButtonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-              Back to Login
+              {t('screens.auth.forgotPassword.backToLogin')}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -348,7 +347,7 @@ export function ForgotPasswordScreen() {
             autoCorrect={false}
             editable={!isPending}
             accessibilityLabel={t('screens.auth.forgotPassword.accessibility.emailInput')}
-            accessibilityHint="Enter your email address to receive a password reset link"
+            accessibilityHint={t('screens.auth.forgotPassword.accessibility.emailInputHint')}
             allowFontScaling={true}
             maxFontSizeMultiplier={2}
           />
@@ -390,11 +389,11 @@ export function ForgotPasswordScreen() {
           style={styles.backButton}
           onPress={handleBackToLogin}
           accessibilityRole="button"
-          accessibilityLabel="Back to login"
-          accessibilityHint="Return to the login screen"
+          accessibilityLabel={t('screens.auth.forgotPassword.backToLogin')}
+          accessibilityHint={t('screens.auth.forgotPassword.accessibility.backToLoginHint')}
         >
           <Text style={styles.backButtonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-            Back to Login
+            {t('screens.auth.forgotPassword.backToLogin')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
