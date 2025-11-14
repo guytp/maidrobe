@@ -302,7 +302,7 @@ export function useRequestPasswordReset() {
         // 4. Call Supabase Auth resetPasswordForEmail
         // The redirectTo URL should be the deep link for the mobile app
         // Format: maidrobe://reset-password (will be handled by Expo Router)
-        const { data, error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
           redirectTo: 'maidrobe://reset-password',
         });
 

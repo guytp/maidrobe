@@ -66,8 +66,7 @@ interface SentryConfig {
  * @returns Sentry configuration
  */
 function getSentryConfig(): SentryConfig {
-  const enabled =
-    process.env.EXPO_PUBLIC_SENTRY_ENABLED?.toLowerCase() === 'true';
+  const enabled = process.env.EXPO_PUBLIC_SENTRY_ENABLED?.toLowerCase() === 'true';
   const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
   const environment = process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT || 'development';
 

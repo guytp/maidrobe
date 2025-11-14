@@ -44,7 +44,7 @@ describe('Email Validation', () => {
 
 describe('Password Validation', () => {
   it('should validate password meeting all requirements', () => {
-    const result = validatePassword('SecurePass123');
+    const result = validatePassword('SecurePass123!');
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
@@ -56,27 +56,33 @@ describe('Password Validation', () => {
   });
 
   it('should reject password shorter than 8 characters', () => {
-    const result = validatePassword('Pass1');
+    const result = validatePassword('Pass1!');
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain('Password must be at least 8 characters');
   });
 
   it('should reject password without uppercase letter', () => {
-    const result = validatePassword('password123');
+    const result = validatePassword('password123!');
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain('Password must contain at least one uppercase letter');
   });
 
   it('should reject password without lowercase letter', () => {
-    const result = validatePassword('PASSWORD123');
+    const result = validatePassword('PASSWORD123!');
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain('Password must contain at least one lowercase letter');
   });
 
   it('should reject password without number', () => {
-    const result = validatePassword('PasswordABC');
+    const result = validatePassword('PasswordABC!');
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain('Password must contain at least one number');
+  });
+
+  it('should reject password without special character', () => {
+    const result = validatePassword('Password123');
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Password must contain at least one special character');
   });
 
   it('should return multiple errors for multiple violations', () => {
@@ -86,7 +92,7 @@ describe('Password Validation', () => {
   });
 
   it('should accept passwords meeting minimum requirements', () => {
-    const validPasswords = ['Password1', 'SecurePass123', 'MyP@ssw0rd', 'Abcdefgh1'];
+    const validPasswords = ['Password1!', 'SecurePass123#', 'MyP@ssw0rd', 'Abcdefgh1$'];
 
     validPasswords.forEach((password) => {
       const result = validatePassword(password);

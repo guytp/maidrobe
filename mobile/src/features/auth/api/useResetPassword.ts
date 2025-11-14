@@ -88,10 +88,7 @@ function classifyResetPasswordError(error: unknown): ErrorClassification {
  * @param error - The original error object for specific message detection
  * @returns User-friendly error message
  */
-function getResetPasswordErrorMessage(
-  classification: ErrorClassification,
-  error: unknown
-): string {
+function getResetPasswordErrorMessage(classification: ErrorClassification, error: unknown): string {
   // Check for specific error patterns
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
@@ -255,7 +252,9 @@ export function useResetPassword() {
           });
 
           // Check for password mismatch error
-          const mismatchError = error.issues.find((issue) => issue.path.includes('confirmPassword'));
+          const mismatchError = error.issues.find((issue) =>
+            issue.path.includes('confirmPassword')
+          );
           if (mismatchError) {
             throw new Error(t('screens.auth.resetPassword.errors.passwordMismatch'));
           }
@@ -332,7 +331,7 @@ export function useResetPassword() {
         // then updateUser to change the password.
 
         // First, verify the OTP token from the reset link
-        const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+        const { error: verifyError } = await supabase.auth.verifyOtp({
           token_hash: token,
           type: 'recovery',
         });

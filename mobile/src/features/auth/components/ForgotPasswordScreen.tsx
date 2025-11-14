@@ -88,9 +88,7 @@ export function ForgotPasswordScreen() {
     // Validate email
     const emailValidation = validateEmail(normalizedEmail);
     if (!emailValidation.isValid) {
-      setEmailError(
-        emailValidation.error || t('screens.auth.forgotPassword.errors.invalidEmail')
-      );
+      setEmailError(emailValidation.error || t('screens.auth.forgotPassword.errors.invalidEmail'));
       return;
     }
 
@@ -271,23 +269,11 @@ export function ForgotPasswordScreen() {
             </Text>
           </View>
 
-          <View
-            style={styles.successContainer}
-            accessibilityRole="status"
-            accessibilityLiveRegion="polite"
-          >
-            <Text
-              style={styles.successTitle}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2.5}
-            >
+          <View style={styles.successContainer} accessibilityLiveRegion="polite">
+            <Text style={styles.successTitle} allowFontScaling={true} maxFontSizeMultiplier={2.5}>
               Check Your Email
             </Text>
-            <Text
-              style={styles.successMessage}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.successMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.forgotPassword.successMessage')}
             </Text>
             <Text
@@ -392,9 +378,7 @@ export function ForgotPasswordScreen() {
           {isPending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={colors.background} />
-              <Text style={styles.loadingText}>
-                {t('screens.auth.forgotPassword.submitting')}
-              </Text>
+              <Text style={styles.loadingText}>{t('screens.auth.forgotPassword.submitting')}</Text>
             </View>
           ) : (
             <Text style={styles.buttonText}>{t('screens.auth.forgotPassword.submitButton')}</Text>

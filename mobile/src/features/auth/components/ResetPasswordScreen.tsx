@@ -426,11 +426,7 @@ export function ResetPasswordScreen() {
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
           >
-            <Text
-              style={styles.errorMessage}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.errorMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.resetPassword.linkExpired.message')}
             </Text>
 
@@ -534,7 +530,7 @@ export function ResetPasswordScreen() {
           {passwordStrength && (
             <View
               style={styles.strengthContainer}
-              accessibilityRole="status"
+              accessibilityLiveRegion="polite"
               accessibilityLabel={t('screens.auth.resetPassword.accessibility.strengthIndicator')}
               accessibilityValue={{
                 text: `${t('screens.auth.resetPassword.passwordStrength.label')}: ${t(`screens.auth.resetPassword.passwordStrength.${passwordStrength.strength}`)}`,
@@ -572,11 +568,7 @@ export function ResetPasswordScreen() {
         {/* Password Policy Rules Checklist */}
         {policyRules && (
           <View style={styles.policyRulesContainer}>
-            <Text
-              style={styles.policyRulesTitle}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.policyRulesTitle} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.auth.resetPassword.policyRules.title')}
             </Text>
 
