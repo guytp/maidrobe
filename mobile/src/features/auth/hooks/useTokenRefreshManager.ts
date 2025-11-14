@@ -26,11 +26,14 @@ import { logError, logAuthEvent } from '../../../core/telemetry';
  * - Rescheduled after successful refresh
  * - Cancelled on logout or component unmount
  *
- * Reactive Refresh:
- * - Exposed via refreshToken() function
- * - Ready for API interceptor integration on 401 errors (future step)
- * - Shares deduplication with proactive refresh
- * - Returns promise for caller to await
+ * Reactive Refresh (Not Yet Implemented):
+ * - Exported refreshToken() function is available but NOT currently integrated
+ * - 401 error handling is NOT automatically triggered
+ * - Current behavior: 401 errors from API calls will fail and may require re-login
+ * - Proactive refresh (5 min before expiry) prevents most 401 scenarios
+ * - Future enhancement: Integrate refreshToken() with API/HTTP interceptor
+ * - When implemented: will share deduplication with proactive refresh
+ * - Returns promise for caller to await (ready for future integration)
  *
  * Deduplication:
  * - Only one refresh in-flight at a time
@@ -546,7 +549,19 @@ export function useTokenRefreshManager() {
     };
   }, [scheduleProactiveRefresh, handleConnectivityChange]);
 
-  // Expose refreshToken function for imperative calls
-  // This allows API interceptors to call refreshToken()
+  // Expose refreshToken function for future API interceptor integration
+  //
+  // IMPORTANT: This function is exported but NOT currently called automatically.
+  // It is ready for future integration with an API/HTTP interceptor that would
+  // invoke it on 401 responses. Currently, 401 errors from Supabase API calls
+  // will not trigger automatic token refresh.
+  //
+  // The proactive refresh strategy (5 minutes before expiry) is designed to
+  // refresh tokens before they expire, minimizing the occurrence of 401 errors
+  // during normal app usage.
+  //
+  // Future enhancement: Implement an API interceptor that calls refreshToken()
+  // when receiving 401 responses, then retries the original request with the
+  // new token.
   return { refreshToken };
 }
