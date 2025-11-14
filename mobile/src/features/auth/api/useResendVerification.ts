@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage } from '../../../core/telemetry';
+import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
 
 /**
@@ -89,9 +89,10 @@ function getResendErrorMessage(classification: ErrorClassification, error: unkno
  * - Request validation with Zod
  * - Supabase Auth resend API call
  * - Response validation and parsing
- * - Error classification and telemetry logging
+ * - Error classification and telemetry logging (centralized utilities)
+ * - Success event logging with latency metrics
  * - User-friendly error message generation
- * - Latency tracking
+ * - Latency tracking for performance monitoring
  *
  * Implements 60-second cooldown tracking in component state.
  * Logs all operations to telemetry with PII redaction.
@@ -151,15 +152,11 @@ export function useResendVerification() {
           throw new Error(getResendErrorMessage(classification, error));
         }
 
-        // Log successful resend with latency
-        // eslint-disable-next-line no-console
-        console.log('[Telemetry]', {
-          feature: 'auth',
-          operation: 'resend-verification',
-          status: 'success',
-          metadata: {
+        // Log successful resend with latency for observability
+        logSuccess('auth', 'resend-verification', {
+          latency,
+          data: {
             email: 'redacted',
-            latency,
           },
         });
 
