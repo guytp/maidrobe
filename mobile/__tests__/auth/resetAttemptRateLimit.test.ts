@@ -22,7 +22,6 @@ describe('resetAttemptRateLimit', () => {
   let currentTime: number;
 
   const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-  const MAX_ATTEMPTS = 3;
 
   beforeEach(() => {
     jest.clearAllMocks();

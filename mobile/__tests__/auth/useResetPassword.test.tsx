@@ -5,7 +5,6 @@ import { useResetPassword } from '../../src/features/auth/api/useResetPassword';
 import { supabase } from '../../src/services/supabase';
 import * as telemetry from '../../src/core/telemetry';
 import * as passwordReuse from '../../src/features/auth/utils/passwordReuse';
-import * as validation from '../../src/features/auth/utils/validation';
 
 // Mock dependencies
 jest.mock('../../src/services/supabase', () => ({
@@ -40,9 +39,6 @@ jest.mock('../../src/core/i18n', () => ({
     return messages[key] || key;
   }),
 }));
-
-// Import after mocks
-const { validatePassword } = validation;
 
 describe('useResetPassword', () => {
   let queryClient: QueryClient;
