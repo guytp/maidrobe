@@ -32,6 +32,8 @@ export const radius = {
  * exceeding WCAG AA requirements (4.5:1) for stronger accessibility.
  * error uses #d32f2f (Material Design Red 700) for error states.
  * errorText uses #ffffff for text on error backgrounds (5.59:1 contrast).
+ * warning uses #F59E0B (Amber 500) for medium-severity states like medium password strength.
+ * success uses #10B981 (Emerald 500) for positive states like strong passwords and satisfied rules.
  */
 export const lightColors = {
   background: '#ffffff',
@@ -39,12 +41,16 @@ export const lightColors = {
   textSecondary: '#595959',
   error: '#d32f2f',
   errorText: '#ffffff',
+  warning: '#F59E0B',
+  success: '#10B981',
 };
 
 /**
  * Color palette for dark theme.
  * error uses #ef5350 (Material Design Red 400) for better visibility on dark backgrounds.
  * errorText uses #000000 for text on error backgrounds (8.59:1 contrast).
+ * warning uses #FCD34D (Amber 300) for medium-severity states, brighter for dark backgrounds.
+ * success uses #34D399 (Emerald 400) for positive states, brighter for dark backgrounds.
  */
 export const darkColors = {
   background: '#000000',
@@ -52,6 +58,8 @@ export const darkColors = {
   textSecondary: '#cccccc',
   error: '#ef5350',
   errorText: '#000000',
+  warning: '#FCD34D',
+  success: '#34D399',
 };
 
 export type ColorScheme = 'light' | 'dark';

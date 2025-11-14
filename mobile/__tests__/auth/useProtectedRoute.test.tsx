@@ -61,7 +61,7 @@ describe('useProtectedRoute', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('should redirect to signup when no user exists', async () => {
+  it('should redirect to login when no user exists', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
         user: null,
@@ -72,7 +72,7 @@ describe('useProtectedRoute', () => {
     const { result } = renderHook(() => useProtectedRoute());
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/auth/signup');
+      expect(mockReplace).toHaveBeenCalledWith('/auth/login');
     });
 
     expect(result.current).toBe(false);

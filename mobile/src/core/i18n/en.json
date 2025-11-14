@@ -28,6 +28,7 @@
         "submitting": "Logging in...",
         "showPassword": "Show password",
         "hidePassword": "Hide password",
+        "forgotPasswordLink": "Forgot password?",
         "errors": {
           "invalidEmail": "Please enter a valid email address",
           "passwordRequired": "Password is required",
@@ -43,7 +44,9 @@
           "emailInput": "Email address input field",
           "passwordInput": "Password input field",
           "passwordToggle": "Toggle password visibility",
-          "submitButton": "Log in button"
+          "submitButton": "Log in button",
+          "forgotPasswordLink": "Forgot password link",
+          "forgotPasswordLinkHint": "Navigate to password reset screen"
         }
       },
       "signup": {
@@ -100,6 +103,103 @@
           "cooldownHint": "Cooldown: {seconds} seconds remaining",
           "successMessage": "Success message",
           "errorMessage": "Error message"
+        }
+      },
+      "forgotPassword": {
+        "title": "Forgot Password",
+        "subtitle": "Reset your password",
+        "emailLabel": "Email",
+        "emailPlaceholder": "your@email.com",
+        "submitButton": "Send Reset Link",
+        "submitting": "Sending...",
+        "successMessage": "If an account exists, we've sent a link.",
+        "successTitle": "Check Your Email",
+        "successInstruction": "Please check your email inbox for password reset instructions. If you don't see the email, check your spam folder.",
+        "backToLogin": "Back to Login",
+        "description": "Enter your email address and we'll send you a link to reset your password.",
+        "errors": {
+          "invalidEmail": "Please enter a valid email address",
+          "emailRequired": "Email is required",
+          "networkError": "Network error. Please try again.",
+          "serverError": "Service temporarily unavailable. Please try again later.",
+          "rateLimitExceeded": "Too many requests. Please wait {seconds} seconds."
+        },
+        "accessibility": {
+          "screenLabel": "Forgot password screen",
+          "screenHint": "Request a password reset link",
+          "emailInput": "Email address input field",
+          "emailInputHint": "Enter your email address to receive a password reset link",
+          "submitButton": "Send reset link button",
+          "submitButtonHint": "Tap to send password reset link",
+          "backToLoginHint": "Return to the login screen",
+          "successMessage": "Success message",
+          "errorMessage": "Error message"
+        }
+      },
+      "resetPassword": {
+        "title": "Reset Password",
+        "subtitle": "Create a new password",
+        "newPasswordLabel": "New Password",
+        "newPasswordPlaceholder": "Enter new password",
+        "confirmPasswordLabel": "Confirm Password",
+        "confirmPasswordPlaceholder": "Confirm new password",
+        "submitButton": "Reset Password",
+        "submitting": "Resetting...",
+        "successMessage": "Password reset successful",
+        "passwordPolicy": "Password must be at least 8 characters with uppercase, lowercase, number, and symbol",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "passwordStrength": {
+          "label": "Password strength",
+          "weak": "Weak",
+          "medium": "Medium",
+          "strong": "Strong"
+        },
+        "policyRules": {
+          "title": "Password must contain:",
+          "minLength": "At least 8 characters",
+          "uppercase": "One uppercase letter",
+          "lowercase": "One lowercase letter",
+          "number": "One number",
+          "symbol": "One special character"
+        },
+        "errors": {
+          "passwordRequired": "Password is required",
+          "confirmPasswordRequired": "Please confirm your password",
+          "passwordMismatch": "Passwords do not match",
+          "weakPassword": "Password does not meet requirements",
+          "passwordReused": "Cannot reuse one of your last 3 passwords",
+          "tokenInvalid": "Link expired or invalid",
+          "tokenMissing": "Reset link is invalid",
+          "networkError": "Network error. Please try again.",
+          "serverError": "Service temporarily unavailable. Please try again later.",
+          "rateLimitExceeded": "Too many attempts. Please try again in {seconds} seconds.",
+          "recaptchaFailed": "Verification failed. Please try again."
+        },
+        "success": {
+          "passwordReset": "Password reset successful! You can now log in with your new password.",
+          "passwordResetShort": "Password reset successful"
+        },
+        "linkExpired": {
+          "title": "Link Expired",
+          "message": "This password reset link has expired or is invalid.",
+          "resendButton": "Resend Reset Email"
+        },
+        "accessibility": {
+          "screenLabel": "Reset password screen",
+          "screenHint": "Create a new password for your account",
+          "newPasswordInput": "New password input field",
+          "confirmPasswordInput": "Confirm password input field",
+          "passwordToggle": "Toggle password visibility",
+          "submitButton": "Reset password button",
+          "submitButtonHint": "Tap to reset your password",
+          "strengthIndicator": "Password strength indicator",
+          "strengthHint": "Password strength: {strength}",
+          "policyRule": "Password requirement",
+          "policyRuleMet": "Requirement met",
+          "policyRuleNotMet": "Requirement not met",
+          "errorMessage": "Error message",
+          "successMessage": "Success message"
         }
       }
     }

@@ -96,8 +96,7 @@ interface OtelConfig {
  * @returns OTEL configuration
  */
 function getOtelConfig(): OtelConfig {
-  const enabled =
-    process.env.EXPO_PUBLIC_OTEL_ENABLED?.toLowerCase() === 'true';
+  const enabled = process.env.EXPO_PUBLIC_OTEL_ENABLED?.toLowerCase() === 'true';
   const endpoint = process.env.EXPO_PUBLIC_OTEL_ENDPOINT;
   const serviceName = process.env.EXPO_PUBLIC_OTEL_SERVICE_NAME || 'maidrobe-mobile';
   const environment = process.env.EXPO_PUBLIC_OTEL_ENVIRONMENT || 'development';

@@ -285,14 +285,10 @@ export function createInterceptedFetch(): typeof fetch {
     if (!refreshTokenFn) {
       // eslint-disable-next-line no-console
       console.error('[Interceptor] refreshTokenFn not registered - cannot refresh token');
-      logError(
-        new Error('refreshTokenFn not registered in interceptor'),
-        'schema',
-        {
-          feature: 'auth',
-          operation: 'reactive-refresh',
-        }
-      );
+      logError(new Error('refreshTokenFn not registered in interceptor'), 'schema', {
+        feature: 'auth',
+        operation: 'reactive-refresh',
+      });
       return response; // Return original 401 response
     }
 

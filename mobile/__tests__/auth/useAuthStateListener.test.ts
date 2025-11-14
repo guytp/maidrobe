@@ -40,6 +40,7 @@ describe('useAuthStateListener', () => {
   let mockUpdateEmailVerified: jest.Mock;
   let mockClearUser: jest.Mock;
   let mockSetInitialized: jest.Mock;
+  let mockSetTokenMetadata: jest.Mock;
   let mockSubscription: { unsubscribe: jest.Mock };
 
   beforeEach(() => {
@@ -47,6 +48,7 @@ describe('useAuthStateListener', () => {
     mockUpdateEmailVerified = jest.fn();
     mockClearUser = jest.fn();
     mockSetInitialized = jest.fn();
+    mockSetTokenMetadata = jest.fn();
     mockSubscription = { unsubscribe: jest.fn() };
 
     // Setup store mock
@@ -58,6 +60,7 @@ describe('useAuthStateListener', () => {
         updateEmailVerified: mockUpdateEmailVerified,
         clearUser: mockClearUser,
         setInitialized: mockSetInitialized,
+        setTokenMetadata: mockSetTokenMetadata,
       })
     );
 

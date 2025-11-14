@@ -274,6 +274,23 @@ export function LoginScreen() {
           fontWeight: '600',
           marginLeft: spacing.sm,
         },
+        forgotPasswordContainer: {
+          alignItems: 'flex-end',
+          marginTop: spacing.sm,
+          marginBottom: spacing.md,
+        },
+        forgotPasswordLink: {
+          minHeight: 44,
+          minWidth: 44,
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          paddingHorizontal: spacing.sm,
+        },
+        forgotPasswordText: {
+          color: colors.textSecondary,
+          fontSize: 14,
+          fontWeight: '600',
+        },
       }),
     [colors, spacing, radius]
   );
@@ -394,6 +411,25 @@ export function LoginScreen() {
               {passwordError}
             </Text>
           )}
+        </View>
+
+        {/* Forgot Password Link */}
+        <View style={styles.forgotPasswordContainer}>
+          <TouchableOpacity
+            style={styles.forgotPasswordLink}
+            onPress={() => router.push('/auth/forgot-password')}
+            accessibilityRole="link"
+            accessibilityLabel={t('screens.auth.login.accessibility.forgotPasswordLink')}
+            accessibilityHint={t('screens.auth.login.accessibility.forgotPasswordLinkHint')}
+          >
+            <Text
+              style={styles.forgotPasswordText}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={2}
+            >
+              {t('screens.auth.login.forgotPasswordLink')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Submit Button */}
