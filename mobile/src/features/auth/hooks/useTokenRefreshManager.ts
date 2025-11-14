@@ -95,6 +95,7 @@ export function useTokenRefreshManager() {
   const attemptCountRef = useRef<number>(0);
   const isOnlineRef = useRef<boolean>(true);
   const routerRef = useRef(router);
+  const isMountedRef = useRef<boolean>(true);
 
   // Update router ref on every render to ensure we have current router
   useEffect(() => {
@@ -519,8 +520,8 @@ export function useTokenRefreshManager() {
       // eslint-disable-next-line no-console
       console.log('[TokenRefresh] Initial connectivity state', { online });
 
-      // Schedule initial refresh if online
-      if (online) {
+      // Schedule initial refresh if online and still mounted
+      if (isMountedRef.current && online) {
         scheduleProactiveRefresh();
       }
     });
@@ -533,6 +534,9 @@ export function useTokenRefreshManager() {
 
     // Cleanup on unmount
     return () => {
+      // Mark as unmounted to prevent race conditions
+      isMountedRef.current = false;
+
       // eslint-disable-next-line no-console
       console.log('[TokenRefresh] Cleaning up token refresh manager');
 
