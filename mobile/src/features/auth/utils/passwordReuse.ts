@@ -194,9 +194,9 @@ export async function checkPasswordReuse(
 
   // For development: log when this stub is called
   // eslint-disable-next-line no-console
-  console.log('[PasswordReuse] STUB: Password reuse check called for user:', userId);
+  console.warn('[PasswordReuse] STUB: Password reuse check called for user:', userId);
   // eslint-disable-next-line no-console
-  console.log('[PasswordReuse] STUB: Production implementation required');
+  console.warn('[PasswordReuse] STUB: Production implementation required');
 
   // Always return not reused (permissive stub)
   return {
