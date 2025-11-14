@@ -21,6 +21,13 @@ import {
 import type { PasswordStrength } from '../utils/validation';
 import { useResetPassword } from '../api/useResetPassword';
 import { logAuthEvent } from '../../../core/telemetry';
+import { Toast } from '../../../core/components/Toast';
+import { useRecaptcha } from '../hooks/useRecaptcha';
+import {
+  checkResetAttemptRateLimit,
+  recordResetAttempt,
+  clearResetAttempts,
+} from '../utils/resetAttemptRateLimit';
 
 /**
  * ResetPasswordScreen component - Complete password reset via deep link
@@ -81,11 +88,13 @@ export function ResetPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // Token validation - show error if token is missing or invalid format
   const hasValidToken = token.trim().length > 0;
 
   const { mutate: resetPassword, isPending } = useResetPassword();
+  const { executeRecaptcha, isLoading: isRecaptchaLoading } = useRecaptcha();
 
   // Emit telemetry event when component mounts (deep link opened)
   useEffect(() => {
@@ -141,9 +150,9 @@ export function ResetPasswordScreen() {
   };
 
   /**
-   * Handles form submission with validation and password reset
+   * Handles form submission with validation, rate limiting, reCAPTCHA, and password reset
    */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Clear previous errors
     setPasswordError(null);
     setConfirmPasswordError(null);
@@ -164,15 +173,54 @@ export function ResetPasswordScreen() {
       return;
     }
 
+    // Check rate limiting
+    const rateLimitCheck = await checkResetAttemptRateLimit(token);
+    if (!rateLimitCheck.allowed) {
+      const errorMessage = t('screens.auth.resetPassword.errors.rateLimitExceeded').replace(
+        '{seconds}',
+        rateLimitCheck.remainingSeconds.toString()
+      );
+      setPasswordError(errorMessage);
+      logAuthEvent('password-reset-failed', {
+        outcome: 'rate_limited',
+        metadata: {
+          remainingSeconds: rateLimitCheck.remainingSeconds,
+        },
+      });
+      return;
+    }
+
+    // Execute reCAPTCHA challenge
+    const recaptchaResult = await executeRecaptcha('password_reset');
+    if (!recaptchaResult.success) {
+      setPasswordError(t('screens.auth.resetPassword.errors.recaptchaFailed'));
+      logAuthEvent('password-reset-failed', {
+        outcome: 'recaptcha_failed',
+        metadata: {
+          error: recaptchaResult.error,
+        },
+      });
+      return;
+    }
+
+    // Record attempt for rate limiting
+    await recordResetAttempt(token);
+
     // Call password reset mutation
     resetPassword(
       { token, password, confirmPassword },
       {
         onSuccess: () => {
-          // Navigate to login with success indication
-          // User will see a clean login screen
-          router.push('/auth/login');
-          // Note: Could add a query param or toast message for success feedback
+          // Clear rate limit attempts on success
+          clearResetAttempts(token);
+
+          // Show success toast
+          setShowSuccessToast(true);
+
+          // Navigate to login after brief delay to show toast
+          setTimeout(() => {
+            router.push('/auth/login');
+          }, 2000);
         },
         onError: (error) => {
           // Error is already logged by useResetPassword mutation
@@ -501,7 +549,7 @@ export function ResetPasswordScreen() {
               autoCapitalize="none"
               autoComplete="password-new"
               autoCorrect={false}
-              editable={!isPending}
+              editable={!isPending && !isRecaptchaLoading}
               accessibilityLabel={t('screens.auth.resetPassword.accessibility.newPasswordInput')}
               accessibilityHint="Enter your new password"
               allowFontScaling={true}
@@ -675,7 +723,7 @@ export function ResetPasswordScreen() {
               autoCapitalize="none"
               autoComplete="password-new"
               autoCorrect={false}
-              editable={!isPending}
+              editable={!isPending && !isRecaptchaLoading}
               accessibilityLabel={t(
                 'screens.auth.resetPassword.accessibility.confirmPasswordInput'
               )}
@@ -716,15 +764,18 @@ export function ResetPasswordScreen() {
 
         {/* Submit Button */}
         <TouchableOpacity
-          style={[styles.button, (isPending || !isFormValid) && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            (isPending || isRecaptchaLoading || !isFormValid) && styles.buttonDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={isPending || !isFormValid}
+          disabled={isPending || isRecaptchaLoading || !isFormValid}
           accessibilityRole="button"
           accessibilityLabel={t('screens.auth.resetPassword.accessibility.submitButton')}
           accessibilityHint={t('screens.auth.resetPassword.accessibility.submitButtonHint')}
-          accessibilityState={{ disabled: isPending || !isFormValid }}
+          accessibilityState={{ disabled: isPending || isRecaptchaLoading || !isFormValid }}
         >
-          {isPending ? (
+          {isPending || isRecaptchaLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color={colors.background} />
               <Text style={styles.loadingText}>{t('screens.auth.resetPassword.submitting')}</Text>
@@ -747,6 +798,14 @@ export function ResetPasswordScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Success Toast */}
+      <Toast
+        visible={showSuccessToast}
+        message={t('screens.auth.resetPassword.success.passwordResetShort')}
+        type="success"
+        onDismiss={() => setShowSuccessToast(false)}
+      />
     </SafeAreaView>
   );
 }

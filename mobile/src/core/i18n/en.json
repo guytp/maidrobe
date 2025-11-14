@@ -167,7 +167,13 @@
           "tokenInvalid": "Link expired or invalid",
           "tokenMissing": "Reset link is invalid",
           "networkError": "Network error. Please try again.",
-          "serverError": "Service temporarily unavailable. Please try again later."
+          "serverError": "Service temporarily unavailable. Please try again later.",
+          "rateLimitExceeded": "Too many attempts. Please try again in {seconds} seconds.",
+          "recaptchaFailed": "Verification failed. Please try again."
+        },
+        "success": {
+          "passwordReset": "Password reset successful! You can now log in with your new password.",
+          "passwordResetShort": "Password reset successful"
         },
         "linkExpired": {
           "title": "Link Expired",

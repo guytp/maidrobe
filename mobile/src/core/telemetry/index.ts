@@ -240,7 +240,11 @@ export type AuthEventType =
   | 'password-reset-email-sent'
   | 'password-reset-failed'
   | 'password-reset-succeeded'
-  | 'password-reset-link-opened';
+  | 'password-reset-link-opened'
+  | 'recaptcha-skipped'
+  | 'recaptcha-attempted'
+  | 'recaptcha-succeeded'
+  | 'recaptcha-failed';
 
 /**
  * Metadata for authentication event logging.
