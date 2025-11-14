@@ -53,6 +53,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@react-native-community/netinfo": "^11.4.1",
     "expo-secure-store": "^15.0.7"
   }
 }
