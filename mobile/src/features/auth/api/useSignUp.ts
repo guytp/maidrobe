@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
 import { logError, getUserFriendlyMessage } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
+import { useStore } from '../../../core/state/store';
 
 /**
  * Zod schema for signup request validation
@@ -81,22 +82,29 @@ function classifyAuthError(error: unknown): ErrorClassification {
  * - Response validation and parsing
  * - Error classification and telemetry logging
  * - User-friendly error message generation
+ * - Automatic user session state management (sets authenticated user in store)
+ *
+ * Business logic (setting user in Zustand store) is handled automatically
+ * in the mutation's onSuccess handler. Components can provide additional
+ * onSuccess callbacks for UI-specific concerns like navigation.
  *
  * @returns React Query mutation object with signup function
  *
  * @example
  * ```typescript
- * const { mutate: signUp, isPending, error } = useSignUp();
+ * const { mutate: signUp, isPending } = useSignUp();
  *
  * const handleSignUp = () => {
  *   signUp(
  *     { email: 'user@example.com', password: 'SecurePass123' },
  *     {
- *       onSuccess: (data) => {
- *         console.log('Signup successful:', data.user.id);
+ *       onSuccess: () => {
+ *         // User is already set in store by mutation
+ *         // Handle UI-specific logic like navigation
+ *         router.push('/auth/verify');
  *       },
  *       onError: (error) => {
- *         console.error('Signup failed:', error.message);
+ *         Alert.alert('Signup Failed', error.message);
  *       },
  *     }
  *   );
@@ -168,6 +176,16 @@ export function useSignUp() {
         });
         throw new Error(getUserFriendlyMessage('server'));
       }
+    },
+    onSuccess: (data) => {
+      // Business logic: Update Zustand session store with authenticated user
+      // This runs automatically for all signup calls, keeping UI components
+      // free of business logic concerns
+      useStore.getState().setUser({
+        id: data.user.id,
+        email: data.user.email,
+        emailVerified: !!data.user.email_confirmed_at,
+      });
     },
   });
 }

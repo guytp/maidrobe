@@ -15,18 +15,20 @@ import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { useSignUp } from '../api/useSignUp';
 import { validateEmail, validatePassword } from '../utils/validation';
-import { useStore } from '../../../core/state/store';
 
 /**
  * SignupScreen component - User registration with email and password
  *
- * Features:
- * - Email and password input fields
+ * Presentational component responsible for:
+ * - Rendering email and password input fields
  * - Client-side validation (email format, password policy)
  * - Password visibility toggle
  * - Accessibility support (WCAG AA)
- * - Loading and error states
- * - Navigation to verification screen on success
+ * - Loading and error states display
+ * - Navigation to verification screen on successful signup
+ *
+ * Business logic (setting user in Zustand store) is handled automatically
+ * by the useSignUp mutation. This component focuses purely on UI concerns.
  *
  * Password Policy:
  * - Minimum 8 characters
@@ -37,7 +39,6 @@ import { useStore } from '../../../core/state/store';
 export function SignupScreen() {
   const router = useRouter();
   const { colors, spacing, radius } = useTheme();
-  const setUser = useStore((state) => state.setUser);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,15 +98,9 @@ export function SignupScreen() {
     signUp(
       { email, password },
       {
-        onSuccess: (data) => {
-          // Store user in auth store
-          setUser({
-            id: data.user.id,
-            email: data.user.email,
-            emailVerified: !!data.user.email_confirmed_at,
-          });
-
-          // Navigate to verification screen
+        onSuccess: () => {
+          // User is automatically set in store by useSignUp mutation
+          // Handle UI-specific concern: navigation to verification screen
           router.push('/auth/verify');
         },
         onError: (error) => {
