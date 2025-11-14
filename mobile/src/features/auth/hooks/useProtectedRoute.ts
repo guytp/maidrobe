@@ -9,9 +9,15 @@ import { useStore } from '../../../core/state/store';
  * It checks the current user state and redirects unauthorized users to appropriate auth screens.
  *
  * Redirect logic:
- * - No user -> /auth/signup
+ * - No user -> /auth/login (where users can sign in or navigate to signup)
  * - User exists but email not verified -> /auth/verify
  * - User exists and email verified -> allow access
+ *
+ * The redirect to /auth/login (rather than /auth/signup) is intentional:
+ * - Returning users can immediately sign in
+ * - Session expired messages are displayed on the login screen
+ * - New users can navigate to signup from login screen
+ * - Aligns with the root redirect behavior in app/index.tsx
  *
  * Features:
  * - Prevents redirect loops by checking current route
