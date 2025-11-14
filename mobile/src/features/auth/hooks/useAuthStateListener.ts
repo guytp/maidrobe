@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
@@ -28,6 +28,19 @@ import { logError } from '../../../core/telemetry';
  * - Navigates to /home when email is verified
  * - Uses router.replace to prevent back navigation
  *
+ * Implementation notes:
+ * - Effect runs once on mount and sets up persistent subscription
+ * - router and segments accessed via refs to get current values
+ * - Refs updated on every render to ensure navigation uses latest route state
+ * - Prevents effect re-runs while allowing access to current router/segments
+ * - Zustand store actions (setUser, clearUser) are stable and safe in deps
+ *
+ * Edge cases handled:
+ * - Route changes during auth state transition: refs ensure current route checked
+ * - Component unmount: subscription cleanup prevents memory leaks
+ * - Multiple rapid auth changes: each handled with current route state
+ * - Navigation during listener active: refs provide latest router reference
+ *
  * @example
  * ```typescript
  * // In app/_layout.tsx
@@ -42,6 +55,17 @@ export function useAuthStateListener() {
   const segments = useSegments();
   const setUser = useStore((state) => state.setUser);
   const clearUser = useStore((state) => state.clearUser);
+
+  // Use refs to store latest router and segments values
+  // This allows the effect to access current values without re-running
+  const routerRef = useRef(router);
+  const segmentsRef = useRef(segments);
+
+  // Update refs on every render to ensure they're current
+  useEffect(() => {
+    routerRef.current = router;
+    segmentsRef.current = segments;
+  });
 
   useEffect(() => {
     // Fetch initial session on mount
@@ -123,11 +147,13 @@ export function useAuthStateListener() {
               }
 
               // Navigate to home if currently on verify screen
-              const isOnVerifyScreen = segments.includes('verify');
+              // Use ref to access current segments without effect re-running
+              const isOnVerifyScreen = segmentsRef.current.includes('verify');
               if (isOnVerifyScreen) {
                 // eslint-disable-next-line no-console
                 console.log('[Auth] Navigating from verify screen to home');
-                router.replace('/home');
+                // Use ref to access current router without effect re-running
+                routerRef.current.replace('/home');
               }
 
               // Log telemetry
@@ -165,6 +191,7 @@ export function useAuthStateListener() {
       console.log('[Auth] Unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - run once on mount
+    // Stable Zustand store actions - don't cause re-runs
+    // router and segments accessed via refs to get current values
+  }, [setUser, clearUser]);
 }
