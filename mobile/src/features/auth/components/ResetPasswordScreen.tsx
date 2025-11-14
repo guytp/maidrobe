@@ -72,6 +72,7 @@ export function ResetPasswordScreen() {
   const params = useLocalSearchParams<{
     token?: string;
     access_token?: string;
+    refresh_token?: string;
     type?: string;
     email?: string;
   }>();
@@ -79,9 +80,11 @@ export function ResetPasswordScreen() {
   // Extract user from store for password reuse checking
   const user = useStore((state) => state.user);
 
-  // Extract token from URL parameters
-  // Supabase might send token in query param or as access_token in hash
-  const token = (params.token || params.access_token || '') as string;
+  // Extract tokens from URL parameters
+  // Supabase sends access_token and refresh_token in URL fragment when user clicks reset link
+  // URL format: maidrobe://reset-password#access_token=XXX&refresh_token=YYY&type=recovery
+  const accessToken = (params.access_token || params.token || '') as string;
+  const refreshToken = (params.refresh_token || '') as string;
   const isRecoveryType = params.type === 'recovery';
   const emailFromParams = (params.email || '') as string;
 
@@ -94,8 +97,9 @@ export function ResetPasswordScreen() {
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // Token validation - show error if token is missing or invalid format
-  const hasValidToken = token.trim().length > 0;
+  // Token validation - show error if tokens are missing or invalid format
+  // Both access_token and refresh_token are required for password reset
+  const hasValidToken = accessToken.trim().length > 0 && refreshToken.trim().length > 0;
 
   const { mutate: resetPassword, isPending } = useResetPassword();
   const { executeRecaptcha, isLoading: isRecaptchaLoading } = useRecaptcha();
@@ -177,8 +181,8 @@ export function ResetPasswordScreen() {
       return;
     }
 
-    // Check rate limiting
-    const rateLimitCheck = await checkResetAttemptRateLimit(token);
+    // Check rate limiting (use accessToken as rate limit key)
+    const rateLimitCheck = await checkResetAttemptRateLimit(accessToken);
     if (!rateLimitCheck.allowed) {
       const errorMessage = t('screens.auth.resetPassword.errors.rateLimitExceeded').replace(
         '{seconds}',
@@ -208,16 +212,16 @@ export function ResetPasswordScreen() {
     }
 
     // Record attempt for rate limiting
-    await recordResetAttempt(token);
+    await recordResetAttempt(accessToken);
 
     // Call password reset mutation
-    // Pass userId from store to enable password reuse checking
+    // Pass both tokens from deep link and userId from store
     resetPassword(
-      { token, password, confirmPassword, userId: user?.id },
+      { accessToken, refreshToken, password, confirmPassword, userId: user?.id },
       {
         onSuccess: () => {
           // Clear rate limit attempts on success
-          clearResetAttempts(token);
+          clearResetAttempts(accessToken);
 
           // Show success toast
           setShowSuccessToast(true);

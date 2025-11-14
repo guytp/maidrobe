@@ -15,7 +15,7 @@ export const ForgotPasswordRequestSchema = z.object({
  * Zod schema for reset password request validation.
  *
  * Validates the password reset form submission including:
- * - Reset token from the deep link
+ * - Access token and refresh token from the deep link
  * - New password meeting minimum requirements
  * - Password confirmation
  * - Matching passwords
@@ -26,6 +26,13 @@ export const ForgotPasswordRequestSchema = z.object({
  * validation.ts. This schema only checks minimum length to avoid
  * duplicate validation logic.
  *
+ * Supabase Deep Link Token Flow:
+ * - When user clicks reset link, Supabase redirects to deep link with tokens
+ * - URL format: maidrobe://reset-password#access_token=XXX&refresh_token=YYY&type=recovery
+ * - access_token: Already-validated session token for authentication
+ * - refresh_token: Token for session refresh and management
+ * - Both tokens are required to establish authenticated session via setSession()
+ *
  * The userId field is optional because:
  * - It may not be available during the initial password reset flow
  * - Password reuse checking only runs when userId is provided
@@ -33,7 +40,8 @@ export const ForgotPasswordRequestSchema = z.object({
  */
 export const ResetPasswordRequestSchema = z
   .object({
-    token: z.string().min(1, 'Reset token is required'),
+    accessToken: z.string().min(1, 'Access token is required'),
+    refreshToken: z.string().min(1, 'Refresh token is required'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     userId: z.string().optional(),

@@ -126,7 +126,8 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * React Query mutation hook for resetting user password.
  *
  * This hook handles:
- * - Request validation with Zod (token, password, confirmPassword, optional userId)
+ * - Request validation with Zod (accessToken, refreshToken, password, confirmPassword, optional userId)
+ * - Session establishment via Supabase setSession with tokens from deep link
  * - Client-side password policy enforcement (length, character classes, symbol)
  * - Password reuse checking when userId is provided (stub implementation, TODO: backend integration)
  * - Supabase Auth updateUser API call to change password
@@ -143,11 +144,14 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * - At least 1 special character/symbol
  * - No reuse of last 3 passwords (stub - needs backend integration)
  *
- * Token Handling:
- * - Expects reset token from deep link to be in Supabase session
- * - Token is automatically validated by Supabase on updateUser call
- * - Expired or invalid tokens return specific error messages
+ * Token Handling (Supabase Deep Link Flow):
+ * - User receives email with reset link: maidrobe://reset-password#access_token=XXX&refresh_token=YYY&type=recovery
+ * - access_token: Already-validated session token from Supabase
+ * - refresh_token: Token for session refresh and management
+ * - Call setSession({ access_token, refresh_token }) to establish authenticated session
+ * - Then call updateUser({ password }) to change the password
  * - Tokens expire after 1 hour (Supabase default)
+ * - Invalid or expired tokens are detected during setSession call
  *
  * Retry Strategy:
  * - Retries up to 3 times for network/server errors
@@ -175,7 +179,8 @@ function getResetPasswordErrorMessage(classification: ErrorClassification, error
  * const handleResetPassword = () => {
  *   resetPassword(
  *     {
- *       token: 'reset-token-from-deep-link',
+ *       accessToken: 'access-token-from-deep-link',
+ *       refreshToken: 'refresh-token-from-deep-link',
  *       password: 'NewP@ssw0rd123',
  *       confirmPassword: 'NewP@ssw0rd123',
  *       userId: user?.id, // Optional - enables password reuse checking
@@ -271,7 +276,7 @@ export function useResetPassword() {
       }
 
       // Extract values
-      const { token, password, userId } = validatedRequest;
+      const { accessToken, refreshToken, password, userId } = validatedRequest;
 
       try {
         // 2. Validate password meets policy requirements
@@ -326,44 +331,41 @@ export function useResetPassword() {
           }
         }
 
-        // 4. Call Supabase Auth to reset password
-        // Note: The token from the reset link should already be in the session
-        // when the deep link is opened. We call updateUser to change the password.
-        // If token is not in session, we may need to call verifyOtp first.
+        // 4. Establish authenticated session using tokens from deep link
+        // The Supabase password reset email includes access_token and refresh_token
+        // in the deep link URL fragment. We use setSession to establish an authenticated
+        // session, which allows us to call updateUser to change the password.
         //
-        // For now, we assume the token is passed explicitly and we need to verify it.
-        // This approach uses verifyOtp to validate the token and set the session,
-        // then updateUser to change the password.
-
-        // First, verify the OTP token from the reset link
-        const { error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'recovery',
+        // Deep link format: maidrobe://reset-password#access_token=XXX&refresh_token=YYY&type=recovery
+        // setSession validates the tokens and creates a session if valid
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
         });
 
-        if (verifyError) {
+        if (sessionError) {
           const latency = Date.now() - startTime;
-          const classification = classifyResetPasswordError(verifyError);
-          logError(verifyError, classification, {
+          const classification = classifyResetPasswordError(sessionError);
+          logError(sessionError, classification, {
             feature: 'auth',
             operation: 'password-reset',
             metadata: {
-              step: 'token_verification',
-              errorCode: verifyError.status,
+              step: 'session_establishment',
+              errorCode: sessionError.status,
               latency,
             },
           });
 
           logAuthEvent('password-reset-failed', {
-            errorCode: verifyError.status?.toString() || 'token_verification_failed',
+            errorCode: sessionError.status?.toString() || 'session_establishment_failed',
             outcome: 'failure',
             latency,
           });
 
-          throw new Error(getResetPasswordErrorMessage(classification, verifyError));
+          throw new Error(getResetPasswordErrorMessage(classification, sessionError));
         }
 
-        // Token verified successfully, now update the password
+        // Session established successfully, now update the password
         const { data: updateData, error: updateError } = await supabase.auth.updateUser({
           password: password,
         });
