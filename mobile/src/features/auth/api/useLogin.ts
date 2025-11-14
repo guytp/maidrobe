@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../services/supabase';
 import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
@@ -44,31 +45,85 @@ interface LoginMutationContext {
 }
 
 /**
- * Rate limiter state for tracking login attempts.
- * Stored in memory for the lifetime of the app.
+ * Rate limiter configuration and storage key.
+ *
+ * The rate limiter persists login attempts to AsyncStorage to prevent
+ * users from bypassing rate limiting by restarting the app. This provides
+ * stronger security against brute-force attacks.
+ *
+ * Storage Strategy:
+ * - Key: 'auth:login:attempts'
+ * - Value: JSON array of timestamps (milliseconds since epoch)
+ * - Automatic cleanup of expired timestamps on read/write
+ * - Graceful fallback: allows login if storage operations fail
+ *
+ * Rate Limit Policy:
+ * - Maximum 5 login attempts per 60-second sliding window
+ * - Persists across app restarts and background/foreground transitions
+ * - Cooldown message displays remaining seconds
  */
-const rateLimitState = {
-  attempts: [] as number[],
-  maxAttempts: 5,
-  windowMs: 60000, // 60 seconds
-};
+const RATE_LIMIT_STORAGE_KEY = 'auth:login:attempts';
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 60000; // 60 seconds
+
+/**
+ * Reads login attempts from AsyncStorage and filters expired timestamps.
+ *
+ * @returns Array of valid attempt timestamps, or empty array on error
+ */
+async function getAttempts(): Promise<number[]> {
+  try {
+    const stored = await AsyncStorage.getItem(RATE_LIMIT_STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    const attempts = JSON.parse(stored) as number[];
+    const now = Date.now();
+    const windowStart = now - WINDOW_MS;
+
+    // Filter out expired attempts
+    return attempts.filter((timestamp) => timestamp > windowStart);
+  } catch (error) {
+    // Log error but don't block login on storage failure
+    // eslint-disable-next-line no-console
+    console.error('[RateLimit] Failed to read attempts:', error);
+    return [];
+  }
+}
+
+/**
+ * Writes login attempts to AsyncStorage.
+ *
+ * @param attempts - Array of attempt timestamps to persist
+ */
+async function setAttempts(attempts: number[]): Promise<void> {
+  try {
+    await AsyncStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(attempts));
+  } catch (error) {
+    // Log error but don't throw - storage failure shouldn't block login
+    // eslint-disable-next-line no-console
+    console.error('[RateLimit] Failed to write attempts:', error);
+  }
+}
 
 /**
  * Checks if the rate limit has been exceeded and returns cooldown time.
  *
- * @returns Object with allowed status and remaining cooldown time in seconds
+ * This function reads from AsyncStorage to ensure rate limiting persists
+ * across app restarts. If storage operations fail, it allows the login
+ * attempt to proceed (fail-open for availability).
+ *
+ * @returns Promise resolving to object with allowed status and remaining cooldown
  */
-function checkRateLimit(): { allowed: boolean; remainingSeconds: number } {
+async function checkRateLimit(): Promise<{ allowed: boolean; remainingSeconds: number }> {
+  const attempts = await getAttempts();
   const now = Date.now();
-  const windowStart = now - rateLimitState.windowMs;
-
-  // Remove attempts outside the current window
-  rateLimitState.attempts = rateLimitState.attempts.filter((timestamp) => timestamp > windowStart);
 
   // Check if limit exceeded
-  if (rateLimitState.attempts.length >= rateLimitState.maxAttempts) {
-    const oldestAttempt = rateLimitState.attempts[0];
-    const remainingMs = rateLimitState.windowMs - (now - oldestAttempt);
+  if (attempts.length >= MAX_ATTEMPTS) {
+    const oldestAttempt = attempts[0];
+    const remainingMs = WINDOW_MS - (now - oldestAttempt);
     const remainingSeconds = Math.ceil(remainingMs / 1000);
 
     return {
@@ -85,9 +140,15 @@ function checkRateLimit(): { allowed: boolean; remainingSeconds: number } {
 
 /**
  * Records a login attempt for rate limiting.
+ *
+ * Persists the attempt timestamp to AsyncStorage along with cleanup of
+ * expired attempts. If storage fails, the attempt is not recorded but
+ * the function does not throw to avoid blocking the login flow.
  */
-function recordAttempt(): void {
-  rateLimitState.attempts.push(Date.now());
+async function recordAttempt(): Promise<void> {
+  const attempts = await getAttempts();
+  attempts.push(Date.now());
+  await setAttempts(attempts);
 }
 
 /**
@@ -184,10 +245,11 @@ function getLoginErrorMessage(classification: ErrorClassification, error: unknow
  * - Retry logic with exponential backoff for transient failures
  *
  * Rate Limiting:
- * - Maximum 5 login attempts per 60-second window
- * - Tracked in memory (persists for app lifetime)
+ * - Maximum 5 login attempts per 60-second sliding window
+ * - Persists to AsyncStorage (survives app restarts)
  * - Returns cooldown message with remaining seconds when exceeded
  * - Does not count attempts during cooldown period
+ * - Gracefully handles storage failures (fail-open for availability)
  *
  * Feature Flags:
  * - Checks 'auth.login' feature flag before attempting login
@@ -259,7 +321,7 @@ export function useLogin() {
 
       try {
         // 1. Check rate limit first (before any network calls)
-        const rateLimit = checkRateLimit();
+        const rateLimit = await checkRateLimit();
         if (!rateLimit.allowed) {
           const error = new Error(
             t('screens.auth.login.errors.rateLimitExceeded').replace(
@@ -310,7 +372,7 @@ export function useLogin() {
         const validatedRequest = LoginRequestSchema.parse(request);
 
         // 4. Record attempt for rate limiting (before actual API call)
-        recordAttempt();
+        await recordAttempt();
 
         // 5. Call Supabase Auth login
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -463,11 +525,20 @@ export function useLogin() {
 }
 
 /**
- * Resets the rate limiter state.
- * Useful for testing or allowing manual reset.
+ * Resets the rate limiter state by clearing AsyncStorage.
  *
+ * This function is useful for testing or allowing manual reset of the
+ * rate limiter. It removes all stored login attempts, effectively
+ * resetting the rate limit cooldown.
+ *
+ * @returns Promise that resolves when storage is cleared
  * @internal
  */
-export function resetRateLimiter(): void {
-  rateLimitState.attempts = [];
+export async function resetRateLimiter(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(RATE_LIMIT_STORAGE_KEY);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[RateLimit] Failed to reset rate limiter:', error);
+  }
 }
