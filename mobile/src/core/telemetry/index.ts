@@ -244,7 +244,16 @@ export type AuthEventType =
   | 'recaptcha-skipped'
   | 'recaptcha-attempted'
   | 'recaptcha-succeeded'
-  | 'recaptcha-failed';
+  | 'recaptcha-failed'
+  | 'session-load'
+  | 'session-load-error'
+  | 'session-corrupted'
+  | 'session-save'
+  | 'session-save-error'
+  | 'session-cleared'
+  | 'session-clear-error'
+  | 'session-mark-needs-refresh'
+  | 'session-clear-needs-refresh';
 
 /**
  * Metadata for authentication event logging.

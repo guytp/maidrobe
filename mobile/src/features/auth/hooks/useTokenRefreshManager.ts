@@ -10,6 +10,7 @@ import {
   resetInterceptor,
 } from '../../../services/supabaseInterceptor';
 import { deriveTokenExpiry } from '../utils/tokenExpiry';
+import { saveSessionFromSupabase, clearStoredSession } from '../storage/sessionPersistence';
 
 /**
  * Token refresh coordinator that handles proactive and reactive token refresh.
@@ -220,6 +221,9 @@ export function useTokenRefreshManager() {
       // Set logout reason for UI display
       useStore.getState().setLogoutReason('Session expired. Please log in again.');
 
+      // Clear stored session bundle
+      await clearStoredSession();
+
       // Sign out (clears SecureStore)
       await supabase.auth.signOut();
 
@@ -234,6 +238,7 @@ export function useTokenRefreshManager() {
 
       // Ensure state is cleared even on error
       useStore.getState().setLogoutReason('Session expired. Please log in again.');
+      await clearStoredSession();
       useStore.getState().clearUser();
       routerRef.current.replace('/auth/login');
     }
@@ -343,6 +348,14 @@ export function useTokenRefreshManager() {
 
       // Reset attempt count on success
       attemptCountRef.current = 0;
+
+      // Persist refreshed session bundle to SecureStore
+      // This updates lastAuthSuccessAt and clears needsRefresh flag
+      saveSessionFromSupabase(data.session, new Date().toISOString()).catch((error) => {
+        // Log error but don't throw - session save failures are non-critical
+        // eslint-disable-next-line no-console
+        console.error('[TokenRefresh] Failed to save refreshed session bundle:', error);
+      });
 
       // Log structured auth event
       logAuthEvent('token-refresh-success', {

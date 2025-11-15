@@ -4,6 +4,7 @@ import { supabase } from '../../../services/supabase';
 import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
 import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { saveSessionFromSupabase } from '../storage/sessionPersistence';
 
 /**
  * Zod schema for signup request validation
@@ -236,6 +237,16 @@ export function useSignUp() {
         email: data.user.email,
         emailVerified: !!data.user.email_confirmed_at,
       });
+
+      // Persist session bundle if auto-login occurred (session is non-null)
+      // Some Supabase configurations require email confirmation before auto-login
+      if (data.session) {
+        saveSessionFromSupabase(data.session, new Date().toISOString()).catch((error) => {
+          // Log error but don't throw - session save failures are non-critical
+          // eslint-disable-next-line no-console
+          console.error('[SignUp] Failed to save session bundle:', error);
+        });
+      }
 
       // Log success with latency for observability and SLO tracking
       logSuccess('auth', 'signup', {

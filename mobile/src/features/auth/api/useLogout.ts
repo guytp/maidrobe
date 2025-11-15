@@ -6,6 +6,7 @@ import type { ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { resetInterceptor } from '../../../services/supabaseInterceptor';
+import { clearStoredSession } from '../storage/sessionPersistence';
 
 /**
  * Context type for logout mutation (used for latency tracking)
@@ -135,12 +136,19 @@ export function useLogout() {
           useStore.getState().clearUser();
           useStore.getState().setLogoutReason(null);
 
+          // Clear stored session even on API error
+          await clearStoredSession();
+
           throw new Error(getUserFriendlyMessage(classification));
         }
 
         // Clear local session state and logout reason
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
+
+        // Clear stored session bundle from SecureStore
+        // This ensures no session data persists after logout
+        await clearStoredSession();
 
         // Reset interceptor state to clear any in-flight refresh promises
         resetInterceptor();
@@ -156,6 +164,7 @@ export function useLogout() {
         // This is a fail-safe to prevent user from being stuck logged in
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
+        await clearStoredSession();
         resetInterceptor();
 
         // Re-throw if already an Error
@@ -186,6 +195,7 @@ export function useLogout() {
       // Ensure user is cleared from store even on error (fail-safe)
       useStore.getState().clearUser();
       useStore.getState().setLogoutReason(null);
+      clearStoredSession(); // Fire and forget - don't await in error handler
       resetInterceptor();
 
       // Navigate to login even on error (user is logged out locally)
