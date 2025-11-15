@@ -9,20 +9,23 @@ import { deriveTokenExpiry } from '../utils/tokenExpiry';
  * Global auth state listener hook.
  *
  * This hook subscribes to Supabase auth state changes and:
- * - Syncs auth state with the local Zustand store
+ * - Syncs runtime auth state changes with the local Zustand store
  * - Updates emailVerified status when user confirms email
  * - Refreshes session to get latest user data
  * - Navigates from verification screen to home when verified
  * - Handles sign out by clearing local state
- * - Fetches initial session on mount
  *
  * Should be called once at app root level (_layout.tsx).
  *
+ * IMPORTANT: This hook handles RUNTIME auth changes only.
+ * Cold-start session restoration is handled by restoreAuthStateOnLaunch() in _layout.tsx.
+ * This separation prevents duplicate session fetches and race conditions.
+ *
  * Events handled:
- * - SIGNED_IN: User signs in
- * - SIGNED_OUT: User signs out
- * - USER_UPDATED: User data changed (email verified)
- * - TOKEN_REFRESHED: Token refreshed
+ * - SIGNED_IN: User signs in (via login/signup forms)
+ * - SIGNED_OUT: User signs out (via logout button)
+ * - USER_UPDATED: User data changed (email verified via confirmation link)
+ * - TOKEN_REFRESHED: Token refreshed (background refresh or manual)
  *
  * Navigation rules:
  * - Only navigates when on /auth/verify screen
@@ -46,7 +49,14 @@ import { deriveTokenExpiry } from '../utils/tokenExpiry';
  * ```typescript
  * // In app/_layout.tsx
  * export default function RootLayout() {
+ *   // Cold-start restore pipeline
+ *   useEffect(() => {
+ *     restoreAuthStateOnLaunch();
+ *   }, []);
+ *
+ *   // Runtime auth state listener
  *   useAuthStateListener();
+ *
  *   return <Stack />;
  * }
  * ```
@@ -56,7 +66,6 @@ export function useAuthStateListener() {
   const segments = useSegments();
   const setUser = useStore((state) => state.setUser);
   const clearUser = useStore((state) => state.clearUser);
-  const setInitialized = useStore((state) => state.setInitialized);
   const setTokenMetadata = useStore((state) => state.setTokenMetadata);
 
   // Use refs to store latest router and segments values
@@ -71,63 +80,9 @@ export function useAuthStateListener() {
   });
 
   useEffect(() => {
-    // Fetch initial session on mount
-    const initializeAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          logError(error, 'server', {
-            feature: 'auth',
-            operation: 'get-session',
-            metadata: { message: error.message },
-          });
-          // Mark as initialized even on error to prevent indefinite waiting
-          setInitialized(true);
-          return;
-        }
-
-        if (data.session?.user) {
-          const user = data.session.user;
-          setUser({
-            id: user.id,
-            email: user.email || '',
-            emailVerified: !!user.email_confirmed_at,
-          });
-
-          // Store token metadata (expiry time and type) - NOT the actual tokens
-          // SECURITY: Tokens are stored encrypted in SecureStore by Supabase client
-          // We only store metadata for proactive refresh scheduling
-          const { expiresAt, fallbackUsed } = deriveTokenExpiry(data.session);
-          const tokenType = data.session.token_type || 'bearer';
-          setTokenMetadata(expiresAt, tokenType);
-
-          // SECURITY: Do NOT log the session object - it contains tokens
-          // eslint-disable-next-line no-console
-          console.log('[Auth] Initial session loaded', {
-            userId: user.id,
-            emailVerified: !!user.email_confirmed_at,
-            tokenMetadata: { expiresAt, tokenType, fallbackUsed },
-            // Note: session object is [REDACTED] - contains sensitive tokens
-          });
-        }
-
-        // Mark auth initialization as complete
-        setInitialized(true);
-      } catch (error) {
-        logError(error instanceof Error ? error : new Error('Unknown error'), 'server', {
-          feature: 'auth',
-          operation: 'initialize-auth',
-        });
-        // Mark as initialized even on error to prevent indefinite waiting
-        setInitialized(true);
-      }
-    };
-
-    // Initialize auth state
-    initializeAuth();
-
-    // Subscribe to auth state changes
+    // Subscribe to runtime auth state changes
+    // Note: Initial session load on cold start is handled by restoreAuthStateOnLaunch()
+    // in _layout.tsx to prevent duplicate fetches and race conditions
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -232,5 +187,5 @@ export function useAuthStateListener() {
     };
     // Stable Zustand store actions - don't cause re-runs
     // router and segments accessed via refs to get current values
-  }, [setUser, clearUser, setInitialized, setTokenMetadata]);
+  }, [setUser, clearUser, setTokenMetadata]);
 }

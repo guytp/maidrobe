@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/core/theme';
 import { queryClient } from '../src/core/query/client';
 import { useAuthStateListener } from '../src/features/auth/hooks/useAuthStateListener';
 import { useTokenRefreshManager } from '../src/features/auth/hooks/useTokenRefreshManager';
+import { restoreAuthStateOnLaunch } from '../src/features/auth/utils/authRestore';
 
 export default function RootLayout(): React.JSX.Element {
+  // Restore auth state on cold start
+  // This triggers the 7-step restore pipeline that loads session from SecureStore,
+  // validates it, attempts refresh if needed, and handles offline trust window
+  useEffect(() => {
+    restoreAuthStateOnLaunch();
+  }, []);
+
   // Global auth state listener - syncs Supabase auth with local store
+  // Handles runtime auth changes (login, logout, email verification)
   useAuthStateListener();
 
   // Token refresh coordinator - handles proactive and reactive refresh
