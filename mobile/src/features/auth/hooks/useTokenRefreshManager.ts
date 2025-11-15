@@ -218,8 +218,8 @@ export function useTokenRefreshManager() {
       // Reset interceptor state to prevent stale refresh promises
       resetInterceptor();
 
-      // Set logout reason for UI display (using i18n key code)
-      useStore.getState().setLogoutReason('session_expired');
+      // Set logout reason for UI display (using i18n translation key)
+      useStore.getState().setLogoutReason('screens.auth.login.sessionMessages.sessionExpired');
 
       // Clear stored session bundle
       await clearStoredSession();
@@ -236,8 +236,8 @@ export function useTokenRefreshManager() {
       // eslint-disable-next-line no-console
       console.error('[TokenRefresh] Error during forced logout:', error);
 
-      // Ensure state is cleared even on error (using i18n key code)
-      useStore.getState().setLogoutReason('session_expired');
+      // Ensure state is cleared even on error (using i18n translation key)
+      useStore.getState().setLogoutReason('screens.auth.login.sessionMessages.sessionExpired');
       await clearStoredSession();
       useStore.getState().clearUser();
       routerRef.current.replace('/auth/login');

@@ -5,43 +5,6 @@ import { useTheme } from '../theme';
 import { t } from '../i18n';
 
 /**
- * Maps logout reason codes to i18n translation keys.
- *
- * This function provides centralized mapping between logout reason codes
- * (stored in state) and their corresponding user-facing translations.
- *
- * Supported reason codes:
- * - session_expired: Token expired, requires re-authentication
- * - session_restore_failed: Session restoration failed (network/offline)
- * - session_invalid: Session data is invalid or corrupted
- * - session_error: Generic session error
- *
- * @param reason - Logout reason code (e.g., 'session_expired')
- * @returns Translated user-facing message
- *
- * @example
- * ```typescript
- * const message = getSessionMessage('session_expired');
- * // Returns: "Your session has expired. Please log in again."
- * ```
- */
-function getSessionMessage(reason: string): string {
-  // Map reason codes to i18n translation keys
-  const keyMap: Record<string, string> = {
-    session_expired: 'screens.auth.login.sessionMessages.sessionExpired',
-    session_restore_failed: 'screens.auth.login.sessionMessages.sessionRestoreFailed',
-    session_invalid: 'screens.auth.login.sessionMessages.sessionInvalid',
-    session_error: 'screens.auth.login.sessionMessages.sessionError',
-  };
-
-  // Get translation key, fallback to generic error if unknown reason
-  const translationKey = keyMap[reason] || 'screens.auth.login.sessionMessages.sessionError';
-
-  // Return translated message
-  return t(translationKey as never);
-}
-
-/**
  * SessionExpiredBanner component - Displays session expiration messages
  *
  * This banner displays at the top of the login screen when a user has been
@@ -50,7 +13,7 @@ function getSessionMessage(reason: string): string {
  *
  * Features:
  * - Displays translated logout reason from store using i18n layer
- * - Maps reason codes to user-facing messages (e.g., 'session_expired' -> translated text)
+ * - Accepts i18n translation keys directly from auth state
  * - Dismissable with X button
  * - Auto-clears on successful login
  * - Uses theme colors for consistent styling
@@ -60,10 +23,17 @@ function getSessionMessage(reason: string): string {
  * - Only visible when logoutReason exists in store
  * - Automatically hidden when logoutReason is null
  *
- * Integration:
- * - Set logoutReason via useStore().setLogoutReason(reasonCode)
- * - Use reason codes: 'session_expired', 'session_invalid', etc.
+ * Integration Contract:
+ * - Auth subsystem provides i18n translation keys (not internal codes)
+ * - Use full i18n keys: 'screens.auth.login.sessionMessages.sessionExpired'
+ * - Banner translates keys to user-facing messages via t() function
  * - Clear on dismiss or successful login
+ *
+ * Supported i18n Keys:
+ * - screens.auth.login.sessionMessages.sessionExpired
+ * - screens.auth.login.sessionMessages.sessionRestoreFailed
+ * - screens.auth.login.sessionMessages.sessionInvalid
+ * - screens.auth.login.sessionMessages.sessionError
  *
  * @example
  * ```tsx
@@ -73,8 +43,8 @@ function getSessionMessage(reason: string): string {
  *   <LoginScreen />
  * </View>
  *
- * // Setting logout reason with code
- * useStore.getState().setLogoutReason('session_expired');
+ * // Setting logout reason with i18n key
+ * useStore.getState().setLogoutReason('screens.auth.login.sessionMessages.sessionExpired');
  * ```
  */
 export function SessionExpiredBanner() {
@@ -127,7 +97,7 @@ export function SessionExpiredBanner() {
     <View style={styles.container} accessibilityRole="alert">
       <View style={styles.messageContainer}>
         <Text style={styles.message} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {getSessionMessage(logoutReason)}
+          {t(logoutReason as never)}
         </Text>
       </View>
       <TouchableOpacity
