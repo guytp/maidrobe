@@ -35,30 +35,72 @@ export interface TokenMetadata {
  * - Only token metadata (expiry time, type) is stored here
  * - Never log or expose the Supabase session object (contains tokens)
  *
+ * STATE FIELDS:
  * @property user - Currently authenticated user or null if not authenticated
  * @property isInitialized - Whether initial auth state has been loaded from Supabase
  * @property tokenMetadata - Token expiry and type metadata (NOT the actual tokens)
  * @property logoutReason - Reason for forced logout (e.g., session expired) for UI display
- * @property setUser - Action to set the authenticated user
+ * @property isAuthenticated - Explicit authentication state flag
+ * @property isHydrating - Whether auth restore pipeline is running at cold start
+ * @property needsRefresh - Whether deferred token refresh is needed after offline startup
+ *
+ * ACTIONS - Basic:
+ * @property setUser - Action to set the authenticated user (also sets isAuthenticated=true)
  * @property updateEmailVerified - Action to update the emailVerified status
  * @property setTokenMetadata - Action to store token metadata (expiry, type)
- * @property isTokenExpired - Getter to check if access token is expired
- * @property clearUser - Action to clear the authenticated user (logout)
+ * @property clearUser - Action to clear the authenticated user (also sets isAuthenticated=false)
  * @property setInitialized - Action to mark auth initialization as complete
  * @property setLogoutReason - Action to set the logout reason for UI display
+ *
+ * ACTIONS - Hydration lifecycle:
+ * @property beginHydration - Mark auth restore pipeline as started
+ * @property endHydration - Mark auth restore pipeline as complete
+ *
+ * ACTIONS - Consolidated auth state:
+ * @property applyAuthenticatedUser - Set authenticated user with all metadata
+ * @property markUnauthenticated - Clear auth state and optionally set logout reason
+ *
+ * ACTIONS - Offline handling:
+ * @property setNeedsRefresh - Set needsRefresh flag for deferred refresh
+ * @property clearNeedsRefresh - Clear needsRefresh flag after successful refresh
+ *
+ * GETTERS:
+ * @property isTokenExpired - Check if access token is expired
+ * @property isVerified - Check if user's email is verified (derived from user.emailVerified)
  */
 export interface SessionSlice {
+  // State fields
   user: User | null;
   isInitialized: boolean;
   tokenMetadata: TokenMetadata | null;
   logoutReason: string | null;
+  isAuthenticated: boolean;
+  isHydrating: boolean;
+  needsRefresh: boolean;
+
+  // Basic actions (backward compatible)
   setUser: (user: User) => void;
   updateEmailVerified: (verified: boolean) => void;
   setTokenMetadata: (expiresAt: number, tokenType: string) => void;
-  isTokenExpired: () => boolean;
   clearUser: () => void;
   setInitialized: (initialized: boolean) => void;
   setLogoutReason: (reason: string | null) => void;
+
+  // Hydration lifecycle actions
+  beginHydration: () => void;
+  endHydration: () => void;
+
+  // Consolidated auth state actions
+  applyAuthenticatedUser: (user: User, tokenMetadata: TokenMetadata) => void;
+  markUnauthenticated: (reason?: string) => void;
+
+  // Offline handling actions
+  setNeedsRefresh: (value: boolean) => void;
+  clearNeedsRefresh: () => void;
+
+  // Getters
+  isTokenExpired: () => boolean;
+  isVerified: () => boolean;
 }
 
 /**
@@ -86,13 +128,34 @@ export interface SessionSlice {
  * ```
  */
 export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice> = (set, get) => ({
+  // Initial state
   user: null,
   isInitialized: false,
   tokenMetadata: null,
   logoutReason: null,
+  isAuthenticated: false,
+  isHydrating: false,
+  needsRefresh: false,
 
-  setUser: (user) => set({ user }),
+  /**
+   * Sets the authenticated user.
+   *
+   * BACKWARD COMPATIBILITY: This action now also sets isAuthenticated=true
+   * to maintain consistency between user state and authentication flag.
+   *
+   * @param user - User object with id, email, and emailVerified
+   */
+  setUser: (user) =>
+    set({
+      user,
+      isAuthenticated: true,
+    }),
 
+  /**
+   * Updates the email verification status of the current user.
+   *
+   * @param verified - Whether the user's email is verified
+   */
   updateEmailVerified: (verified) =>
     set((state) => ({
       user: state.user ? { ...state.user, emailVerified: verified } : null,
@@ -113,6 +176,113 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
     }),
 
   /**
+   * Clears user and token metadata (logout).
+   *
+   * BACKWARD COMPATIBILITY: This action now also sets isAuthenticated=false
+   * and clears needsRefresh flag to ensure complete state cleanup.
+   *
+   * SECURITY: This clears the metadata only. The actual tokens in SecureStore
+   * are cleared by the Supabase client during signOut() or via clearStoredSession().
+   */
+  clearUser: () =>
+    set({
+      user: null,
+      tokenMetadata: null,
+      isAuthenticated: false,
+      needsRefresh: false,
+    }),
+
+  setInitialized: (initialized) => set({ isInitialized: initialized }),
+
+  /**
+   * Sets the logout reason for UI display.
+   *
+   * This is used to communicate forced logout reasons (e.g., session expired)
+   * to the user interface. The reason is displayed on the login screen and
+   * cleared when the user logs in successfully or dismisses the message.
+   *
+   * @param reason - Logout reason message or null to clear
+   */
+  setLogoutReason: (reason) => set({ logoutReason: reason }),
+
+  /**
+   * Marks the start of the auth hydration pipeline.
+   *
+   * Sets isHydrating=true to indicate that the app is restoring auth state
+   * from SecureStore at cold start. This prevents the UI from rendering
+   * Login/Home/Verification screens before the restore completes.
+   *
+   * Must be paired with endHydration() when restore completes.
+   */
+  beginHydration: () => set({ isHydrating: true }),
+
+  /**
+   * Marks the end of the auth hydration pipeline.
+   *
+   * Sets isHydrating=false to indicate that auth state restoration is complete
+   * and the UI can proceed with routing based on authentication state.
+   *
+   * Called after restore completes successfully or fails.
+   */
+  endHydration: () => set({ isHydrating: false }),
+
+  /**
+   * Applies authenticated user state with all metadata.
+   *
+   * This is a consolidated action for setting authenticated state, typically
+   * used by the auth restore pipeline and token refresh flows. It sets all
+   * related fields atomically to avoid intermediate inconsistent states.
+   *
+   * @param user - User object with id, email, and emailVerified
+   * @param tokenMetadata - Token expiry and type metadata
+   */
+  applyAuthenticatedUser: (user, tokenMetadata) =>
+    set({
+      user,
+      tokenMetadata,
+      isAuthenticated: true,
+      logoutReason: null,
+    }),
+
+  /**
+   * Marks the user as unauthenticated and clears all auth state.
+   *
+   * This is a consolidated action for clearing auth state, typically used
+   * by failed auth restore, forced logout, and session expiry scenarios.
+   *
+   * Optionally sets a logout reason to display on the login screen.
+   *
+   * @param reason - Optional logout reason message for UI display
+   */
+  markUnauthenticated: (reason) =>
+    set({
+      user: null,
+      tokenMetadata: null,
+      isAuthenticated: false,
+      needsRefresh: false,
+      logoutReason: reason || null,
+    }),
+
+  /**
+   * Sets the needsRefresh flag.
+   *
+   * Used after offline cold start when the cached session is within the
+   * 7-day trust window but couldn't be refreshed due to network issues.
+   * Indicates that a deferred refresh should be attempted when connectivity
+   * is restored.
+   *
+   * @param value - Whether deferred refresh is needed
+   */
+  setNeedsRefresh: (value) => set({ needsRefresh: value }),
+
+  /**
+   * Clears the needsRefresh flag.
+   *
+   * Called after successful deferred token refresh or when no longer needed.
+   */
+  clearNeedsRefresh: () => set({ needsRefresh: false }),
+
+  /**
    * Checks if the access token is expired based on stored metadata.
    *
    * Returns true if:
@@ -130,27 +300,16 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
   },
 
   /**
-   * Clears user and token metadata (logout).
+   * Checks if the user's email is verified.
    *
-   * SECURITY: This clears the metadata only. The actual tokens in SecureStore
-   * are cleared by the Supabase client during signOut().
+   * This is a derived getter that returns the verification status from the
+   * user object. It maintains a single source of truth (user.emailVerified)
+   * and is used by launch-time routing logic.
+   *
+   * @returns true if user exists and email is verified, false otherwise
    */
-  clearUser: () =>
-    set({
-      user: null,
-      tokenMetadata: null,
-    }),
-
-  setInitialized: (initialized) => set({ isInitialized: initialized }),
-
-  /**
-   * Sets the logout reason for UI display.
-   *
-   * This is used to communicate forced logout reasons (e.g., session expired)
-   * to the user interface. The reason is displayed on the login screen and
-   * cleared when the user logs in successfully or dismisses the message.
-   *
-   * @param reason - Logout reason message or null to clear
-   */
-  setLogoutReason: (reason) => set({ logoutReason: reason }),
+  isVerified: () => {
+    const { user } = get();
+    return user?.emailVerified ?? false;
+  },
 });
