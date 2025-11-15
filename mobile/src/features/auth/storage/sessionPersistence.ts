@@ -136,7 +136,8 @@ export interface StoredSessionBundle {
  * const bundle = await loadStoredSession();
  * if (bundle) {
  *   // Valid session found, attempt restore/refresh
- *   const isRecent = Date.now() - new Date(bundle.lastAuthSuccessAt).getTime() < 7 * 24 * 60 * 60 * 1000;
+ *   const lastAuthTime = new Date(bundle.lastAuthSuccessAt).getTime();
+ *   const isRecent = Date.now() - lastAuthTime < 7 * 24 * 60 * 60 * 1000;
  * } else {
  *   // No session or corrupted session, route to login
  * }
@@ -160,7 +161,8 @@ export async function loadStoredSession(): Promise<StoredSessionBundle | null> {
     } catch (parseError) {
       // JSON parse error indicates corrupted data
       // Log the error and clear the corrupted storage
-      logError(parseError instanceof Error ? parseError : new Error('JSON parse failed'), 'schema', {
+      const error = parseError instanceof Error ? parseError : new Error('JSON parse failed');
+      logError(error, 'schema', {
         feature: 'auth',
         operation: 'session-load',
         metadata: {
@@ -229,7 +231,8 @@ export async function loadStoredSession(): Promise<StoredSessionBundle | null> {
     }
 
     if (!candidate.lastAuthSuccessAt || typeof candidate.lastAuthSuccessAt !== 'string') {
-      logError(new Error('Invalid session bundle: missing or invalid lastAuthSuccessAt'), 'schema', {
+      const error = new Error('Invalid session bundle: missing or invalid lastAuthSuccessAt');
+      logError(error, 'schema', {
         feature: 'auth',
         operation: 'session-load',
         metadata: {
@@ -252,7 +255,8 @@ export async function loadStoredSession(): Promise<StoredSessionBundle | null> {
     // Validate lastAuthSuccessAt is a valid ISO 8601 date
     const lastAuthDate = new Date(candidate.lastAuthSuccessAt);
     if (isNaN(lastAuthDate.getTime())) {
-      logError(new Error('Invalid session bundle: lastAuthSuccessAt is not a valid date'), 'schema', {
+      const error = new Error('Invalid session bundle: lastAuthSuccessAt is not a valid date');
+      logError(error, 'schema', {
         feature: 'auth',
         operation: 'session-load',
         metadata: {
