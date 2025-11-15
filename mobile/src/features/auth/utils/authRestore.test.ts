@@ -8,12 +8,6 @@
  */
 
 // Mock all external dependencies
-jest.mock('../../../services/supabase');
-jest.mock('../../../core/state/store');
-jest.mock('../../../core/telemetry');
-jest.mock('../storage/sessionPersistence');
-jest.mock('./tokenExpiry');
-
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logAuthEvent, logError } from '../../../core/telemetry';
@@ -25,6 +19,12 @@ import {
 } from '../storage/sessionPersistence';
 import { deriveTokenExpiry } from './tokenExpiry';
 import { restoreAuthStateOnLaunch, mapLogoutReasonToI18nKey } from './authRestore';
+
+jest.mock('../../../services/supabase');
+jest.mock('../../../core/state/store');
+jest.mock('../../../core/telemetry');
+jest.mock('../storage/sessionPersistence');
+jest.mock('./tokenExpiry');
 
 describe('mapLogoutReasonToI18nKey', () => {
   it('should map session-expired to sessionExpired i18n key', () => {
