@@ -513,4 +513,573 @@ describe('restoreAuthStateOnLaunch', () => {
       expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
     });
   });
+
+  describe('Error classification - HTTP status codes', () => {
+    it('should classify 404 as network error, not auth error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { status: 404, message: 'Not found' },
+      });
+
+      await restoreAuthStateOnLaunch();
+
+      // Should apply offline trust window logic (network error)
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+      expect(mockSetNeedsRefresh).toHaveBeenCalledWith(true);
+    });
+
+    it('should classify 500 as network error, not auth error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { status: 500, message: 'Internal server error' },
+      });
+
+      await restoreAuthStateOnLaunch();
+
+      // Should apply offline trust window logic (network error)
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should classify error with status but not 401/403 as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { status: 503, message: 'Service unavailable' },
+      });
+
+      await restoreAuthStateOnLaunch();
+
+      // Should apply offline trust window logic
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+  });
+
+  describe('Error classification - auth keywords', () => {
+    it('should classify "invalid" keyword as auth error', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Invalid credentials')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should classify "expired" keyword as auth error', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Token has expired')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should classify "unauthorized" keyword as auth error', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Unauthorized access')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should classify "forbidden" keyword as auth error', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Access forbidden')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should classify "refresh_token" keyword as auth error', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('refresh_token is invalid')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should handle case insensitive auth keywords', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('INVALID TOKEN')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+  });
+
+  describe('Error classification - network keywords', () => {
+    it('should classify "timeout" keyword as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Request timeout')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+      expect(mockSetNeedsRefresh).toHaveBeenCalledWith(true);
+    });
+
+    it('should classify "fetch" keyword as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Fetch failed')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should classify "connection" keyword as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Connection refused')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should classify "offline" keyword as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Device is offline')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+  });
+
+  describe('Error classification - conservative defaults', () => {
+    it('should treat empty error message as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error(''));
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should treat string error as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        'random string error'
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+
+    it('should treat non-standard error object as network error', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue({
+        code: 'UNKNOWN',
+      });
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+  });
+
+  describe('Error classification - security verification', () => {
+    it('should apply offline trust window for unknown errors with recent session', async () => {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: threeDaysAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('some random error')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      // Session should be trusted, not cleared
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalledWith(
+        {
+          id: 'user-123',
+          email: 'test@example.com',
+          emailVerified: true,
+        },
+        expect.any(Object)
+      );
+      expect(mockSetNeedsRefresh).toHaveBeenCalledWith(true);
+      expect(markNeedsRefreshInStorage).toHaveBeenCalledTimes(1);
+    });
+
+    it('should enforce trust window for unknown errors with old session', async () => {
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: tenDaysAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('some random error')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      // Session should be cleared due to age
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionRestoreFailed'
+      );
+    });
+
+    it('should immediately clear session for auth errors regardless of age', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { status: 401, message: 'Token expired' },
+      });
+
+      await restoreAuthStateOnLaunch();
+
+      // Auth error should bypass trust window
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+      // Should NOT trust cached session
+      expect(mockApplyAuthenticatedUser).not.toHaveBeenCalled();
+      expect(mockSetNeedsRefresh).not.toHaveBeenCalled();
+    });
+
+    it('should verify trust window boundary at exactly 7 days', async () => {
+      const exactlySevenDays = new Date(
+        Date.now() - 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: exactlySevenDays,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('network error')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      // At exactly 7 days, should be within trust window (< 7 days check)
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+  });
+
+  describe('Error classification - edge cases', () => {
+    it('should prioritize auth classification when both auth and network keywords present', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('invalid network connection')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      // Should classify as auth error (auth keywords checked first)
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should handle uppercase error messages correctly', async () => {
+      const mockBundle = {
+        session: { user: { id: 'user-123' } },
+        lastAuthSuccessAt: new Date().toISOString(),
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('EXPIRED TOKEN')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).toHaveBeenCalledTimes(1);
+      expect(mockMarkUnauthenticated).toHaveBeenCalledWith(
+        'screens.auth.login.sessionMessages.sessionExpired'
+      );
+    });
+
+    it('should handle mixed case error messages correctly', async () => {
+      const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockBundle = {
+        session: {
+          user: {
+            id: 'user-123',
+            email: 'test@example.com',
+            email_confirmed_at: '2025-01-01T00:00:00Z',
+          },
+        },
+        lastAuthSuccessAt: oneDayAgo,
+      };
+
+      (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
+        new Error('Network Timeout Error')
+      );
+
+      await restoreAuthStateOnLaunch();
+
+      expect(clearStoredSession).not.toHaveBeenCalled();
+      expect(mockApplyAuthenticatedUser).toHaveBeenCalled();
+    });
+  });
 });
