@@ -579,7 +579,8 @@ export function useLogin() {
 
       // Persist session bundle to SecureStore for cold-start restoration
       // This enables auth state restoration and offline trust window logic
-      saveSessionFromSupabase(data.session, new Date().toISOString()).catch((error) => {
+      // Cast to Session type - we know this comes from Supabase signInWithPassword
+      saveSessionFromSupabase(data.session as any, new Date().toISOString()).catch((error) => {
         // Log error but don't throw - session save failures are non-critical
         // User is still authenticated in current session
         // eslint-disable-next-line no-console
