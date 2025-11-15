@@ -253,7 +253,13 @@ export type AuthEventType =
   | 'session-cleared'
   | 'session-clear-error'
   | 'session-mark-needs-refresh'
-  | 'session-clear-needs-refresh';
+  | 'session-clear-needs-refresh'
+  | 'auth-restore-start'
+  | 'auth-restore-success'
+  | 'auth-restore-no-session'
+  | 'auth-restore-failed-invalid-session'
+  | 'auth-restore-failed-stale'
+  | 'auth-restore-offline-trusted';
 
 /**
  * Metadata for authentication event logging.
