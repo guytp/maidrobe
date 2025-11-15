@@ -79,7 +79,7 @@ export interface FeatureFlagResult {
 /**
  * Supported feature flag names.
  */
-export type FeatureFlagName = 'auth.login' | 'auth.signup' | 'auth.logout' | 'auth.recaptcha';
+export type FeatureFlagName = 'auth.login' | 'auth.signup' | 'auth.logout' | 'auth.recaptcha' | 'auth.errorLogging';
 
 /**
  * Client version information for compatibility checks.

@@ -1,14 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
-import type { ErrorClassification } from '../../../core/telemetry';
+import { logAuthEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { t } from '../../../core/i18n';
 import { deriveTokenExpiry } from '../utils/tokenExpiry';
 import { saveSessionFromSupabase } from '../storage/sessionPersistence';
+import { handleAuthError } from '../utils/authErrorHandler';
+import { getAuthErrorMessage } from '../utils/authErrorMessages';
+import { logAuthErrorToSentry } from '../utils/logAuthErrorToSentry';
 
 /**
  * Zod schema for login request validation
@@ -153,116 +156,6 @@ async function recordAttempt(): Promise<void> {
   await setAttempts(attempts);
 }
 
-/**
- * Classifies Supabase Auth login errors into standard error categories.
- *
- * Uses HTTP status codes for reliable classification when available,
- * falling back to message-based classification for errors without status codes.
- *
- * Status Code Classification:
- * - 401, 403: Authentication failures (invalid credentials, unauthorized)
- * - 400, 422, other 4xx: Client validation or request errors
- * - 500, 502, 503, 504, other 5xx: Server errors
- *
- * @param error - The error object from Supabase or network failure
- * @returns The error classification type
- */
-function classifyLoginError(error: unknown): ErrorClassification {
-  // Check for HTTP status code first (most reliable)
-  if (error && typeof error === 'object' && 'status' in error) {
-    const status = (error as { status?: number }).status;
-
-    if (typeof status === 'number') {
-      // Authentication errors (401 Unauthorized, 403 Forbidden)
-      // These indicate invalid credentials or auth failures
-      if (status === 401 || status === 403) {
-        return 'user';
-      }
-
-      // Other client errors (400 Bad Request, 422 Unprocessable Entity, etc.)
-      // These indicate validation errors or malformed requests
-      if (status >= 400 && status < 500) {
-        return 'user';
-      }
-
-      // Server errors (500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, etc.)
-      if (status >= 500 && status < 600) {
-        return 'server';
-      }
-    }
-  }
-
-  // Fallback to message-based classification when status code unavailable
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-
-    // Network-related errors (connection issues, timeouts)
-    if (
-      message.includes('network') ||
-      message.includes('fetch') ||
-      message.includes('timeout') ||
-      message.includes('connection')
-    ) {
-      return 'network';
-    }
-
-    // Invalid credentials (user error)
-    if (
-      message.includes('invalid') ||
-      message.includes('credentials') ||
-      message.includes('incorrect') ||
-      message.includes('wrong password') ||
-      message.includes('email not found')
-    ) {
-      return 'user';
-    }
-
-    // Server errors detected by message content
-    if (message.includes('500') || message.includes('503') || message.includes('502')) {
-      return 'server';
-    }
-  }
-
-  // Default to server error for unknown issues
-  return 'server';
-}
-
-/**
- * Gets user-friendly error message for login failures.
- *
- * Maps error classifications to specific user-facing messages that match
- * the acceptance criteria. Uses i18n for all user-facing text.
- *
- * @param classification - The error classification
- * @param error - The original error object for specific message detection
- * @returns User-friendly error message
- */
-function getLoginErrorMessage(classification: ErrorClassification, error: unknown): string {
-  // Check for specific invalid credentials error
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    if (
-      message.includes('invalid') ||
-      message.includes('credentials') ||
-      message.includes('incorrect') ||
-      message.includes('wrong')
-    ) {
-      return t('screens.auth.login.errors.invalidCredentials');
-    }
-  }
-
-  // Map classification to acceptance criteria messages
-  if (classification === 'network') {
-    return t('screens.auth.login.errors.networkError');
-  }
-
-  if (classification === 'user') {
-    return t('screens.auth.login.errors.invalidCredentials');
-  }
-
-  // Default to server error message
-  return getUserFriendlyMessage(classification);
-}
 
 /**
  * React Query mutation hook for user login with email and password.
@@ -399,15 +292,24 @@ export function useLogin() {
       } catch (error) {
         if (error instanceof z.ZodError) {
           const latency = Date.now() - startTime;
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'login',
+          const validationError = new Error('Validation failed');
+          const normalizedError = handleAuthError(validationError, {
+            flow: 'login',
+            supabaseOperation: 'validation',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'login',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
               validationErrors: error.issues,
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('user'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'login');
+          throw new Error(userMessage);
         }
         throw error;
       }
@@ -431,14 +333,6 @@ export function useLogin() {
               rateLimit.remainingSeconds.toString()
             )
           );
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'login',
-            metadata: {
-              reason: 'rate_limit_exceeded',
-              remainingSeconds: rateLimit.remainingSeconds,
-            },
-          });
           throw error;
         }
 
@@ -447,26 +341,11 @@ export function useLogin() {
 
         if (featureFlag.requiresUpdate) {
           const error = new Error(t('screens.auth.login.errors.updateRequired'));
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'login',
-            metadata: {
-              reason: 'version_incompatible',
-              message: featureFlag.message,
-            },
-          });
           throw error;
         }
 
         if (!featureFlag.enabled) {
           const error = new Error(t('screens.auth.login.errors.serviceUnavailable'));
-          logError(error, 'server', {
-            feature: 'auth',
-            operation: 'login',
-            metadata: {
-              reason: 'feature_disabled',
-            },
-          });
           throw error;
         }
 
@@ -484,33 +363,46 @@ export function useLogin() {
 
         // Handle Supabase errors
         if (error) {
-          const classification = classifyLoginError(error);
-          logError(error, classification, {
-            feature: 'auth',
-            operation: 'login',
+          // Use centralized error handler
+          const normalizedError = handleAuthError(error, {
+            flow: 'login',
+            supabaseOperation: 'signInWithPassword',
+          });
+
+          // Log to Sentry with centralized logging helper
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'login',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
-              email: 'redacted', // Never log PII
-              errorCode: error.status,
               latency,
             },
           });
 
           // Log structured auth event
           logAuthEvent('login-failure', {
-            errorCode: error.status?.toString(),
+            errorCode: normalizedError.code,
             outcome: 'failure',
             latency,
           });
 
-          throw new Error(getLoginErrorMessage(classification, error));
+          // Get user-friendly message
+          const userMessage = getAuthErrorMessage(normalizedError, 'login');
+          throw new Error(userMessage);
         }
 
         // Validate response structure
         if (!data || !data.user || !data.session) {
           const schemaError = new Error('Invalid response from login API');
-          logError(schemaError, 'schema', {
-            feature: 'auth',
-            operation: 'login',
+          const normalizedError = handleAuthError(schemaError, {
+            flow: 'login',
+            supabaseOperation: 'signInWithPassword',
+          });
+
+          logAuthErrorToSentry(normalizedError, schemaError, {
+            flow: 'login',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
               hasData: !!data,
               hasUser: !!data?.user,
@@ -518,7 +410,9 @@ export function useLogin() {
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('schema'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'login');
+          throw new Error(userMessage);
         }
 
         // Parse and validate response with Zod
@@ -530,15 +424,24 @@ export function useLogin() {
         // Note: Request validation errors are handled earlier in the flow
         if (error instanceof z.ZodError) {
           const latency = Date.now() - startTime;
-          logError(error, 'schema', {
-            feature: 'auth',
-            operation: 'login',
+          const validationError = new Error('Response validation failed');
+          const normalizedError = handleAuthError(validationError, {
+            flow: 'login',
+            supabaseOperation: 'signInWithPassword',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'login',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
               validationErrors: error.issues,
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('schema'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'login');
+          throw new Error(userMessage);
         }
 
         // Re-throw if already an Error
@@ -549,12 +452,20 @@ export function useLogin() {
         // Handle unknown errors
         const latency = Date.now() - startTime;
         const unknownError = new Error('Unknown error during login');
-        logError(unknownError, 'server', {
-          feature: 'auth',
-          operation: 'login',
+        const normalizedError = handleAuthError(unknownError, {
+          flow: 'login',
+          supabaseOperation: 'signInWithPassword',
+        });
+
+        logAuthErrorToSentry(normalizedError, unknownError, {
+          flow: 'login',
+          userId: undefined,
+          platform: Platform.OS as 'ios' | 'android' | 'unknown',
           metadata: { latency },
         });
-        throw new Error(getUserFriendlyMessage('server'));
+
+        const userMessage = getAuthErrorMessage(normalizedError, 'login');
+        throw new Error(userMessage);
       }
     },
     onSuccess: (data, _variables, context) => {
