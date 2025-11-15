@@ -8,6 +8,7 @@ import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { t } from '../../../core/i18n';
 import { deriveTokenExpiry } from '../utils/tokenExpiry';
+import { saveSessionFromSupabase } from '../storage/sessionPersistence';
 
 /**
  * Zod schema for login request validation
@@ -575,6 +576,16 @@ export function useLogin() {
 
       // Clear any logout reason from forced logout
       useStore.getState().setLogoutReason(null);
+
+      // Persist session bundle to SecureStore for cold-start restoration
+      // This enables auth state restoration and offline trust window logic
+      // Cast to Session type - we know this comes from Supabase signInWithPassword
+      saveSessionFromSupabase(data.session as any, new Date().toISOString()).catch((error) => {
+        // Log error but don't throw - session save failures are non-critical
+        // User is still authenticated in current session
+        // eslint-disable-next-line no-console
+        console.error('[Login] Failed to save session bundle:', error);
+      });
 
       // Log structured auth event for observability
       // SECURITY: Do NOT log the session object - it contains access_token and refresh_token

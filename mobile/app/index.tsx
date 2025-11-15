@@ -6,58 +6,64 @@ import { useStore } from '../src/core/state/store';
 /**
  * Root entry point for the application.
  *
- * INITIALIZATION COORDINATION:
- * This component coordinates with useAuthStateListener to prevent race conditions
- * during app startup. The auth listener asynchronously fetches the initial Supabase
- * session via getSession(), which may return an existing valid session. To avoid
- * incorrectly redirecting to /auth/signup before this async operation completes,
- * we wait for the isInitialized flag to become true.
+ * HYDRATION LIFECYCLE:
+ * This component coordinates with the auth restore pipeline (restoreAuthStateOnLaunch)
+ * triggered in _layout.tsx. The restore pipeline runs asynchronously on cold start,
+ * loading the session from SecureStore, validating it, and attempting refresh if needed.
+ * To avoid incorrectly redirecting before this completes, we wait for the isHydrating
+ * flag to become false.
  *
- * Initialization Flow:
- * 1. App mounts, useAuthStateListener starts in _layout.tsx
- * 2. This component renders with isInitialized=false, user=null
- * 3. Shows loading spinner while waiting for initialization
- * 4. useAuthStateListener calls getSession() asynchronously
- * 5. getSession() completes, sets user (if session exists) and isInitialized=true
- * 6. This component re-renders with initialized state
- * 7. Redirects to appropriate route based on actual auth state
+ * Hydration Flow:
+ * 1. App mounts, restoreAuthStateOnLaunch() starts in _layout.tsx
+ * 2. This component renders with isHydrating=true
+ * 3. Shows neutral loading spinner while waiting for hydration
+ * 4. Restore pipeline completes (success or failure)
+ * 5. Pipeline sets isHydrating=false
+ * 6. This component re-renders with hydrated state
+ * 7. Calls deriveRoute() to determine target route based on auth state
+ * 8. Redirects to appropriate route: /auth/login, /auth/verify, or /home
  *
- * Without isInitialized check:
- * - Component would see user=null immediately
- * - Would redirect to /auth/login prematurely
- * - User with valid session would be sent to login screen incorrectly
- * - useProtectedRoute would redirect back, causing navigation flash
+ * Why isHydrating instead of isInitialized:
+ * - isHydrating specifically tracks the cold-start restore pipeline
+ * - Prevents premature navigation before session is loaded from SecureStore
+ * - Prevents flash of incorrect screen (e.g., login screen for authenticated user)
+ * - Runtime auth changes (login, logout) don't set isHydrating
  *
- * With isInitialized check:
- * - Component waits for auth state to load
- * - Shows loading spinner during initialization
- * - Redirects only after knowing true auth state
- * - No navigation flash or incorrect redirects
+ * Why deriveRoute() instead of manual checks:
+ * - Single source of truth for routing logic (defined in authRouting.ts)
+ * - Same logic used by useProtectedRoute for in-app route guards
+ * - Prevents divergence between launch-time and runtime routing
+ * - Easier to test and reason about
  *
- * Redirect logic (after initialization):
- * - No user -> /auth/login (where users can sign in or navigate to signup)
- * - User but not verified -> /auth/verify
- * - User and verified -> /home
+ * Redirect logic (after hydration):
+ * - deriveRoute() returns 'login' -> /auth/login
+ *   - No authenticated user
+ *   - Session expired messages displayed via SessionExpiredBanner
+ *   - New users can navigate to signup from login screen
+ * - deriveRoute() returns 'verify' -> /auth/verify
+ *   - Authenticated user but email not verified
+ * - deriveRoute() returns 'home' -> /home
+ *   - Authenticated user with verified email
  *
- * The redirect to /auth/login (rather than /auth/signup) is intentional:
- * - Returning users can immediately sign in
- * - Session expired messages are displayed on the login screen via SessionExpiredBanner
- * - New users can navigate to signup from login screen
- * - Provides better UX for users with forced logout due to token expiration
+ * Navigation Semantics:
+ * - Uses <Redirect> which replaces the current route in the stack
+ * - Prevents back navigation to this loading screen
+ * - User cannot navigate back from Login/Verify/Home to see loading spinner
  *
- * Note: The protected route guard in /home (useProtectedRoute) also checks
- * isInitialized and provides additional authorization checks. This root-level
- * redirect is an optimization to avoid unnecessary route loading.
+ * Error Handling:
+ * - If restore pipeline fails, isHydrating still becomes false
+ * - deriveRoute() returns 'login' for unauthenticated state
+ * - SessionExpiredBanner shows reason if logoutReason is set
  *
- * @returns Loading spinner during initialization, or Redirect to appropriate route
+ * @returns Loading spinner during hydration, or Redirect to appropriate route
  */
 export default function Index(): React.JSX.Element {
-  const user = useStore((state) => state.user);
-  const isInitialized = useStore((state) => state.isInitialized);
+  const isHydrating = useStore((state) => state.isHydrating);
+  const deriveRoute = useStore((state) => state.deriveRoute);
 
-  // Show loading state while auth is initializing
-  // This prevents premature redirects before we know if a session exists
-  if (!isInitialized) {
+  // Show loading state while auth is hydrating
+  // This prevents premature redirects before we know if a valid session exists
+  if (isHydrating) {
     return (
       <View
         style={{
@@ -72,12 +78,15 @@ export default function Index(): React.JSX.Element {
     );
   }
 
-  // Auth initialization complete - redirect based on actual state
-  if (!user) {
+  // Hydration complete - derive target route from auth state
+  // This uses the centralized routing logic shared with useProtectedRoute
+  const targetRoute = deriveRoute();
+
+  if (targetRoute === 'login') {
     return <Redirect href="/auth/login" />;
   }
 
-  if (!user.emailVerified) {
+  if (targetRoute === 'verify') {
     return <Redirect href="/auth/verify" />;
   }
 

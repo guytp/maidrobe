@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useStore } from '../state/store';
 import { useTheme } from '../theme';
+import { t } from '../i18n';
 
 /**
  * SessionExpiredBanner component - Displays session expiration messages
@@ -11,7 +12,8 @@ import { useTheme } from '../theme';
  * It provides clear feedback about why the user needs to log in again.
  *
  * Features:
- * - Displays logout reason from store (e.g., "Session expired. Please log in again.")
+ * - Displays translated logout reason from store using i18n layer
+ * - Accepts i18n translation keys directly from auth state
  * - Dismissable with X button
  * - Auto-clears on successful login
  * - Uses theme colors for consistent styling
@@ -21,9 +23,17 @@ import { useTheme } from '../theme';
  * - Only visible when logoutReason exists in store
  * - Automatically hidden when logoutReason is null
  *
- * Integration:
- * - Set logoutReason via useStore().setLogoutReason(reason)
+ * Integration Contract:
+ * - Auth subsystem provides i18n translation keys (not internal codes)
+ * - Use full i18n keys: 'screens.auth.login.sessionMessages.sessionExpired'
+ * - Banner translates keys to user-facing messages via t() function
  * - Clear on dismiss or successful login
+ *
+ * Supported i18n Keys:
+ * - screens.auth.login.sessionMessages.sessionExpired
+ * - screens.auth.login.sessionMessages.sessionRestoreFailed
+ * - screens.auth.login.sessionMessages.sessionInvalid
+ * - screens.auth.login.sessionMessages.sessionError
  *
  * @example
  * ```tsx
@@ -32,6 +42,9 @@ import { useTheme } from '../theme';
  *   <SessionExpiredBanner />
  *   <LoginScreen />
  * </View>
+ *
+ * // Setting logout reason with i18n key
+ * useStore.getState().setLogoutReason('screens.auth.login.sessionMessages.sessionExpired');
  * ```
  */
 export function SessionExpiredBanner() {
@@ -84,7 +97,7 @@ export function SessionExpiredBanner() {
     <View style={styles.container} accessibilityRole="alert">
       <View style={styles.messageContainer}>
         <Text style={styles.message} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {logoutReason}
+          {t(logoutReason as never)}
         </Text>
       </View>
       <TouchableOpacity

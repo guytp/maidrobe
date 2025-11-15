@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
@@ -13,12 +13,37 @@ import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRou
  *
  * Protected route: requires authenticated user with verified email.
  *
+ * BACK NAVIGATION:
+ * On Android, the hardware back button exits the app instead of navigating
+ * back to the login or loading screen. This prevents confusing navigation flows
+ * where users would return to authentication screens after being logged in.
+ *
+ * Navigation flows:
+ * - User at home screen (authenticated)
+ * - User presses back -> app exits (Android) or no-op (iOS)
+ * - No previous screen to return to (home is the root for authenticated users)
+ *
+ * iOS behavior:
+ * - No hardware back button, so this handler is never triggered
+ * - Users exit via home button/gesture
+ *
  * @returns Home screen component with accessibility support
  */
 export default function HomeScreen(): React.JSX.Element {
   const isAuthorized = useProtectedRoute();
   const { colors, colorScheme } = useTheme();
   const { data: healthcheck, isLoading, error } = useHealthcheck();
+
+  // Exit app on back press from home screen
+  // Prevents navigation back to login/loading screens which would be confusing
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      BackHandler.exitApp();
+      return true; // Prevent default back navigation
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   const styles = useMemo(
     () =>

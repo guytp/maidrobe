@@ -244,7 +244,25 @@ export type AuthEventType =
   | 'recaptcha-skipped'
   | 'recaptcha-attempted'
   | 'recaptcha-succeeded'
-  | 'recaptcha-failed';
+  | 'recaptcha-failed'
+  | 'session-load'
+  | 'session-load-error'
+  | 'session-corrupted'
+  | 'session-save'
+  | 'session-save-error'
+  | 'session-cleared'
+  | 'session-clear-error'
+  | 'session-mark-needs-refresh'
+  | 'session-clear-needs-refresh'
+  | 'auth-restore-start'
+  | 'auth-restore-success'
+  | 'auth-restore-no-session'
+  | 'auth-restore-failed-invalid-session'
+  | 'auth-restore-failed-stale'
+  | 'auth-restore-offline-trusted'
+  | 'route-guard-redirect-login'
+  | 'route-guard-redirect-verify'
+  | 'route-guard-authorized';
 
 /**
  * Metadata for authentication event logging.
