@@ -193,7 +193,7 @@ export function logAuthErrorToSentry(
  */
 function isAuthErrorLoggingEnabled(): boolean {
   try {
-    const config = getFlagConfig('auth.errorLogging' as any);
+    const config = getFlagConfig('auth.errorLogging');
     return config.enabled;
   } catch {
     // On error, default to false for privacy
