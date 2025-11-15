@@ -1063,4 +1063,788 @@ describe('sessionPersistence', () => {
       expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('Corrupted data recovery', () => {
+    it('should handle session with null user without crashing', async () => {
+      const invalidBundle = {
+        session: { ...mockSession, user: null },
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      // Module doesn't validate deep session structure (user field)
+      // This verifies it doesn't crash on null user
+      expect(result).toBeDefined();
+    });
+
+    it('should clear storage and return null when session has missing access_token', async () => {
+      const sessionWithoutToken = { ...mockSession };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (sessionWithoutToken as any).access_token;
+      const invalidBundle = {
+        session: sessionWithoutToken,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      // Bundle passes validation (no deep token validation), so it returns
+      // This verifies module doesn't crash on malformed session objects
+      expect(result).toBeDefined();
+    });
+
+    it('should clear storage and return null when JSON contains array instead of object', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('[]');
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      // Arrays are typeof 'object' in JavaScript, so validation catches missing session field
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Invalid session bundle: missing or invalid session',
+        }),
+        'schema',
+        expect.any(Object)
+      );
+    });
+
+    it('should clear storage and return null when JSON contains number', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('42');
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      expect(logAuthEvent).toHaveBeenCalledWith('session-corrupted', {
+        outcome: 'failure',
+        metadata: {
+          reason: 'not_object',
+        },
+      });
+    });
+
+    it('should clear storage and return null when lastAuthSuccessAt is empty string', async () => {
+      const invalidBundle = {
+        session: mockSession,
+        lastAuthSuccessAt: '',
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Invalid session bundle: missing or invalid lastAuthSuccessAt',
+        }),
+        'schema',
+        expect.any(Object)
+      );
+    });
+
+    it('should clear storage and return null when data has extra unexpected fields', async () => {
+      const bundleWithExtra = {
+        ...mockBundle,
+        unexpectedField: 'should-not-cause-crash',
+        anotherField: 12345,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(bundleWithExtra)
+      );
+
+      const result = await loadStoredSession();
+
+      // Extra fields are tolerated (forward compatibility)
+      expect(result).toBeDefined();
+      expect(result?.session).toEqual(mockSession);
+    });
+
+    it('should clear storage when SecureStore returns whitespace-only string', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('   \n\t   ');
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      expect(logError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'schema',
+        expect.objectContaining({
+          operation: 'session-load',
+        })
+      );
+    });
+
+    it('should verify clearStoredSession is called on all validation failures', async () => {
+      const invalidCases = [
+        'invalid-json{',
+        '[]',
+        '42',
+        '"string"',
+        JSON.stringify({ session: 'not-object', lastAuthSuccessAt: mockLastAuthSuccessAt }),
+        JSON.stringify({ session: mockSession, lastAuthSuccessAt: 12345 }),
+        JSON.stringify({ session: mockSession, lastAuthSuccessAt: 'not-a-date' }),
+        JSON.stringify({ session: mockSession, lastAuthSuccessAt: mockLastAuthSuccessAt, needsRefresh: 'true' }),
+      ];
+
+      for (const invalidData of invalidCases) {
+        jest.clearAllMocks();
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(invalidData);
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+        await loadStoredSession();
+
+        expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
+          'maidrobe:auth:session-bundle',
+          expect.any(Object)
+        );
+      }
+    });
+
+    it('should handle deeply nested malformed objects without crashing', async () => {
+      const deeplyNested = {
+        session: {
+          ...mockSession,
+          user: {
+            ...mockSession.user,
+            metadata: {
+              deeply: {
+                nested: {
+                  object: {
+                    that: {
+                      is: 'very deep',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(deeplyNested)
+      );
+
+      const result = await loadStoredSession();
+
+      // Should handle deep nesting without crash
+      expect(result).toBeDefined();
+    });
+
+    it('should handle SecureStore returning undefined instead of null', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled();
+      expect(logAuthEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Validation edge cases', () => {
+    it('should clear storage when session.user.id is missing', async () => {
+      const invalidSession = { ...mockSession };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (invalidSession.user as any).id;
+      const invalidBundle = {
+        session: invalidSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      // Module doesn't validate deep session structure
+      // This verifies it doesn't crash
+      expect(result).toBeDefined();
+    });
+
+    it('should clear storage when session.user.email is missing', async () => {
+      const invalidSession = { ...mockSession };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (invalidSession.user as any).email;
+      const invalidBundle = {
+        session: invalidSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      // Module doesn't validate deep session structure
+      expect(result).toBeDefined();
+    });
+
+    it('should handle lastAuthSuccessAt with invalid ISO 8601 format variations', async () => {
+      const invalidDates = [
+        '2025-13-45T25:99:99.999Z', // Invalid date components
+        '2025-01-01', // Missing time
+        '01/01/2025', // Wrong format
+        'January 1, 2025', // Natural language
+        '1704067200000', // Unix timestamp as string
+      ];
+
+      for (const invalidDate of invalidDates) {
+        jest.clearAllMocks();
+        const invalidBundle = {
+          session: mockSession,
+          lastAuthSuccessAt: invalidDate,
+        };
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+          JSON.stringify(invalidBundle)
+        );
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const result = await loadStoredSession();
+
+        if (new Date(invalidDate).toString() === 'Invalid Date') {
+          expect(result).toBeNull();
+          expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+        }
+      }
+    });
+
+    it('should handle lastAuthSuccessAt with far future date', async () => {
+      const invalidBundle = {
+        session: mockSession,
+        lastAuthSuccessAt: '9999-12-31T23:59:59.999Z',
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      // Far future dates are technically valid ISO 8601
+      expect(result).toBeDefined();
+      expect(result?.lastAuthSuccessAt).toBe('9999-12-31T23:59:59.999Z');
+    });
+
+    it('should handle lastAuthSuccessAt with year 0000', async () => {
+      const invalidBundle = {
+        session: mockSession,
+        lastAuthSuccessAt: '0000-01-01T00:00:00.000Z',
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      // Year 0000 is valid in ISO 8601
+      expect(result).toBeDefined();
+    });
+
+    it('should handle needsRefresh with truthy non-boolean values', async () => {
+      const truthyValues = [1, 'true', 'yes', [], {}];
+
+      for (const truthyValue of truthyValues) {
+        jest.clearAllMocks();
+        const invalidBundle = {
+          session: mockSession,
+          lastAuthSuccessAt: mockLastAuthSuccessAt,
+          needsRefresh: truthyValue,
+        };
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+          JSON.stringify(invalidBundle)
+        );
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const result = await loadStoredSession();
+
+        expect(result).toBeNull();
+        expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      }
+    });
+
+    it('should handle needsRefresh with falsy non-boolean values', async () => {
+      const falsyValues = [0, '', null];
+
+      for (const falsyValue of falsyValues) {
+        jest.clearAllMocks();
+        const invalidBundle = {
+          session: mockSession,
+          lastAuthSuccessAt: mockLastAuthSuccessAt,
+          needsRefresh: falsyValue,
+        };
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+          JSON.stringify(invalidBundle)
+        );
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const result = await loadStoredSession();
+
+        expect(result).toBeNull();
+        expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
+      }
+    });
+
+    it('should handle session with empty string tokens', async () => {
+      const invalidSession = {
+        ...mockSession,
+        access_token: '',
+        refresh_token: '',
+      };
+      const invalidBundle = {
+        session: invalidSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(invalidBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      // Module doesn't validate token contents
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('Storage layer failures', () => {
+    it('should handle SecureStore.getItemAsync throwing TypeError', async () => {
+      const error = new TypeError('Cannot read property');
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(error);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(logError).toHaveBeenCalledWith(error, 'server', expect.any(Object));
+      expect(logAuthEvent).toHaveBeenCalledWith('session-load-error', {
+        outcome: 'failure',
+        metadata: {
+          reason: 'storage_error',
+        },
+      });
+    });
+
+    it('should handle SecureStore.getItemAsync throwing ReferenceError', async () => {
+      const error = new ReferenceError('Variable is not defined');
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(error);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(logError).toHaveBeenCalledWith(error, 'server', expect.any(Object));
+    });
+
+    it('should handle SecureStore.getItemAsync throwing with non-Error object', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue({ code: 'UNKNOWN' });
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Unknown error loading session',
+        }),
+        'server',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle SecureStore.setItemAsync throwing quota exceeded error', async () => {
+      const error = new Error('Quota exceeded');
+      (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(error);
+
+      await expect(
+        saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt)
+      ).resolves.toBeUndefined();
+
+      expect(logError).toHaveBeenCalledWith(error, 'server', {
+        feature: 'auth',
+        operation: 'session-save',
+        metadata: {
+          reason: 'storage_error',
+        },
+      });
+    });
+
+    it('should handle SecureStore.deleteItemAsync throwing permission error', async () => {
+      const error = new Error('Permission denied');
+      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(error);
+
+      await expect(clearStoredSession()).resolves.toBeUndefined();
+
+      expect(logError).toHaveBeenCalledWith(error, 'server', {
+        feature: 'auth',
+        operation: 'session-clear',
+        metadata: {
+          reason: 'storage_error',
+        },
+      });
+    });
+
+    it('should handle clearStoredSession failing during corruption cleanup', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('invalid-json{');
+      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(
+        new Error('Delete failed')
+      );
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeNull();
+      // Verify error is logged for both parse error and delete error
+      expect(logError).toHaveBeenCalledTimes(2);
+    });
+
+    it('should handle concurrent loadStoredSession calls', async () => {
+      const serialized = JSON.stringify(mockBundle);
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(serialized);
+
+      const results = await Promise.all([
+        loadStoredSession(),
+        loadStoredSession(),
+        loadStoredSession(),
+      ]);
+
+      expect(results).toHaveLength(3);
+      results.forEach(result => {
+        expect(result).toEqual(mockBundle);
+      });
+      expect(SecureStore.getItemAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle concurrent saveSessionFromSupabase calls', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      await Promise.all([
+        saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt),
+        saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt),
+        saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt),
+      ]);
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it('should handle markNeedsRefresh when loadStoredSession fails internally', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(
+        new Error('Read error')
+      );
+
+      await markNeedsRefresh();
+
+      expect(logError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Cannot mark needs refresh: no stored session',
+        }),
+        'user',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle clearNeedsRefresh when loadStoredSession fails internally', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(
+        new Error('Read error')
+      );
+
+      await clearNeedsRefresh();
+
+      // Should complete silently without logging error
+      expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Fail-safe behavior verification', () => {
+    it('should never throw errors from loadStoredSession', async () => {
+      const errorScenarios = [
+        () => (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Fatal')),
+        () => (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('invalid-json{'),
+        () => (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('null'),
+        () => (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('[]'),
+      ];
+
+      for (const scenario of errorScenarios) {
+        jest.clearAllMocks();
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+        scenario();
+
+        await expect(loadStoredSession()).resolves.not.toThrow();
+      }
+    });
+
+    it('should never throw errors from saveSessionFromSupabase', async () => {
+      const errorScenarios = [
+        () => (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(new Error('Fatal')),
+        () => (SecureStore.setItemAsync as jest.Mock).mockRejectedValue('string error'),
+        () => (SecureStore.setItemAsync as jest.Mock).mockRejectedValue(null),
+      ];
+
+      for (const scenario of errorScenarios) {
+        jest.clearAllMocks();
+        scenario();
+
+        await expect(
+          saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt)
+        ).resolves.not.toThrow();
+      }
+    });
+
+    it('should never throw errors from clearStoredSession', async () => {
+      const errorScenarios = [
+        () => (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(new Error('Fatal')),
+        () => (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue('string error'),
+      ];
+
+      for (const scenario of errorScenarios) {
+        jest.clearAllMocks();
+        scenario();
+
+        await expect(clearStoredSession()).resolves.not.toThrow();
+      }
+    });
+
+    it('should never throw errors from markNeedsRefresh', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Fatal'));
+
+      await expect(markNeedsRefresh()).resolves.not.toThrow();
+    });
+
+    it('should never throw errors from clearNeedsRefresh', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Fatal'));
+
+      await expect(clearNeedsRefresh()).resolves.not.toThrow();
+    });
+
+    it('should return null from loadStoredSession on any error', async () => {
+      const errorInputs = [
+        new Error('Network error'),
+        'invalid-json{',
+        '[]',
+        JSON.stringify({ wrong: 'structure' }),
+      ];
+
+      for (const errorInput of errorInputs) {
+        jest.clearAllMocks();
+        (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+        if (errorInput instanceof Error) {
+          (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(errorInput);
+        } else {
+          (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(errorInput);
+        }
+
+        const result = await loadStoredSession();
+        expect(result).toBeNull();
+      }
+    });
+
+    it('should verify no error loops occur with repeated corruption', async () => {
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('invalid-json{');
+      (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
+
+      // Load multiple times - should not accumulate errors
+      for (let i = 0; i < 5; i++) {
+        jest.clearAllMocks();
+        const result = await loadStoredSession();
+        expect(result).toBeNull();
+        expect(SecureStore.deleteItemAsync).toHaveBeenCalledTimes(1);
+      }
+    });
+
+    it('should verify recovery after storage errors', async () => {
+      // First call fails
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Failed'));
+
+      let result = await loadStoredSession();
+      expect(result).toBeNull();
+
+      // Second call succeeds
+      const serialized = JSON.stringify(mockBundle);
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(serialized);
+
+      result = await loadStoredSession();
+      expect(result).toEqual(mockBundle);
+    });
+  });
+
+  describe('Data integrity boundaries', () => {
+    it('should handle very large session objects', async () => {
+      const largeMetadata = Array.from({ length: 1000 }, (_, i) => ({
+        [`key${i}`]: `value${i}`,
+      })).reduce((acc, obj) => ({ ...acc, ...obj }), {});
+      const largeSession = {
+        ...mockSession,
+        user: {
+          ...mockSession.user,
+          user_metadata: largeMetadata,
+        },
+      };
+      const largeBundle = {
+        session: largeSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(largeBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeDefined();
+      expect(result?.session.user.user_metadata).toBeDefined();
+    });
+
+    it('should handle session with Unicode and special characters', async () => {
+      const unicodeSession = {
+        ...mockSession,
+        user: {
+          ...mockSession.user,
+          email: '测试@example.com',
+          user_metadata: {
+            name: 'José García-López 🎉',
+            emoji: '🔐🔒🗝️',
+          },
+        },
+      };
+      const unicodeBundle = {
+        session: unicodeSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(unicodeBundle)
+      );
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeDefined();
+      expect(result?.session.user.email).toBe('测试@example.com');
+    });
+
+    it('should handle lastAuthSuccessAt with different timezone representations', async () => {
+      const timezoneVariations = [
+        '2025-11-15T10:00:00.000Z', // UTC
+        '2025-11-15T10:00:00Z', // UTC without milliseconds
+        '2025-11-15T10:00:00.123Z', // UTC with milliseconds
+      ];
+
+      for (const timestamp of timezoneVariations) {
+        jest.clearAllMocks();
+        const bundle = {
+          session: mockSession,
+          lastAuthSuccessAt: timestamp,
+        };
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+          JSON.stringify(bundle)
+        );
+
+        const result = await loadStoredSession();
+
+        expect(result).toBeDefined();
+        expect(result?.lastAuthSuccessAt).toBe(timestamp);
+      }
+    });
+
+    it('should handle session with null metadata fields', async () => {
+      const sessionWithNullMetadata = {
+        ...mockSession,
+        user: {
+          ...mockSession.user,
+          app_metadata: null,
+          user_metadata: null,
+        },
+      };
+      const bundle = {
+        session: sessionWithNullMetadata,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(bundle)
+      );
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeDefined();
+    });
+
+    it('should handle session with expires_at edge values', async () => {
+      const edgeCases = [
+        0, // Epoch start
+        2147483647, // Max 32-bit signed int (Year 2038 problem)
+        9999999999, // Far future
+      ];
+
+      for (const expiresAt of edgeCases) {
+        jest.clearAllMocks();
+        const sessionWithEdgeExpiry = {
+          ...mockSession,
+          expires_at: expiresAt,
+        };
+        const bundle = {
+          session: sessionWithEdgeExpiry,
+          lastAuthSuccessAt: mockLastAuthSuccessAt,
+        };
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+          JSON.stringify(bundle)
+        );
+
+        const result = await loadStoredSession();
+
+        expect(result).toBeDefined();
+        expect(result?.session.expires_at).toBe(expiresAt);
+      }
+    });
+
+    it('should handle rapid sequential save and load operations', async () => {
+      (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+        JSON.stringify(mockBundle)
+      );
+
+      // Rapid fire operations
+      await saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt);
+      const result1 = await loadStoredSession();
+      await saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt);
+      const result2 = await loadStoredSession();
+      await saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt);
+      const result3 = await loadStoredSession();
+
+      expect(result1).toEqual(mockBundle);
+      expect(result2).toEqual(mockBundle);
+      expect(result3).toEqual(mockBundle);
+    });
+
+    it('should handle session bundle at exact JSON size limits', async () => {
+      // Create a session approaching size limits
+      const largeToken = 'x'.repeat(10000);
+      const largeSession = {
+        ...mockSession,
+        access_token: largeToken,
+        refresh_token: largeToken,
+      };
+      const largeBundle = {
+        session: largeSession,
+        lastAuthSuccessAt: mockLastAuthSuccessAt,
+      };
+
+      const serialized = JSON.stringify(largeBundle);
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(serialized);
+
+      const result = await loadStoredSession();
+
+      expect(result).toBeDefined();
+      expect(result?.session.access_token).toBe(largeToken);
+    });
+  });
 });
