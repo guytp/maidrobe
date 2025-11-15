@@ -91,10 +91,14 @@ export interface NormalizedAuthError {
  * classification and debugging.
  *
  * @property flow - Which auth operation triggered the error
+ * @property supabaseOperation - Optional specific Supabase operation name for debugging
  */
 export interface AuthErrorContext {
   /** Authentication flow that triggered this error */
   flow: AuthFlow;
+
+  /** Optional specific Supabase operation name (e.g., 'signInWithPassword', 'signUp', 'validation') */
+  supabaseOperation?: string;
 }
 
 /**
