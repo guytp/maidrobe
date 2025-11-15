@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import { deriveInitialRouteFromAuthState, AuthRoute } from '../utils/authRouting';
 
 /**
  * User entity representing authenticated user information.
@@ -67,6 +68,7 @@ export interface TokenMetadata {
  * GETTERS:
  * @property isTokenExpired - Check if access token is expired
  * @property isVerified - Check if user's email is verified (derived from user.emailVerified)
+ * @property deriveRoute - Derive target route from current auth state
  */
 export interface SessionSlice {
   // State fields
@@ -101,6 +103,7 @@ export interface SessionSlice {
   // Getters
   isTokenExpired: () => boolean;
   isVerified: () => boolean;
+  deriveRoute: () => AuthRoute;
 }
 
 /**
@@ -311,5 +314,44 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
   isVerified: () => {
     const { user } = get();
     return user?.emailVerified ?? false;
+  },
+
+  /**
+   * Derives the target route from current auth state.
+   *
+   * This method integrates the pure routing logic from authRouting.ts with
+   * the Zustand store, providing a convenient way to determine where the
+   * user should be routed based on their current authentication status.
+   *
+   * The method extracts the normalized auth state (isAuthenticated,
+   * isVerified) and delegates to deriveInitialRouteFromAuthState for the
+   * actual routing decision. This ensures consistent routing behavior
+   * across:
+   * - Cold start navigation (Step 5)
+   * - Route protection hooks (Story #7)
+   * - Deep link handling
+   * - Session state changes
+   *
+   * @returns Route descriptor: 'login', 'verify', or 'home'
+   *
+   * @example
+   * ```typescript
+   * // In navigation layer
+   * const targetRoute = useStore.getState().deriveRoute();
+   * if (targetRoute === 'login') {
+   *   router.replace('/auth/login');
+   * } else if (targetRoute === 'verify') {
+   *   router.replace('/auth/verify');
+   * } else {
+   *   router.replace('/(tabs)/home');
+   * }
+   * ```
+   */
+  deriveRoute: () => {
+    const state = get();
+    return deriveInitialRouteFromAuthState({
+      isAuthenticated: state.isAuthenticated,
+      isVerified: state.isVerified(),
+    });
   },
 });

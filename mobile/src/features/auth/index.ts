@@ -17,6 +17,7 @@ export * from './utils/validation';
 export * from './utils/passwordResetSchemas';
 export * from './utils/passwordReuse';
 export * from './utils/resetAttemptRateLimit';
+export * from './utils/authRouting';
 export * from './hooks/useAuthStateListener';
 export * from './hooks/useProtectedRoute';
 export * from './hooks/useTokenRefreshManager';
