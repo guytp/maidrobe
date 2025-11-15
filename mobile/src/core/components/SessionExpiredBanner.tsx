@@ -2,6 +2,44 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useStore } from '../state/store';
 import { useTheme } from '../theme';
+import { t } from '../i18n';
+
+/**
+ * Maps logout reason codes to i18n translation keys.
+ *
+ * This function provides centralized mapping between logout reason codes
+ * (stored in state) and their corresponding user-facing translations.
+ *
+ * Supported reason codes:
+ * - session_expired: Token expired, requires re-authentication
+ * - session_restore_failed: Session restoration failed (network/offline)
+ * - session_invalid: Session data is invalid or corrupted
+ * - session_error: Generic session error
+ *
+ * @param reason - Logout reason code (e.g., 'session_expired')
+ * @returns Translated user-facing message
+ *
+ * @example
+ * ```typescript
+ * const message = getSessionMessage('session_expired');
+ * // Returns: "Your session has expired. Please log in again."
+ * ```
+ */
+function getSessionMessage(reason: string): string {
+  // Map reason codes to i18n translation keys
+  const keyMap: Record<string, string> = {
+    session_expired: 'screens.auth.login.sessionMessages.sessionExpired',
+    session_restore_failed: 'screens.auth.login.sessionMessages.sessionRestoreFailed',
+    session_invalid: 'screens.auth.login.sessionMessages.sessionInvalid',
+    session_error: 'screens.auth.login.sessionMessages.sessionError',
+  };
+
+  // Get translation key, fallback to generic error if unknown reason
+  const translationKey = keyMap[reason] || 'screens.auth.login.sessionMessages.sessionError';
+
+  // Return translated message
+  return t(translationKey as never);
+}
 
 /**
  * SessionExpiredBanner component - Displays session expiration messages
@@ -11,7 +49,8 @@ import { useTheme } from '../theme';
  * It provides clear feedback about why the user needs to log in again.
  *
  * Features:
- * - Displays logout reason from store (e.g., "Session expired. Please log in again.")
+ * - Displays translated logout reason from store using i18n layer
+ * - Maps reason codes to user-facing messages (e.g., 'session_expired' -> translated text)
  * - Dismissable with X button
  * - Auto-clears on successful login
  * - Uses theme colors for consistent styling
@@ -22,7 +61,8 @@ import { useTheme } from '../theme';
  * - Automatically hidden when logoutReason is null
  *
  * Integration:
- * - Set logoutReason via useStore().setLogoutReason(reason)
+ * - Set logoutReason via useStore().setLogoutReason(reasonCode)
+ * - Use reason codes: 'session_expired', 'session_invalid', etc.
  * - Clear on dismiss or successful login
  *
  * @example
@@ -32,6 +72,9 @@ import { useTheme } from '../theme';
  *   <SessionExpiredBanner />
  *   <LoginScreen />
  * </View>
+ *
+ * // Setting logout reason with code
+ * useStore.getState().setLogoutReason('session_expired');
  * ```
  */
 export function SessionExpiredBanner() {
@@ -84,7 +127,7 @@ export function SessionExpiredBanner() {
     <View style={styles.container} accessibilityRole="alert">
       <View style={styles.messageContainer}>
         <Text style={styles.message} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {logoutReason}
+          {getSessionMessage(logoutReason)}
         </Text>
       </View>
       <TouchableOpacity
