@@ -38,6 +38,12 @@
           "rateLimitExceeded": "Too many login attempts. Please wait {seconds} seconds.",
           "serviceUnavailable": "Login is temporarily unavailable. Please try again later."
         },
+        "sessionMessages": {
+          "sessionExpired": "Your session has expired. Please log in again.",
+          "sessionRestoreFailed": "We could not restore your session. Please check your connection and log in again.",
+          "sessionInvalid": "Your session is invalid. Please log in again.",
+          "sessionError": "An error occurred. Please log in again."
+        },
         "accessibility": {
           "screenLabel": "Log in screen",
           "screenHint": "Log in to access your Maidrobe account",

@@ -43,6 +43,59 @@ let isRestoreInProgress = false;
 let restorePromise: Promise<void> | null = null;
 
 /**
+ * Maps internal logout reason codes to user-friendly i18n keys.
+ *
+ * This function provides a centralized mapping from internal logout reason
+ * codes used throughout the auth restore pipeline to i18n translation keys
+ * that can be displayed to users on the login screen.
+ *
+ * The mapping ensures consistent, user-friendly messaging for all logout
+ * scenarios while maintaining a clean separation between internal codes
+ * and UI presentation.
+ *
+ * @param reason - Internal logout reason code
+ * @returns i18n key path for the corresponding user-friendly message
+ *
+ * @example
+ * ```typescript
+ * const i18nKey = mapLogoutReasonToI18nKey('session-expired');
+ * // Returns: 'screens.auth.login.sessionMessages.sessionExpired'
+ *
+ * const message = t(i18nKey);
+ * // Returns: "Your session has expired. Please log in again."
+ * ```
+ *
+ * SUPPORTED REASON CODES:
+ * - 'session-expired': Token refresh failed due to invalid/expired tokens
+ * - 'restore-failed-stale': Session too old and network unavailable
+ * - 'restore-failed-invalid': Corrupted or invalid stored session data
+ * - 'restore-failed-error': Unexpected error during restore pipeline
+ * - 'no-session': No stored session found (clean state, not an error)
+ *
+ * FALLBACK BEHAVIOR:
+ * Unknown reason codes map to a generic error message to ensure the user
+ * always sees a friendly message rather than internal codes.
+ */
+export function mapLogoutReasonToI18nKey(reason: string): string {
+  switch (reason) {
+    case 'session-expired':
+      return 'screens.auth.login.sessionMessages.sessionExpired';
+    case 'restore-failed-stale':
+      return 'screens.auth.login.sessionMessages.sessionRestoreFailed';
+    case 'restore-failed-invalid':
+      return 'screens.auth.login.sessionMessages.sessionInvalid';
+    case 'restore-failed-error':
+      return 'screens.auth.login.sessionMessages.sessionError';
+    case 'no-session':
+      // No session is a clean state, not an error - no message needed
+      return '';
+    default:
+      // Unknown reason codes get a generic error message
+      return 'screens.auth.login.sessionMessages.sessionError';
+  }
+}
+
+/**
  * Classifies refresh errors into categories for proper handling.
  *
  * Auth errors (invalid/expired tokens) are permanent and require clearing
@@ -135,7 +188,8 @@ async function executeRestore(): Promise<void> {
       await clearStoredSession();
 
       // Mark as unauthenticated with reason
-      useStore.getState().markUnauthenticated('no-session');
+      const i18nKey = mapLogoutReasonToI18nKey('no-session');
+      useStore.getState().markUnauthenticated(i18nKey);
 
       // Emit telemetry
       logAuthEvent('auth-restore-no-session', {
@@ -196,7 +250,8 @@ async function executeRestore(): Promise<void> {
           await clearStoredSession();
 
           // Mark as unauthenticated with session expired reason
-          useStore.getState().markUnauthenticated('session-expired');
+          const i18nKey = mapLogoutReasonToI18nKey('session-expired');
+          useStore.getState().markUnauthenticated(i18nKey);
 
           // Log error
           logError(error, 'user', {
@@ -229,7 +284,8 @@ async function executeRestore(): Promise<void> {
       if (errorType === 'auth') {
         // Step 6 (from catch): Auth error path
         await clearStoredSession();
-        useStore.getState().markUnauthenticated('session-expired');
+        const i18nKey = mapLogoutReasonToI18nKey('session-expired');
+        useStore.getState().markUnauthenticated(i18nKey);
 
         logError(
           refreshError instanceof Error ? refreshError : new Error('Refresh auth error'),
@@ -268,7 +324,8 @@ async function executeRestore(): Promise<void> {
       if (!storedUser) {
         // Invalid stored session - treat as stale
         await clearStoredSession();
-        useStore.getState().markUnauthenticated('restore-failed-invalid');
+        const i18nKey = mapLogoutReasonToI18nKey('restore-failed-invalid');
+        useStore.getState().markUnauthenticated(i18nKey);
 
         logAuthEvent('auth-restore-failed-stale', {
           outcome: 'failure',
@@ -315,7 +372,8 @@ async function executeRestore(): Promise<void> {
       await clearStoredSession();
 
       // Mark as unauthenticated with stale session reason
-      useStore.getState().markUnauthenticated('restore-failed-stale');
+      const i18nKey = mapLogoutReasonToI18nKey('restore-failed-stale');
+      useStore.getState().markUnauthenticated(i18nKey);
 
       // Emit telemetry
       logAuthEvent('auth-restore-failed-stale', {
@@ -331,7 +389,8 @@ async function executeRestore(): Promise<void> {
     // Catch-all for unexpected errors during restore
     // Treat conservatively as stale session
     await clearStoredSession();
-    useStore.getState().markUnauthenticated('restore-failed-error');
+    const i18nKey = mapLogoutReasonToI18nKey('restore-failed-error');
+    useStore.getState().markUnauthenticated(i18nKey);
 
     logError(
       error instanceof Error ? error : new Error('Unknown restore error'),
