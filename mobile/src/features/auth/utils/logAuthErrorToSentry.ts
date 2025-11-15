@@ -27,6 +27,7 @@ import type { NormalizedAuthError, AuthErrorSeverity, AuthFlow } from './authErr
 import { captureException, getSentryClient } from '../../../core/telemetry/sentry';
 import type { SentrySeverity } from '../../../core/telemetry/sentry';
 import { sanitizeAuthMetadata } from '../../../core/telemetry';
+import { getFlagConfig } from '../../../core/featureFlags/config';
 
 /**
  * Context information for auth error logging.
@@ -184,14 +185,20 @@ export function logAuthErrorToSentry(
 /**
  * Checks if auth error logging is enabled via feature flag.
  *
- * Reads EXPO_PUBLIC_AUTH_ERROR_LOGGING_ENABLED environment variable.
- * Default behavior: false (disabled) for safety.
+ * Uses the centralized feature flag system to read configuration.
+ * Environment variable: EXPO_PUBLIC_FEATURE_AUTH_ERRORLOGGING_ENABLED
+ * Default is true (enabled) per feature flag fail-safe design.
  *
  * @returns True if auth error logging is enabled
  */
 function isAuthErrorLoggingEnabled(): boolean {
-  const enabled = process.env.EXPO_PUBLIC_AUTH_ERROR_LOGGING_ENABLED?.toLowerCase();
-  return enabled === 'true';
+  try {
+    const config = getFlagConfig('auth.errorLogging' as any);
+    return config.enabled;
+  } catch {
+    // On error, default to false for privacy
+    return false;
+  }
 }
 
 /**
