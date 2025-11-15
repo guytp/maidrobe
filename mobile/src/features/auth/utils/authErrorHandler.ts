@@ -484,7 +484,7 @@ function mapCategoryToSeverity(category: AuthErrorCategory): AuthErrorSeverity {
  * Determines if error is retryable.
  *
  * Retryable errors are those where retrying the same operation
- * might succeed (e.g., network issues, transient failures).
+ * might succeed (e.g., network issues, rate limits after cooldown, transient failures).
  *
  * Non-retryable errors are permanent failures that won't change
  * on retry (e.g., invalid credentials, validation errors).
@@ -495,8 +495,9 @@ function mapCategoryToSeverity(category: AuthErrorCategory): AuthErrorSeverity {
  */
 function isErrorRetryable(category: AuthErrorCategory, context: AuthErrorContext): boolean {
   switch (category) {
-    // Retryable: Network issues and unknown errors (might be transient)
+    // Retryable: Network issues, rate limits, and unknown errors (might be transient)
     case 'network':
+    case 'rate_limited':
     case 'unknown':
       return true;
 
@@ -510,7 +511,6 @@ function isErrorRetryable(category: AuthErrorCategory, context: AuthErrorContext
     case 'unverified_email':
     case 'email_already_in_use':
     case 'password_policy':
-    case 'rate_limited':
       return false;
 
     default:
