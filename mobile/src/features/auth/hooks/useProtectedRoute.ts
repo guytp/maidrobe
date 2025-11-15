@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useStore } from '../../../core/state/store';
+import { logAuthEvent } from '../../../core/telemetry';
 
 /**
  * Protected route guard hook.
@@ -89,8 +90,13 @@ export function useProtectedRoute(): boolean {
     if (requiredRoute === 'login') {
       // User is unauthenticated, redirect to login unless already there
       if (!currentPath.startsWith('auth/login') && !currentPath.startsWith('auth/signup')) {
-        // eslint-disable-next-line no-console
-        console.log('[AuthGuard] User unauthenticated, redirecting to login');
+        logAuthEvent('route-guard-redirect-login', {
+          outcome: 'redirect',
+          metadata: {
+            fromPath: currentPath,
+            reason: 'unauthenticated',
+          },
+        });
         router.replace('/auth/login');
       }
       return;
@@ -99,8 +105,13 @@ export function useProtectedRoute(): boolean {
     if (requiredRoute === 'verify') {
       // User is authenticated but unverified, redirect to verify unless already there
       if (!currentPath.includes('verify')) {
-        // eslint-disable-next-line no-console
-        console.log('[AuthGuard] Email not verified, redirecting to verify');
+        logAuthEvent('route-guard-redirect-verify', {
+          outcome: 'redirect',
+          metadata: {
+            fromPath: currentPath,
+            reason: 'email_not_verified',
+          },
+        });
         router.replace('/auth/verify');
       }
       return;
@@ -108,8 +119,12 @@ export function useProtectedRoute(): boolean {
 
     // requiredRoute === 'home'
     // User is authenticated and verified - allow access
-    // eslint-disable-next-line no-console
-    console.log('[AuthGuard] User authorized');
+    logAuthEvent('route-guard-authorized', {
+      outcome: 'allowed',
+      metadata: {
+        path: currentPath,
+      },
+    });
   }, [deriveRoute, segments, router, isHydrating]);
 
   // Return authorization status based on centralized routing logic

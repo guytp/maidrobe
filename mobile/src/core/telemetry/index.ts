@@ -259,7 +259,10 @@ export type AuthEventType =
   | 'auth-restore-no-session'
   | 'auth-restore-failed-invalid-session'
   | 'auth-restore-failed-stale'
-  | 'auth-restore-offline-trusted';
+  | 'auth-restore-offline-trusted'
+  | 'route-guard-redirect-login'
+  | 'route-guard-redirect-verify'
+  | 'route-guard-authorized';
 
 /**
  * Metadata for authentication event logging.
