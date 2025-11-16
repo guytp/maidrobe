@@ -18,7 +18,6 @@ interface LogoutMutationContext {
   startTime: number;
 }
 
-
 /**
  * React Query mutation hook for user logout.
  *
@@ -113,6 +112,7 @@ export function useLogout() {
           // User should be logged out locally for security
           useStore.getState().clearUser();
           useStore.getState().setLogoutReason(null);
+          useStore.getState().resetOnboardingState();
 
           // Clear stored session even on API error
           await clearStoredSession();
@@ -124,6 +124,7 @@ export function useLogout() {
         // Clear local session state and logout reason
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
+        useStore.getState().resetOnboardingState();
 
         // Clear stored session bundle from SecureStore
         // This ensures no session data persists after logout
@@ -143,6 +144,7 @@ export function useLogout() {
         // This is a fail-safe to prevent user from being stuck logged in
         useStore.getState().clearUser();
         useStore.getState().setLogoutReason(null);
+        useStore.getState().resetOnboardingState();
         await clearStoredSession();
         resetInterceptor();
 
@@ -182,6 +184,7 @@ export function useLogout() {
       // Ensure user is cleared from store even on error (fail-safe)
       useStore.getState().clearUser();
       useStore.getState().setLogoutReason(null);
+      useStore.getState().resetOnboardingState();
       clearStoredSession(); // Fire and forget - don't await in error handler
       resetInterceptor();
 
