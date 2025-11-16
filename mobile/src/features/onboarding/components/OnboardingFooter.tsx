@@ -32,10 +32,13 @@ export function OnboardingFooter(): React.JSX.Element {
   // Determine which buttons to show
   const isOptionalStep = currentStep === 'prefs' || currentStep === 'firstItem';
   const isFinalStep = currentStep === 'success';
+  const isWelcomeStep = currentStep === 'welcome';
   const showGlobalSkip = !isFinalStep;
 
   // Determine primary button label
   const primaryLabel = isFinalStep
+    ? t('screens.onboarding.footer.buttons.getStarted')
+    : isWelcomeStep
     ? t('screens.onboarding.footer.buttons.getStarted')
     : t('screens.onboarding.footer.buttons.next');
 
@@ -60,12 +63,12 @@ export function OnboardingFooter(): React.JSX.Element {
         onPress={onNext}
         variant="primary"
         accessibilityLabel={
-          isFinalStep
+          isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedLabel')
             : t('screens.onboarding.footer.accessibility.nextLabel')
         }
         accessibilityHint={
-          isFinalStep
+          isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedHint')
             : t('screens.onboarding.footer.accessibility.nextHint')
         }

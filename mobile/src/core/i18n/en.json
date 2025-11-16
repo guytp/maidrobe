@@ -222,11 +222,26 @@
     },
     "onboarding": {
       "welcome": {
-        "title": "Welcome",
-        "subtitle": "Step 1 of 4",
-        "description": "This is a placeholder for the Welcome screen. Story #110 will provide the full implementation with value proposition, imagery, and engaging copy.",
+        "appName": "Maidrobe",
+        "valueProps": {
+          "1": "Snap your clothes once.",
+          "2": "Get outfits for real-life moments in seconds.",
+          "3": "Feel good in what you already own."
+        },
+        "upcomingSteps": {
+          "title": "What happens next",
+          "description": "A few quick steps to capture your style preferences and add your first wardrobe item."
+        },
+        "privacy": {
+          "title": "Your privacy matters",
+          "description": "Photos are of clothes, not faces. You can delete your wardrobe data anytime in settings. Nothing is shared without your permission."
+        },
         "accessibility": {
-          "screenLabel": "Welcome to onboarding"
+          "screenLabel": "Welcome to Maidrobe onboarding",
+          "appNameLabel": "Maidrobe app name",
+          "valuePropLabel": "Value proposition",
+          "upcomingStepsLabel": "Upcoming onboarding steps",
+          "privacyLabel": "Privacy information"
         }
       },
       "prefs": {
@@ -258,7 +273,7 @@
           "next": "Next",
           "getStarted": "Get Started",
           "skipStep": "Skip this step",
-          "skipOnboarding": "Skip onboarding"
+          "skipOnboarding": "Skip for now"
         },
         "accessibility": {
           "nextLabel": "Next",
@@ -267,7 +282,7 @@
           "getStartedHint": "Complete onboarding and go to home screen",
           "skipStepLabel": "Skip this step",
           "skipStepHint": "Skip this step and continue to the next one",
-          "skipOnboardingLabel": "Skip onboarding",
+          "skipOnboardingLabel": "Skip for now",
           "skipOnboardingHint": "Skip the entire onboarding process and go directly to the app"
         }
       }
