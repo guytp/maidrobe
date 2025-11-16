@@ -350,9 +350,16 @@ export const createOnboardingSlice = persist<OnboardingSlice>(
 
     // Validate and migrate persisted state
     migrate: (persistedState: unknown, version: number) => {
-      // For version 1, validate the state structure
-      const validated = validatePersistedState(persistedState);
-      return validated as OnboardingSlice;
+      // Version 1: Initial schema with currentStep, completedSteps, skippedSteps
+      // Validate the state structure to ensure integrity
+      if (version === 1) {
+        const validated = validatePersistedState(persistedState);
+        return validated as OnboardingSlice;
+      }
+
+      // For version 0 (no version) or unknown versions, reset to initial state
+      // This handles cases where persisted data predates versioning or is corrupted
+      return initialState as OnboardingSlice;
     },
   }
 );
