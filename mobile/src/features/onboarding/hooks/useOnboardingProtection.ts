@@ -6,15 +6,15 @@ import { useStore } from '../../../core/state/store';
  * Onboarding route protection hook.
  *
  * This hook ensures that only authenticated users can access onboarding routes.
- * It does not check hasOnboarded or onboarding completion status yet, as that
- * will be implemented in later steps when the onboarding gate from story #95
- * is integrated.
+ * It only checks authentication status. The hasOnboarded gate check is handled
+ * by the onboarding shell (_layout.tsx), which redirects completed users to
+ * /home before rendering any onboarding content.
  *
  * Routing Strategy:
  * - If user is not authenticated, redirect to /auth/login
  * - If user is authenticated, allow access to onboarding routes
- * - The onboarding shell (_layout.tsx) will later add logic to check hasOnboarded
- *   and redirect to home if onboarding is already complete
+ * - The onboarding shell (_layout.tsx) checks hasOnboarded and redirects to
+ *   /home if onboarding is already complete (preventing re-entry)
  *
  * Hydration Coordination:
  * The hook waits for the isHydrating flag to become false before redirecting.
@@ -66,8 +66,8 @@ export function useOnboardingProtection(): boolean {
     }
 
     // User is authenticated - allow access to onboarding
-    // Note: Later steps will add hasOnboarded check here to redirect to home
-    // if onboarding is already complete
+    // The hasOnboarded gate is handled by _layout.tsx, which redirects to /home
+    // if the user has already completed onboarding
   }, [isAuthenticated, segments, router, isHydrating]);
 
   // Return authorization status
