@@ -477,6 +477,7 @@ export function useLogin() {
         id: data.user.id,
         email: data.user.email,
         emailVerified: !!data.user.email_confirmed_at,
+        hasOnboarded: false,
       });
 
       // Store token metadata (expiry time and type) - NOT the actual tokens

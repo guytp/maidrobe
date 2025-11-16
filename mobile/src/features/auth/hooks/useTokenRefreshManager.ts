@@ -338,6 +338,7 @@ export function useTokenRefreshManager() {
         id: data.user.id,
         email: userEmail || '',
         emailVerified: !!data.user.email_confirmed_at,
+        hasOnboarded: false,
       });
 
       // Update token metadata

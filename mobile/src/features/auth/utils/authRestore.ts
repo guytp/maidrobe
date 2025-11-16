@@ -224,6 +224,7 @@ async function executeRestore(): Promise<void> {
           id: data.user.id,
           email: data.user.email || '',
           emailVerified: !!data.user.email_confirmed_at,
+          hasOnboarded: false,
         };
 
         // Apply authenticated state atomically
@@ -349,6 +350,7 @@ async function executeRestore(): Promise<void> {
         id: storedUser.id,
         email: storedUser.email || '',
         emailVerified: !!storedUser.email_confirmed_at,
+        hasOnboarded: false,
       };
 
       // Apply authenticated state
