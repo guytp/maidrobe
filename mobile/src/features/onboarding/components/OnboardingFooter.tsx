@@ -5,6 +5,10 @@ import { Button } from '../../../core/components';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { useOnboardingContext } from '../context/OnboardingContext';
+import {
+  trackWelcomeGetStartedClicked,
+  trackWelcomeSkipped,
+} from '../utils/onboardingAnalytics';
 
 /**
  * Onboarding footer component with navigation controls.
@@ -58,6 +62,10 @@ export function OnboardingFooter(): React.JSX.Element {
    * Wraps the onNext callback with loading state management to prevent
    * double-taps and provide visual feedback during navigation.
    *
+   * Analytics:
+   * - Fires welcome_get_started_clicked for welcome step
+   * - Duplicate prevention via isActionInProgress check
+   *
    * Debouncing strategy:
    * - Immediately sets loading state (disables all buttons)
    * - Calls onNext() to trigger navigation
@@ -67,6 +75,11 @@ export function OnboardingFooter(): React.JSX.Element {
   const handlePrimaryAction = useCallback(() => {
     if (isActionInProgress) return;
 
+    // Fire analytics for welcome-specific "Get started" click
+    if (isWelcomeStep) {
+      trackWelcomeGetStartedClicked();
+    }
+
     setIsActionInProgress(true);
     onNext();
 
@@ -75,7 +88,7 @@ export function OnboardingFooter(): React.JSX.Element {
     setTimeout(() => {
       setIsActionInProgress(false);
     }, 500);
-  }, [onNext, isActionInProgress]);
+  }, [onNext, isActionInProgress, isWelcomeStep]);
 
   /**
    * Handler for step-level skip action.
@@ -98,10 +111,20 @@ export function OnboardingFooter(): React.JSX.Element {
    * Handler for global skip onboarding action.
    *
    * Wraps the onSkipOnboarding callback with loading state management.
+   *
+   * Analytics:
+   * - Fires welcome_skipped for welcome step
+   * - Duplicate prevention via isActionInProgress check
+   *
    * Same debouncing strategy as primary action.
    */
   const handleSkipOnboardingAction = useCallback(() => {
     if (isActionInProgress) return;
+
+    // Fire analytics for welcome-specific skip
+    if (isWelcomeStep) {
+      trackWelcomeSkipped();
+    }
 
     setIsActionInProgress(true);
     onSkipOnboarding();
@@ -109,7 +132,7 @@ export function OnboardingFooter(): React.JSX.Element {
     setTimeout(() => {
       setIsActionInProgress(false);
     }, 500);
-  }, [onSkipOnboarding, isActionInProgress]);
+  }, [onSkipOnboarding, isActionInProgress, isWelcomeStep]);
 
   const styles = useMemo(
     () =>

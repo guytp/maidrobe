@@ -12,6 +12,9 @@
  * - onboarding.skipped_all: Emitted when user uses global skip
  * - onboarding.state_reset: Emitted when corrupted state is detected and reset
  * - onboarding.state_resumed: Emitted when valid state is loaded on mount
+ * - onboarding.welcome_viewed: Emitted when welcome screen becomes visible
+ * - onboarding.welcome_get_started_clicked: Emitted when user taps "Get started"
+ * - onboarding.welcome_skipped: Emitted when user taps "Skip for now" on welcome
  *
  * @module features/onboarding/utils/onboardingAnalytics
  */
@@ -190,5 +193,84 @@ export function trackStateResumed(
     // Silently fail - analytics should never block user flow
     // eslint-disable-next-line no-console
     console.warn('[Onboarding Analytics] Failed to track state_resumed:', error);
+  }
+}
+
+/**
+ * Track when welcome screen is viewed.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when the welcome screen first becomes visible in a session.
+ * Guarded against re-renders via useRef in the component.
+ *
+ * Welcome-specific event that provides finer granularity than the generic
+ * step_viewed event for analytics and funnel tracking.
+ *
+ * @param isResume - Whether this is a resumed session (vs fresh start)
+ */
+export function trackWelcomeViewed(isResume: boolean): void {
+  try {
+    logSuccess('onboarding', 'welcome_viewed', {
+      data: {
+        step: 'welcome',
+        isResume,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track welcome_viewed:', error);
+  }
+}
+
+/**
+ * Track when user clicks "Get started" on welcome screen.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user taps the primary CTA to begin onboarding flow.
+ * Duplicate prevention handled by footer's debouncing state.
+ *
+ * Welcome-specific event that tracks engagement with the primary CTA
+ * and entry into the onboarding flow.
+ */
+export function trackWelcomeGetStartedClicked(): void {
+  try {
+    logSuccess('onboarding', 'welcome_get_started_clicked', {
+      data: {
+        step: 'welcome',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track welcome_get_started_clicked:', error);
+  }
+}
+
+/**
+ * Track when user clicks "Skip for now" on welcome screen.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user taps the global skip button to bypass onboarding
+ * from the welcome screen.
+ * Duplicate prevention handled by footer's debouncing state.
+ *
+ * Welcome-specific event that tracks users who choose to skip onboarding
+ * immediately without viewing any content.
+ */
+export function trackWelcomeSkipped(): void {
+  try {
+    logSuccess('onboarding', 'welcome_skipped', {
+      data: {
+        step: 'welcome',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track welcome_skipped:', error);
   }
 }
