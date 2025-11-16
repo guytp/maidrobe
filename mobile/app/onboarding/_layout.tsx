@@ -366,9 +366,11 @@ export default function OnboardingLayout(): React.JSX.Element {
     }
 
     // Check if we're already on the correct route to avoid unnecessary navigation
+    // Uses exact path equality to prevent false matches with similar route names
+    const expectedPath = `onboarding/${routeName}`;
     const currentPath = segments.join('/');
 
-    if (!currentPath.endsWith(routeName)) {
+    if (currentPath !== expectedPath) {
       // Navigate to the step indicated by currentStep
       // This implements route normalization - we always navigate based on
       // currentStep, not the URL the user tried to access
