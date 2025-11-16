@@ -28,7 +28,11 @@ export default function FirstItemRoute(): React.JSX.Element {
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <ActivityIndicator
+          size="large"
+          color={colors.textPrimary}
+          accessibilityLabel="Loading first item capture"
+        />
       </View>
     );
   }
