@@ -13,6 +13,7 @@ import {
   trackStateReset,
   trackStateResumed,
 } from '../../src/features/onboarding/utils/onboardingAnalytics';
+import { logSuccess } from '../../src/core/telemetry';
 
 /**
  * Onboarding flow shell container.
@@ -114,13 +115,15 @@ export default function OnboardingLayout(): React.JSX.Element {
       router.replace('/home');
 
       // 5. Server-side update (placeholder - will be replaced when #95 is implemented)
-      // For now, just log the completion
-      // eslint-disable-next-line no-console
-      console.log('Onboarding completed', {
-        completedSteps,
-        skippedSteps,
-        isGlobalSkip,
-        timestamp: new Date().toISOString(),
+      // For now, just log the completion via telemetry
+      logSuccess('onboarding', 'completed', {
+        data: {
+          completedSteps,
+          skippedSteps,
+          isGlobalSkip,
+          stepCount: completedSteps.length,
+          skippedCount: skippedSteps.length,
+        },
       });
 
       // TODO: When story #95 API is available, add:
@@ -128,7 +131,10 @@ export default function OnboardingLayout(): React.JSX.Element {
       //   await updateUserOnboardingStatus({ hasOnboarded: true });
       // } catch (error) {
       //   // Log error but don't block - user already navigated
-      //   console.error('Failed to update onboarding status on server:', error);
+      //   logError(error, 'server', {
+      //     feature: 'onboarding',
+      //     operation: 'updateServerStatus',
+      //   });
       // }
     },
     [updateHasOnboarded, resetOnboardingState, router, completedSteps, skippedSteps, currentStep]
