@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { OnboardingShell } from './OnboardingShell';
 
@@ -59,7 +60,7 @@ export function FirstItemScreen(): React.JSX.Element {
     <OnboardingShell>
       <View
         style={styles.container}
-        accessibilityLabel="First wardrobe item capture"
+        accessibilityLabel={t('screens.onboarding.firstItem.accessibility.screenLabel')}
       >
         <Text
           style={styles.title}
@@ -67,14 +68,13 @@ export function FirstItemScreen(): React.JSX.Element {
           allowFontScaling={true}
           maxFontSizeMultiplier={3}
         >
-          First Item
+          {t('screens.onboarding.firstItem.title')}
         </Text>
         <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          Step 3 of 4
+          {t('screens.onboarding.firstItem.subtitle')}
         </Text>
         <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          This is a placeholder for the First Wardrobe Item Capture screen. Story #123 will provide
-          the full implementation with camera integration and guided item capture.
+          {t('screens.onboarding.firstItem.description')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

@@ -228,6 +228,14 @@
         "accessibility": {
           "screenLabel": "Style and usage preferences"
         }
+      },
+      "firstItem": {
+        "title": "First Item",
+        "subtitle": "Step 3 of 4",
+        "description": "This is a placeholder for the First Wardrobe Item Capture screen. Story #123 will provide the full implementation with camera integration and guided item capture.",
+        "accessibility": {
+          "screenLabel": "First wardrobe item capture"
+        }
       }
     }
   }
