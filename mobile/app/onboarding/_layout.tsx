@@ -80,14 +80,30 @@ export default function OnboardingLayout(): React.JSX.Element {
   const onboardingStartTime = useRef<number | null>(null);
 
   /**
-   * Completion handler for onboarding flow.
+   * Centralized onboarding completion handler.
    *
-   * Called when user completes onboarding (via final step or global skip).
-   * Performs the following actions:
-   * 1. Optimistically sets hasOnboarded = true via updateHasOnboarded
-   * 2. Clears local onboarding state via resetOnboardingState
-   * 3. Navigates to /home
-   * 4. Logs completion (server-side update placeholder)
+   * This is the single source of truth for completing onboarding and navigating
+   * to the home screen. It handles both normal completion and global skip
+   * scenarios with a UX-first, best-effort approach.
+   *
+   * RESPONSIBILITIES:
+   * 1. Analytics tracking (completed vs. skipped_all events)
+   * 2. Optimistic local state update (hasOnboarded = true)
+   * 3. Onboarding state reset (currentStep, completedSteps, skippedSteps)
+   * 4. Navigation to /home route
+   * 5. Error logging with non-sensitive context
+   * 6. Server-side update (TODO: Story #95)
+   *
+   * REUSABLE FOR:
+   * - Normal onboarding completion (success step)
+   * - Global skip ("Skip for now" from any step)
+   * - Future reset onboarding flows
+   *
+   * UX-FIRST APPROACH:
+   * The user is ALWAYS allowed to proceed to home, even if backend updates fail.
+   * Local state is updated optimistically, and any server-side failures are
+   * logged for observability. This prevents blocking user progress due to
+   * transient network issues.
    *
    * OPTIMISTIC UPDATE & ROLLBACK:
    * This function performs an optimistic update of hasOnboarded before the
@@ -107,6 +123,8 @@ export default function OnboardingLayout(): React.JSX.Element {
    * Server failures are logged but do not block navigation or force user
    * back into onboarding. The optimistic update ensures the user can
    * proceed immediately.
+   *
+   * @param isGlobalSkip - If true, user chose "Skip for now" (default: false)
    */
   const handleOnboardingComplete = useCallback(
     (isGlobalSkip = false) => {
