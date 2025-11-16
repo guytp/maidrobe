@@ -29,6 +29,7 @@ export default function AuthScreen(): React.JSX.Element {
         id: 'demo-123',
         email: 'demo@example.com',
         emailVerified: true,
+        hasOnboarded: false,
       });
     }
   };

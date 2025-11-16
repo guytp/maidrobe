@@ -8,6 +8,7 @@ export interface User {
   id: string;
   email: string;
   emailVerified: boolean;
+  hasOnboarded: boolean;
 }
 
 /**
@@ -48,6 +49,7 @@ export interface TokenMetadata {
  * ACTIONS - Basic:
  * @property setUser - Action to set the authenticated user (also sets isAuthenticated=true)
  * @property updateEmailVerified - Action to update the emailVerified status
+ * @property updateHasOnboarded - Action to update the hasOnboarded status
  * @property setTokenMetadata - Action to store token metadata (expiry, type)
  * @property clearUser - Action to clear the authenticated user (also sets isAuthenticated=false)
  * @property setInitialized - Action to mark auth initialization as complete
@@ -83,6 +85,7 @@ export interface SessionSlice {
   // Basic actions (backward compatible)
   setUser: (user: User) => void;
   updateEmailVerified: (verified: boolean) => void;
+  updateHasOnboarded: (completed: boolean) => void;
   setTokenMetadata: (expiresAt: number, tokenType: string) => void;
   clearUser: () => void;
   setInitialized: (initialized: boolean) => void;
@@ -162,6 +165,16 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
   updateEmailVerified: (verified) =>
     set((state) => ({
       user: state.user ? { ...state.user, emailVerified: verified } : null,
+    })),
+
+  /**
+   * Updates the onboarding completion status of the current user.
+   *
+   * @param completed - Whether the user has completed onboarding
+   */
+  updateHasOnboarded: (completed) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, hasOnboarded: completed } : null,
     })),
 
   /**

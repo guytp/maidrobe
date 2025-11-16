@@ -106,6 +106,7 @@ export function useAuthStateListener() {
               id: user.id,
               email: user.email || '',
               emailVerified: isEmailVerified,
+              hasOnboarded: false,
             });
 
             // Update token metadata when tokens are refreshed

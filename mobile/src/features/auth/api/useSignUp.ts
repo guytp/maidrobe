@@ -230,6 +230,7 @@ export function useSignUp() {
         id: data.user.id,
         email: data.user.email,
         emailVerified: !!data.user.email_confirmed_at,
+        hasOnboarded: false,
       });
 
       // Persist session bundle if auto-login occurred (session is non-null)
