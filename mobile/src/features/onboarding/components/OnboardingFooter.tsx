@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../core/components';
+import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { useOnboardingContext } from '../context/OnboardingContext';
 
@@ -34,7 +35,9 @@ export function OnboardingFooter(): React.JSX.Element {
   const showGlobalSkip = !isFinalStep;
 
   // Determine primary button label
-  const primaryLabel = isFinalStep ? 'Get Started' : 'Next';
+  const primaryLabel = isFinalStep
+    ? t('screens.onboarding.footer.buttons.getStarted')
+    : t('screens.onboarding.footer.buttons.next');
 
   const styles = useMemo(
     () =>
@@ -56,11 +59,15 @@ export function OnboardingFooter(): React.JSX.Element {
       <Button
         onPress={onNext}
         variant="primary"
-        accessibilityLabel={primaryLabel}
+        accessibilityLabel={
+          isFinalStep
+            ? t('screens.onboarding.footer.accessibility.getStartedLabel')
+            : t('screens.onboarding.footer.accessibility.nextLabel')
+        }
         accessibilityHint={
           isFinalStep
-            ? 'Complete onboarding and go to home screen'
-            : 'Continue to next onboarding step'
+            ? t('screens.onboarding.footer.accessibility.getStartedHint')
+            : t('screens.onboarding.footer.accessibility.nextHint')
         }
       >
         {primaryLabel}
@@ -71,10 +78,10 @@ export function OnboardingFooter(): React.JSX.Element {
         <Button
           onPress={onSkipStep}
           variant="text"
-          accessibilityLabel="Skip this step"
-          accessibilityHint="Skip this step and continue to the next one"
+          accessibilityLabel={t('screens.onboarding.footer.accessibility.skipStepLabel')}
+          accessibilityHint={t('screens.onboarding.footer.accessibility.skipStepHint')}
         >
-          Skip this step
+          {t('screens.onboarding.footer.buttons.skipStep')}
         </Button>
       )}
 
@@ -83,10 +90,10 @@ export function OnboardingFooter(): React.JSX.Element {
         <Button
           onPress={onSkipOnboarding}
           variant="text"
-          accessibilityLabel="Skip onboarding"
-          accessibilityHint="Skip the entire onboarding process and go directly to the app"
+          accessibilityLabel={t('screens.onboarding.footer.accessibility.skipOnboardingLabel')}
+          accessibilityHint={t('screens.onboarding.footer.accessibility.skipOnboardingHint')}
         >
-          Skip onboarding
+          {t('screens.onboarding.footer.buttons.skipOnboarding')}
         </Button>
       )}
     </View>

@@ -244,6 +244,24 @@
         "accessibility": {
           "screenLabel": "Onboarding complete"
         }
+      },
+      "footer": {
+        "buttons": {
+          "next": "Next",
+          "getStarted": "Get Started",
+          "skipStep": "Skip this step",
+          "skipOnboarding": "Skip onboarding"
+        },
+        "accessibility": {
+          "nextLabel": "Next",
+          "nextHint": "Continue to next onboarding step",
+          "getStartedLabel": "Get Started",
+          "getStartedHint": "Complete onboarding and go to home screen",
+          "skipStepLabel": "Skip this step",
+          "skipStepHint": "Skip this step and continue to the next one",
+          "skipOnboardingLabel": "Skip onboarding",
+          "skipOnboardingHint": "Skip the entire onboarding process and go directly to the app"
+        }
       }
     }
   }
