@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { OnboardingShell } from './OnboardingShell';
+import { trackWelcomeViewed } from '../utils/onboardingAnalytics';
+import { useOnboardingContext } from '../context/OnboardingContext';
 
 /**
  * Welcome screen for onboarding flow.
@@ -33,6 +35,20 @@ import { OnboardingShell } from './OnboardingShell';
  */
 export function WelcomeScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
+  const { currentStep } = useOnboardingContext();
+
+  // Track if welcome_viewed has been fired to prevent duplicates on re-renders
+  const hasTrackedView = useRef(false);
+
+  // Track welcome screen view once on mount
+  useEffect(() => {
+    // Only fire once per session
+    if (!hasTrackedView.current && currentStep === 'welcome') {
+      // For welcome screen, isResume is always false as it's the first step
+      trackWelcomeViewed(false);
+      hasTrackedView.current = true;
+    }
+  }, [currentStep]);
 
   const styles = useMemo(
     () =>
