@@ -132,7 +132,19 @@ export default function OnboardingLayout(): React.JSX.Element {
       resetOnboardingState();
 
       // 5. Navigate to home
-      router.replace('/home');
+      try {
+        router.replace('/home');
+      } catch (error) {
+        // Log navigation failure but allow graceful degradation
+        logError(error, 'user', {
+          feature: 'onboarding',
+          operation: 'navigateToHome',
+          metadata: {
+            isGlobalSkip,
+            target: '/home',
+          },
+        });
+      }
 
       // 6. Server-side update (placeholder - will be replaced when #95 is implemented)
       // For now, just log the completion via telemetry
@@ -295,7 +307,19 @@ export default function OnboardingLayout(): React.JSX.Element {
       // User has already completed onboarding - redirect to home
       // Clear any persisted onboarding state to prevent confusion
       resetOnboardingState();
-      router.replace('/home');
+      try {
+        router.replace('/home');
+      } catch (error) {
+        // Log navigation failure but allow graceful degradation
+        logError(error, 'schema', {
+          feature: 'onboarding',
+          operation: 'redirectAlreadyOnboarded',
+          metadata: {
+            hasOnboarded: true,
+            target: '/home',
+          },
+        });
+      }
       return;
     }
 
@@ -415,7 +439,20 @@ export default function OnboardingLayout(): React.JSX.Element {
       // Navigate to the step indicated by currentStep
       // This implements route normalization - we always navigate based on
       // currentStep, not the URL the user tried to access
-      router.replace(`/onboarding/${routeName}`);
+      try {
+        router.replace(`/onboarding/${routeName}`);
+      } catch (error) {
+        // Log navigation failure but allow graceful degradation
+        logError(error, 'schema', {
+          feature: 'onboarding',
+          operation: 'navigateToStep',
+          metadata: {
+            currentStep,
+            routeName,
+            target: `/onboarding/${routeName}`,
+          },
+        });
+      }
     }
   }, [
     currentStep,
