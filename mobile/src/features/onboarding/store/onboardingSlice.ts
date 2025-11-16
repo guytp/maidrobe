@@ -90,8 +90,42 @@ export function getNextStep(currentStep: OnboardingStep | null): OnboardingStep 
 /**
  * Get the previous step in the onboarding flow sequence.
  *
- * @param currentStep - The current step, or null
- * @returns The previous step in sequence, or null if at the beginning or invalid step
+ * Used for back navigation in the onboarding flow. Determines the preceding step
+ * by looking up the current step in STEP_ORDER and returning the step at the
+ * previous index. Returns null for boundary cases (beginning of flow or invalid steps).
+ *
+ * Behavior:
+ * - Returns null if currentStep is null (no active step)
+ * - Returns null if currentStep is 'welcome' (first step, can't go back)
+ * - Returns null if currentStep is not in STEP_ORDER (invalid step)
+ * - Returns the previous step in the sequence for all valid intermediate steps
+ *
+ * Step sequence (reverse navigation):
+ * null <- welcome <- prefs <- firstItem <- success
+ *
+ * @param currentStep - The current onboarding step, or null if not in onboarding.
+ *                      Valid values: 'welcome', 'prefs', 'firstItem', 'success', or null.
+ * @returns The previous step in the sequence, or null if at the beginning of the flow,
+ *          currentStep is null, or currentStep is invalid.
+ *
+ * @example
+ * // Navigate back from prefs step
+ * const previous = getPreviousStep('prefs');
+ * // Returns: 'welcome'
+ *
+ * @example
+ * // Attempt to go back from welcome step (first step)
+ * const previous = getPreviousStep('welcome');
+ * // Returns: null (already at beginning)
+ *
+ * @example
+ * // Used in onboarding context for back button handler
+ * const handleBack = () => {
+ *   const previousStep = getPreviousStep(currentStep);
+ *   if (previousStep) {
+ *     setCurrentStep(previousStep);
+ *   }
+ * };
  */
 export function getPreviousStep(currentStep: OnboardingStep | null): OnboardingStep | null {
   if (!currentStep) return null;
