@@ -253,7 +253,16 @@ export default function OnboardingLayout(): React.JSX.Element {
     // Mark initialization as complete
     // Navigation will happen in the second effect when currentStep is set
     setIsInitializing(false);
-  }, [isHydrating, user, currentStep, startOnboarding, resetOnboardingState, router, completedSteps, skippedSteps]);
+  }, [
+    isHydrating,
+    user,
+    currentStep,
+    startOnboarding,
+    resetOnboardingState,
+    router,
+    completedSteps,
+    skippedSteps,
+  ]);
 
   /**
    * Effect: Track step views with analytics
@@ -323,7 +332,15 @@ export default function OnboardingLayout(): React.JSX.Element {
       // currentStep, not the URL the user tried to access
       router.replace(`/onboarding/${routeName}`);
     }
-  }, [currentStep, isHydrating, isInitializing, router, segments, resetOnboardingState, startOnboarding]);
+  }, [
+    currentStep,
+    isHydrating,
+    isInitializing,
+    router,
+    segments,
+    resetOnboardingState,
+    startOnboarding,
+  ]);
 
   /**
    * Effect: Handle Android hardware back button
