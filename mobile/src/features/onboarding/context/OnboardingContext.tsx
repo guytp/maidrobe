@@ -16,6 +16,8 @@ export interface OnboardingContextValue {
   onSkipStep: () => void;
   /** Handler for global skip onboarding */
   onSkipOnboarding: () => void;
+  /** Handler for back navigation */
+  onBack: () => void;
 }
 
 /**
@@ -36,6 +38,8 @@ export interface OnboardingProviderProps {
   onSkipStep: () => void;
   /** Handler for global skip */
   onSkipOnboarding: () => void;
+  /** Handler for back navigation */
+  onBack: () => void;
   /** Child components */
   children: React.ReactNode;
 }
@@ -55,6 +59,7 @@ export function OnboardingProvider({
   onNext,
   onSkipStep,
   onSkipOnboarding,
+  onBack,
   children,
 }: OnboardingProviderProps): React.JSX.Element {
   const value: OnboardingContextValue = {
@@ -62,6 +67,7 @@ export function OnboardingProvider({
     onNext,
     onSkipStep,
     onSkipOnboarding,
+    onBack,
   };
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

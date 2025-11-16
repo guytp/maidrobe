@@ -1,10 +1,18 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useStore } from '../../src/core/state/store';
-import { OnboardingStep } from '../../src/features/onboarding';
+import { OnboardingStep, getPreviousStep } from '../../src/features/onboarding';
 import { useTheme } from '../../src/core/theme';
 import { OnboardingProvider } from '../../src/features/onboarding/context/OnboardingContext';
+import {
+  trackStepViewed,
+  trackStepSkipped,
+  trackOnboardingCompleted,
+  trackOnboardingSkippedAll,
+  trackStateReset,
+  trackStateResumed,
+} from '../../src/features/onboarding/utils/onboardingAnalytics';
 
 /**
  * Onboarding flow shell container.
@@ -56,11 +64,18 @@ export default function OnboardingLayout(): React.JSX.Element {
   const startOnboarding = useStore((state) => state.startOnboarding);
   const markStepCompleted = useStore((state) => state.markStepCompleted);
   const markStepSkipped = useStore((state) => state.markStepSkipped);
+  const setCurrentStep = useStore((state) => state.setCurrentStep);
   const resetOnboardingState = useStore((state) => state.resetOnboardingState);
   const updateHasOnboarded = useStore((state) => state.updateHasOnboarded);
 
   // Local initialization state
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Track if this is a resumed session for analytics
+  const isResumedSession = useRef(false);
+
+  // Track onboarding start time for duration analytics
+  const onboardingStartTime = useRef<number | null>(null);
 
   /**
    * Completion handler for onboarding flow.
@@ -76,33 +91,48 @@ export default function OnboardingLayout(): React.JSX.Element {
    * back into onboarding. The optimistic update ensures the user can
    * proceed immediately.
    */
-  const handleOnboardingComplete = useCallback(() => {
-    // 1. Optimistically set hasOnboarded = true
-    updateHasOnboarded(true);
+  const handleOnboardingComplete = useCallback(
+    (isGlobalSkip = false) => {
+      // 1. Fire-and-forget analytics
+      if (isGlobalSkip) {
+        void trackOnboardingSkippedAll(currentStep || 'welcome', completedSteps, skippedSteps);
+      } else {
+        const duration =
+          onboardingStartTime.current !== null
+            ? Date.now() - onboardingStartTime.current
+            : undefined;
+        void trackOnboardingCompleted(completedSteps, skippedSteps, duration);
+      }
 
-    // 2. Clear local onboarding state
-    resetOnboardingState();
+      // 2. Optimistically set hasOnboarded = true
+      updateHasOnboarded(true);
 
-    // 3. Navigate to home
-    router.replace('/home');
+      // 3. Clear local onboarding state
+      resetOnboardingState();
 
-    // 4. Server-side update (placeholder - will be replaced when #95 is implemented)
-    // For now, just log the completion
-    // eslint-disable-next-line no-console
-    console.log('Onboarding completed', {
-      completedSteps,
-      skippedSteps,
-      timestamp: new Date().toISOString(),
-    });
+      // 4. Navigate to home
+      router.replace('/home');
 
-    // TODO: When story #95 API is available, add:
-    // try {
-    //   await updateUserOnboardingStatus({ hasOnboarded: true });
-    // } catch (error) {
-    //   // Log error but don't block - user already navigated
-    //   console.error('Failed to update onboarding status on server:', error);
-    // }
-  }, [updateHasOnboarded, resetOnboardingState, router, completedSteps, skippedSteps]);
+      // 5. Server-side update (placeholder - will be replaced when #95 is implemented)
+      // For now, just log the completion
+      // eslint-disable-next-line no-console
+      console.log('Onboarding completed', {
+        completedSteps,
+        skippedSteps,
+        isGlobalSkip,
+        timestamp: new Date().toISOString(),
+      });
+
+      // TODO: When story #95 API is available, add:
+      // try {
+      //   await updateUserOnboardingStatus({ hasOnboarded: true });
+      // } catch (error) {
+      //   // Log error but don't block - user already navigated
+      //   console.error('Failed to update onboarding status on server:', error);
+      // }
+    },
+    [updateHasOnboarded, resetOnboardingState, router, completedSteps, skippedSteps, currentStep]
+  );
 
   /**
    * Handler for primary action (Next/Continue/Get Started).
@@ -127,9 +157,15 @@ export default function OnboardingLayout(): React.JSX.Element {
    *
    * Marks current step as skipped and advances to next step.
    * Only available on optional steps (Preferences, First Item).
+   * Emits step_skipped analytics event.
    */
   const handleSkipStep = useCallback(() => {
     if (!currentStep) return;
+
+    // Fire-and-forget analytics
+    void trackStepSkipped(currentStep);
+
+    // Mark step as skipped and advance
     markStepSkipped(currentStep);
   }, [currentStep, markStepSkipped]);
 
@@ -138,17 +174,35 @@ export default function OnboardingLayout(): React.JSX.Element {
    *
    * Immediately completes onboarding, skipping all remaining steps.
    * Available on all non-terminal steps.
+   * Emits skipped_all analytics event.
    */
   const handleSkipOnboarding = useCallback(() => {
-    handleOnboardingComplete();
+    handleOnboardingComplete(true);
   }, [handleOnboardingComplete]);
+
+  /**
+   * Handler for back navigation.
+   *
+   * Moves to the previous step in the defined order using setCurrentStep.
+   * Does NOT modify completedSteps or skippedSteps, preserving invariants.
+   * Connected to platform back affordances (iOS gesture, Android hardware back).
+   */
+  const handleBack = useCallback(() => {
+    if (!currentStep) return;
+
+    const previousStep = getPreviousStep(currentStep);
+    if (previousStep) {
+      setCurrentStep(previousStep);
+    }
+  }, [currentStep, setCurrentStep]);
 
   /**
    * Effect: Handle hasOnboarded gate and onboarding initialization
    *
    * This effect runs once after auth hydration completes. It checks the
    * hasOnboarded flag and either redirects to home or initializes/resumes
-   * onboarding based on persisted state.
+   * onboarding based on persisted state. Includes state validation and
+   * analytics tracking for resumption and resets.
    */
   useEffect(() => {
     // Wait for auth hydration to complete
@@ -172,12 +226,50 @@ export default function OnboardingLayout(): React.JSX.Element {
       // No persisted step - start fresh onboarding
       // This sets currentStep to 'welcome', which will trigger navigation below
       startOnboarding();
+
+      // Record start time for duration analytics
+      onboardingStartTime.current = Date.now();
+
+      // Mark as fresh session (not resumed)
+      isResumedSession.current = false;
+    } else {
+      // Valid persisted step found - this is a resumed session
+      // Fire-and-forget analytics for successful resumption
+      void trackStateResumed(currentStep, completedSteps, skippedSteps);
+
+      // Mark as resumed session for step_viewed analytics
+      isResumedSession.current = true;
+
+      // Set start time to now (we don't track across sessions)
+      onboardingStartTime.current = Date.now();
     }
 
     // Mark initialization as complete
     // Navigation will happen in the second effect when currentStep is set
     setIsInitializing(false);
-  }, [isHydrating, user, currentStep, startOnboarding, resetOnboardingState, router]);
+  }, [isHydrating, user, currentStep, startOnboarding, resetOnboardingState, router, completedSteps, skippedSteps]);
+
+  /**
+   * Effect: Track step views with analytics
+   *
+   * This effect runs whenever currentStep changes (via Next, Skip, Back, or resume).
+   * Emits a fire-and-forget step_viewed analytics event.
+   */
+  useEffect(() => {
+    // Wait for initialization to complete
+    if (isInitializing || !currentStep) {
+      return;
+    }
+
+    // Fire-and-forget analytics for step view
+    void trackStepViewed(currentStep, isResumedSession.current);
+
+    // After first step view, mark as not resumed anymore
+    // (subsequent views in same session are navigations, not resumptions)
+    if (isResumedSession.current) {
+      isResumedSession.current = false;
+    }
+  }, [currentStep, isInitializing]);
 
   /**
    * Effect: Navigate to current step
@@ -209,7 +301,8 @@ export default function OnboardingLayout(): React.JSX.Element {
     const routeName = STEP_TO_ROUTE[currentStep];
     if (!routeName) {
       // Invalid step - this shouldn't happen due to validation in store
-      // but handle gracefully by resetting
+      // but handle gracefully by resetting and logging diagnostic
+      void trackStateReset('invalid_step', currentStep);
       resetOnboardingState();
       startOnboarding();
       return;
@@ -225,6 +318,21 @@ export default function OnboardingLayout(): React.JSX.Element {
       router.replace(`/onboarding/${routeName}`);
     }
   }, [currentStep, isHydrating, isInitializing, router, segments, resetOnboardingState, startOnboarding]);
+
+  /**
+   * Effect: Handle Android hardware back button
+   *
+   * Connects Android back button to handleBack for consistent navigation.
+   * Returns true to prevent default behavior (app exit).
+   */
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true; // Prevent default (exit app)
+    });
+
+    return () => backHandler.remove();
+  }, [handleBack]);
 
   /**
    * Show loading indicator while determining route.
@@ -270,6 +378,7 @@ export default function OnboardingLayout(): React.JSX.Element {
       onNext={handleNext}
       onSkipStep={handleSkipStep}
       onSkipOnboarding={handleSkipOnboarding}
+      onBack={handleBack}
     >
       <Stack
         screenOptions={{

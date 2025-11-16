@@ -19,6 +19,11 @@ export type OnboardingStep = 'welcome' | 'prefs' | 'firstItem' | 'success';
 const STEP_ORDER: OnboardingStep[] = ['welcome', 'prefs', 'firstItem', 'success'];
 
 /**
+ * Export step order for external use.
+ */
+export { STEP_ORDER };
+
+/**
  * Onboarding state interface.
  *
  * Represents the current progress through the onboarding flow.
@@ -79,6 +84,23 @@ function getNextStep(currentStep: OnboardingStep | null): OnboardingStep | null 
   }
 
   return STEP_ORDER[currentIndex + 1];
+}
+
+/**
+ * Get the previous step in the onboarding flow sequence.
+ *
+ * @param currentStep - The current step, or null
+ * @returns The previous step in sequence, or null if at the beginning or invalid step
+ */
+export function getPreviousStep(currentStep: OnboardingStep | null): OnboardingStep | null {
+  if (!currentStep) return null;
+
+  const currentIndex = STEP_ORDER.indexOf(currentStep);
+  if (currentIndex === -1 || currentIndex === 0) {
+    return null; // Invalid step or first step
+  }
+
+  return STEP_ORDER[currentIndex - 1];
 }
 
 /**
