@@ -236,6 +236,14 @@
         "accessibility": {
           "screenLabel": "First wardrobe item capture"
         }
+      },
+      "success": {
+        "title": "All Set!",
+        "subtitle": "Step 4 of 4",
+        "description": "This is a placeholder for the Onboarding Success screen. Story #129 will provide the full implementation with celebration visuals and transition to the main app.",
+        "accessibility": {
+          "screenLabel": "Onboarding complete"
+        }
       }
     }
   }

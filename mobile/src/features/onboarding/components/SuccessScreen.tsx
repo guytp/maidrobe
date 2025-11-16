@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { OnboardingShell } from './OnboardingShell';
 
@@ -59,7 +60,7 @@ export function SuccessScreen(): React.JSX.Element {
     <OnboardingShell>
       <View
         style={styles.container}
-        accessibilityLabel="Onboarding complete"
+        accessibilityLabel={t('screens.onboarding.success.accessibility.screenLabel')}
       >
         <Text
           style={styles.title}
@@ -67,14 +68,13 @@ export function SuccessScreen(): React.JSX.Element {
           allowFontScaling={true}
           maxFontSizeMultiplier={3}
         >
-          All Set!
+          {t('screens.onboarding.success.title')}
         </Text>
         <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          Step 4 of 4
+          {t('screens.onboarding.success.subtitle')}
         </Text>
         <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          This is a placeholder for the Onboarding Success screen. Story #129 will provide the full
-          implementation with celebration visuals and transition to the main app.
+          {t('screens.onboarding.success.description')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
