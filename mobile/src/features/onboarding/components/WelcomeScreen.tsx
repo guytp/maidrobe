@@ -57,10 +57,9 @@ export function WelcomeScreen(): React.JSX.Element {
 
   return (
     <OnboardingShell>
-      <View
-        style={styles.container}
-        accessibilityLabel="Welcome to onboarding"
-      >
+      {/* TODO(#110): Move to i18n - accessibility label for welcome screen */}
+      <View style={styles.container} accessibilityLabel="Welcome to onboarding">
+        {/* TODO(#110): Move to i18n - welcome screen title */}
         <Text
           style={styles.title}
           accessibilityRole="header"
@@ -69,9 +68,11 @@ export function WelcomeScreen(): React.JSX.Element {
         >
           Welcome
         </Text>
+        {/* TODO(#110): Move to i18n - step progress indicator */}
         <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
           Step 1 of 4
         </Text>
+        {/* TODO(#110): Move to i18n - welcome screen description */}
         <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
           This is a placeholder for the Welcome screen. Story #110 will provide the full
           implementation with value proposition, imagery, and engaging copy.
