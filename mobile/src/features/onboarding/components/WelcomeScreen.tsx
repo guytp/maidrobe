@@ -1,22 +1,33 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { OnboardingShell } from './OnboardingShell';
 
 /**
- * Welcome screen placeholder for onboarding flow.
+ * Welcome screen for onboarding flow.
  *
- * This is a temporary placeholder that displays the step name and description.
- * Story #110 will provide the full implementation with rich content, visuals,
- * and proper value proposition messaging.
+ * This screen serves as the entry point to the Maidrobe onboarding experience.
+ * It communicates the core value proposition, sets expectations about upcoming
+ * steps, and provides privacy reassurance to build trust with new users.
  *
- * Current functionality:
- * - Displays step identifier
- * - Shows placeholder content
- * - Uses app theme and accessibility standards
- * - Integrates with OnboardingShell for consistent layout and navigation
+ * Features:
+ * - App name/wordmark with strong visual hierarchy
+ * - 3 value proposition statements emphasizing decision fatigue reduction
+ * - Brief description of upcoming onboarding steps
+ * - Privacy reassurance aligned with actual app behavior
+ * - Primary CTA: "Get started" (via footer)
+ * - Secondary CTA: "Skip for now" (via footer)
+ * - Full accessibility support with dynamic font scaling
+ * - WCAG AA contrast compliance in light and dark modes
+ *
+ * Layout:
+ * - Portrait-only orientation
+ * - Scrollable content for font scaling support
+ * - Safe area insets for notch/status bar
+ * - OnboardingShell wrapper provides footer with CTAs
  *
  * @returns Welcome screen component
  */
@@ -26,31 +37,49 @@ export function WelcomeScreen(): React.JSX.Element {
   const styles = useMemo(
     () =>
       StyleSheet.create({
-        container: {
+        scrollView: {
           flex: 1,
           backgroundColor: colors.background,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: spacing.lg,
         },
-        title: {
-          fontSize: 32,
+        scrollContent: {
+          flexGrow: 1,
+        },
+        container: {
+          flex: 1,
+          paddingHorizontal: spacing.lg,
+          paddingTop: spacing.xl,
+          paddingBottom: spacing.xl,
+        },
+        appName: {
+          fontSize: 40,
           fontWeight: 'bold',
-          marginBottom: spacing.md,
+          color: colors.textPrimary,
+          textAlign: 'center',
+          marginBottom: spacing.xl,
+        },
+        valuePropsContainer: {
+          gap: spacing.md,
+          marginBottom: spacing.xl,
+        },
+        valueProp: {
+          fontSize: 18,
+          fontWeight: '600',
           color: colors.textPrimary,
           textAlign: 'center',
         },
-        subtitle: {
-          fontSize: 18,
-          marginBottom: spacing.lg,
-          color: colors.textSecondary,
-          textAlign: 'center',
+        section: {
+          marginBottom: spacing.xl,
         },
-        description: {
+        sectionTitle: {
+          fontSize: 16,
+          fontWeight: '600',
+          color: colors.textPrimary,
+          marginBottom: spacing.sm,
+        },
+        sectionBody: {
           fontSize: 14,
           color: colors.textSecondary,
-          textAlign: 'center',
-          maxWidth: 400,
+          lineHeight: 20,
         },
       }),
     [colors, spacing]
@@ -58,27 +87,87 @@ export function WelcomeScreen(): React.JSX.Element {
 
   return (
     <OnboardingShell>
-      <View
-        style={styles.container}
-        accessibilityLabel={t('screens.onboarding.welcome.accessibility.screenLabel')}
-      >
-        <Text
-          style={styles.title}
-          accessibilityRole="header"
-          allowFontScaling={true}
-          maxFontSizeMultiplier={3}
+      <SafeAreaView style={styles.scrollView} edges={['top']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          accessibilityLabel={t('screens.onboarding.welcome.accessibility.screenLabel')}
         >
-          {t('screens.onboarding.welcome.title')}
-        </Text>
-        <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          {t('screens.onboarding.welcome.subtitle')}
-        </Text>
-        <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          {t('screens.onboarding.welcome.description')}
-        </Text>
+          <View style={styles.container}>
+            {/* App Name */}
+            <Text
+              style={styles.appName}
+              accessibilityRole="header"
+              accessibilityLabel={t('screens.onboarding.welcome.accessibility.appNameLabel')}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={3}
+            >
+              {t('screens.onboarding.welcome.appName')}
+            </Text>
 
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </View>
+            {/* Value Propositions */}
+            <View
+              style={styles.valuePropsContainer}
+              accessibilityLabel={t('screens.onboarding.welcome.accessibility.valuePropLabel')}
+            >
+              {[1, 2, 3].map((num) => (
+                <Text
+                  key={num}
+                  style={styles.valueProp}
+                  allowFontScaling={true}
+                  maxFontSizeMultiplier={3}
+                >
+                  {t(`screens.onboarding.welcome.valueProps.${num}` as Parameters<typeof t>[0])}
+                </Text>
+              ))}
+            </View>
+
+            {/* Upcoming Steps Section */}
+            <View
+              style={styles.section}
+              accessibilityLabel={t('screens.onboarding.welcome.accessibility.upcomingStepsLabel')}
+            >
+              <Text
+                style={styles.sectionTitle}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.welcome.upcomingSteps.title')}
+              </Text>
+              <Text
+                style={styles.sectionBody}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.welcome.upcomingSteps.description')}
+              </Text>
+            </View>
+
+            {/* Privacy Section */}
+            <View
+              style={styles.section}
+              accessibilityLabel={t('screens.onboarding.welcome.accessibility.privacyLabel')}
+            >
+              <Text
+                style={styles.sectionTitle}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.welcome.privacy.title')}
+              </Text>
+              <Text
+                style={styles.sectionBody}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.welcome.privacy.description')}
+              </Text>
+            </View>
+          </View>
+
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </ScrollView>
+      </SafeAreaView>
     </OnboardingShell>
   );
 }
