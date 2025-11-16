@@ -221,6 +221,14 @@
       }
     },
     "onboarding": {
+      "welcome": {
+        "title": "Welcome",
+        "subtitle": "Step 1 of 4",
+        "description": "This is a placeholder for the Welcome screen. Story #110 will provide the full implementation with value proposition, imagery, and engaging copy.",
+        "accessibility": {
+          "screenLabel": "Welcome to onboarding"
+        }
+      },
       "prefs": {
         "title": "Preferences",
         "subtitle": "Step 2 of 4",

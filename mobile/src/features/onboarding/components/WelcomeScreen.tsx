@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
+import { t } from '../../../core/i18n';
 import { OnboardingShell } from './OnboardingShell';
 
 /**
@@ -57,25 +58,23 @@ export function WelcomeScreen(): React.JSX.Element {
 
   return (
     <OnboardingShell>
-      {/* TODO(#110): Move to i18n - accessibility label for welcome screen */}
-      <View style={styles.container} accessibilityLabel="Welcome to onboarding">
-        {/* TODO(#110): Move to i18n - welcome screen title */}
+      <View
+        style={styles.container}
+        accessibilityLabel={t('screens.onboarding.welcome.accessibility.screenLabel')}
+      >
         <Text
           style={styles.title}
           accessibilityRole="header"
           allowFontScaling={true}
           maxFontSizeMultiplier={3}
         >
-          Welcome
+          {t('screens.onboarding.welcome.title')}
         </Text>
-        {/* TODO(#110): Move to i18n - step progress indicator */}
         <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          Step 1 of 4
+          {t('screens.onboarding.welcome.subtitle')}
         </Text>
-        {/* TODO(#110): Move to i18n - welcome screen description */}
         <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          This is a placeholder for the Welcome screen. Story #110 will provide the full
-          implementation with value proposition, imagery, and engaging copy.
+          {t('screens.onboarding.welcome.description')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
