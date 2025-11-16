@@ -1,12 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { Platform } from 'react-native';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
-import type { ErrorClassification } from '../../../core/telemetry';
+import { logAuthEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { resetInterceptor } from '../../../services/supabaseInterceptor';
 import { clearStoredSession } from '../storage/sessionPersistence';
+import { handleAuthError } from '../utils/authErrorHandler';
+import { getAuthErrorMessage } from '../utils/authErrorMessages';
+import { logAuthErrorToSentry } from '../utils/logAuthErrorToSentry';
 
 /**
  * Context type for logout mutation (used for latency tracking)
@@ -15,35 +18,6 @@ interface LogoutMutationContext {
   startTime: number;
 }
 
-/**
- * Classifies logout errors into standard error categories.
- *
- * @param error - The error object from Supabase or network failure
- * @returns The error classification type
- */
-function classifyLogoutError(error: unknown): ErrorClassification {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-
-    // Network-related errors
-    if (
-      message.includes('network') ||
-      message.includes('fetch') ||
-      message.includes('timeout') ||
-      message.includes('connection')
-    ) {
-      return 'network';
-    }
-
-    // Server errors
-    if (message.includes('500') || message.includes('503') || message.includes('502')) {
-      return 'server';
-    }
-  }
-
-  // Default to server error for unknown issues
-  return 'server';
-}
 
 /**
  * React Query mutation hook for user logout.
@@ -113,12 +87,16 @@ export function useLogout() {
 
         // Handle Supabase errors
         if (error) {
-          const classification = classifyLogoutError(error);
-          logError(error, classification, {
-            feature: 'auth',
-            operation: 'logout',
+          const normalizedError = handleAuthError(error, {
+            flow: 'logout',
+            supabaseOperation: 'signOut',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'logout',
+            userId,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
-              errorCode: error.status,
               latency,
             },
           });
@@ -126,7 +104,7 @@ export function useLogout() {
           // Log structured auth event
           logAuthEvent('logout-failure', {
             userId,
-            errorCode: error.status?.toString(),
+            errorCode: normalizedError.code,
             outcome: 'failure',
             latency,
           });
@@ -139,7 +117,8 @@ export function useLogout() {
           // Clear stored session even on API error
           await clearStoredSession();
 
-          throw new Error(getUserFriendlyMessage(classification));
+          const userMessage = getAuthErrorMessage(normalizedError, 'logout');
+          throw new Error(userMessage);
         }
 
         // Clear local session state and logout reason
@@ -175,12 +154,20 @@ export function useLogout() {
         // Handle unknown errors
         const latency = Date.now() - startTime;
         const unknownError = new Error('Unknown error during logout');
-        logError(unknownError, 'server', {
-          feature: 'auth',
-          operation: 'logout',
+        const normalizedError = handleAuthError(unknownError, {
+          flow: 'logout',
+          supabaseOperation: 'signOut',
+        });
+
+        logAuthErrorToSentry(normalizedError, unknownError, {
+          flow: 'logout',
+          userId: undefined,
+          platform: Platform.OS as 'ios' | 'android' | 'unknown',
           metadata: { latency },
         });
-        throw new Error(getUserFriendlyMessage('server'));
+
+        const userMessage = getAuthErrorMessage(normalizedError, 'logout');
+        throw new Error(userMessage);
       }
     },
     onSuccess: () => {

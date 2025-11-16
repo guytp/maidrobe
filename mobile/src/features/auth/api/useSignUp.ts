@@ -1,10 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
+import { Platform } from 'react-native';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logSuccess } from '../../../core/telemetry';
-import type { ErrorClassification } from '../../../core/telemetry';
+import { logSuccess } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { saveSessionFromSupabase } from '../storage/sessionPersistence';
+import { handleAuthError } from '../utils/authErrorHandler';
+import { getAuthErrorMessage } from '../utils/authErrorMessages';
+import { logAuthErrorToSentry } from '../utils/logAuthErrorToSentry';
 
 /**
  * Zod schema for signup request validation
@@ -41,45 +44,6 @@ interface SignUpMutationContext {
   startTime: number;
 }
 
-/**
- * Classifies Supabase Auth errors into standard error categories.
- *
- * @param error - The error object from Supabase or network failure
- * @returns The error classification type
- */
-function classifyAuthError(error: unknown): ErrorClassification {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-
-    // Network-related errors
-    if (
-      message.includes('network') ||
-      message.includes('fetch') ||
-      message.includes('timeout') ||
-      message.includes('connection')
-    ) {
-      return 'network';
-    }
-
-    // User-related errors (validation, existing user, etc.)
-    if (
-      message.includes('invalid') ||
-      message.includes('already registered') ||
-      message.includes('weak password') ||
-      message.includes('user already exists')
-    ) {
-      return 'user';
-    }
-
-    // Server errors
-    if (message.includes('500') || message.includes('503') || message.includes('502')) {
-      return 'server';
-    }
-  }
-
-  // Default to server error for unknown issues
-  return 'server';
-}
 
 /**
  * React Query mutation hook for user signup with email and password.
@@ -174,27 +138,39 @@ export function useSignUp() {
 
         // Handle Supabase errors
         if (error) {
-          const classification = classifyAuthError(error);
-          logError(error, classification, {
-            feature: 'auth',
-            operation: 'signup',
-            metadata: {
-              email: 'redacted', // Never log PII
-              errorCode: error.status,
-            },
+          const normalizedError = handleAuthError(error, {
+            flow: 'signup',
+            supabaseOperation: 'signUp',
           });
-          throw new Error(getUserFriendlyMessage(classification));
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'signup',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
+            metadata: {},
+          });
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'signup');
+          throw new Error(userMessage);
         }
 
         // Validate and parse response
         if (!data || !data.user) {
           const schemaError = new Error('Invalid response from signup API');
-          logError(schemaError, 'schema', {
-            feature: 'auth',
-            operation: 'signup',
+          const normalizedError = handleAuthError(schemaError, {
+            flow: 'signup',
+            supabaseOperation: 'signUp',
+          });
+
+          logAuthErrorToSentry(normalizedError, schemaError, {
+            flow: 'signup',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: { hasData: !!data, hasUser: !!data?.user },
           });
-          throw new Error(getUserFriendlyMessage('schema'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'signup');
+          throw new Error(userMessage);
         }
 
         const validatedResponse = SignUpResponseSchema.parse(data);
@@ -203,12 +179,21 @@ export function useSignUp() {
       } catch (error) {
         // Handle Zod validation errors
         if (error instanceof z.ZodError) {
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'signup',
+          const validationError = new Error('Validation failed');
+          const normalizedError = handleAuthError(validationError, {
+            flow: 'signup',
+            supabaseOperation: 'validation',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'signup',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: { validationErrors: error.issues },
           });
-          throw new Error(getUserFriendlyMessage('user'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'signup');
+          throw new Error(userMessage);
         }
 
         // Re-throw if already an Error
@@ -218,11 +203,20 @@ export function useSignUp() {
 
         // Handle unknown errors
         const unknownError = new Error('Unknown error during signup');
-        logError(unknownError, 'server', {
-          feature: 'auth',
-          operation: 'signup',
+        const normalizedError = handleAuthError(unknownError, {
+          flow: 'signup',
+          supabaseOperation: 'signUp',
         });
-        throw new Error(getUserFriendlyMessage('server'));
+
+        logAuthErrorToSentry(normalizedError, unknownError, {
+          flow: 'signup',
+          userId: undefined,
+          platform: Platform.OS as 'ios' | 'android' | 'unknown',
+          metadata: {},
+        });
+
+        const userMessage = getAuthErrorMessage(normalizedError, 'signup');
+        throw new Error(userMessage);
       }
     },
     onSuccess: (data, _variables, context) => {

@@ -207,6 +207,17 @@
           "errorMessage": "Error message",
           "successMessage": "Success message"
         }
+      },
+      "common": {
+        "errors": {
+          "networkError": "Unable to connect. Please check your internet connection.",
+          "invalidCredentials": "Invalid email or password.",
+          "unverifiedEmail": "Please verify your email address to continue.",
+          "emailAlreadyInUse": "Unable to create account. Please try a different email.",
+          "passwordPolicy": "Password does not meet requirements.",
+          "rateLimited": "Too many attempts. Please wait and try again.",
+          "unknown": "Something went wrong. Please try again."
+        }
       }
     }
   }

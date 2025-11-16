@@ -1,12 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../services/supabase';
-import { logError, getUserFriendlyMessage, logAuthEvent } from '../../../core/telemetry';
-import type { ErrorClassification } from '../../../core/telemetry';
+import { logAuthEvent } from '../../../core/telemetry';
 import { ForgotPasswordRequestSchema } from '../utils/passwordResetSchemas';
 import type { ForgotPasswordRequest } from '../utils/passwordResetSchemas';
 import { t } from '../../../core/i18n';
+import { handleAuthError } from '../utils/authErrorHandler';
+import { getAuthErrorMessage } from '../utils/authErrorMessages';
+import { logAuthErrorToSentry } from '../utils/logAuthErrorToSentry';
 
 /**
  * Rate limiter configuration for password reset requests.
@@ -120,40 +123,6 @@ async function recordAttempt(email: string): Promise<void> {
   await setAttempts(email, attempts);
 }
 
-/**
- * Classifies password reset request errors into standard error categories.
- *
- * @param error - The error object from Supabase or network failure
- * @returns The error classification type
- */
-function classifyPasswordResetError(error: unknown): ErrorClassification {
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-
-    // Network-related errors
-    if (
-      message.includes('network') ||
-      message.includes('fetch') ||
-      message.includes('timeout') ||
-      message.includes('connection')
-    ) {
-      return 'network';
-    }
-
-    // Rate limiting errors
-    if (message.includes('rate limit') || message.includes('too many')) {
-      return 'user';
-    }
-
-    // Server errors
-    if (message.includes('500') || message.includes('503') || message.includes('502')) {
-      return 'server';
-    }
-  }
-
-  // Default to server error for unknown issues
-  return 'server';
-}
 
 /**
  * Context type for password reset request mutation (used for latency tracking)
@@ -243,15 +212,24 @@ export function useRequestPasswordReset() {
       } catch (error) {
         if (error instanceof z.ZodError) {
           const latency = Date.now() - startTime;
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'password-reset-request',
+          const validationError = new Error('Validation failed');
+          const normalizedError = handleAuthError(validationError, {
+            flow: 'reset',
+            supabaseOperation: 'validation',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'reset',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
               validationErrors: error.issues,
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('user'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'reset');
+          throw new Error(userMessage);
         }
         throw error;
       }
@@ -269,15 +247,6 @@ export function useRequestPasswordReset() {
               rateLimit.remainingSeconds.toString()
             )
           );
-          logError(error, 'user', {
-            feature: 'auth',
-            operation: 'password-reset-request',
-            metadata: {
-              reason: 'rate_limit_exceeded',
-              remainingSeconds: rateLimit.remainingSeconds,
-              email: 'redacted',
-            },
-          });
 
           // Log telemetry event
           logAuthEvent('password-reset-failed', {
@@ -311,28 +280,32 @@ export function useRequestPasswordReset() {
 
         // Handle Supabase errors
         if (error) {
-          const classification = classifyPasswordResetError(error);
-          logError(error, classification, {
-            feature: 'auth',
-            operation: 'password-reset-request',
+          const normalizedError = handleAuthError(error, {
+            flow: 'reset',
+            supabaseOperation: 'resetPasswordForEmail',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'reset',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
-              email: 'redacted',
-              errorCode: error.status,
               latency,
             },
           });
 
           // Log telemetry event
           logAuthEvent('password-reset-failed', {
-            errorCode: error.status?.toString(),
+            errorCode: normalizedError.code,
             outcome: 'failure',
             latency,
           });
 
           // SECURITY: Only throw error for network issues
           // All other errors return success to prevent account enumeration
-          if (classification === 'network') {
-            throw new Error(t('screens.auth.forgotPassword.errors.networkError'));
+          if (normalizedError.category === 'network') {
+            const userMessage = getAuthErrorMessage(normalizedError, 'reset');
+            throw new Error(userMessage);
           }
 
           // For all other errors, silently succeed to prevent enumeration
@@ -368,15 +341,24 @@ export function useRequestPasswordReset() {
         // Handle Zod validation errors (for response validation if needed)
         if (error instanceof z.ZodError) {
           const latency = Date.now() - startTime;
-          logError(error, 'schema', {
-            feature: 'auth',
-            operation: 'password-reset-request',
+          const validationError = new Error('Response validation failed');
+          const normalizedError = handleAuthError(validationError, {
+            flow: 'reset',
+            supabaseOperation: 'resetPasswordForEmail',
+          });
+
+          logAuthErrorToSentry(normalizedError, error, {
+            flow: 'reset',
+            userId: undefined,
+            platform: Platform.OS as 'ios' | 'android' | 'unknown',
             metadata: {
               validationErrors: error.issues,
               latency,
             },
           });
-          throw new Error(getUserFriendlyMessage('schema'));
+
+          const userMessage = getAuthErrorMessage(normalizedError, 'reset');
+          throw new Error(userMessage);
         }
 
         // Re-throw if already an Error
@@ -387,12 +369,20 @@ export function useRequestPasswordReset() {
         // Handle unknown errors
         const latency = Date.now() - startTime;
         const unknownError = new Error('Unknown error during password reset request');
-        logError(unknownError, 'server', {
-          feature: 'auth',
-          operation: 'password-reset-request',
+        const normalizedError = handleAuthError(unknownError, {
+          flow: 'reset',
+          supabaseOperation: 'resetPasswordForEmail',
+        });
+
+        logAuthErrorToSentry(normalizedError, unknownError, {
+          flow: 'reset',
+          userId: undefined,
+          platform: Platform.OS as 'ios' | 'android' | 'unknown',
           metadata: { latency },
         });
-        throw new Error(getUserFriendlyMessage('server'));
+
+        const userMessage = getAuthErrorMessage(normalizedError, 'reset');
+        throw new Error(userMessage);
       }
     },
     onError: (_error, _variables, context) => {
