@@ -1,5 +1,5 @@
 import { handleAuthError } from '../../src/features/auth/utils/authErrorHandler';
-import type { AuthErrorContext } from '../../src/features/auth/utils/authErrorHandler';
+import type { AuthErrorContext } from '../../src/features/auth/utils/authErrorTypes';
 
 describe('authErrorHandler', () => {
   describe('HTTP status code classification', () => {

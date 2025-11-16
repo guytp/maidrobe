@@ -62,7 +62,8 @@ export function getAuthErrorMessage(
     const i18nKey = selectI18nKey(error.category, flow, error.code);
 
     // Step 2: Resolve i18n key to actual message
-    let message = t(i18nKey);
+    // Type assertion: selectI18nKey returns valid i18n keys constructed from known paths
+    let message = t(i18nKey as Parameters<typeof t>[0]);
 
     // Step 3: Apply dynamic replacements (e.g., {seconds} for rate limiting)
     message = applyDynamicReplacements(message, error);
