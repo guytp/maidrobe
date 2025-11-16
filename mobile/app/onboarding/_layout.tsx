@@ -244,6 +244,36 @@ export default function OnboardingLayout(): React.JSX.Element {
     }
   }, [currentStep, setCurrentStep]);
 
+  /*
+   * TWO-EFFECT INITIALIZATION AND NAVIGATION PATTERN
+   *
+   * This component uses two separate effects to handle onboarding initialization
+   * and navigation, providing clear separation of concerns and preventing race
+   * conditions:
+   *
+   * 1. Initialization Effect (below):
+   *    - Runs once after auth hydration
+   *    - Determines if onboarding should run (hasOnboarded gate)
+   *    - Prepares state: sets currentStep (fresh or resumed)
+   *    - Sets isInitializing=false to signal completion
+   *
+   * 2. Navigation Effect (further below):
+   *    - Reacts to currentStep changes
+   *    - Performs actual routing once initialization is complete
+   *    - Handles route normalization
+   *
+   * Why separate effects?
+   * - Ensures initialization completes BEFORE navigation
+   * - Prevents navigating to wrong route during state preparation
+   * - Makes resumption logic clear: initialization sets currentStep,
+   *   navigation reacts identically for fresh/resumed sessions
+   * - Avoids complex dependencies and race conditions
+   *
+   * Alternative considered: Single combined effect
+   * Rejected because: Would mix business logic and routing, making
+   * execution order fragile and increasing risk of premature navigation.
+   */
+
   /**
    * Effect: Handle hasOnboarded gate and onboarding initialization
    *
@@ -293,7 +323,9 @@ export default function OnboardingLayout(): React.JSX.Element {
     }
 
     // Mark initialization as complete
-    // Navigation will happen in the second effect when currentStep is set
+    // This triggers the navigation effect (below) by setting isInitializing=false,
+    // which then reacts to the currentStep value we just prepared (either from
+    // startOnboarding() for fresh sessions or from persisted state for resumed sessions)
     setIsInitializing(false);
   }, [
     isHydrating,
@@ -334,6 +366,15 @@ export default function OnboardingLayout(): React.JSX.Element {
    * This effect runs whenever currentStep changes (including after startOnboarding
    * is called). It navigates to the route corresponding to the current step,
    * implementing route normalization by ignoring the actual URL path.
+   *
+   * COORDINATION WITH INITIALIZATION EFFECT:
+   * This effect is SEPARATE from initialization to ensure clear separation of concerns:
+   * - Initialization effect prepares state (sets currentStep, handles hasOnboarded gate)
+   * - Navigation effect reacts to state changes (routes to currentStep)
+   * This prevents race conditions where navigation might occur before state is ready,
+   * and makes the flow easier to reason about by separating "what step to show" (business
+   * logic) from "show the step" (view layer). The isInitializing guard ensures navigation
+   * only occurs after initialization completes.
    */
   useEffect(() => {
     // Wait for hydration and initialization
