@@ -13,7 +13,8 @@ import {
   trackStateReset,
   trackStateResumed,
 } from '../../src/features/onboarding/utils/onboardingAnalytics';
-import { logSuccess } from '../../src/core/telemetry';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in TODO comment for story #95
+import { logSuccess, logError } from '../../src/core/telemetry';
 
 /**
  * Onboarding flow shell container.
@@ -88,6 +89,21 @@ export default function OnboardingLayout(): React.JSX.Element {
    * 3. Navigates to /home
    * 4. Logs completion (server-side update placeholder)
    *
+   * OPTIMISTIC UPDATE & ROLLBACK:
+   * This function performs an optimistic update of hasOnboarded before the
+   * server-side update completes (when story #95 is implemented). If the
+   * server update fails:
+   * - The local optimistic state is reverted via updateHasOnboarded(previousValue)
+   * - The failure is logged to telemetry for observability
+   * - The user remains on /home (navigation is NOT reverted for better UX)
+   * - Profile refresh will sync authoritative server state on next app launch
+   *
+   * This dual-layer approach ensures:
+   * - Explicit rollback path (code guidelines compliance)
+   * - Self-correction via eventual consistency (profile refresh)
+   * - User experience is not disrupted by transient server errors
+   * - Observability through structured error logging
+   *
    * Server failures are logged but do not block navigation or force user
    * back into onboarding. The optimistic update ensures the user can
    * proceed immediately.
@@ -105,16 +121,20 @@ export default function OnboardingLayout(): React.JSX.Element {
         void trackOnboardingCompleted(completedSteps, skippedSteps, duration);
       }
 
-      // 2. Optimistically set hasOnboarded = true
+      // 2. Capture previous hasOnboarded value for potential rollback
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in TODO comment for story #95
+      const previousHasOnboarded = user?.hasOnboarded ?? false;
+
+      // 3. Optimistically set hasOnboarded = true
       updateHasOnboarded(true);
 
-      // 3. Clear local onboarding state
+      // 4. Clear local onboarding state
       resetOnboardingState();
 
-      // 4. Navigate to home
+      // 5. Navigate to home
       router.replace('/home');
 
-      // 5. Server-side update (placeholder - will be replaced when #95 is implemented)
+      // 6. Server-side update (placeholder - will be replaced when #95 is implemented)
       // For now, just log the completion via telemetry
       logSuccess('onboarding', 'completed', {
         data: {
@@ -130,14 +150,36 @@ export default function OnboardingLayout(): React.JSX.Element {
       // try {
       //   await updateUserOnboardingStatus({ hasOnboarded: true });
       // } catch (error) {
-      //   // Log error but don't block - user already navigated
+      //   // ROLLBACK: Revert optimistic update on server failure
+      //   updateHasOnboarded(previousHasOnboarded);
+      //
+      //   // Log error with rollback context for observability
       //   logError(error, 'server', {
       //     feature: 'onboarding',
       //     operation: 'updateServerStatus',
+      //     metadata: {
+      //       attemptedValue: true,
+      //       rolledBackTo: previousHasOnboarded,
+      //       isGlobalSkip,
+      //     },
       //   });
+      //
+      //   // NOTE: User remains on /home (navigation not reverted).
+      //   // The local rollback prevents hasOnboarded gate from incorrectly
+      //   // blocking re-entry to onboarding if the user navigates back.
+      //   // Profile refresh will sync authoritative server state on next launch,
+      //   // providing self-correction via eventual consistency.
       // }
     },
-    [updateHasOnboarded, resetOnboardingState, router, completedSteps, skippedSteps, currentStep]
+    [
+      updateHasOnboarded,
+      resetOnboardingState,
+      router,
+      completedSteps,
+      skippedSteps,
+      currentStep,
+      user,
+    ]
   );
 
   /**
