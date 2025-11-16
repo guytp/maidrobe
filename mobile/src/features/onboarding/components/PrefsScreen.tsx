@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
+import { t } from '../../../core/i18n';
 import { OnboardingShell } from './OnboardingShell';
 
 /**
@@ -59,7 +60,7 @@ export function PrefsScreen(): React.JSX.Element {
     <OnboardingShell>
       <View
         style={styles.container}
-        accessibilityLabel="Style and usage preferences"
+        accessibilityLabel={t('screens.onboarding.prefs.accessibility.screenLabel')}
       >
         <Text
           style={styles.title}
@@ -67,14 +68,13 @@ export function PrefsScreen(): React.JSX.Element {
           allowFontScaling={true}
           maxFontSizeMultiplier={3}
         >
-          Preferences
+          {t('screens.onboarding.prefs.title')}
         </Text>
         <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          Step 2 of 4
+          {t('screens.onboarding.prefs.subtitle')}
         </Text>
         <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          This is a placeholder for the Style and Usage Preferences screen. Story #116 will provide
-          the full implementation with preference collection forms and validation.
+          {t('screens.onboarding.prefs.description')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
