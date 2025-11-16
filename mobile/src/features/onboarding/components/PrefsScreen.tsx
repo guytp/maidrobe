@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
+import { OnboardingShell } from './OnboardingShell';
 
 /**
  * Style and Usage Preferences screen placeholder for onboarding flow.
@@ -14,6 +15,7 @@ import { useTheme } from '../../../core/theme';
  * - Displays step identifier
  * - Shows placeholder content
  * - Uses app theme and accessibility standards
+ * - Integrates with OnboardingShell for consistent layout and navigation
  *
  * @returns Preferences screen component
  */
@@ -49,66 +51,34 @@ export function PrefsScreen(): React.JSX.Element {
           textAlign: 'center',
           maxWidth: 400,
         },
-        buttonPlaceholder: {
-          marginTop: spacing.xl,
-          padding: spacing.md,
-          backgroundColor: colors.textSecondary,
-          borderRadius: 8,
-          minWidth: 200,
-          alignItems: 'center',
-        },
-        buttonText: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: colors.background,
-        },
-        skipPlaceholder: {
-          marginTop: spacing.md,
-          padding: spacing.sm,
-        },
-        skipText: {
-          fontSize: 14,
-          color: colors.textSecondary,
-          textDecorationLine: 'underline',
-        },
       }),
     [colors, spacing]
   );
 
   return (
-    <View
-      style={styles.container}
-      accessibilityLabel="Style and usage preferences"
-    >
-      <Text
-        style={styles.title}
-        accessibilityRole="header"
-        allowFontScaling={true}
-        maxFontSizeMultiplier={3}
+    <OnboardingShell>
+      <View
+        style={styles.container}
+        accessibilityLabel="Style and usage preferences"
       >
-        Preferences
-      </Text>
-      <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-        Step 2 of 4
-      </Text>
-      <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-        This is a placeholder for the Style and Usage Preferences screen. Story #116 will provide
-        the full implementation with preference collection forms and validation.
-      </Text>
-
-      <View style={styles.buttonPlaceholder}>
-        <Text style={styles.buttonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          Next (Placeholder)
+        <Text
+          style={styles.title}
+          accessibilityRole="header"
+          allowFontScaling={true}
+          maxFontSizeMultiplier={3}
+        >
+          Preferences
         </Text>
-      </View>
-
-      <View style={styles.skipPlaceholder}>
-        <Text style={styles.skipText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          Skip this step (Placeholder)
+        <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
+          Step 2 of 4
         </Text>
-      </View>
+        <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
+          This is a placeholder for the Style and Usage Preferences screen. Story #116 will provide
+          the full implementation with preference collection forms and validation.
+        </Text>
 
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-    </View>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    </OnboardingShell>
   );
 }

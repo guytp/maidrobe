@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
+import { OnboardingShell } from './OnboardingShell';
 
 /**
  * Onboarding Success/End screen placeholder.
@@ -14,6 +15,7 @@ import { useTheme } from '../../../core/theme';
  * - Displays completion message
  * - Shows placeholder content
  * - Uses app theme and accessibility standards
+ * - Integrates with OnboardingShell for consistent layout and navigation
  *
  * @returns Success screen component
  */
@@ -49,51 +51,34 @@ export function SuccessScreen(): React.JSX.Element {
           textAlign: 'center',
           maxWidth: 400,
         },
-        buttonPlaceholder: {
-          marginTop: spacing.xl,
-          padding: spacing.md,
-          backgroundColor: colors.textSecondary,
-          borderRadius: 8,
-          minWidth: 200,
-          alignItems: 'center',
-        },
-        buttonText: {
-          fontSize: 16,
-          fontWeight: '600',
-          color: colors.background,
-        },
       }),
     [colors, spacing]
   );
 
   return (
-    <View
-      style={styles.container}
-      accessibilityLabel="Onboarding complete"
-    >
-      <Text
-        style={styles.title}
-        accessibilityRole="header"
-        allowFontScaling={true}
-        maxFontSizeMultiplier={3}
+    <OnboardingShell>
+      <View
+        style={styles.container}
+        accessibilityLabel="Onboarding complete"
       >
-        All Set!
-      </Text>
-      <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-        Step 4 of 4
-      </Text>
-      <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-        This is a placeholder for the Onboarding Success screen. Story #129 will provide the full
-        implementation with celebration visuals and transition to the main app.
-      </Text>
-
-      <View style={styles.buttonPlaceholder}>
-        <Text style={styles.buttonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          Get Started (Placeholder)
+        <Text
+          style={styles.title}
+          accessibilityRole="header"
+          allowFontScaling={true}
+          maxFontSizeMultiplier={3}
+        >
+          All Set!
         </Text>
-      </View>
+        <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
+          Step 4 of 4
+        </Text>
+        <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
+          This is a placeholder for the Onboarding Success screen. Story #129 will provide the full
+          implementation with celebration visuals and transition to the main app.
+        </Text>
 
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-    </View>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    </OnboardingShell>
   );
 }

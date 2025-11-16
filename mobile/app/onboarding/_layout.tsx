@@ -1,9 +1,10 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useStore } from '../../src/core/state/store';
 import { OnboardingStep } from '../../src/features/onboarding';
 import { useTheme } from '../../src/core/theme';
+import { OnboardingProvider } from '../../src/features/onboarding/context/OnboardingContext';
 
 /**
  * Onboarding flow shell container.
@@ -50,11 +51,97 @@ export default function OnboardingLayout(): React.JSX.Element {
 
   // Onboarding state
   const currentStep = useStore((state) => state.currentStep);
+  const completedSteps = useStore((state) => state.completedSteps);
+  const skippedSteps = useStore((state) => state.skippedSteps);
   const startOnboarding = useStore((state) => state.startOnboarding);
+  const markStepCompleted = useStore((state) => state.markStepCompleted);
+  const markStepSkipped = useStore((state) => state.markStepSkipped);
   const resetOnboardingState = useStore((state) => state.resetOnboardingState);
+  const updateHasOnboarded = useStore((state) => state.updateHasOnboarded);
 
   // Local initialization state
   const [isInitializing, setIsInitializing] = useState(true);
+
+  /**
+   * Completion handler for onboarding flow.
+   *
+   * Called when user completes onboarding (via final step or global skip).
+   * Performs the following actions:
+   * 1. Optimistically sets hasOnboarded = true via updateHasOnboarded
+   * 2. Clears local onboarding state via resetOnboardingState
+   * 3. Navigates to /home
+   * 4. Logs completion (server-side update placeholder)
+   *
+   * Server failures are logged but do not block navigation or force user
+   * back into onboarding. The optimistic update ensures the user can
+   * proceed immediately.
+   */
+  const handleOnboardingComplete = useCallback(() => {
+    // 1. Optimistically set hasOnboarded = true
+    updateHasOnboarded(true);
+
+    // 2. Clear local onboarding state
+    resetOnboardingState();
+
+    // 3. Navigate to home
+    router.replace('/home');
+
+    // 4. Server-side update (placeholder - will be replaced when #95 is implemented)
+    // For now, just log the completion
+    // eslint-disable-next-line no-console
+    console.log('Onboarding completed', {
+      completedSteps,
+      skippedSteps,
+      timestamp: new Date().toISOString(),
+    });
+
+    // TODO: When story #95 API is available, add:
+    // try {
+    //   await updateUserOnboardingStatus({ hasOnboarded: true });
+    // } catch (error) {
+    //   // Log error but don't block - user already navigated
+    //   console.error('Failed to update onboarding status on server:', error);
+    // }
+  }, [updateHasOnboarded, resetOnboardingState, router, completedSteps, skippedSteps]);
+
+  /**
+   * Handler for primary action (Next/Continue/Get Started).
+   *
+   * On regular steps: marks step as completed and advances to next step.
+   * On final step: triggers completion handler.
+   */
+  const handleNext = useCallback(() => {
+    if (!currentStep) return;
+
+    if (currentStep === 'success') {
+      // Final step - complete onboarding
+      handleOnboardingComplete();
+    } else {
+      // Regular step - mark completed and advance
+      markStepCompleted(currentStep);
+    }
+  }, [currentStep, markStepCompleted, handleOnboardingComplete]);
+
+  /**
+   * Handler for step-level skip.
+   *
+   * Marks current step as skipped and advances to next step.
+   * Only available on optional steps (Preferences, First Item).
+   */
+  const handleSkipStep = useCallback(() => {
+    if (!currentStep) return;
+    markStepSkipped(currentStep);
+  }, [currentStep, markStepSkipped]);
+
+  /**
+   * Handler for global skip onboarding.
+   *
+   * Immediately completes onboarding, skipping all remaining steps.
+   * Available on all non-terminal steps.
+   */
+  const handleSkipOnboarding = useCallback(() => {
+    handleOnboardingComplete();
+  }, [handleOnboardingComplete]);
 
   /**
    * Effect: Handle hasOnboarded gate and onboarding initialization
@@ -167,25 +254,35 @@ export default function OnboardingLayout(): React.JSX.Element {
   }
 
   /**
-   * Render Stack navigator for onboarding steps.
+   * Render Stack navigator for onboarding steps with context provider.
    *
    * This only renders after routing decisions are complete (both isHydrating
    * and isInitializing are false). At this point, either:
    * - User has been redirected to /home (hasOnboarded = true), or
    * - currentStep is set and navigation to the appropriate step is happening
+   *
+   * The OnboardingProvider wraps the Stack to provide navigation handlers
+   * to all child components (screens, shell, footer) via context.
    */
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        gestureEnabled: true,
-      }}
+    <OnboardingProvider
+      currentStep={currentStep}
+      onNext={handleNext}
+      onSkipStep={handleSkipStep}
+      onSkipOnboarding={handleSkipOnboarding}
     >
-      <Stack.Screen name="welcome" />
-      <Stack.Screen name="prefs" />
-      <Stack.Screen name="first-item" />
-      <Stack.Screen name="success" />
-    </Stack>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="prefs" />
+        <Stack.Screen name="first-item" />
+        <Stack.Screen name="success" />
+      </Stack>
+    </OnboardingProvider>
   );
 }
