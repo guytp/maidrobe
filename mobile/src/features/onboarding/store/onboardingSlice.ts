@@ -74,8 +74,9 @@ const initialState: OnboardingState = {
  *
  * @param currentStep - The current step, or null
  * @returns The next step in sequence, or null if at the end or invalid step
+ * @internal Exported for testing purposes only
  */
-function getNextStep(currentStep: OnboardingStep | null): OnboardingStep | null {
+export function getNextStep(currentStep: OnboardingStep | null): OnboardingStep | null {
   if (!currentStep) return 'welcome';
 
   const currentIndex = STEP_ORDER.indexOf(currentStep);
@@ -154,8 +155,9 @@ function isValidStep(step: unknown): step is OnboardingStep {
  *
  * @param state - Persisted state from AsyncStorage
  * @returns Validated state or initial state if invalid
+ * @internal Exported for testing purposes only
  */
-function validatePersistedState(state: unknown): OnboardingState {
+export function validatePersistedState(state: unknown): OnboardingState {
   // Check if state is an object
   if (!state || typeof state !== 'object') {
     return initialState;
