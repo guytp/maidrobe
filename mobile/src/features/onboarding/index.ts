@@ -12,3 +12,6 @@ export { SuccessScreen } from './components/SuccessScreen';
 
 // Hooks
 export { useOnboardingProtection } from './hooks/useOnboardingProtection';
+
+// Store
+export type { OnboardingStep, OnboardingSlice } from './store/onboardingSlice';
