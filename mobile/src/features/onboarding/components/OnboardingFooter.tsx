@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../core/components';
@@ -10,17 +10,24 @@ import { useOnboardingContext } from '../context/OnboardingContext';
  * Onboarding footer component with navigation controls.
  *
  * Renders appropriate navigation buttons based on the current step:
- * - Welcome: Next, Global Skip
- * - Preferences: Next, Skip Step, Global Skip
- * - First Item: Next, Skip Step, Global Skip
+ * - Welcome: Get Started, Skip for now
+ * - Preferences: Next, Skip Step, Skip for now
+ * - First Item: Next, Skip Step, Skip for now
  * - Success: Get Started (no skips)
  *
  * Features:
  * - Conditional button rendering based on step
- * - Primary action (Next/Continue/Get Started)
- * - Step-level skip (optional steps only)
- * - Global skip (all non-terminal steps)
+ * - Primary action (Get Started/Next) with loading state
+ * - Step-level skip (optional steps only) with loading state
+ * - Global skip (all non-terminal steps) with loading state
+ * - Debouncing via loading state prevents rapid double-taps
  * - Safe area insets for proper bottom padding
+ * - Full accessibility support
+ *
+ * Loading State:
+ * When any button is pressed, all buttons enter loading state for 500ms
+ * to prevent rapid multiple taps and provide visual feedback during
+ * navigation. The loading state automatically clears after the timeout.
  *
  * @returns Footer component with navigation buttons
  */
@@ -28,6 +35,9 @@ export function OnboardingFooter(): React.JSX.Element {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   const { currentStep, onNext, onSkipStep, onSkipOnboarding } = useOnboardingContext();
+
+  // Track if any action is in progress (prevents double-tap)
+  const [isActionInProgress, setIsActionInProgress] = useState(false);
 
   // Determine which buttons to show
   const isOptionalStep = currentStep === 'prefs' || currentStep === 'firstItem';
@@ -41,6 +51,65 @@ export function OnboardingFooter(): React.JSX.Element {
     : isWelcomeStep
     ? t('screens.onboarding.footer.buttons.getStarted')
     : t('screens.onboarding.footer.buttons.next');
+
+  /**
+   * Handler for primary action (Get Started / Next).
+   *
+   * Wraps the onNext callback with loading state management to prevent
+   * double-taps and provide visual feedback during navigation.
+   *
+   * Debouncing strategy:
+   * - Immediately sets loading state (disables all buttons)
+   * - Calls onNext() to trigger navigation
+   * - Resets loading state after 500ms timeout
+   * - Early return if already in progress
+   */
+  const handlePrimaryAction = useCallback(() => {
+    if (isActionInProgress) return;
+
+    setIsActionInProgress(true);
+    onNext();
+
+    // Reset loading state after brief delay
+    // This prevents double-tap while providing visual feedback
+    setTimeout(() => {
+      setIsActionInProgress(false);
+    }, 500);
+  }, [onNext, isActionInProgress]);
+
+  /**
+   * Handler for step-level skip action.
+   *
+   * Wraps the onSkipStep callback with loading state management.
+   * Same debouncing strategy as primary action.
+   */
+  const handleSkipStepAction = useCallback(() => {
+    if (isActionInProgress) return;
+
+    setIsActionInProgress(true);
+    onSkipStep();
+
+    setTimeout(() => {
+      setIsActionInProgress(false);
+    }, 500);
+  }, [onSkipStep, isActionInProgress]);
+
+  /**
+   * Handler for global skip onboarding action.
+   *
+   * Wraps the onSkipOnboarding callback with loading state management.
+   * Same debouncing strategy as primary action.
+   */
+  const handleSkipOnboardingAction = useCallback(() => {
+    if (isActionInProgress) return;
+
+    setIsActionInProgress(true);
+    onSkipOnboarding();
+
+    setTimeout(() => {
+      setIsActionInProgress(false);
+    }, 500);
+  }, [onSkipOnboarding, isActionInProgress]);
 
   const styles = useMemo(
     () =>
@@ -60,8 +129,9 @@ export function OnboardingFooter(): React.JSX.Element {
     <View style={styles.footer}>
       {/* Primary action button */}
       <Button
-        onPress={onNext}
+        onPress={handlePrimaryAction}
         variant="primary"
+        loading={isActionInProgress}
         accessibilityLabel={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedLabel')
@@ -79,8 +149,9 @@ export function OnboardingFooter(): React.JSX.Element {
       {/* Step-level skip (only on optional steps) */}
       {isOptionalStep && (
         <Button
-          onPress={onSkipStep}
+          onPress={handleSkipStepAction}
           variant="text"
+          loading={isActionInProgress}
           accessibilityLabel={t('screens.onboarding.footer.accessibility.skipStepLabel')}
           accessibilityHint={t('screens.onboarding.footer.accessibility.skipStepHint')}
         >
@@ -91,8 +162,9 @@ export function OnboardingFooter(): React.JSX.Element {
       {/* Global skip onboarding (all non-terminal steps) */}
       {showGlobalSkip && (
         <Button
-          onPress={onSkipOnboarding}
+          onPress={handleSkipOnboardingAction}
           variant="text"
+          loading={isActionInProgress}
           accessibilityLabel={t('screens.onboarding.footer.accessibility.skipOnboardingLabel')}
           accessibilityHint={t('screens.onboarding.footer.accessibility.skipOnboardingHint')}
         >
