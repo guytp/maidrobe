@@ -21,3 +21,14 @@ export { useOnboardingProtection } from './hooks/useOnboardingProtection';
 
 // Store
 export type { OnboardingStep, OnboardingSlice } from './store/onboardingSlice';
+export { getPreviousStep, STEP_ORDER } from './store/onboardingSlice';
+
+// Analytics
+export {
+  trackStepViewed,
+  trackStepSkipped,
+  trackOnboardingCompleted,
+  trackOnboardingSkippedAll,
+  trackStateReset,
+  trackStateResumed,
+} from './utils/onboardingAnalytics';
