@@ -28,7 +28,11 @@ export default function WelcomeRoute(): React.JSX.Element {
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <ActivityIndicator
+          size="large"
+          color={colors.textPrimary}
+          accessibilityLabel="Loading onboarding"
+        />
       </View>
     );
   }
