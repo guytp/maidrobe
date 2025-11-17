@@ -47,7 +47,6 @@ export interface ItemMetadataFormProps {
 export function ItemMetadataForm({
   initialMetadata,
   onSave,
-  onCancel,
   loading = false,
 }: ItemMetadataFormProps): React.JSX.Element {
   const { colors, colorScheme, spacing, radius } = useTheme();
