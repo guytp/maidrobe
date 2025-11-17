@@ -8,6 +8,7 @@ import { useOnboardingContext } from '../context/OnboardingContext';
 import {
   trackWelcomeGetStartedClicked,
   trackWelcomeSkipped,
+  trackFirstItemSkipped,
 } from '../utils/onboardingAnalytics';
 
 /**
@@ -71,6 +72,8 @@ export function OnboardingFooter(): React.JSX.Element {
     ? t('screens.onboarding.footer.buttons.getStarted')
     : isWelcomeStep
     ? t('screens.onboarding.footer.buttons.getStarted')
+    : currentStep === 'firstItem'
+    ? t('screens.onboarding.firstItem.primaryAction')
     : t('screens.onboarding.footer.buttons.next');
 
   /**
@@ -119,10 +122,20 @@ export function OnboardingFooter(): React.JSX.Element {
    * Handler for step-level skip action.
    *
    * Wraps the onSkipStep callback with loading state management.
+   *
+   * Analytics:
+   * - Fires first_item_skipped with reason 'pure_skip' for firstItem step
+   * - Duplicate prevention via isActionInProgress check
+   *
    * Same debouncing strategy as primary action.
    */
   const handleSkipStepAction = useCallback(() => {
     if (isActionInProgress) return;
+
+    // Fire first-item-specific analytics if on firstItem step
+    if (currentStep === 'firstItem') {
+      trackFirstItemSkipped('pure_skip');
+    }
 
     setIsActionInProgress(true);
     onSkipStep();
@@ -139,7 +152,7 @@ export function OnboardingFooter(): React.JSX.Element {
       timeoutRef.current = null;
     }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
-  }, [onSkipStep]);
+  }, [onSkipStep, currentStep]);
 
   /**
    * Handler for global skip onboarding action.
@@ -201,11 +214,15 @@ export function OnboardingFooter(): React.JSX.Element {
         accessibilityLabel={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedLabel')
+            : currentStep === 'firstItem'
+            ? t('screens.onboarding.firstItem.accessibility.primaryActionLabel')
             : t('screens.onboarding.footer.accessibility.nextLabel')
         }
         accessibilityHint={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedHint')
+            : currentStep === 'firstItem'
+            ? t('screens.onboarding.firstItem.accessibility.primaryActionHint')
             : t('screens.onboarding.footer.accessibility.nextHint')
         }
       >

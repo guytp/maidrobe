@@ -18,16 +18,24 @@ import { useWardrobeItemCount } from '../utils/wardrobeUtils';
  * Features:
  * - Clear value proposition for adding an item now
  * - Explicit messaging that the step is optional
- * - Primary CTA: "Add your first item" (via footer, will trigger camera in future steps)
- * - Secondary CTA: "Skip this step" (via footer)
- * - Tertiary CTA: "Skip for now" (via footer, global skip)
+ * - Primary CTA: "Add your first item" (via OnboardingFooter, customized for this step)
+ * - Secondary CTA: "Skip this step" (via OnboardingFooter, fires first_item_skipped analytics)
+ * - Tertiary CTA: "Skip for now" (via OnboardingFooter, global skip)
  * - Analytics tracking with hasExistingItems flag
  * - Full accessibility support with dynamic font scaling
  * - WCAG AA contrast compliance in light and dark modes
  *
+ * Navigation:
+ * The OnboardingFooter is customized for the firstItem step to:
+ * - Display "Add your first item" as the primary button text
+ * - Fire trackFirstItemSkipped('pure_skip') when "Skip this step" is pressed
+ * - Provide appropriate accessibility labels for screen readers
+ * - Advance to the next onboarding step on skip or next
+ *
  * Implementation status:
- * - Step 1: Analytics integration, UI copy, and onboarding flow integration (current)
- * - Steps 2-5: Camera integration, metadata capture, and item persistence (future)
+ * - Step 1: Analytics integration, UI copy, and onboarding flow integration (complete)
+ * - Step 2: OnboardingFooter customization for firstItem step (complete)
+ * - Steps 3-5: Camera integration, metadata capture, and item persistence (future)
  *
  * Layout:
  * - Portrait-only orientation
