@@ -43,11 +43,11 @@ export function ItemPreviewCard({ item }: ItemPreviewCardProps): React.JSX.Eleme
 
   // Get colour info
   const colour = WARDROBE_COLOUR_PALETTE.find((c) => c.id === item.colour[0]);
-  const colourName = colour ? t(colour.name) : 'Unknown';
+  const colourName = colour ? t(colour.name as Parameters<typeof t>[0]) : 'Unknown';
   const colourHex = colour?.hex || '#CCCCCC';
 
   // Get type label
-  const typeLabel = t(`screens.auth.itemTypes.${item.type}`);
+  const typeLabel = t(`screens.auth.itemTypes.${item.type}` as Parameters<typeof t>[0]);
 
   const styles = useMemo(
     () =>

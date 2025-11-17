@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import { supabase } from '../../../services/supabase';
 import { logSuccess, logError } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import {
@@ -8,7 +7,7 @@ import {
   WardrobeItem,
   WARDROBE_STORAGE_CONFIG,
 } from '../types/wardrobeItem';
-import { processItemImage, imageUriToBlob } from '../utils/imageProcessing';
+import { processItemImage } from '../utils/imageProcessing';
 
 /**
  * Error types for first item creation.
@@ -71,7 +70,7 @@ export function useCreateFirstItem() {
       try {
         // Step 1: Process image (EXIF stripping, compression)
         // PLACEHOLDER: Mock processing
-        const processedImage = await processItemImage(request.imageUri);
+        await processItemImage(request.imageUri);
 
         // Step 2: Upload to Supabase Storage
         // PLACEHOLDER: Mock upload
