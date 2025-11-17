@@ -131,26 +131,14 @@ export function ItemPreviewCard({ item }: ItemPreviewCardProps): React.JSX.Eleme
 
       {/* Item details */}
       <View style={styles.details}>
-        <Text
-          style={styles.typeText}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={styles.typeText} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {typeLabel}
         </Text>
-        <Text
-          style={styles.colourText}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={styles.colourText} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {colourName}
         </Text>
         {item.name && (
-          <Text
-            style={styles.nameText}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.nameText} allowFontScaling={true} maxFontSizeMultiplier={2}>
             &quot;{item.name}&quot;
           </Text>
         )}

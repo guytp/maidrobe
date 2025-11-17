@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { StyleSheet, Text, View, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
@@ -271,11 +279,7 @@ export function ItemMetadataForm({
           >
             {t('screens.onboarding.firstItem.metadata.title')}
           </Text>
-          <Text
-            style={styles.subtitle}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={3}
-          >
+          <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
             {t('screens.onboarding.firstItem.metadata.subtitle')}
           </Text>
         </View>
@@ -283,33 +287,17 @@ export function ItemMetadataForm({
         {/* Form */}
         <View style={styles.formSection}>
           {/* Type Selector */}
-          <TypeSelector
-            value={type}
-            onChange={handleTypeChange}
-            error={typeError}
-          />
+          <TypeSelector value={type} onChange={handleTypeChange} error={typeError} />
 
           {/* Colour Selector */}
-          <ColourSelector
-            value={colourId}
-            onChange={handleColourChange}
-            error={colourError}
-          />
+          <ColourSelector value={colourId} onChange={handleColourChange} error={colourError} />
 
           {/* Name Input */}
           <View style={styles.inputGroup}>
-            <Text
-              style={styles.label}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.label} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.onboarding.firstItem.metadata.nameLabel')}
             </Text>
-            <Text
-              style={styles.helper}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.helper} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.onboarding.firstItem.metadata.nameHelper')}
             </Text>
             <TextInput

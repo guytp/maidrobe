@@ -34,11 +34,7 @@ export interface TypeSelectorProps {
  * @param props - Component props
  * @returns Type selector component
  */
-export function TypeSelector({
-  value,
-  onChange,
-  error,
-}: TypeSelectorProps): React.JSX.Element {
+export function TypeSelector({ value, onChange, error }: TypeSelectorProps): React.JSX.Element {
   const { colors, spacing, radius } = useTheme();
 
   const types: ItemType[] = [
@@ -123,11 +119,7 @@ export function TypeSelector({
         <Text style={styles.required}> *</Text>
       </Text>
 
-      <Text
-        style={styles.helper}
-        allowFontScaling={true}
-        maxFontSizeMultiplier={2}
-      >
+      <Text style={styles.helper} allowFontScaling={true} maxFontSizeMultiplier={2}>
         {t('screens.onboarding.firstItem.metadata.typeHelper')}
       </Text>
 
@@ -143,10 +135,7 @@ export function TypeSelector({
           return (
             <Pressable
               key={type}
-              style={[
-                styles.typeButton,
-                isSelected && styles.typeButtonSelected,
-              ]}
+              style={[styles.typeButton, isSelected && styles.typeButtonSelected]}
               onPress={() => onChange(type)}
               accessibilityRole="button"
               accessibilityLabel={typeLabel}
@@ -154,10 +143,7 @@ export function TypeSelector({
               accessibilityState={{ selected: isSelected }}
             >
               <Text
-                style={[
-                  styles.typeButtonText,
-                  isSelected && styles.typeButtonTextSelected,
-                ]}
+                style={[styles.typeButtonText, isSelected && styles.typeButtonTextSelected]}
                 allowFontScaling={true}
                 maxFontSizeMultiplier={2}
               >
