@@ -169,9 +169,9 @@ export function FirstItemScreen(): React.JSX.Element {
    * Handle metadata form save.
    */
   const handleMetadataSave = useCallback(
-    (metadata: ItemMetadata) => {
+    (_metadata: ItemMetadata) => {
       // Store metadata with captured image
-      // TODO: In Step 5, persist to Supabase here
+      // TODO: In Step 5, persist capturedImageUri and metadata to Supabase here
       // For now, we just track that the item was saved and advance
 
       // Track successful save

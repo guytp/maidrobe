@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { ItemType } from '../types/itemMetadata';
