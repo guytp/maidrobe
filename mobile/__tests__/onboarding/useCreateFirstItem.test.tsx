@@ -139,9 +139,7 @@ describe('useCreateFirstItem', () => {
     });
 
     it('should classify network errors correctly', async () => {
-      (processItemImage as jest.Mock).mockRejectedValue(
-        new Error('network connection failed')
-      );
+      (processItemImage as jest.Mock).mockRejectedValue(new Error('network connection failed'));
 
       queryClient = new QueryClient({
         defaultOptions: {
@@ -163,10 +161,7 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(
-        () => expect(result.current.isError).toBe(true),
-        { timeout: 5000 }
-      );
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
 
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('network');
@@ -197,10 +192,7 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(
-        () => expect(result.current.isError).toBe(true),
-        { timeout: 5000 }
-      );
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
 
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('storage');
@@ -208,9 +200,7 @@ describe('useCreateFirstItem', () => {
     });
 
     it('should classify database errors correctly', async () => {
-      (processItemImage as jest.Mock).mockRejectedValue(
-        new Error('database insert failed')
-      );
+      (processItemImage as jest.Mock).mockRejectedValue(new Error('database insert failed'));
 
       const { result } = renderHook(() => useCreateFirstItem(), {
         wrapper: createWrapper(),
@@ -233,9 +223,7 @@ describe('useCreateFirstItem', () => {
     });
 
     it('should classify unknown errors correctly', async () => {
-      (processItemImage as jest.Mock).mockRejectedValue(
-        new Error('unexpected error occurred')
-      );
+      (processItemImage as jest.Mock).mockRejectedValue(new Error('unexpected error occurred'));
 
       const { result } = renderHook(() => useCreateFirstItem(), {
         wrapper: createWrapper(),
@@ -289,10 +277,7 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(
-        () => expect(result.current.isSuccess).toBe(true),
-        { timeout: 5000 }
-      );
+      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
 
       expect(processItemImage).toHaveBeenCalledTimes(4); // Initial + 3 retries
     });
@@ -327,10 +312,7 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(
-        () => expect(result.current.isSuccess).toBe(true),
-        { timeout: 5000 }
-      );
+      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
 
       expect(processItemImage).toHaveBeenCalledTimes(3); // Initial + 2 retries
     });
@@ -366,9 +348,7 @@ describe('useCreateFirstItem', () => {
     });
 
     it('should not retry database errors', async () => {
-      (processItemImage as jest.Mock).mockRejectedValue(
-        new Error('database constraint violation')
-      );
+      (processItemImage as jest.Mock).mockRejectedValue(new Error('database constraint violation'));
 
       queryClient = new QueryClient({
         defaultOptions: {
@@ -401,12 +381,7 @@ describe('useCreateFirstItem', () => {
     it('should calculate retry delay with exponential backoff and jitter', () => {
       const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0.5);
 
-      const { result } = renderHook(() => useCreateFirstItem(), {
-        wrapper: createWrapper(),
-      });
-
-      // Access the mutation options through the mutation's internal state
-      // We test the formula by calculating expected values
+      // Test the formula by calculating expected values
       const attemptIndex0 = 1000 * Math.pow(2, 0) * (0.5 + 0.5); // = 1000
       const attemptIndex1 = 1000 * Math.pow(2, 1) * (0.5 + 0.5); // = 2000
       const attemptIndex2 = 1000 * Math.pow(2, 2) * (0.5 + 0.5); // = 4000
