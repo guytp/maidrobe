@@ -18,6 +18,10 @@ export interface OnboardingContextValue {
   onSkipOnboarding: () => void;
   /** Handler for back navigation */
   onBack: () => void;
+  /** Optional custom primary handler (overrides onNext for specific steps) */
+  customPrimaryHandler?: (() => void) | null;
+  /** Set custom primary handler */
+  setCustomPrimaryHandler?: (handler: (() => void) | null) => void;
 }
 
 /**
@@ -40,6 +44,10 @@ export interface OnboardingProviderProps {
   onSkipOnboarding: () => void;
   /** Handler for back navigation */
   onBack: () => void;
+  /** Optional custom primary handler */
+  customPrimaryHandler?: (() => void) | null;
+  /** Set custom primary handler */
+  setCustomPrimaryHandler?: (handler: (() => void) | null) => void;
   /** Child components */
   children: React.ReactNode;
 }
@@ -51,6 +59,9 @@ export interface OnboardingProviderProps {
  * This allows the shell and footer components to access navigation functions
  * without prop drilling.
  *
+ * Supports custom primary handlers for steps that need special behavior
+ * (e.g., opening camera before advancing).
+ *
  * @param props - Provider props
  * @returns Provider component
  */
@@ -60,6 +71,8 @@ export function OnboardingProvider({
   onSkipStep,
   onSkipOnboarding,
   onBack,
+  customPrimaryHandler,
+  setCustomPrimaryHandler,
   children,
 }: OnboardingProviderProps): React.JSX.Element {
   const value: OnboardingContextValue = {
@@ -68,6 +81,8 @@ export function OnboardingProvider({
     onSkipStep,
     onSkipOnboarding,
     onBack,
+    customPrimaryHandler,
+    setCustomPrimaryHandler,
   };
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;
