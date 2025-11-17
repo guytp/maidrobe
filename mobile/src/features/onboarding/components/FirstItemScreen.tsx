@@ -66,7 +66,6 @@ export function FirstItemScreen(): React.JSX.Element {
 
   // Camera flow state
   const [showCamera, setShowCamera] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<{ uri: string } | null>(null);
 
   // Track first item screen view once on mount
   useEffect(() => {
@@ -138,10 +137,10 @@ export function FirstItemScreen(): React.JSX.Element {
    * Handle successful photo capture from camera.
    */
   const handleCameraCapture = useCallback(
-    (image: { uri: string }) => {
-      setCapturedImage(image);
+    (_image: { uri: string }) => {
       setShowCamera(false);
       // Proceed to next step (will be metadata form in Step 4)
+      // TODO: Pass captured image to metadata form in Step 4
       onNext();
     },
     [onNext]
