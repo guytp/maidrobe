@@ -42,7 +42,7 @@ export function ColourSelector({
   onChange,
   error,
 }: ColourSelectorProps): React.JSX.Element {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing } = useTheme();
 
   const styles = useMemo(
     () =>
@@ -108,7 +108,7 @@ export function ColourSelector({
           marginTop: spacing.xs,
         },
       }),
-    [colors, spacing, radius]
+    [colors, spacing]
   );
 
   return (
@@ -140,7 +140,7 @@ export function ColourSelector({
         <View style={styles.gridContainer}>
           {WARDROBE_COLOUR_PALETTE.map((colour) => {
             const isSelected = value === colour.id;
-            const colourLabel = t(colour.name);
+            const colourLabel = t(colour.name as Parameters<typeof t>[0]);
 
             return (
               <Pressable
