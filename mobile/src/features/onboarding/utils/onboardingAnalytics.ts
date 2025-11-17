@@ -274,3 +274,147 @@ export function trackWelcomeSkipped(): void {
     console.warn('[Onboarding Analytics] Failed to track welcome_skipped:', error);
   }
 }
+
+/**
+ * Track when first item screen is viewed.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when the first item capture step becomes visible in a session.
+ * Guarded against re-renders via useRef in the component.
+ *
+ * First-item-specific event that provides finer granularity than the generic
+ * step_viewed event for analytics and funnel tracking. Includes hasExistingItems
+ * flag to understand if users are adding their very first item or have items already.
+ *
+ * @param isResume - Whether this is a resumed session (vs fresh start)
+ * @param hasExistingItems - Whether the user already has items in their wardrobe
+ */
+export function trackFirstItemViewed(isResume: boolean, hasExistingItems: boolean): void {
+  try {
+    logSuccess('onboarding', 'first_item_viewed', {
+      data: {
+        step: 'firstItem',
+        isResume,
+        hasExistingItems,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_viewed:', error);
+  }
+}
+
+/**
+ * Track when user starts camera capture from first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when the camera capture UI successfully opens from the first item step.
+ * This indicates the user has engaged with the primary CTA and begun the capture flow.
+ *
+ * First-item-specific event that tracks engagement with the camera capture feature
+ * and measures drop-off between viewing the step and starting capture.
+ */
+export function trackFirstItemStartedCapture(): void {
+  try {
+    logSuccess('onboarding', 'first_item_started_capture', {
+      data: {
+        step: 'firstItem',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_started_capture:', error);
+  }
+}
+
+/**
+ * Track when user successfully saves their first item.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when an item is successfully created and persisted to the database
+ * from the first item onboarding step. This represents successful completion of
+ * the item capture flow.
+ *
+ * First-item-specific event that tracks successful item creation during onboarding.
+ * Should be fired exactly once per successfully saved item to avoid double-counting.
+ */
+export function trackFirstItemSavedSuccess(): void {
+  try {
+    logSuccess('onboarding', 'first_item_saved_success', {
+      data: {
+        step: 'firstItem',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_saved_success:', error);
+  }
+}
+
+/**
+ * Track when item save fails during first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted each time a save/upload attempt fails, including retries.
+ * Includes a coarse errorType to help diagnose common failure patterns
+ * without exposing sensitive error details.
+ *
+ * First-item-specific event that tracks failures during item persistence.
+ * Helps identify systemic issues with uploads, network connectivity, or
+ * database operations during the onboarding flow.
+ *
+ * @param errorType - Coarse error classification (e.g., 'upload', 'db_insert', 'timeout', 'offline')
+ */
+export function trackFirstItemSaveFailed(errorType: string): void {
+  try {
+    logSuccess('onboarding', 'first_item_save_failed', {
+      data: {
+        step: 'firstItem',
+        errorType,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_save_failed:', error);
+  }
+}
+
+/**
+ * Track when user skips the first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when the user leaves the first item step without creating an item,
+ * via either "Skip this step" or "Do this later" actions. The reason field
+ * helps distinguish between different skip contexts.
+ *
+ * First-item-specific event that tracks users who choose not to add an item
+ * during onboarding. The reason provides context about why they skipped:
+ * - 'pure_skip': User clicked "Skip this step" without attempting capture
+ * - 'failure_then_skip': User attempted capture/save but hit errors and chose "Do this later"
+ * - 'permission_denied_then_skip': User denied camera permission and chose "Do this later"
+ *
+ * @param reason - Context for why the step was skipped
+ */
+export function trackFirstItemSkipped(reason: string): void {
+  try {
+    logSuccess('onboarding', 'first_item_skipped', {
+      data: {
+        step: 'firstItem',
+        reason,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_skipped:', error);
+  }
+}
