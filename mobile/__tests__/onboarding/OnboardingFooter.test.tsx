@@ -45,14 +45,14 @@ describe('OnboardingFooter', () => {
   });
 
   describe('Welcome Step (First Step)', () => {
-    it('should render primary button with "Next" label', () => {
+    it('should render primary button with "Get Started" label', () => {
       const { getByText } = render(
         <TestWrapper currentStep="welcome">
           <OnboardingFooter />
         </TestWrapper>
       );
 
-      expect(getByText('Next')).toBeTruthy();
+      expect(getByText('Get Started')).toBeTruthy();
     });
 
     it('should NOT render Skip Step button', () => {
@@ -72,19 +72,19 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
-    it('should have correct accessibility label for Next button', () => {
+    it('should have correct accessibility label for Get Started button', () => {
       const { getByLabelText } = render(
         <TestWrapper currentStep="welcome">
           <OnboardingFooter />
         </TestWrapper>
       );
 
-      const nextButton = getByLabelText('Next');
-      expect(nextButton).toBeTruthy();
-      expect(nextButton.props.accessibilityHint).toBe('Continue to next onboarding step');
+      const getStartedButton = getByLabelText('Get Started');
+      expect(getStartedButton).toBeTruthy();
+      expect(getStartedButton.props.accessibilityHint).toBe('Complete onboarding and go to home screen');
     });
 
     it('should have correct accessibility label for Global Skip button', () => {
@@ -94,22 +94,22 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const skipButton = getByLabelText('Skip onboarding');
+      const skipButton = getByLabelText('Skip for now');
       expect(skipButton).toBeTruthy();
       expect(skipButton.props.accessibilityHint).toBe(
         'Skip the entire onboarding process and go directly to the app'
       );
     });
 
-    it('should call onNext when Next button is pressed', () => {
+    it('should call onNext when Get Started button is pressed', () => {
       const { getByText } = render(
         <TestWrapper currentStep="welcome">
           <OnboardingFooter />
         </TestWrapper>
       );
 
-      const nextButton = getByText('Next');
-      fireEvent.press(nextButton);
+      const getStartedButton = getByText('Get Started');
+      fireEvent.press(getStartedButton);
 
       expect(mockOnNext).toHaveBeenCalledTimes(1);
       expect(mockOnSkipStep).not.toHaveBeenCalled();
@@ -123,7 +123,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const skipButton = getByText('Skip onboarding');
+      const skipButton = getByText('Skip for now');
       fireEvent.press(skipButton);
 
       expect(mockOnSkipOnboarding).toHaveBeenCalledTimes(1);
@@ -160,7 +160,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
     it('should have all three buttons visible', () => {
@@ -172,7 +172,7 @@ describe('OnboardingFooter', () => {
 
       expect(getByText('Next')).toBeTruthy();
       expect(getByText('Skip this step')).toBeTruthy();
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
     it('should have correct accessibility label for Skip Step button', () => {
@@ -226,7 +226,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const skipOnboardingButton = getByText('Skip onboarding');
+      const skipOnboardingButton = getByText('Skip for now');
       fireEvent.press(skipOnboardingButton);
 
       expect(mockOnSkipOnboarding).toHaveBeenCalledTimes(1);
@@ -263,7 +263,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
     it('should have all three buttons visible', () => {
@@ -275,7 +275,7 @@ describe('OnboardingFooter', () => {
 
       expect(getByText('Next')).toBeTruthy();
       expect(getByText('Skip this step')).toBeTruthy();
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
     it('should call onNext when Next button is pressed', () => {
@@ -315,7 +315,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const skipOnboardingButton = getByText('Skip onboarding');
+      const skipOnboardingButton = getByText('Skip for now');
       fireEvent.press(skipOnboardingButton);
 
       expect(mockOnSkipOnboarding).toHaveBeenCalledTimes(1);
@@ -339,11 +339,11 @@ describe('OnboardingFooter', () => {
       // Both should have same button structure
       expect(prefsRender.getByText('Next')).toBeTruthy();
       expect(prefsRender.getByText('Skip this step')).toBeTruthy();
-      expect(prefsRender.getByText('Skip onboarding')).toBeTruthy();
+      expect(prefsRender.getByText('Skip for now')).toBeTruthy();
 
       expect(firstItemRender.getByText('Next')).toBeTruthy();
       expect(firstItemRender.getByText('Skip this step')).toBeTruthy();
-      expect(firstItemRender.getByText('Skip onboarding')).toBeTruthy();
+      expect(firstItemRender.getByText('Skip for now')).toBeTruthy();
     });
   });
 
@@ -431,15 +431,15 @@ describe('OnboardingFooter', () => {
   });
 
   describe('i18n Integration', () => {
-    it('should use i18n for Next button label', () => {
+    it('should use i18n for Get Started button label on welcome step', () => {
       const { getByText } = render(
         <TestWrapper currentStep="welcome">
           <OnboardingFooter />
         </TestWrapper>
       );
 
-      // Verifies i18n key: screens.onboarding.footer.buttons.next
-      expect(getByText('Next')).toBeTruthy();
+      // Verifies i18n key: screens.onboarding.footer.buttons.getStarted
+      expect(getByText('Get Started')).toBeTruthy();
     });
 
     it('should use i18n for Get Started button label', () => {
@@ -472,19 +472,19 @@ describe('OnboardingFooter', () => {
       );
 
       // Verifies i18n key: screens.onboarding.footer.buttons.skipOnboarding
-      expect(getByText('Skip onboarding')).toBeTruthy();
+      expect(getByText('Skip for now')).toBeTruthy();
     });
 
-    it('should use i18n for Next button accessibility attributes', () => {
+    it('should use i18n for Get Started button accessibility attributes on welcome step', () => {
       const { getByLabelText } = render(
         <TestWrapper currentStep="welcome">
           <OnboardingFooter />
         </TestWrapper>
       );
 
-      // Verifies i18n keys: accessibility.nextLabel and accessibility.nextHint
-      const button = getByLabelText('Next');
-      expect(button.props.accessibilityHint).toBe('Continue to next onboarding step');
+      // Verifies i18n keys: accessibility.getStartedLabel and accessibility.getStartedHint
+      const button = getByLabelText('Get Started');
+      expect(button.props.accessibilityHint).toBe('Complete onboarding and go to home screen');
     });
 
     it('should use i18n for Get Started button accessibility attributes', () => {
@@ -519,7 +519,7 @@ describe('OnboardingFooter', () => {
       );
 
       // Verifies i18n keys: accessibility.skipOnboardingLabel and accessibility.skipOnboardingHint
-      const button = getByLabelText('Skip onboarding');
+      const button = getByLabelText('Skip for now');
       expect(button.props.accessibilityHint).toBe(
         'Skip the entire onboarding process and go directly to the app'
       );
@@ -534,9 +534,9 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const nextButton = getByText('Next');
+      const getStartedButton = getByText('Get Started');
       // Primary buttons should have the primary styling
-      expect(nextButton).toBeTruthy();
+      expect(getStartedButton).toBeTruthy();
     });
 
     it('should render Skip Step button with text variant', () => {
@@ -558,7 +558,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      const skipOnboardingButton = getByText('Skip onboarding');
+      const skipOnboardingButton = getByText('Skip for now');
       // Skip buttons should have text variant styling
       expect(skipOnboardingButton).toBeTruthy();
     });
@@ -620,7 +620,7 @@ describe('OnboardingFooter', () => {
           </TestWrapper>
         );
 
-        expect(getByText('Skip onboarding')).toBeTruthy();
+        expect(getByText('Skip for now')).toBeTruthy();
       });
     });
 
@@ -631,7 +631,7 @@ describe('OnboardingFooter', () => {
         </TestWrapper>
       );
 
-      expect(queryByText('Skip onboarding')).toBeNull();
+      expect(queryByText('Skip for now')).toBeNull();
     });
   });
 });
