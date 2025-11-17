@@ -16,10 +16,14 @@ export interface ItemMetadataFormProps {
   initialMetadata?: ItemMetadata;
   /** Handler for form submission */
   onSave: (metadata: ItemMetadata) => void;
-  /** Handler for cancellation (optional) */
-  onCancel?: () => void;
+  /** Handler for retry after error */
+  onRetry?: () => void;
+  /** Handler for skip after error */
+  onSkip?: () => void;
   /** Loading state during save */
   loading?: boolean;
+  /** Error message to display */
+  error?: string | null;
 }
 
 /**
@@ -47,7 +51,10 @@ export interface ItemMetadataFormProps {
 export function ItemMetadataForm({
   initialMetadata,
   onSave,
+  onRetry,
+  onSkip,
   loading = false,
+  error = null,
 }: ItemMetadataFormProps): React.JSX.Element {
   const { colors, colorScheme, spacing, radius } = useTheme();
 
@@ -215,6 +222,28 @@ export function ItemMetadataForm({
           marginTop: spacing.md,
           gap: spacing.md,
         },
+        errorContainer: {
+          marginTop: spacing.lg,
+          padding: spacing.md,
+          backgroundColor: colors.error + '10',
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: colors.error,
+        },
+        errorMessage: {
+          color: colors.error,
+          fontSize: 16,
+          marginBottom: spacing.md,
+          textAlign: 'center',
+        },
+        errorButtonContainer: {
+          flexDirection: 'row',
+          gap: spacing.md,
+          justifyContent: 'center',
+        },
+        errorButton: {
+          flex: 1,
+        },
       }),
     [colors, spacing, radius]
   );
@@ -318,18 +347,56 @@ export function ItemMetadataForm({
           </View>
         </View>
 
+        {/* Error View */}
+        {error && !loading && (
+          <View style={styles.errorContainer}>
+            <Text
+              style={styles.errorMessage}
+              accessibilityRole="alert"
+              allowFontScaling={true}
+              maxFontSizeMultiplier={2}
+            >
+              {error}
+            </Text>
+            <View style={styles.errorButtonContainer}>
+              {onRetry && (
+                <Button
+                  onPress={onRetry}
+                  variant="secondary"
+                  accessibilityLabel={t('screens.onboarding.firstItem.metadata.retryButton')}
+                  accessibilityHint="Retry saving the item"
+                >
+                  {t('screens.onboarding.firstItem.metadata.retryButton')}
+                </Button>
+              )}
+              {onSkip && (
+                <Button
+                  onPress={onSkip}
+                  variant="text"
+                  accessibilityLabel={t('screens.onboarding.firstItem.metadata.skipButton')}
+                  accessibilityHint="Skip saving and continue onboarding"
+                >
+                  {t('screens.onboarding.firstItem.metadata.skipButton')}
+                </Button>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Save Button */}
-        <View style={styles.buttonContainer}>
-          <Button
-            onPress={handleSave}
-            disabled={!isFormValid || loading}
-            loading={loading}
-            accessibilityLabel={t('screens.onboarding.firstItem.accessibility.saveButton')}
-            accessibilityHint={t('screens.onboarding.firstItem.accessibility.saveButtonHint')}
-          >
-            {t('screens.onboarding.firstItem.metadata.saveButton')}
-          </Button>
-        </View>
+        {!error && (
+          <View style={styles.buttonContainer}>
+            <Button
+              onPress={handleSave}
+              disabled={!isFormValid || loading}
+              loading={loading}
+              accessibilityLabel={t('screens.onboarding.firstItem.accessibility.saveButton')}
+              accessibilityHint={t('screens.onboarding.firstItem.accessibility.saveButtonHint')}
+            >
+              {t('screens.onboarding.firstItem.metadata.saveButton')}
+            </Button>
+          </View>
+        )}
       </ScrollView>
 
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
