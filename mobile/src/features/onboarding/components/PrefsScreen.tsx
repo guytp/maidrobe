@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
@@ -10,7 +18,12 @@ import { useSavePrefs } from '../api/useSavePrefs';
 import { useStore } from '../../../core/state/store';
 import { toFormData, hasAnyData } from '../utils/prefsMapping';
 import { EXCLUSION_TAGS, DEFAULT_PREFS_FORM_DATA } from '../utils/prefsTypes';
-import type { PrefsFormData, ColourTendency, ExclusionTag, NoRepeatWindow } from '../utils/prefsTypes';
+import type {
+  PrefsFormData,
+  ColourTendency,
+  ExclusionTag,
+  NoRepeatWindow,
+} from '../utils/prefsTypes';
 import { MAX_COMFORT_NOTES_LENGTH } from '../utils/prefsValidation';
 import { trackPrefsViewed, trackPrefsSaved, trackPrefsSkipped } from '../utils/onboardingAnalytics';
 import { logError } from '../../../core/telemetry';
@@ -37,7 +50,11 @@ import { logError } from '../../../core/telemetry';
  */
 export function PrefsScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
-  const { currentStep, onNext: defaultOnNext, onSkipStep: defaultOnSkipStep } = useOnboardingContext();
+  const {
+    currentStep,
+    onNext: defaultOnNext,
+    onSkipStep: defaultOnSkipStep,
+  } = useOnboardingContext();
 
   // Get userId from store
   const userId = useStore((state) => state.user?.id);
@@ -126,15 +143,11 @@ export function PrefsScreen(): React.JSX.Element {
 
     // Guard: userId is required
     if (!userId) {
-      logError(
-        new Error('User ID not available'),
-        'user',
-        {
-          feature: 'onboarding',
-          operation: 'prefs_save',
-          metadata: { step: 'prefs', reason: 'no_user_id' },
-        }
-      );
+      logError(new Error('User ID not available'), 'user', {
+        feature: 'onboarding',
+        operation: 'prefs_save',
+        metadata: { step: 'prefs', reason: 'no_user_id' },
+      });
       setErrorMessage('Unable to save preferences. Please try again.');
       // Still navigate forward (non-blocking)
       defaultOnNext();
@@ -170,15 +183,11 @@ export function PrefsScreen(): React.JSX.Element {
       defaultOnNext();
     } catch (err) {
       // Error: Log, show message, but still navigate (non-blocking)
-      logError(
-        err instanceof Error ? err : new Error(String(err)),
-        'network',
-        {
-          feature: 'onboarding',
-          operation: 'prefs_save',
-          metadata: { step: 'prefs', hasExistingRow: prefsRow !== null },
-        }
-      );
+      logError(err instanceof Error ? err : new Error(String(err)), 'network', {
+        feature: 'onboarding',
+        operation: 'prefs_save',
+        metadata: { step: 'prefs', hasExistingRow: prefsRow !== null },
+      });
       setErrorMessage('Could not save your preferences, but you can continue.');
 
       // Navigate forward anyway
@@ -342,264 +351,295 @@ export function PrefsScreen(): React.JSX.Element {
       onBack={() => {}}
     >
       <OnboardingShell>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        accessibilityLabel={t('screens.onboarding.prefs.accessibility.screenLabel')}
-      >
-        <View style={styles.container}>
-          <Text
-            style={styles.title}
-            accessibilityRole="header"
-            allowFontScaling={true}
-            maxFontSizeMultiplier={3}
-          >
-            {t('screens.onboarding.prefs.title')}
-          </Text>
-          <Text
-            style={styles.subtitle}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2}
-          >
-            {t('screens.onboarding.prefs.subtitle')}
-          </Text>
-
-          {showError && (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          accessibilityLabel={t('screens.onboarding.prefs.accessibility.screenLabel')}
+        >
+          <View style={styles.container}>
             <Text
-              style={styles.helperText}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {t('screens.onboarding.prefs.errorLoading')}
-            </Text>
-          )}
-
-          {errorMessage && (
-            <Text
-              style={styles.helperText}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {errorMessage}
-            </Text>
-          )}
-
-          {/* Section 1: Colour Tendencies */}
-          <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
+              style={styles.title}
               accessibilityRole="header"
               allowFontScaling={true}
-              maxFontSizeMultiplier={2}
+              maxFontSizeMultiplier={3}
             >
-              {t('screens.onboarding.prefs.colourTendency.label')}
+              {t('screens.onboarding.prefs.title')}
+            </Text>
+            <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={2}>
+              {t('screens.onboarding.prefs.subtitle')}
             </Text>
 
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleColourTendencyChange('neutrals')}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.colourTendency === 'neutrals' }}
-              accessibilityLabel={t('screens.onboarding.prefs.colourTendency.neutrals')}
-            >
-              <View style={[styles.radioOuter, formData.colourTendency === 'neutrals' && styles.radioOuterSelected]}>
-                {formData.colourTendency === 'neutrals' && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.colourTendency.neutrals')}
+            {showError && (
+              <Text style={styles.helperText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                {t('screens.onboarding.prefs.errorLoading')}
               </Text>
-            </Pressable>
+            )}
 
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleColourTendencyChange('some_colour')}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.colourTendency === 'some_colour' }}
-              accessibilityLabel={t('screens.onboarding.prefs.colourTendency.someColour')}
-            >
-              <View style={[styles.radioOuter, formData.colourTendency === 'some_colour' && styles.radioOuterSelected]}>
-                {formData.colourTendency === 'some_colour' && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.colourTendency.someColour')}
+            {errorMessage && (
+              <Text style={styles.helperText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                {errorMessage}
               </Text>
-            </Pressable>
+            )}
 
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleColourTendencyChange('bold_colours')}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.colourTendency === 'bold_colours' }}
-              accessibilityLabel={t('screens.onboarding.prefs.colourTendency.boldColours')}
-            >
-              <View style={[styles.radioOuter, formData.colourTendency === 'bold_colours' && styles.radioOuterSelected]}>
-                {formData.colourTendency === 'bold_colours' && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.colourTendency.boldColours')}
+            {/* Section 1: Colour Tendencies */}
+            <View style={styles.section}>
+              <Text
+                style={styles.sectionLabel}
+                accessibilityRole="header"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {t('screens.onboarding.prefs.colourTendency.label')}
               </Text>
-            </Pressable>
 
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleColourTendencyChange('not_sure')}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.colourTendency === 'not_sure' }}
-              accessibilityLabel={t('screens.onboarding.prefs.colourTendency.notSure')}
-            >
-              <View style={[styles.radioOuter, formData.colourTendency === 'not_sure' && styles.radioOuterSelected]}>
-                {formData.colourTendency === 'not_sure' && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.colourTendency.notSure')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Section 2: Item/Style Exclusions */}
-          <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
-              accessibilityRole="header"
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {t('screens.onboarding.prefs.exclusions.label')}
-            </Text>
-
-            {EXCLUSION_TAGS.map((tag) => {
-              const isChecked = formData.exclusions.checklist.includes(tag);
-              return (
-                <Pressable
-                  key={tag}
-                  style={styles.optionRow}
-                  onPress={() => handleExclusionToggle(tag)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isChecked }}
-                  accessibilityLabel={t(`screens.onboarding.prefs.exclusions.${tag}`)}
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleColourTendencyChange('neutrals')}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.colourTendency === 'neutrals' }}
+                accessibilityLabel={t('screens.onboarding.prefs.colourTendency.neutrals')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.colourTendency === 'neutrals' && styles.radioOuterSelected,
+                  ]}
                 >
-                  <View style={[styles.checkboxOuter, isChecked && styles.checkboxOuterSelected]}>
-                    {isChecked && <View style={styles.checkboxInner} />}
-                  </View>
-                  <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                    {t(`screens.onboarding.prefs.exclusions.${tag}`)}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                  {formData.colourTendency === 'neutrals' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.colourTendency.neutrals')}
+                </Text>
+              </Pressable>
 
-            <Text
-              style={[styles.sectionLabel, { marginTop: spacing.md }]}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {t('screens.onboarding.prefs.exclusions.freeTextLabel')}
-            </Text>
-            <TextInput
-              style={[styles.textInput, styles.textInputMultiline]}
-              value={formData.exclusions.freeText}
-              onChangeText={handleExclusionsFreeTextChange}
-              placeholder={t('screens.onboarding.prefs.exclusions.freeTextPlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              multiline={true}
-              numberOfLines={3}
-              accessibilityLabel={t('screens.onboarding.prefs.exclusions.freeTextLabel')}
-              accessibilityHint={t('screens.onboarding.prefs.exclusions.freeTextHint')}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            />
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleColourTendencyChange('some_colour')}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.colourTendency === 'some_colour' }}
+                accessibilityLabel={t('screens.onboarding.prefs.colourTendency.someColour')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.colourTendency === 'some_colour' && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.colourTendency === 'some_colour' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.colourTendency.someColour')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleColourTendencyChange('bold_colours')}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.colourTendency === 'bold_colours' }}
+                accessibilityLabel={t('screens.onboarding.prefs.colourTendency.boldColours')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.colourTendency === 'bold_colours' && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.colourTendency === 'bold_colours' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.colourTendency.boldColours')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleColourTendencyChange('not_sure')}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.colourTendency === 'not_sure' }}
+                accessibilityLabel={t('screens.onboarding.prefs.colourTendency.notSure')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.colourTendency === 'not_sure' && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.colourTendency === 'not_sure' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.colourTendency.notSure')}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Section 2: Item/Style Exclusions */}
+            <View style={styles.section}>
+              <Text
+                style={styles.sectionLabel}
+                accessibilityRole="header"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {t('screens.onboarding.prefs.exclusions.label')}
+              </Text>
+
+              {EXCLUSION_TAGS.map((tag) => {
+                const isChecked = formData.exclusions.checklist.includes(tag);
+                return (
+                  <Pressable
+                    key={tag}
+                    style={styles.optionRow}
+                    onPress={() => handleExclusionToggle(tag)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isChecked }}
+                    accessibilityLabel={t(`screens.onboarding.prefs.exclusions.${tag}`)}
+                  >
+                    <View style={[styles.checkboxOuter, isChecked && styles.checkboxOuterSelected]}>
+                      {isChecked && <View style={styles.checkboxInner} />}
+                    </View>
+                    <Text
+                      style={styles.optionText}
+                      allowFontScaling={true}
+                      maxFontSizeMultiplier={2}
+                    >
+                      {t(`screens.onboarding.prefs.exclusions.${tag}`)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+
+              <Text
+                style={[styles.sectionLabel, { marginTop: spacing.md }]}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {t('screens.onboarding.prefs.exclusions.freeTextLabel')}
+              </Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputMultiline]}
+                value={formData.exclusions.freeText}
+                onChangeText={handleExclusionsFreeTextChange}
+                placeholder={t('screens.onboarding.prefs.exclusions.freeTextPlaceholder')}
+                placeholderTextColor={colors.textSecondary}
+                multiline={true}
+                numberOfLines={3}
+                accessibilityLabel={t('screens.onboarding.prefs.exclusions.freeTextLabel')}
+                accessibilityHint={t('screens.onboarding.prefs.exclusions.freeTextHint')}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              />
+            </View>
+
+            {/* Section 3: No-Repeat Window */}
+            <View style={styles.section}>
+              <Text
+                style={styles.sectionLabel}
+                accessibilityRole="header"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {t('screens.onboarding.prefs.noRepeat.label')}
+              </Text>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleNoRepeatWindowChange(0)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.noRepeatWindow === 0 }}
+                accessibilityLabel={t('screens.onboarding.prefs.noRepeat.okayWithRepeats')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.noRepeatWindow === 0 && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.noRepeatWindow === 0 && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.noRepeat.okayWithRepeats')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleNoRepeatWindowChange(7)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.noRepeatWindow === 7 }}
+                accessibilityLabel={t('screens.onboarding.prefs.noRepeat.oneWeek')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.noRepeatWindow === 7 && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.noRepeatWindow === 7 && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.noRepeat.oneWeek')}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.optionRow}
+                onPress={() => handleNoRepeatWindowChange(14)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: formData.noRepeatWindow === 14 }}
+                accessibilityLabel={t('screens.onboarding.prefs.noRepeat.twoWeeks')}
+              >
+                <View
+                  style={[
+                    styles.radioOuter,
+                    formData.noRepeatWindow === 14 && styles.radioOuterSelected,
+                  ]}
+                >
+                  {formData.noRepeatWindow === 14 && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
+                  {t('screens.onboarding.prefs.noRepeat.twoWeeks')}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Section 4: Comfort/Style Notes */}
+            <View style={styles.section}>
+              <Text
+                style={styles.sectionLabel}
+                accessibilityRole="header"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {t('screens.onboarding.prefs.comfortNotes.label')}
+              </Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputMultiline]}
+                value={formData.comfortNotes}
+                onChangeText={handleComfortNotesChange}
+                placeholder={t('screens.onboarding.prefs.comfortNotes.placeholder')}
+                placeholderTextColor={colors.textSecondary}
+                multiline={true}
+                numberOfLines={4}
+                maxLength={MAX_COMFORT_NOTES_LENGTH}
+                accessibilityLabel={t('screens.onboarding.prefs.comfortNotes.label')}
+                accessibilityHint={t('screens.onboarding.prefs.comfortNotes.hint')}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              />
+              <Text
+                style={styles.characterCount}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.5}
+              >
+                {formData.comfortNotes.length} / {MAX_COMFORT_NOTES_LENGTH}
+              </Text>
+            </View>
           </View>
 
-          {/* Section 3: No-Repeat Window */}
-          <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
-              accessibilityRole="header"
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {t('screens.onboarding.prefs.noRepeat.label')}
-            </Text>
-
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleNoRepeatWindowChange(0)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.noRepeatWindow === 0 }}
-              accessibilityLabel={t('screens.onboarding.prefs.noRepeat.okayWithRepeats')}
-            >
-              <View style={[styles.radioOuter, formData.noRepeatWindow === 0 && styles.radioOuterSelected]}>
-                {formData.noRepeatWindow === 0 && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.noRepeat.okayWithRepeats')}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleNoRepeatWindowChange(7)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.noRepeatWindow === 7 }}
-              accessibilityLabel={t('screens.onboarding.prefs.noRepeat.oneWeek')}
-            >
-              <View style={[styles.radioOuter, formData.noRepeatWindow === 7 && styles.radioOuterSelected]}>
-                {formData.noRepeatWindow === 7 && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.noRepeat.oneWeek')}
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.optionRow}
-              onPress={() => handleNoRepeatWindowChange(14)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: formData.noRepeatWindow === 14 }}
-              accessibilityLabel={t('screens.onboarding.prefs.noRepeat.twoWeeks')}
-            >
-              <View style={[styles.radioOuter, formData.noRepeatWindow === 14 && styles.radioOuterSelected]}>
-                {formData.noRepeatWindow === 14 && <View style={styles.radioInner} />}
-              </View>
-              <Text style={styles.optionText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-                {t('screens.onboarding.prefs.noRepeat.twoWeeks')}
-              </Text>
-            </Pressable>
-          </View>
-
-          {/* Section 4: Comfort/Style Notes */}
-          <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
-              accessibilityRole="header"
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            >
-              {t('screens.onboarding.prefs.comfortNotes.label')}
-            </Text>
-            <TextInput
-              style={[styles.textInput, styles.textInputMultiline]}
-              value={formData.comfortNotes}
-              onChangeText={handleComfortNotesChange}
-              placeholder={t('screens.onboarding.prefs.comfortNotes.placeholder')}
-              placeholderTextColor={colors.textSecondary}
-              multiline={true}
-              numberOfLines={4}
-              maxLength={MAX_COMFORT_NOTES_LENGTH}
-              accessibilityLabel={t('screens.onboarding.prefs.comfortNotes.label')}
-              accessibilityHint={t('screens.onboarding.prefs.comfortNotes.hint')}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={2}
-            />
-            <Text style={styles.characterCount} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
-              {formData.comfortNotes.length} / {MAX_COMFORT_NOTES_LENGTH}
-            </Text>
-          </View>
-        </View>
-
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </ScrollView>
-    </OnboardingShell>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </ScrollView>
+      </OnboardingShell>
     </OnboardingProvider>
   );
 }
