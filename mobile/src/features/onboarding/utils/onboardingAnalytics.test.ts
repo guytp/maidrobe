@@ -10,13 +10,12 @@ import {
   trackWelcomeSkipped,
 } from './onboardingAnalytics';
 import type { OnboardingStep } from '../store/onboardingSlice';
+import { logSuccess } from '../../../core/telemetry';
 
 // Mock telemetry module
 jest.mock('../../../core/telemetry', () => ({
   logSuccess: jest.fn(),
 }));
-
-import { logSuccess } from '../../../core/telemetry';
 
 describe('onboardingAnalytics', () => {
   let consoleWarnSpy: jest.SpyInstance;
