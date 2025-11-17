@@ -42,7 +42,11 @@ export function WelcomeScreen(): React.JSX.Element {
 
   // Track welcome screen view once on mount
   useEffect(() => {
-    // Only fire once per session
+    // Guard: Check both conditions to ensure analytics fire correctly
+    // - hasTrackedView.current: Prevents duplicate events on re-renders
+    // - currentStep === 'welcome': Prevents firing if currentStep changes while
+    //   component is still mounted (can occur during navigation transitions when
+    //   React hasn't unmounted this component yet but routing has advanced)
     if (!hasTrackedView.current && currentStep === 'welcome') {
       // For welcome screen, isResume is always false as it's the first step
       trackWelcomeViewed(false);
