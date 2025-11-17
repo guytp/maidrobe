@@ -201,8 +201,8 @@ export function useCreateFirstItem() {
       return false;
     },
     retryDelay: (attemptIndex) => {
-      // Exponential backoff: 1s, 2s, 4s
-      return Math.min(1000 * 2 ** attemptIndex, 30000);
+      // Exponential backoff with jitter to avoid thundering herd
+      return Math.min(1000 * 2 ** attemptIndex * (0.5 + Math.random()), 30000);
     },
   });
 }
