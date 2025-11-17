@@ -17,6 +17,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 ## Implementation Checklist
 
 ### Core Features
+
 - [x] PrefsScreen component with four form sections
 - [x] Colour tendencies (single-select radio controls)
 - [x] Item/style exclusions (checklist + free-text)
@@ -30,6 +31,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] OnboardingProvider integration for custom callbacks
 
 ### Data Mapping
+
 - [x] Colour tendencies: neutrals, some_colour, bold_colours, not_sure
 - [x] Exclusions: Tagged items + "free:" prefix for free-text
 - [x] No-repeat window: 0 (repeats ok), 7 (1 week), 14 (2 weeks)
@@ -39,6 +41,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] hasAnyData check for new users (no empty records)
 
 ### Analytics & Telemetry
+
 - [x] trackPrefsViewed - emitted on screen mount
 - [x] trackPrefsSaved - emitted on successful save with boolean flags
 - [x] trackPrefsSkipped - emitted when user skips
@@ -47,6 +50,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] No free-text content in logs or analytics
 
 ### Error Handling
+
 - [x] Non-blocking error handling (always navigate forward)
 - [x] Graceful offline behavior (screen still renders)
 - [x] Error messages shown to user (non-blocking)
@@ -54,6 +58,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] Load failures handled without crash
 
 ### Accessibility
+
 - [x] Dynamic text scaling (allowFontScaling, maxFontSizeMultiplier)
 - [x] Screen reader support (accessibilityRole, accessibilityLabel)
 - [x] Accessibility hints on text inputs
@@ -63,6 +68,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] Platform contrast standards
 
 ### Security & Privacy
+
 - [x] Authenticated Supabase calls
 - [x] HTTPS via Supabase
 - [x] Row-level security (RLS) at database level
@@ -70,6 +76,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - [x] Error context without PII
 
 ### Performance
+
 - [x] Screen interactive within ~500ms
 - [x] One save request per action
 - [x] Debouncing via OnboardingFooter
@@ -81,19 +88,25 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 ## Acceptance Criteria Verification
 
 ### AC1 - Preferences Screen Availability and Layout
+
 **Status**: PASS
+
 - Screen accessible as second onboarding step
 - All four sections clearly labeled
 - Next and Skip controls visible and accessible
 
 ### AC2 - Data Binding and Initial State
+
 **Status**: PASS
+
 - New users: Empty/neutral fields (DEFAULT_PREFS_FORM_DATA)
 - Existing users: Pre-populated from backend via toFormData()
 - Load failures: Screen renders with defaults, error logged
 
 ### AC3 - User Input and Local State
+
 **Status**: PASS
+
 - Single-select colour tendencies
 - Multi-select exclusions + free-text
 - Single-select no-repeat or unselected
@@ -102,14 +115,18 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - Graceful handling of character sets and long input
 
 ### AC4 - Next Behaviour (New Prefs)
+
 **Status**: PASS
+
 - Empty/neutral fields: No record created
 - Any meaningful input: New record created
 - Successful save: Navigate + trackPrefsSaved
 - Duplicate prevention: Debouncing active
 
 ### AC5 - Next Behaviour (Existing Prefs)
+
 **Status**: PASS
+
 - Partial update (PATCH) applied
 - Uninteracted fields unchanged
 - Explicitly cleared fields updated
@@ -117,7 +134,9 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - Duplicate prevention: Debouncing active
 
 ### AC6 - Skip Behaviour
+
 **Status**: PASS
+
 - No write to backend
 - Existing record unchanged
 - No new record created
@@ -126,7 +145,9 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - Duplicate prevention: Debouncing active
 
 ### AC7 - Offline and Failure Behaviour
+
 **Status**: PASS
+
 - Screen renders when offline
 - React Query cache may show cached data
 - Error logged without crash
@@ -135,7 +156,9 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - No offline queue (accepted limitation)
 
 ### AC8 - Security and Privacy
+
 **Status**: PASS
+
 - Authenticated Supabase calls
 - HTTPS enforced
 - RLS at database level
@@ -144,7 +167,9 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - Analytics with non-PII metadata only
 
 ### AC9 - Accessibility and UX Basics
+
 **Status**: PASS
+
 - Dynamic text sizes supported
 - Screen reader support complete
 - Logical focus order
@@ -152,7 +177,9 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 - Platform contrast standards
 
 ### AC10 - Analytics and Observability
+
 **Status**: PASS
+
 - trackPrefsViewed on screen visible (once)
 - trackPrefsSaved on success with metadata
 - trackPrefsSkipped on skip (once)
@@ -163,28 +190,36 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 ## Non-Functional Requirements Verification
 
 ### Performance
+
 **Status**: PASS
+
 - Screen interactive ~500ms (React Native rendering)
 - One save request per action (mutation debouncing)
 - Save completes ~3s under normal conditions
 - Smooth local interactions (React state updates)
 
 ### Security & Privacy
+
 **Status**: PASS
+
 - RLS policies enforced (database level)
 - HTTPS via Supabase
 - Free-text not logged
 - No request/response body logging with PII
 
 ### Deployment & Rollout
+
 **Status**: PASS
+
 - Schema backward-compatible
 - Analytics use existing utilities
 - Non-blocking implementation
 - Ready for feature flag gating
 
 ### Accessibility
+
 **Status**: PASS
+
 - Platform guidelines compliance
 - WCAG AA level support
 
@@ -193,6 +228,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 ## Files Implemented
 
 ### Core Components
+
 - `mobile/src/features/onboarding/components/PrefsScreen.tsx` (486 lines)
   - Complete UI with four form sections
   - Integration with useUserPrefs and useSavePrefs
@@ -202,6 +238,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
   - Full accessibility support
 
 ### API Hooks
+
 - `mobile/src/features/onboarding/api/useUserPrefs.ts` (existing, verified)
   - Fetches user preferences via Supabase
   - React Query integration
@@ -214,6 +251,7 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
   - Privacy-safe logging
 
 ### Utilities
+
 - `mobile/src/features/onboarding/utils/prefsTypes.ts` (existing, verified)
   - PrefsFormData type definition
   - PrefsRow type definition
@@ -232,17 +270,20 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
   - MAX_COMFORT_NOTES_LENGTH constant
 
 ### Analytics
+
 - `mobile/src/features/onboarding/utils/onboardingAnalytics.ts`
   - trackPrefsViewed() - Screen view tracking
   - trackPrefsSaved() - Save success tracking (privacy-safe)
   - trackPrefsSkipped() - Skip tracking
 
 ### Internationalization
+
 - `mobile/src/core/i18n/en.json`
   - 39 i18n keys for PrefsScreen
   - All user-facing text localized
 
 ### Documentation
+
 - `mobile/src/features/onboarding/STEP_1_REVIEW_COMPLETE.md`
 - `mobile/src/features/onboarding/STEP_2_DESIGN_COMPLETE.md`
 - `mobile/src/features/onboarding/STEP_3_IMPLEMENTATION_COMPLETE.md`
@@ -254,30 +295,35 @@ Successfully implemented the complete Style and Usage Preferences onboarding scr
 ## Testing Results
 
 ### TypeScript Compilation
+
 ```
 npm run typecheck
 PASS - No type errors
 ```
 
 ### ESLint
+
 ```
 npx eslint src/features/onboarding/...
 PASS - No errors or warnings in onboarding code
 ```
 
 ### Prettier
+
 ```
 npx prettier --check src/features/onboarding/...
 PASS - All files properly formatted
 ```
 
 ### Unit Tests
+
 ```
 npm test -- src/features/onboarding
 PASS - 40/40 tests passing (100%)
 ```
 
 Test Coverage:
+
 - trackPrefsViewed function behavior
 - trackPrefsSaved function behavior
 - trackPrefsSkipped function behavior
@@ -301,30 +347,40 @@ Test Coverage:
 ## Outstanding Questions Resolution
 
 ### 1. Exact Copy and Labels
+
 **Resolution**: Used clear, consistent labels throughout
+
 - "Skip this step" for skip button (via OnboardingFooter)
 - Helper text on comfort notes field
 - All labels via i18n system
 
 ### 2. Prefs Fetch Strategy
+
 **Resolution**: Fetch on entry with React Query
+
 - useUserPrefs hook fetches on mount
 - React Query cache used for subsequent visits
 - Stale-while-revalidate pattern
 
 ### 3. Handling Unknown Existing Data
+
 **Resolution**: Default to safe fallbacks
+
 - Unknown colour prefs -> "Not sure yet"
 - Unknown exclusion tags -> Ignored in checklist, may appear in free-text
 - Out-of-range no-repeat days -> No option selected
 
 ### 4. Schema Confirmation
+
 **Resolution**: Schema matches expected structure
+
 - PrefsRow: userId, noRepeatDays, colourPrefs[], exclusions[], comfortNotes
 - All mappings align with this schema
 
 ### 5. Future Offline Enhancements
+
 **Resolution**: Implementation supports future extension
+
 - Mutations centralized through useSavePrefs hook
 - Can later add queue/retry without changing PrefsScreen
 - Non-blocking design allows graceful degradation
@@ -336,6 +392,7 @@ Test Coverage:
 Story #116 is COMPLETE. No further work required.
 
 Potential future enhancements (out of scope for this story):
+
 1. Dedicated Settings/Profile screen for editing preferences
 2. Offline mutation queue with automatic retry
 3. Additional preference categories

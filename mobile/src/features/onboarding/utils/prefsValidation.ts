@@ -58,12 +58,7 @@ export const ColourTagSchema = z.enum(COLOUR_TAGS);
  *
  * Validates UI colour tendency options including 'not_sure'.
  */
-export const ColourTendencySchema = z.enum([
-  'neutrals',
-  'some_colour',
-  'bold_colours',
-  'not_sure',
-]);
+export const ColourTendencySchema = z.enum(['neutrals', 'some_colour', 'bold_colours', 'not_sure']);
 
 /**
  * Schema for no-repeat window validation.
@@ -71,12 +66,7 @@ export const ColourTendencySchema = z.enum([
  * Validates that value is one of the three buckets or null.
  * Rejects any other numbers (intermediate values should be mapped first).
  */
-export const NoRepeatWindowSchema = z.union([
-  z.literal(0),
-  z.literal(7),
-  z.literal(14),
-  z.null(),
-]);
+export const NoRepeatWindowSchema = z.union([z.literal(0), z.literal(7), z.literal(14), z.null()]);
 
 /**
  * Schema for exclusions data structure.

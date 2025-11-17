@@ -1,7 +1,12 @@
 import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
-import { logError, logSuccess, getUserFriendlyMessage, type ErrorClassification } from '../../../core/telemetry';
+import {
+  logError,
+  logSuccess,
+  getUserFriendlyMessage,
+  type ErrorClassification,
+} from '../../../core/telemetry';
 import type { PrefsRow, PrefsFormData } from '../utils/prefsTypes';
 import { PrefsRowSchema, PrefsUpdatePayloadSchema } from '../utils/prefsValidation';
 import { toPrefsRow, getChangedFields } from '../utils/prefsMapping';

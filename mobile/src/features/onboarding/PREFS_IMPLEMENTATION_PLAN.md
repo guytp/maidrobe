@@ -11,6 +11,7 @@ This document captures the analysis of the existing onboarding structure and out
 **Location:** `app/onboarding/_layout.tsx`
 
 The onboarding shell manages:
+
 - hasOnboarded gate check (redirects to /home if completed)
 - State initialization and resumption from AsyncStorage
 - Route normalization (navigation based on currentStep, not URLs)
@@ -19,6 +20,7 @@ The onboarding shell manages:
 - Analytics tracking for all onboarding events
 
 **Key Flow:**
+
 1. Wait for auth hydration
 2. Check hasOnboarded flag -> redirect to /home if true
 3. Check currentStep from persisted state
@@ -30,6 +32,7 @@ The onboarding shell manages:
 **Location:** `src/features/onboarding/store/onboardingSlice.ts`
 
 **State Shape:**
+
 ```typescript
 interface OnboardingState {
   currentStep: OnboardingStep | null;
@@ -44,6 +47,7 @@ type OnboardingStep = 'welcome' | 'prefs' | 'firstItem' | 'success';
 welcome -> prefs -> firstItem -> success
 
 **Actions:**
+
 - startOnboarding(): Set currentStep to 'welcome'
 - markStepCompleted(stepId): Mark complete, advance to next
 - markStepSkipped(stepId): Mark skipped, advance to next
@@ -51,6 +55,7 @@ welcome -> prefs -> firstItem -> success
 - resetOnboardingState(): Clear all state
 
 **Persistence:**
+
 - AsyncStorage key: 'maidrobe-onboarding-state'
 - Version 1 with validation and migration
 - Enforces invariants (no duplicates, no overlap)
@@ -58,12 +63,14 @@ welcome -> prefs -> firstItem -> success
 ### 3. Step Registration
 
 **Prefs Step Current Status:**
+
 - Route: `app/onboarding/prefs.tsx` (REGISTERED)
 - Component: `PrefsScreen` (PLACEHOLDER)
 - Step Type: Optional (can be skipped)
 - Position: Second step after welcome
 
 **Route Pattern:**
+
 ```typescript
 export default function PrefsRoute() {
   const isAuthorized = useOnboardingProtection();
@@ -76,10 +83,12 @@ export default function PrefsRoute() {
 
 **OnboardingShell Pattern:**
 All steps wrap content in OnboardingShell which provides:
+
 - Main content area (flex: 1, scrollable)
 - Automatic footer with navigation buttons
 
 **Current PrefsScreen (Placeholder):**
+
 - Displays title, subtitle, description
 - Uses OnboardingShell wrapper
 - Has i18n translations
@@ -91,6 +100,7 @@ All steps wrap content in OnboardingShell which provides:
 **Location:** `src/features/onboarding/context/OnboardingContext.tsx`
 
 **Provides:**
+
 - currentStep: OnboardingStep | null
 - onNext: () => void
 - onSkipStep: () => void
@@ -98,6 +108,7 @@ All steps wrap content in OnboardingShell which provides:
 - onBack: () => void
 
 **Usage:**
+
 ```typescript
 const { currentStep, onNext, onSkipStep } = useOnboardingContext();
 ```
@@ -107,6 +118,7 @@ const { currentStep, onNext, onSkipStep } = useOnboardingContext();
 **Location:** `src/features/onboarding/components/OnboardingFooter.tsx`
 
 **For 'prefs' step:**
+
 - Primary button: "Next"
 - Step skip: "Skip this step"
 - Global skip: "Skip for now"
@@ -114,6 +126,7 @@ const { currentStep, onNext, onSkipStep } = useOnboardingContext();
 - Timeout cleanup on unmount
 
 **Button Logic:**
+
 - isOptionalStep = currentStep === 'prefs' || currentStep === 'firstItem'
 - Shows step skip only for optional steps
 - Shows global skip for all non-final steps
@@ -123,12 +136,14 @@ const { currentStep, onNext, onSkipStep } = useOnboardingContext();
 **Location:** `src/features/onboarding/utils/onboardingAnalytics.ts`
 
 **Available Functions:**
+
 - trackStepViewed(stepId, isResumed?)
 - trackStepSkipped(stepId)
 - trackOnboardingCompleted(completed, skipped, duration?)
 - trackOnboardingSkippedAll(currentStep, completed, skipped)
 
 **Need to Add:**
+
 - trackPrefsSaved(metadata) for successful prefs save
 
 ### 8. i18n Integration
@@ -136,18 +151,21 @@ const { currentStep, onNext, onSkipStep } = useOnboardingContext();
 **Location:** `src/core/i18n/`
 
 **Pattern:**
+
 ```typescript
 import { t } from '../../../core/i18n';
 const title = t('screens.onboarding.prefs.title');
 ```
 
 **Existing Translations:**
+
 - screens.onboarding.prefs.title: "Preferences"
 - screens.onboarding.prefs.subtitle: "Step 2 of 4"
 - screens.onboarding.prefs.description: (placeholder text)
 - screens.onboarding.prefs.accessibility.screenLabel
 
 **Need to Add:**
+
 - All new UI labels for form fields
 - Helper text
 - Error messages
@@ -156,28 +174,33 @@ const title = t('screens.onboarding.prefs.title');
 ### 9. Core Infrastructure
 
 **Supabase Client:** `src/services/supabase.ts`
+
 - Singleton client with RLS
 - SecureStore for session persistence
 - Custom 401 interceptor
 
 **React Query:** `src/core/query/client.ts`
+
 - Stale-while-revalidate: 30s stale, 5min cache
 - Exponential backoff: 3 retries
 - No retry on 4xx errors
 - Cache keys MUST include userId
 
 **Telemetry:** `src/core/telemetry/index.ts`
+
 - logError(error, classification, context)
 - logSuccess(feature, operation, metadata)
 - PII sanitization automatic
 - Error classification: user, network, server, schema
 
 **Theme:** `src/core/theme/`
+
 - Token-based design (colors, spacing)
 - Dark mode support
 - Accessible by default
 
 **Components:** `src/core/components/`
+
 - Button: primary/text variants, loading, accessibility
 - Toast: non-blocking messages
 - All accessible by default
@@ -189,6 +212,7 @@ const title = t('screens.onboarding.prefs.title');
 **Create:** `src/features/onboarding/utils/prefsMapping.ts`
 
 **Types:**
+
 ```typescript
 // Supabase schema (snake_case)
 type PrefsRow = {
@@ -197,26 +221,28 @@ type PrefsRow = {
   colourPrefs: string[];
   exclusions: string[];
   comfortNotes: string | null;
-}
+};
 
 // UI view model (camelCase)
 type PrefsFormData = {
   colourTendency: 'neutrals' | 'some_colour' | 'bold_colours' | 'not_sure';
   exclusions: {
     checklist: string[]; // canonical tags
-    freeText: string;    // user input
+    freeText: string; // user input
   };
   noRepeatWindow: 0 | 7 | 14 | null;
   comfortNotes: string;
-}
+};
 ```
 
 **Functions:**
+
 - toFormData(row: PrefsRow): PrefsFormData
 - toPrefsRow(form: PrefsFormData, userId: string): Partial<PrefsRow>
 - getChangedFields(current, previous): Partial<PrefsRow>
 
 **Mapping Rules:**
+
 1. Colour Prefs:
    - ["neutrals"] <-> 'neutrals'
    - ["some_colour"] <-> 'some_colour'
@@ -242,6 +268,7 @@ type PrefsFormData = {
 **Create:** `src/features/onboarding/utils/prefsValidation.ts`
 
 **Zod Schemas:**
+
 - PrefsRowSchema: Validate Supabase response
 - PrefsFormDataSchema: Validate UI state
 - CreatePrefsSchema: Validate create payload
@@ -252,6 +279,7 @@ type PrefsFormData = {
 **Create:** `src/features/onboarding/api/useUserPrefs.ts`
 
 **Implementation:**
+
 ```typescript
 export function useUserPrefs() {
   const userId = useStore((state) => state.user?.id);
@@ -276,6 +304,7 @@ export function useUserPrefs() {
 **Create:** `src/features/onboarding/api/useSavePrefs.ts`
 
 **Implementation:**
+
 ```typescript
 export function useSavePrefs() {
   const userId = useStore((state) => state.user?.id);
@@ -291,15 +320,10 @@ export function useSavePrefs() {
 
       if (existing) {
         // Update
-        return await supabase
-          .from('prefs')
-          .update(payload)
-          .eq('user_id', userId);
+        return await supabase.from('prefs').update(payload).eq('user_id', userId);
       } else {
         // Insert
-        return await supabase
-          .from('prefs')
-          .insert({ ...payload, user_id: userId });
+        return await supabase.from('prefs').insert({ ...payload, user_id: userId });
       }
     },
     onError: (error) => {
@@ -317,6 +341,7 @@ export function useSavePrefs() {
 **Replace:** `src/features/onboarding/components/PrefsScreen.tsx`
 
 **Structure:**
+
 1. Fetch existing prefs with useUserPrefs()
 2. Initialize local state from fetched data or defaults
 3. Render four sections:
@@ -328,6 +353,7 @@ export function useSavePrefs() {
 5. Emit analytics on mount
 
 **UI Components Needed:**
+
 - Radio/SegmentedControl for single-select
 - Checkbox for multi-select
 - TextInput for free-text and notes
@@ -338,6 +364,7 @@ export function useSavePrefs() {
 **In PrefsScreen:**
 
 **Custom handleNext:**
+
 ```typescript
 const handleNext = async () => {
   const hasExistingPrefs = !!prefsData;
@@ -379,6 +406,7 @@ Use default onSkipStep from context (no custom logic needed).
 ### Step 6: Ensure Accessibility, Offline, Privacy
 
 **Accessibility:**
+
 - accessibilityLabel on all inputs
 - accessibilityRole="radiogroup" for radio groups
 - accessibilityRole="checkbox" for checkboxes
@@ -388,11 +416,13 @@ Use default onSkipStep from context (no custom logic needed).
 - maxFontSizeMultiplier={3}
 
 **Offline:**
+
 - Handle useUserPrefs error gracefully (show defaults)
 - Handle save error gracefully (toast + navigate)
 - No blocking of onboarding flow
 
 **Privacy:**
+
 - Free-text never in analytics
 - Analytics only includes boolean flags
 - No PII in logs
@@ -516,11 +546,13 @@ CREATE POLICY "Users can manage own prefs"
 ## Testing Checklist
 
 ### Unit Tests
+
 - [ ] prefsMapping.ts: toFormData, toPrefsRow, getChangedFields
 - [ ] prefsValidation.ts: All Zod schemas
 - [ ] Edge cases: null, empty arrays, unknown tags
 
 ### Component Tests
+
 - [ ] PrefsScreen renders all sections
 - [ ] Pre-populates from existing data
 - [ ] Falls back to defaults on missing data
@@ -529,6 +561,7 @@ CREATE POLICY "Users can manage own prefs"
 - [ ] Skip behavior (no mutation)
 
 ### Integration Tests
+
 - [ ] New user flow (no existing prefs)
 - [ ] Existing user flow (with prefs)
 - [ ] Offline scenario (load + save failures)
@@ -536,6 +569,7 @@ CREATE POLICY "Users can manage own prefs"
 - [ ] Navigation to next step
 
 ### Accessibility Tests
+
 - [ ] VoiceOver/TalkBack announces all elements
 - [ ] Focus order is logical
 - [ ] Touch targets >= 44px

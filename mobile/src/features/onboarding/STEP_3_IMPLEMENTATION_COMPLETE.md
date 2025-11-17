@@ -27,6 +27,7 @@ The React Query hooks (useUserPrefs and useSavePrefs) and Supabase access layer 
 ### Requirement 1: Fetch Current User's Prefs on Entering Screen
 
 **Implementation:**
+
 ```typescript
 export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error> {
   const userId = useStore((state) => state.user?.id);
@@ -42,6 +43,7 @@ export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error> {
 ```
 
 **Verification:** ✓ COMPLETE
+
 - React Query hook called on component mount
 - Automatic refetch on focus/reconnect
 - Cache-first strategy with background revalidation
@@ -50,6 +52,7 @@ export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error> {
 ### Requirement 2: Use Authenticated User ID, RLS-Safe
 
 **Implementation:**
+
 ```typescript
 const userId = useStore((state) => state.user?.id);
 
@@ -61,12 +64,14 @@ const { data, error } = await supabase
 ```
 
 **Verification:** ✓ COMPLETE
+
 - userId from authenticated store state
 - Supabase query filters by user_id
 - RLS policies enforce auth.uid() = user_id
 - maybeSingle() returns null for non-existent rows (not an error)
 
 **RLS Security:**
+
 - Database enforces row-level security
 - Users can only access their own prefs row
 - Supabase client uses authenticated session
@@ -75,9 +80,10 @@ const { data, error } = await supabase
 ### Requirement 3: Return Mapped Form Data
 
 **Implementation:**
+
 ```typescript
 // Hook returns PrefsRow | null
-export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error>
+export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error>;
 
 // Component maps to form data
 const { data: prefsRow } = useUserPrefs();
@@ -85,12 +91,14 @@ const formData = toFormData(prefsRow);
 ```
 
 **Verification:** ✓ COMPLETE (with design note)
+
 - Hook returns PrefsRow (database format)
 - Component uses toFormData() to map to PrefsFormData
 - Better separation of concerns
 - Hook handles data access, component handles UI transformation
 
 **Rationale for PrefsRow Return Type:**
+
 1. Separation of concerns: Data access vs UI transformation
 2. Flexibility: Component decides when/how to map
 3. Caching: Cache database format (more stable than UI format)
@@ -100,6 +108,7 @@ const formData = toFormData(prefsRow);
 ### Requirement 4: Error Classification
 
 **Implementation:**
+
 ```typescript
 function classifyPrefsError(error: unknown): ErrorClassification {
   if (error instanceof z.ZodError) {
@@ -110,15 +119,18 @@ function classifyPrefsError(error: unknown): ErrorClassification {
     const message = error.message.toLowerCase();
 
     // Network errors
-    if (message.includes('network') || message.includes('fetch') ||
-        message.includes('connection') || message.includes('timeout') ||
-        message.includes('offline')) {
+    if (
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('connection') ||
+      message.includes('timeout') ||
+      message.includes('offline')
+    ) {
       return 'network';
     }
 
     // Schema validation errors
-    if (message.includes('validation') || message.includes('parse') ||
-        message.includes('schema')) {
+    if (message.includes('validation') || message.includes('parse') || message.includes('schema')) {
       return 'schema';
     }
 
@@ -131,11 +143,13 @@ function classifyPrefsError(error: unknown): ErrorClassification {
 ```
 
 **Error Classifications:**
+
 - **network**: Connection issues, timeouts, offline
 - **server**: Supabase server errors, 5xx responses
 - **schema**: Zod validation errors, unexpected response format
 
 **Verification:** ✓ COMPLETE
+
 - Deterministic classification logic
 - Pattern matching on error messages
 - z.ZodError special handling
@@ -144,6 +158,7 @@ function classifyPrefsError(error: unknown): ErrorClassification {
 ### Requirement 5: Logging on Failure
 
 **Implementation:**
+
 ```typescript
 if (error) {
   const classification = classifyPrefsError(error);
@@ -157,6 +172,7 @@ if (error) {
 ```
 
 **Logged Information:**
+
 - Error object (for stack trace)
 - Error classification
 - Feature context: 'onboarding'
@@ -164,10 +180,12 @@ if (error) {
 - Metadata: userId (no PII)
 
 **NOT Logged:**
+
 - No free-text content (n/a for fetch operation)
 - No sensitive user data
 
 **Verification:** ✓ COMPLETE
+
 - Consistent logging structure
 - Privacy-compliant (no PII)
 - User-friendly error messages
@@ -176,20 +194,23 @@ if (error) {
 ### Additional Features
 
 **Stale-While-Revalidate:**
+
 ```typescript
 staleTime: 30000,  // 30 seconds - data considered fresh
 gcTime: 300000,    // 5 minutes - cache garbage collection
 ```
 
 **Zod Validation:**
+
 ```typescript
 const validatedData = PrefsRowSchema.parse(data);
 ```
 
 **Defensive Checks:**
+
 ```typescript
 if (!userId) {
-  return null;  // Defensive check even with enabled flag
+  return null; // Defensive check even with enabled flag
 }
 ```
 
@@ -198,11 +219,12 @@ if (!userId) {
 ### Requirement 1: Takes Form Data Plus Context About Existing Prefs
 
 **Implementation:**
+
 ```typescript
 export interface SavePrefsRequest {
-  userId: string;              // User to save for
-  data: PrefsFormData;         // New form state
-  existingData?: PrefsFormData | null;  // Previous state for PATCH
+  userId: string; // User to save for
+  data: PrefsFormData; // New form state
+  existingData?: PrefsFormData | null; // Previous state for PATCH
 }
 
 export function useSavePrefs(): UseMutationResult<
@@ -210,10 +232,11 @@ export function useSavePrefs(): UseMutationResult<
   Error,
   SavePrefsRequest,
   SavePrefsMutationContext
->
+>;
 ```
 
 **Usage:**
+
 ```typescript
 const { mutate: savePrefs } = useSavePrefs();
 
@@ -225,6 +248,7 @@ savePrefs({
 ```
 
 **Verification:** ✓ COMPLETE
+
 - Request type includes all required context
 - existingData optional (null/undefined for new users)
 - Typed interface for type safety
@@ -232,6 +256,7 @@ savePrefs({
 ### Requirement 2: Construct Create Payload for New Prefs
 
 **Implementation:**
+
 ```typescript
 if (!isUpdate) {
   // Create complete row for insert
@@ -252,12 +277,14 @@ if (!isUpdate) {
 ```
 
 **Create Payload Construction:**
+
 1. toPrefsRow(data, userId) creates complete PrefsRow
 2. All fields included (colour_prefs, exclusions, no_repeat_days, comfort_notes)
 3. Validated with PrefsRowSchema before sending
 4. Includes user_id for upsert
 
 **Verification:** ✓ COMPLETE
+
 - Complete row construction
 - Validation before database call
 - Error handling with logging
@@ -268,6 +295,7 @@ if (!isUpdate) {
 ### Requirement 3: Construct Patch Payload for Existing Prefs
 
 **Implementation:**
+
 ```typescript
 if (isUpdate) {
   // Compute only changed fields for PATCH-like semantics
@@ -288,12 +316,14 @@ if (isUpdate) {
 ```
 
 **Patch Payload Construction:**
+
 1. getChangedFields(data, existingData) computes delta
 2. Only changed/cleared fields included
 3. Deep comparison for arrays and objects
 4. Validated with PrefsUpdatePayloadSchema
 
 **Verification:** ✓ COMPLETE
+
 - Delta computation via getChangedFields
 - Only changed fields included
 - Handles explicit clears (null, [], '')
@@ -305,6 +335,7 @@ if (isUpdate) {
 **Implementation in getChangedFields():**
 
 **Colour Tendency:**
+
 ```typescript
 if (current.colourTendency !== previous.colourTendency) {
   changes.colour_prefs = mapColourTendencyToPrefs(current.colourTendency);
@@ -312,6 +343,7 @@ if (current.colourTendency !== previous.colourTendency) {
 ```
 
 **Exclusions (Deep Comparison):**
+
 ```typescript
 const exclusionsChanged =
   JSON.stringify(current.exclusions.checklist.sort()) !==
@@ -324,6 +356,7 @@ if (exclusionsChanged) {
 ```
 
 **No-Repeat Window:**
+
 ```typescript
 if (current.noRepeatWindow !== previous.noRepeatWindow) {
   changes.no_repeat_days = mapNoRepeatWindowToDays(current.noRepeatWindow);
@@ -331,6 +364,7 @@ if (current.noRepeatWindow !== previous.noRepeatWindow) {
 ```
 
 **Comfort Notes:**
+
 ```typescript
 if (current.comfortNotes.trim() !== previous.comfortNotes.trim()) {
   changes.comfort_notes = notesToDatabase(current.comfortNotes);
@@ -338,6 +372,7 @@ if (current.comfortNotes.trim() !== previous.comfortNotes.trim()) {
 ```
 
 **Verification:** ✓ COMPLETE
+
 - Direct equality for primitive fields
 - Deep comparison for complex fields
 - Array order independence (via .sort())
@@ -347,6 +382,7 @@ if (current.comfortNotes.trim() !== previous.comfortNotes.trim()) {
 ### Requirement 5: Send Request via Supabase with HTTPS
 
 **Implementation:**
+
 ```typescript
 const { data: responseData, error } = await supabase
   .from('prefs')
@@ -356,18 +392,21 @@ const { data: responseData, error } = await supabase
 ```
 
 **HTTPS Security:**
+
 - Supabase client configured with HTTPS endpoint
 - TLS 1.2+ encryption in transit
 - Automatic certificate validation
 - No manual HTTPS configuration needed
 
 **Upsert Semantics:**
+
 - Atomic insert-or-update operation
 - Based on user_id primary key
 - Handles both new and existing rows
 - Single database round-trip
 
 **Verification:** ✓ COMPLETE
+
 - Supabase client handles HTTPS
 - Upsert for INSERT or UPDATE
 - Response validated with .select().single()
@@ -376,6 +415,7 @@ const { data: responseData, error } = await supabase
 ### Requirement 6: Classify and Log Errors Without Free-Text
 
 **Error Classification:**
+
 ```typescript
 function classifyPrefsError(error: unknown): ErrorClassification {
   // user: validation errors
@@ -386,6 +426,7 @@ function classifyPrefsError(error: unknown): ErrorClassification {
 ```
 
 **Privacy-Safe Success Logging:**
+
 ```typescript
 logSuccess('onboarding', 'savePrefs', {
   latency,
@@ -403,6 +444,7 @@ logSuccess('onboarding', 'savePrefs', {
 ```
 
 **Privacy-Safe Error Logging:**
+
 ```typescript
 logError(error, classification, {
   feature: 'onboarding',
@@ -415,6 +457,7 @@ logError(error, classification, {
 ```
 
 **Verification:** ✓ COMPLETE
+
 - Only boolean presence flags logged
 - No free-text content ever logged
 - Comments explicitly document restrictions
@@ -423,16 +466,18 @@ logError(error, classification, {
 ### Requirement 7: Expose Mutation State for Buttons and Progress
 
 **Return Type:**
+
 ```typescript
 UseMutationResult<
-  PrefsRow,           // Success data type
-  Error,              // Error type
-  SavePrefsRequest,   // Variables type
-  SavePrefsMutationContext  // Context type
->
+  PrefsRow, // Success data type
+  Error, // Error type
+  SavePrefsRequest, // Variables type
+  SavePrefsMutationContext // Context type
+>;
 ```
 
 **Exposed State:**
+
 - `isPending`: Boolean for disabling buttons
 - `isError`: Boolean for error state
 - `error`: Error object with user-friendly message
@@ -441,6 +486,7 @@ UseMutationResult<
 - `reset`: Reset mutation state
 
 **Usage:**
+
 ```typescript
 const { mutate: savePrefs, isPending, isError, error } = useSavePrefs();
 
@@ -454,6 +500,7 @@ const { mutate: savePrefs, isPending, isError, error } = useSavePrefs();
 ```
 
 **Verification:** ✓ COMPLETE
+
 - isPending suitable for button state
 - isError for conditional rendering
 - error.message user-friendly
@@ -462,40 +509,46 @@ const { mutate: savePrefs, isPending, isError, error } = useSavePrefs();
 ### Additional Features
 
 **Retry Strategy:**
+
 ```typescript
 retry: (failureCount, error) => {
   // Don't retry validation errors (permanent failures)
-  if (message.includes('Invalid request') ||
-      message.includes('unexpected response') ||
-      message.includes('check your input') ||
-      message.includes('Validation failed')) {
+  if (
+    message.includes('Invalid request') ||
+    message.includes('unexpected response') ||
+    message.includes('check your input') ||
+    message.includes('Validation failed')
+  ) {
     return false;
   }
 
   // Retry up to 3 times for network/server errors
   return failureCount < 3;
-}
+};
 ```
 
 **Exponential Backoff with Jitter:**
+
 ```typescript
 retryDelay: (attemptIndex) => {
-  const baseDelay = 1000;  // 1 second
+  const baseDelay = 1000; // 1 second
   const exponentialDelay = baseDelay * Math.pow(2, attemptIndex);
-  const jitter = Math.random() * 1000;  // 0-1000ms
+  const jitter = Math.random() * 1000; // 0-1000ms
   const totalDelay = exponentialDelay + jitter;
-  const maxDelay = 30000;  // 30 seconds
+  const maxDelay = 30000; // 30 seconds
   return Math.min(totalDelay, maxDelay);
-}
+};
 ```
 
 **Retry Delays:**
+
 - Attempt 1: 1s + jitter
 - Attempt 2: 2s + jitter
 - Attempt 3: 4s + jitter
 - Max: 30s
 
 **Latency Tracking:**
+
 ```typescript
 onMutate: (request) => {
   return {
@@ -511,41 +564,43 @@ onSuccess: (data, _variables, context) => {
 ```
 
 **Cache Invalidation:**
+
 ```typescript
 onSuccess: (data, _variables, context) => {
   const userId = context?.userId;
   if (userId) {
     queryClient.invalidateQueries({ queryKey: ['prefs', userId] });
   }
-}
+};
 ```
 
 ## Compliance Verification Matrix
 
-| Requirement | Hook | Status | Evidence |
-|------------|------|--------|----------|
-| Fetch on screen entry | useUserPrefs | ✓ COMPLETE | React Query hook |
-| Use authenticated user id | useUserPrefs | ✓ COMPLETE | useStore + .eq('user_id', userId) |
-| RLS-safe | useUserPrefs | ✓ COMPLETE | Database RLS policies |
-| Return mapped data | useUserPrefs | ✓ COMPLETE* | Returns PrefsRow, component maps |
-| Error classification | useUserPrefs | ✓ COMPLETE | classifyPrefsError function |
-| Logging on failure | useUserPrefs | ✓ COMPLETE | logError with metadata |
-| Takes form data + context | useSavePrefs | ✓ COMPLETE | SavePrefsRequest interface |
-| Create payload (new) | useSavePrefs | ✓ COMPLETE | toPrefsRow + validation |
-| Patch payload (existing) | useSavePrefs | ✓ COMPLETE | getChangedFields + validation |
-| Only changed fields | useSavePrefs | ✓ COMPLETE | Deep comparison logic |
-| Send via Supabase/HTTPS | useSavePrefs | ✓ COMPLETE | supabase.from().upsert() |
-| Classify errors | useSavePrefs | ✓ COMPLETE | classifyPrefsError function |
-| Log without free-text | useSavePrefs | ✓ COMPLETE | Boolean flags only |
-| Expose mutation state | useSavePrefs | ✓ COMPLETE | isPending, isError, error |
+| Requirement               | Hook         | Status       | Evidence                          |
+| ------------------------- | ------------ | ------------ | --------------------------------- |
+| Fetch on screen entry     | useUserPrefs | ✓ COMPLETE   | React Query hook                  |
+| Use authenticated user id | useUserPrefs | ✓ COMPLETE   | useStore + .eq('user_id', userId) |
+| RLS-safe                  | useUserPrefs | ✓ COMPLETE   | Database RLS policies             |
+| Return mapped data        | useUserPrefs | ✓ COMPLETE\* | Returns PrefsRow, component maps  |
+| Error classification      | useUserPrefs | ✓ COMPLETE   | classifyPrefsError function       |
+| Logging on failure        | useUserPrefs | ✓ COMPLETE   | logError with metadata            |
+| Takes form data + context | useSavePrefs | ✓ COMPLETE   | SavePrefsRequest interface        |
+| Create payload (new)      | useSavePrefs | ✓ COMPLETE   | toPrefsRow + validation           |
+| Patch payload (existing)  | useSavePrefs | ✓ COMPLETE   | getChangedFields + validation     |
+| Only changed fields       | useSavePrefs | ✓ COMPLETE   | Deep comparison logic             |
+| Send via Supabase/HTTPS   | useSavePrefs | ✓ COMPLETE   | supabase.from().upsert()          |
+| Classify errors           | useSavePrefs | ✓ COMPLETE   | classifyPrefsError function       |
+| Log without free-text     | useSavePrefs | ✓ COMPLETE   | Boolean flags only                |
+| Expose mutation state     | useSavePrefs | ✓ COMPLETE   | isPending, isError, error         |
 
-*Note: Returns PrefsRow for better separation of concerns. Component maps to PrefsFormData.
+\*Note: Returns PrefsRow for better separation of concerns. Component maps to PrefsFormData.
 
 ## Test Coverage
 
 ### useUserPrefs.test.tsx (441 lines)
 
 **Test Suites:**
+
 - Successful fetch with data
 - Fetch returns null when no prefs exist
 - Error classification (network, server, schema)
@@ -559,6 +614,7 @@ onSuccess: (data, _variables, context) => {
 ### useSavePrefs.test.tsx (758 lines)
 
 **Test Suites:**
+
 - Insert operation (new prefs)
 - Update operation (existing prefs)
 - PATCH semantics (delta computation)
@@ -679,6 +735,7 @@ function PrefsScreen() {
 **Decision:** useUserPrefs returns PrefsRow (database format)
 
 **Rationale:**
+
 - Separation of concerns: Data access vs UI transformation
 - Flexibility: Component decides when/how to map
 - Caching: Cache database format (more stable)
@@ -688,6 +745,7 @@ function PrefsScreen() {
 **Alternative Considered:** Return PrefsFormData directly
 
 **Rejected Because:**
+
 - Couples hook to UI representation
 - Forces mapping even when not needed
 - Cache invalidation more complex
@@ -698,6 +756,7 @@ function PrefsScreen() {
 **Decision:** Use Supabase upsert for both operations
 
 **Rationale:**
+
 - Atomic operation (no race conditions)
 - Simpler code (one code path)
 - Handles both cases automatically
@@ -706,6 +765,7 @@ function PrefsScreen() {
 **Alternative Considered:** Separate insert() and update() calls
 
 **Rejected Because:**
+
 - Requires checking if row exists first
 - Two database round-trips
 - Race condition window
@@ -716,12 +776,14 @@ function PrefsScreen() {
 **Decision:** Retry network/server errors, not validation errors
 
 **Rationale:**
+
 - Network errors: Transient, likely to succeed on retry
 - Server errors: May be transient (rate limit, restart)
 - Validation errors: Permanent, won't succeed on retry
 - User errors: Permanent, need different input
 
 **Exponential Backoff:**
+
 - Prevents overwhelming server
 - Allows transient issues to resolve
 - Jitter prevents thundering herd
@@ -731,18 +793,21 @@ function PrefsScreen() {
 **Decision:** Only log boolean presence flags, never free-text
 
 **Rationale:**
+
 - GDPR compliance
 - User privacy protection
 - No PII in logs
 - Still provides useful metrics
 
 **Boolean Flags:**
+
 - noRepeatSet: Has user set preference?
 - colourTendencySelected: Has user chosen colour?
 - exclusionsSelected: Has user excluded items?
 - notesPresent: Has user written notes?
 
 These flags enable:
+
 - Funnel analysis
 - Feature adoption tracking
 - Drop-off diagnostics
@@ -751,6 +816,7 @@ These flags enable:
 ## Next Steps
 
 **Step 4:** Build PrefsScreen UI Component
+
 - Use useUserPrefs() on mount
 - Map with toFormData()
 - Manage local form state
@@ -760,6 +826,7 @@ These flags enable:
 - Handle errors with toast
 
 **Step 5:** Wire Next/Skip Behaviors
+
 - Integrate with OnboardingContext
 - Call onNext after successful save
 - Call onSkipStep for skip action

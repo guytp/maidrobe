@@ -21,27 +21,31 @@ Successfully implemented Next and Skip behaviors for the PrefsScreen, wiring the
 Added two new analytics functions:
 
 #### `trackPrefsSaved`
+
 ```typescript
 export function trackPrefsSaved(
   noRepeatSet: boolean,
   colourTendencySelected: boolean,
   exclusionsSelected: boolean,
   notesPresent: boolean
-): void
+): void;
 ```
 
 **Features**:
+
 - Privacy-safe: Only logs boolean flags, never free-text content
 - Tracks which sections users fill out
 - Non-blocking fire-and-forget pattern
 - Emits `onboarding.prefs_saved` event
 
 #### `trackPrefsSkipped`
+
 ```typescript
-export function trackPrefsSkipped(): void
+export function trackPrefsSkipped(): void;
 ```
 
 **Features**:
+
 - Simple event tracking for skip action
 - Non-blocking fire-and-forget pattern
 - Emits `onboarding.prefs_skipped` event
@@ -51,6 +55,7 @@ export function trackPrefsSkipped(): void
 **File**: `mobile/src/features/onboarding/components/PrefsScreen.tsx`
 
 #### New Imports
+
 - `useSavePrefs` - Mutation hook for saving preferences
 - `useStore` - Access to userId from global state
 - `hasAnyData` - Utility to check if form has non-default values
@@ -59,6 +64,7 @@ export function trackPrefsSkipped(): void
 - `OnboardingProvider` - Context provider for custom navigation handlers
 
 #### New State
+
 ```typescript
 const userId = useStore((state) => state.user?.id);
 const savePrefs = useSavePrefs();
@@ -69,6 +75,7 @@ const [errorMessage, setErrorMessage] = useState<string | null>(null);
 #### Handler: `handleNext`
 
 **Logic Flow**:
+
 1. **Guard**: Validate userId is available
    - If missing: Log error, show message, navigate forward (non-blocking)
 2. **Decision**: Check if save is needed
@@ -83,6 +90,7 @@ const [errorMessage, setErrorMessage] = useState<string | null>(null);
 6. **Navigate**: Always call `defaultOnNext()` to proceed
 
 **Privacy-Safe Analytics**:
+
 ```typescript
 trackPrefsSaved(
   formData.noRepeatWindow !== null,
@@ -95,6 +103,7 @@ trackPrefsSaved(
 #### Handler: `handleSkip`
 
 **Logic Flow**:
+
 1. Emit `trackPrefsSkipped` analytics
 2. Call `defaultOnSkipStep()` to navigate forward
 3. Never saves any data
@@ -102,6 +111,7 @@ trackPrefsSaved(
 #### OnboardingProvider Wrapper
 
 Wrapped the entire return statement with:
+
 ```typescript
 <OnboardingProvider
   currentStep={currentStep}
@@ -119,6 +129,7 @@ This intercepts footer button presses and routes them through custom handlers.
 #### Error Display
 
 Added inline error message display:
+
 ```typescript
 {errorMessage && (
   <Text style={styles.helperText}>
@@ -134,11 +145,9 @@ Shows save errors but never blocks navigation (non-blocking UX).
 **File**: `mobile/src/features/onboarding/index.ts`
 
 Added exports:
+
 ```typescript
-export {
-  trackPrefsSaved,
-  trackPrefsSkipped,
-} from './utils/onboardingAnalytics';
+export { trackPrefsSaved, trackPrefsSkipped } from './utils/onboardingAnalytics';
 ```
 
 ---
@@ -146,15 +155,18 @@ export {
 ## Key Design Decisions
 
 ### 1. Non-Blocking Error Handling
+
 **Decision**: Always navigate forward, even on save errors.
 
 **Rationale**:
+
 - User can proceed through onboarding without getting stuck
 - Preferences are optional data, not critical for app function
 - Error is logged for debugging via telemetry
 - User sees message but isn't blocked
 
 **Implementation**:
+
 ```typescript
 try {
   await savePrefs.mutateAsync(...);
@@ -168,14 +180,17 @@ try {
 ```
 
 ### 2. Conditional Save with `hasAnyData`
+
 **Decision**: Don't create DB row for new users with all default/neutral values.
 
 **Rationale**:
+
 - Avoids cluttering DB with empty rows
 - Matches story requirement: "apply the story's rules around not creating a Prefs row if all fields are neutral for new users"
 - Existing users always save (PATCH semantics)
 
 **Implementation**:
+
 ```typescript
 const shouldSave = prefsRow !== null || hasAnyData(formData);
 if (!shouldSave) {
@@ -185,15 +200,18 @@ if (!shouldSave) {
 ```
 
 ### 3. PATCH Semantics
+
 **Decision**: Pass `initialFormData` as `existingData` to mutation.
 
 **Rationale**:
+
 - `useSavePrefs` compares current vs initial to compute delta
 - Only changed fields are sent in PATCH request
 - Reduces bandwidth and DB write overhead
 - Matches story requirement for PATCH semantics
 
 **Implementation**:
+
 ```typescript
 await savePrefs.mutateAsync({
   userId,
@@ -203,20 +221,24 @@ await savePrefs.mutateAsync({
 ```
 
 ### 4. Privacy-Safe Analytics
+
 **Decision**: Track only boolean presence flags, never actual values.
 
 **Rationale**:
+
 - Protects user privacy (no PII in logs)
 - Matches story requirement: "emit privacy-safe analytics (trackPrefsSaved with boolean flags only)"
 - Provides useful engagement metrics without exposing sensitive data
 
 **What We Track**:
+
 - `noRepeatSet`: Did user select a no-repeat window?
 - `colourTendencySelected`: Did user select a colour tendency?
 - `exclusionsSelected`: Did user select any exclusions?
 - `notesPresent`: Did user enter comfort notes?
 
 **What We DON'T Track**:
+
 - Actual colour tendency value
 - Actual exclusion tags or free-text
 - Actual comfort notes text
@@ -227,18 +249,21 @@ await savePrefs.mutateAsync({
 ## Testing Results
 
 ### TypeScript Compilation
+
 ```bash
 npm run typecheck
 ✅ PASS - No type errors
 ```
 
 ### Test Suite
+
 ```bash
 npm test -- src/features/onboarding
 ✅ PASS - 40/40 tests passing
 ```
 
 **Test Coverage**:
+
 - ✅ `trackPrefsSaved` function behavior
 - ✅ `trackPrefsSkipped` function behavior
 - ✅ Fire-and-forget pattern (no blocking)
@@ -253,6 +278,7 @@ npm test -- src/features/onboarding
 ## Files Changed
 
 ### Modified Files
+
 1. `mobile/src/features/onboarding/utils/onboardingAnalytics.ts`
    - Added `trackPrefsSaved` (60 lines)
    - Added `trackPrefsSkipped` (20 lines)
@@ -270,6 +296,7 @@ npm test -- src/features/onboarding
    - Total changes: ~120 lines added/modified
 
 ### New Files
+
 - `mobile/src/features/onboarding/STEP_5_IMPLEMENTATION_COMPLETE.md` (this file)
 
 ---
@@ -277,6 +304,7 @@ npm test -- src/features/onboarding
 ## Integration Points
 
 ### Data Flow
+
 ```
 User taps Next
   ↓
@@ -304,6 +332,7 @@ Navigate to next step
 ```
 
 ### Error Paths
+
 ```
 handleNext() error
   ↓
@@ -338,6 +367,7 @@ Navigate forward anyway
 ## Next Steps
 
 **Step 6**: Final verification
+
 - End-to-end manual testing
 - Verify navigation flow
 - Verify save behavior (new vs existing users)
@@ -348,16 +378,16 @@ Navigate forward anyway
 
 ## Story Requirement Mapping
 
-| Requirement | Implementation | Status |
-|------------|----------------|--------|
-| Wire Next to save mutation | `handleNext` with `useSavePrefs` | ✅ |
-| Only when save not in flight | Mutation hook handles this | ✅ |
-| Pass form state & existing data | `data: formData, existingData: initialFormData` | ✅ |
-| Don't create row if all neutral (new users) | `hasAnyData()` check | ✅ |
-| PATCH semantics (existing users) | Pass `existingData` for delta | ✅ |
-| Emit trackPrefsSaved on success | Privacy-safe boolean flags | ✅ |
-| Non-blocking error handling | Always navigate forward | ✅ |
-| Wire Skip to trackPrefsSkipped | `handleSkip` implementation | ✅ |
-| Skip never saves | Skip just tracks + navigates | ✅ |
+| Requirement                                 | Implementation                                  | Status |
+| ------------------------------------------- | ----------------------------------------------- | ------ |
+| Wire Next to save mutation                  | `handleNext` with `useSavePrefs`                | ✅     |
+| Only when save not in flight                | Mutation hook handles this                      | ✅     |
+| Pass form state & existing data             | `data: formData, existingData: initialFormData` | ✅     |
+| Don't create row if all neutral (new users) | `hasAnyData()` check                            | ✅     |
+| PATCH semantics (existing users)            | Pass `existingData` for delta                   | ✅     |
+| Emit trackPrefsSaved on success             | Privacy-safe boolean flags                      | ✅     |
+| Non-blocking error handling                 | Always navigate forward                         | ✅     |
+| Wire Skip to trackPrefsSkipped              | `handleSkip` implementation                     | ✅     |
+| Skip never saves                            | Skip just tracks + navigates                    | ✅     |
 
 **All requirements met! ✅**

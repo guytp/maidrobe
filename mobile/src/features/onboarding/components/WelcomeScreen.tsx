@@ -153,18 +153,10 @@ export function WelcomeScreen(): React.JSX.Element {
               style={styles.section}
               accessibilityLabel={t('screens.onboarding.welcome.accessibility.upcomingStepsLabel')}
             >
-              <Text
-                style={styles.sectionTitle}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={3}
-              >
+              <Text style={styles.sectionTitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
                 {t('screens.onboarding.welcome.upcomingSteps.title')}
               </Text>
-              <Text
-                style={styles.sectionBody}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={3}
-              >
+              <Text style={styles.sectionBody} allowFontScaling={true} maxFontSizeMultiplier={3}>
                 {t('screens.onboarding.welcome.upcomingSteps.description')}
               </Text>
             </View>
@@ -174,18 +166,10 @@ export function WelcomeScreen(): React.JSX.Element {
               style={styles.section}
               accessibilityLabel={t('screens.onboarding.welcome.accessibility.privacyLabel')}
             >
-              <Text
-                style={styles.sectionTitle}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={3}
-              >
+              <Text style={styles.sectionTitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
                 {t('screens.onboarding.welcome.privacy.title')}
               </Text>
-              <Text
-                style={styles.sectionBody}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={3}
-              >
+              <Text style={styles.sectionBody} allowFontScaling={true} maxFontSizeMultiplier={3}>
                 {t('screens.onboarding.welcome.privacy.description')}
               </Text>
             </View>

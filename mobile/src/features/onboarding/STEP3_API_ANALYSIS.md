@@ -16,6 +16,7 @@ This document analyzes the changes required to implement data access for the Pre
 **Purpose:** Fetch the current user's Prefs row from Supabase
 
 **Requirements:**
+
 - Fetch from 'prefs' table using Supabase client
 - Filter by current user's ID (from session store)
 - Validate response with Zod schema (PrefsRowSchema)
@@ -28,11 +29,13 @@ This document analyzes the changes required to implement data access for the Pre
 
 **Cache Key Pattern:**
 Based on existing patterns and PREFS_IMPLEMENTATION_PLAN.md:
+
 ```
 ['prefs', userId]
 ```
 
 This allows:
+
 - User-specific caching
 - Invalidation after mutations
 - Multiple users without cache collisions
@@ -42,6 +45,7 @@ This allows:
 **Purpose:** Create or update user preferences with PATCH-like semantics
 
 **Requirements:**
+
 - Support both INSERT (new row) and UPDATE (existing row) operations
 - Accept PrefsUpdatePayload (partial update) from UI
 - Determine operation type based on existing data
@@ -56,6 +60,7 @@ This allows:
 
 **Privacy Requirement:**
 When logging success, only include boolean flags:
+
 - noRepeatSet: boolean
 - colourTendencySelected: boolean
 - exclusionsSelected: boolean
@@ -70,6 +75,7 @@ Never log the actual free-text content from exclusions.freeText or comfortNotes.
 **File:** mobile/src/features/home/api/useHealthcheck.ts
 
 **Key Patterns:**
+
 1. Uses @tanstack/react-query's useQuery hook
 2. Cache key: simple array ['healthcheck']
 3. Query function: async function that calls Supabase
@@ -80,6 +86,7 @@ Never log the actual free-text content from exclusions.freeText or comfortNotes.
 8. No retry configuration (defaults to 3 retries)
 
 **Query Structure:**
+
 ```typescript
 export function useHealthcheck() {
   return useQuery({
@@ -104,7 +111,7 @@ export function useHealthcheck() {
       }
     },
     staleTime: 30000, // 30 seconds
-    gcTime: 300000,   // 5 minutes (formerly cacheTime)
+    gcTime: 300000, // 5 minutes (formerly cacheTime)
   });
 }
 ```
@@ -114,6 +121,7 @@ export function useHealthcheck() {
 **File:** mobile/src/features/auth/api/useSignUp.ts
 
 **Key Patterns:**
+
 1. Uses @tanstack/react-query's useMutation hook
 2. Generic types: <ResponseType, Error, RequestType, ContextType>
 3. onMutate: capture timestamp for latency tracking
@@ -127,6 +135,7 @@ export function useHealthcheck() {
 11. User-friendly error messages from error classification
 
 **Mutation Structure:**
+
 ```typescript
 interface MutationContext {
   startTime: number;
@@ -176,7 +185,7 @@ export function useMutation() {
       // Telemetry
       logSuccess('auth', 'signup', {
         latency,
-        data: { userId: data.user.id }
+        data: { userId: data.user.id },
       });
     },
     onError: (error, variables, context) => {
@@ -190,6 +199,7 @@ export function useMutation() {
 ### Error Classification
 
 From examining useHealthcheck and auth hooks, errors should be classified as:
+
 - **user**: Validation errors, invalid input
 - **network**: Connection errors, timeouts
 - **server**: 5xx errors, backend failures
@@ -202,11 +212,13 @@ Classification is done before logging and determines the user-friendly message.
 From mobile/src/core/telemetry/index.ts:
 
 **Available Functions:**
+
 1. `logError(error, classification, context)` - Log errors to Sentry
 2. `logSuccess(feature, operation, metadata)` - Log success to OTEL
 3. `getUserFriendlyMessage(classification)` - Get user message from classification
 
 **Error Context:**
+
 ```typescript
 interface ErrorContext {
   feature?: string;
@@ -216,6 +228,7 @@ interface ErrorContext {
 ```
 
 **Success Metadata:**
+
 ```typescript
 interface SuccessMetadata {
   latency?: number;
@@ -228,6 +241,7 @@ interface SuccessMetadata {
 ### File Structure
 
 Create new directory and files:
+
 ```
 mobile/src/features/onboarding/api/
   useUserPrefs.ts    - Query hook for fetching prefs
@@ -237,20 +251,23 @@ mobile/src/features/onboarding/api/
 ### useUserPrefs.ts Implementation
 
 **Exports:**
+
 ```typescript
-export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error>
+export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error>;
 ```
 
 **Implementation Details:**
 
 1. **Get current user ID:**
+
    ```typescript
    const userId = useStore((state) => state.user?.id);
    ```
 
 2. **Cache key with userId:**
+
    ```typescript
-   queryKey: ['prefs', userId ?? 'anonymous']
+   queryKey: ['prefs', userId ?? 'anonymous'];
    ```
 
 3. **Query function:**
@@ -275,6 +292,7 @@ export function useUserPrefs(): UseQueryResult<PrefsRow | null, Error>
 ### useSavePrefs.ts Implementation
 
 **Exports:**
+
 ```typescript
 export interface SavePrefsRequest {
   userId: string;
@@ -282,17 +300,24 @@ export interface SavePrefsRequest {
   existingData?: PrefsFormData | null;
 }
 
-export function useSavePrefs(): UseMutationResult<PrefsRow, Error, SavePrefsRequest, MutationContext>
+export function useSavePrefs(): UseMutationResult<
+  PrefsRow,
+  Error,
+  SavePrefsRequest,
+  MutationContext
+>;
 ```
 
 **Implementation Details:**
 
 1. **Get query client:**
+
    ```typescript
    const queryClient = useQueryClient();
    ```
 
 2. **Mutation context:**
+
    ```typescript
    interface MutationContext {
      startTime: number;
@@ -339,7 +364,7 @@ export function useSavePrefs(): UseMutationResult<PrefsRow, Error, SavePrefsRequ
          colourTendencySelected: data.colour_prefs.length > 0,
          exclusionsSelected: data.exclusions.length > 0,
          notesPresent: !!data.comfort_notes,
-       }
+       },
      });
      ```
    - NEVER log actual text content
@@ -354,22 +379,26 @@ export function useSavePrefs(): UseMutationResult<PrefsRow, Error, SavePrefsRequ
 For both hooks, classify errors as follows:
 
 **Network Errors:**
+
 - Connection refused
 - Timeout
 - DNS resolution failure
 - Offline
 
 **Server Errors:**
+
 - 5xx status codes
 - Supabase service errors
 - RLS policy violations (403)
 
 **Schema Errors:**
+
 - Zod validation failures
 - Unexpected response shape
 - Missing required fields
 
 **User Errors:**
+
 - Invalid input (should be caught before API call)
 - Not used in these hooks (validation happens earlier)
 
@@ -412,6 +441,7 @@ For both hooks, classify errors as follows:
 **File:** `mobile/__tests__/onboarding/useUserPrefs.test.ts`
 
 **Test Cases:**
+
 1. Returns null when user not authenticated
 2. Fetches prefs successfully for authenticated user
 3. Returns null when user has no prefs row
@@ -428,6 +458,7 @@ For both hooks, classify errors as follows:
 **File:** `mobile/__tests__/onboarding/useSavePrefs.test.ts`
 
 **Test Cases:**
+
 1. Creates new prefs row when none exists
 2. Updates existing prefs row with changed fields only
 3. Uses upsert operation correctly
@@ -446,6 +477,7 @@ For both hooks, classify errors as follows:
 ### Integration Testing
 
 **Manual Testing:**
+
 1. Fetch prefs for user with existing data
 2. Fetch prefs for new user (null case)
 3. Create new prefs row via mutation
@@ -463,7 +495,13 @@ For both hooks, classify errors as follows:
 
 ```typescript
 // React Query
-import { useQuery, useMutation, useQueryClient, UseQueryResult, UseMutationResult } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  UseQueryResult,
+  UseMutationResult,
+} from '@tanstack/react-query';
 
 // Zod
 import { z } from 'zod';
@@ -475,7 +513,12 @@ import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 
 // Telemetry
-import { logError, logSuccess, getUserFriendlyMessage, ErrorClassification } from '../../../core/telemetry';
+import {
+  logError,
+  logSuccess,
+  getUserFriendlyMessage,
+  ErrorClassification,
+} from '../../../core/telemetry';
 
 // Domain types and utilities
 import { PrefsRow, PrefsFormData, PrefsUpdatePayload } from '../utils/prefsTypes';
@@ -486,6 +529,7 @@ import { toPrefsRow, toUpdatePayload, getChangedFields } from '../utils/prefsMap
 ## Acceptance Criteria
 
 ### useUserPrefs:
+
 - [x] Fetches current user's prefs row from 'prefs' table
 - [x] Returns null when user has no prefs
 - [x] Returns null when user not authenticated
@@ -497,6 +541,7 @@ import { toPrefsRow, toUpdatePayload, getChangedFields } from '../utils/prefsMap
 - [x] Provides user-friendly error messages
 
 ### useSavePrefs:
+
 - [x] Accepts SavePrefsRequest with userId, data, existingData
 - [x] Supports both insert and update operations via upsert
 - [x] Only includes changed fields in update payload

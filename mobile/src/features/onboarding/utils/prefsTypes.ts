@@ -185,10 +185,7 @@ export interface PrefsRow {
  * - UPDATE: Include only changed fields
  * - PATCH: Include only fields user modified on this screen
  */
-export type PrefsUpdatePayload = Omit<
-  Partial<PrefsRow>,
-  'user_id' | 'created_at' | 'updated_at'
->;
+export type PrefsUpdatePayload = Omit<Partial<PrefsRow>, 'user_id' | 'created_at' | 'updated_at'>;
 
 /**
  * Default form data for new users.

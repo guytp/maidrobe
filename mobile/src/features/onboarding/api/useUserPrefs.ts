@@ -2,7 +2,11 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
-import { logError, getUserFriendlyMessage, type ErrorClassification } from '../../../core/telemetry';
+import {
+  logError,
+  getUserFriendlyMessage,
+  type ErrorClassification,
+} from '../../../core/telemetry';
 import type { PrefsRow } from '../utils/prefsTypes';
 import { PrefsRowSchema } from '../utils/prefsValidation';
 

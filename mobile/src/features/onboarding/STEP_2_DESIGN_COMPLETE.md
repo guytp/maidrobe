@@ -16,34 +16,38 @@ Located: `mobile/src/features/onboarding/utils/prefsTypes.ts`
 
 ```typescript
 interface PrefsFormData {
-  colourTendency: ColourTendency;     // Section 1: Colour tendencies
-  exclusions: ExclusionsData;          // Section 2: Exclusions (checklist + free-text)
-  noRepeatWindow: NoRepeatWindow;      // Section 3: No-repeat window
-  comfortNotes: string;                // Section 4: Comfort/style notes
+  colourTendency: ColourTendency; // Section 1: Colour tendencies
+  exclusions: ExclusionsData; // Section 2: Exclusions (checklist + free-text)
+  noRepeatWindow: NoRepeatWindow; // Section 3: No-repeat window
+  comfortNotes: string; // Section 4: Comfort/style notes
 }
 ```
 
 ### Supporting Types
 
 **ColourTendency**
+
 - Type: `'neutrals' | 'some_colour' | 'bold_colours' | 'not_sure'`
 - Represents: Single-select UI for colour preference
 - Database mapping: Array storage (future-proof)
 
 **ExclusionsData**
+
 ```typescript
 interface ExclusionsData {
-  checklist: ExclusionTag[];  // Known canonical tags
-  freeText: string;           // User-entered text (newline-separated)
+  checklist: ExclusionTag[]; // Known canonical tags
+  freeText: string; // User-entered text (newline-separated)
 }
 ```
 
 **NoRepeatWindow**
+
 - Type: `0 | 7 | 14 | null`
 - Represents: Three buckets for no-repeat preference
 - Database mapping: Numeric days with range bucketing
 
 **ExclusionTag**
+
 - Type: Union of canonical tags
 - Values: `'skirts' | 'shorts' | 'crop_tops' | 'heels' | 'suits_blazers' | 'sleeveless_tops'`
 
@@ -67,6 +71,7 @@ const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
 **Implementation:**
 
 **Database -> UI (mapColourPrefsToTendency)**
+
 - `[]` -> `'not_sure'`
 - `["neutrals"]` -> `'neutrals'`
 - `["some_colour"]` -> `'some_colour'`
@@ -75,12 +80,14 @@ const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
 - `["neutrals", "some_colour"]` -> `'neutrals'` (first known tag wins)
 
 **UI -> Database (mapColourTendencyToPrefs)**
+
 - `'not_sure'` -> `[]`
 - `'neutrals'` -> `["neutrals"]`
 - `'some_colour'` -> `["some_colour"]`
 - `'bold_colours'` -> `["bold_colours"]`
 
 **Verification:** ✓ COMPLETE
+
 - Unknown/empty defaults to 'not_sure'
 - First recognized tag wins for multi-value arrays
 - Reversible transformation
@@ -93,27 +100,24 @@ const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
 **Implementation:**
 
 **Canonical Tags:**
+
 ```typescript
-EXCLUSION_TAGS = [
-  'skirts',
-  'shorts',
-  'crop_tops',
-  'heels',
-  'suits_blazers',
-  'sleeveless_tops',
-]
+EXCLUSION_TAGS = ['skirts', 'shorts', 'crop_tops', 'heels', 'suits_blazers', 'sleeveless_tops'];
 ```
 
 **Database -> UI (splitExclusions)**
+
 - Filters tags matching EXCLUSION_TAGS into checklist array
 - Known tags added as-is (already lowercase)
 - Type-safe: Returns `ExclusionTag[]`
 
 **UI -> Database (joinExclusions)**
+
 - Checklist tags added as-is to database array
 - No transformation needed (already canonical)
 
 **Verification:** ✓ COMPLETE
+
 - All tags are lowercase with underscores
 - Type system enforces canonical tags
 - Unknown tags handled gracefully
@@ -126,11 +130,13 @@ EXCLUSION_TAGS = [
 **Implementation:**
 
 **Constant:**
+
 ```typescript
 const FREE_TEXT_PREFIX = 'free:';
 ```
 
 **Database -> UI (splitExclusions)**
+
 - Identifies entries starting with "free:"
 - Removes prefix: `"free:no wool"` -> `"no wool"`
 - Joins multiple entries with newlines
@@ -138,6 +144,7 @@ const FREE_TEXT_PREFIX = 'free:';
 - Example: `["free:no wool", "free:no silk"]` -> `"no wool\nno silk"`
 
 **UI -> Database (joinExclusions)**
+
 - Splits freeText by newlines
 - Trims each line
 - Filters empty lines
@@ -146,6 +153,7 @@ const FREE_TEXT_PREFIX = 'free:';
 - Example: `"no wool\nno silk"` -> `["free:no wool", "free:no silk"]`
 
 **Verification:** ✓ COMPLETE
+
 - Deterministic prefix handling
 - Newline-separated multi-line support
 - Double-prefix prevention
@@ -159,6 +167,7 @@ const FREE_TEXT_PREFIX = 'free:';
 **Implementation:**
 
 **Database -> UI (mapNoRepeatDaysToWindow)**
+
 - `0` -> `0` (Exact match: "Okay with repeats")
 - `1-10` -> `7` (Bucket: "~1 week")
 - `11-21` -> `14` (Bucket: "~2 weeks")
@@ -167,15 +176,18 @@ const FREE_TEXT_PREFIX = 'free:';
 - `22+` -> `null` (Out of range)
 
 **UI -> Database (mapNoRepeatWindowToDays)**
+
 - Direct passthrough: `0` -> `0`, `7` -> `7`, `14` -> `14`, `null` -> `null`
 
 **Rationale:**
+
 - Preserves exact user selections (0, 7, 14)
 - Maps intermediate values to nearest bucket
 - Handles data errors gracefully
 - Forces re-selection for out-of-range values
 
 **Verification:** ✓ COMPLETE
+
 - Three buckets plus null implemented
 - Range bucketing correct
 - Edge case handling (negative, large numbers)
@@ -190,6 +202,7 @@ const FREE_TEXT_PREFIX = 'free:';
 **Function: getChangedFields(current, previous)**
 
 **Comparison Logic:**
+
 - Colour tendency: Direct equality (`current.colourTendency !== previous.colourTendency`)
 - Exclusions: Deep array/string comparison
   - Checklist: JSON.stringify sorted arrays
@@ -198,35 +211,38 @@ const FREE_TEXT_PREFIX = 'free:';
 - Comfort notes: Trimmed string comparison
 
 **Return Value:**
+
 - `PrefsUpdatePayload` with only differing fields
 - Empty object if no changes
 - Includes explicit clears (e.g., 'not_sure', [], null, '')
 
 **Example:**
+
 ```typescript
 current = {
   colourTendency: 'neutrals',
   exclusions: { checklist: ['skirts'], freeText: '' },
   noRepeatWindow: 7,
-  comfortNotes: 'no tight waistbands'
-}
+  comfortNotes: 'no tight waistbands',
+};
 
 previous = {
   colourTendency: 'not_sure',
   exclusions: { checklist: [], freeText: '' },
   noRepeatWindow: null,
-  comfortNotes: ''
-}
+  comfortNotes: '',
+};
 
 result = {
   colour_prefs: ['neutrals'],
   exclusions: ['skirts'],
   no_repeat_days: 7,
-  comfort_notes: 'no tight waistbands'
-}
+  comfort_notes: 'no tight waistbands',
+};
 ```
 
 **Verification:** ✓ COMPLETE
+
 - Only changed fields included
 - Deep comparison for complex types
 - Handles explicit clears correctly
@@ -240,23 +256,27 @@ result = {
 **Implementation:**
 
 **Unknown Colour Tags:**
+
 - Strategy: Default to 'not_sure'
 - Rationale: User can re-select preference
 - Prevents: Crashes from schema evolution
 - Example: `["future_tag"]` -> `'not_sure'`
 
 **Unknown Exclusion Tags:**
+
 - Strategy: Silently ignore
 - Rationale: Not in EXCLUSION_TAGS, not "free:" prefixed
 - Prevents: Display of stale/deprecated tags
 - Example: `["skirts", "deprecated_tag", "heels"]` -> `{checklist: ["skirts", "heels"], freeText: ""}`
 
 **Note:** Current design does NOT treat unknown exclusions as free-text. This prevents:
+
 - Exposing internal/deprecated tags to users
 - Confusion from unexpected text appearing
 - Migration issues when removing tags
 
 If requirement changes to show unknown tags as free-text, implementation would be:
+
 ```typescript
 // In splitExclusions, add else clause:
 else if (!tag.startsWith(FREE_TEXT_PREFIX)) {
@@ -266,6 +286,7 @@ else if (!tag.startsWith(FREE_TEXT_PREFIX)) {
 ```
 
 **Verification:** ✓ COMPLETE
+
 - Unknown colours -> 'not_sure'
 - Unknown exclusions -> silently ignored
 - Graceful degradation strategy
@@ -279,12 +300,14 @@ else if (!tag.startsWith(FREE_TEXT_PREFIX)) {
 **Purpose:** Check if form contains meaningful user input
 
 **Logic:**
+
 - Returns `false` if ALL fields are default/empty
 - Returns `true` if ANY field has meaningful data
 
 **Use Case:** Determine whether to INSERT a prefs row for new users
 
 **Implementation:**
+
 ```typescript
 if (form.colourTendency !== 'not_sure') return true;
 if (form.exclusions.checklist.length > 0 || form.exclusions.freeText.trim()) return true;
@@ -300,6 +323,7 @@ return false;
 **Purpose:** Convert database row to UI form data
 
 **Guarantees:**
+
 - Always returns valid PrefsFormData
 - Never throws on bad input
 - Deterministic output for same input
@@ -329,16 +353,19 @@ return false;
 ### Zod Schemas (prefsValidation.ts)
 
 **PrefsFormDataSchema**
+
 - Validates complete form data structure
 - Enforces MAX_COMFORT_NOTES_LENGTH = 500
 - Runtime type safety
 
 **PrefsRowSchema**
+
 - Validates database responses
 - Lax tag validation (graceful degradation)
 - Schema evolution support
 
 **PrefsUpdatePayloadSchema**
+
 - Validates partial update payloads
 - All fields optional
 
@@ -349,6 +376,7 @@ return false;
 ### prefsMapping.test.ts (23KB)
 
 **Test Suites:**
+
 - toFormData: null handling, colour mapping, exclusions, no-repeat, notes
 - toPrefsRow: round-trip conversions, field transformations
 - toUpdatePayload: partial payload generation
@@ -360,6 +388,7 @@ return false;
 ### prefsValidation.test.ts (14KB)
 
 **Test Suites:**
+
 - Schema validation for all types
 - Type guards
 - Validator functions
@@ -371,15 +400,15 @@ return false;
 
 ## Compliance Verification Matrix
 
-| Requirement | Status | Evidence |
-|------------|--------|----------|
-| Four UI sections representation | ✓ COMPLETE | PrefsFormData interface |
-| Colour mapping with 'not_sure' | ✓ COMPLETE | mapColourPrefsToTendency/ToPrefs |
-| Canonical lowercase tags | ✓ COMPLETE | EXCLUSION_TAGS constant |
-| Free-text "free:" prefixing | ✓ COMPLETE | splitExclusions/joinExclusions |
-| NoRepeat range mapping | ✓ COMPLETE | mapNoRepeatDaysToWindow/ToDays |
-| PATCH semantics | ✓ COMPLETE | getChangedFields |
-| Unknown value handling | ✓ COMPLETE | Graceful degradation throughout |
+| Requirement                     | Status     | Evidence                         |
+| ------------------------------- | ---------- | -------------------------------- |
+| Four UI sections representation | ✓ COMPLETE | PrefsFormData interface          |
+| Colour mapping with 'not_sure'  | ✓ COMPLETE | mapColourPrefsToTendency/ToPrefs |
+| Canonical lowercase tags        | ✓ COMPLETE | EXCLUSION_TAGS constant          |
+| Free-text "free:" prefixing     | ✓ COMPLETE | splitExclusions/joinExclusions   |
+| NoRepeat range mapping          | ✓ COMPLETE | mapNoRepeatDaysToWindow/ToDays   |
+| PATCH semantics                 | ✓ COMPLETE | getChangedFields                 |
+| Unknown value handling          | ✓ COMPLETE | Graceful degradation throughout  |
 
 ## Design Decisions
 
@@ -388,6 +417,7 @@ return false;
 **Decision:** Silently ignore unknown exclusion tags
 
 **Rationale:**
+
 - Prevents exposing deprecated/internal tags to users
 - Cleaner migration path when removing tags
 - Avoids user confusion from unexpected text
@@ -399,6 +429,7 @@ return false;
 **Decision:** When multiple colour tags exist, use first known tag
 
 **Rationale:**
+
 - Single-select UI requires one value
 - First tag likely represents user's primary preference
 - Future-proofs for potential multi-select UI
@@ -408,6 +439,7 @@ return false;
 **Decision:** Map values outside buckets to null
 
 **Rationale:**
+
 - Forces user to explicitly choose a supported option
 - Prevents confusion from unexpected bucket assignments
 - Clear UX: "no preference set" vs invalid hidden value
@@ -417,6 +449,7 @@ return false;
 **Decision:** Use JSON.stringify for array comparison in getChangedFields
 
 **Rationale:**
+
 - Simple, reliable deep equality
 - Handles order independence via .sort()
 - Acceptable performance for small arrays
@@ -425,16 +458,19 @@ return false;
 ## Next Steps
 
 **Step 3:** Implement React Query hooks (useUserPrefs, useSavePrefs)
+
 - Already complete (verified in Step 1)
 - Use toFormData() for query transformation
 - Use getChangedFields() for mutation optimization
 
 **Step 4:** Build PrefsScreen UI component
+
 - Bind to PrefsFormData model
 - Use DEFAULT_PREFS_FORM_DATA for initial state
 - Call mapping utilities on save
 
 **Step 5:** Wire Next/Skip behaviors
+
 - Integrate with onboarding context
 - Use hasAnyData() to decide INSERT vs skip
 - Apply PATCH semantics via getChangedFields()

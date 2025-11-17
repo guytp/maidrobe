@@ -5,10 +5,7 @@ import { Button } from '../../../core/components';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { useOnboardingContext } from '../context/OnboardingContext';
-import {
-  trackWelcomeGetStartedClicked,
-  trackWelcomeSkipped,
-} from '../utils/onboardingAnalytics';
+import { trackWelcomeGetStartedClicked, trackWelcomeSkipped } from '../utils/onboardingAnalytics';
 
 /**
  * Onboarding footer component with navigation controls.
@@ -70,8 +67,8 @@ export function OnboardingFooter(): React.JSX.Element {
   const primaryLabel = isFinalStep
     ? t('screens.onboarding.footer.buttons.getStarted')
     : isWelcomeStep
-    ? t('screens.onboarding.footer.buttons.getStarted')
-    : t('screens.onboarding.footer.buttons.next');
+      ? t('screens.onboarding.footer.buttons.getStarted')
+      : t('screens.onboarding.footer.buttons.next');
 
   /**
    * Handler for primary action (Get Started / Next).
