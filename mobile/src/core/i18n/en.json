@@ -320,11 +320,21 @@
           "nameHelper": "Give it a name to help you remember it",
           "namePlaceholder": "e.g. Favorite blue jeans",
           "saveButton": "Save Item",
+          "retryButton": "Try Again",
+          "skipButton": "Do this later",
           "errors": {
             "typeRequired": "Please select an item type",
             "colourRequired": "Please select a colour",
-            "nameTooLong": "Name must be 100 characters or less"
+            "nameTooLong": "Name must be 100 characters or less",
+            "networkError": "Unable to save. Please check your connection and try again.",
+            "storageError": "Unable to upload photo. Please try again.",
+            "databaseError": "Unable to save item. Please try again.",
+            "unknownError": "Something went wrong. Please try again or do this later."
           }
+        },
+        "success": {
+          "itemSaved": "Item saved successfully!",
+          "previewTitle": "Your First Item"
         },
         "accessibility": {
           "screenLabel": "First wardrobe item capture",

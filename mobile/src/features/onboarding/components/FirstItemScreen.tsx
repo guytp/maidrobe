@@ -10,6 +10,7 @@ import {
   trackFirstItemStartedCapture,
   trackFirstItemSkipped,
   trackFirstItemSavedSuccess,
+  trackFirstItemSaveFailed,
 } from '../utils/onboardingAnalytics';
 import { useWardrobeItemCount } from '../utils/wardrobeUtils';
 import { CameraPlaceholder } from './CameraPlaceholder';
@@ -17,6 +18,10 @@ import { checkCameraPermission } from '../utils/cameraPermissions';
 import { logError } from '../../../core/telemetry';
 import { ItemMetadataForm } from './ItemMetadataForm';
 import { ItemMetadata } from '../types/itemMetadata';
+import { useCreateFirstItem, CreateItemError } from '../api/useCreateFirstItem';
+import { Toast } from '../../../core/components/Toast';
+import { ItemPreviewCard } from './ItemPreviewCard';
+import { WardrobeItem } from '../types/wardrobeItem';
 
 /**
  * First Wardrobe Item Capture screen for onboarding flow.
@@ -72,7 +77,18 @@ export function FirstItemScreen(): React.JSX.Element {
 
   // Captured image and metadata state
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [capturedMetadata, setCapturedMetadata] = useState<ItemMetadata | null>(null);
   const [showMetadataForm, setShowMetadataForm] = useState(false);
+
+  // Success state
+  const [createdItem, setCreatedItem] = useState<WardrobeItem | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  // Track if save success has been fired (prevent duplicates)
+  const hasTrackedSaveSuccess = useRef(false);
+
+  // Create item mutation
+  const createItemMutation = useCreateFirstItem();
 
   // Track first item screen view once on mount
   useEffect(() => {
@@ -169,20 +185,97 @@ export function FirstItemScreen(): React.JSX.Element {
    * Handle metadata form save.
    */
   const handleMetadataSave = useCallback(
-    (_metadata: ItemMetadata) => {
-      // Store metadata with captured image
-      // TODO: In Step 5, persist capturedImageUri and metadata to Supabase here
-      // For now, we just track that the item was saved and advance
+    (metadata: ItemMetadata) => {
+      // Store metadata for retry purposes
+      setCapturedMetadata(metadata);
 
-      // Track successful save
-      trackFirstItemSavedSuccess();
-
-      setShowMetadataForm(false);
-      // Advance to next onboarding step
-      onNext();
+      // Trigger mutation if we have both image and valid metadata
+      if (capturedImageUri && metadata.type && metadata.colourId) {
+        createItemMutation.mutate({
+          imageUri: capturedImageUri,
+          type: metadata.type,
+          colourId: metadata.colourId,
+          name: metadata.name,
+        });
+      }
     },
-    [onNext]
+    [capturedImageUri, createItemMutation]
   );
+
+  /**
+   * Handle retry after error.
+   */
+  const handleRetry = useCallback(() => {
+    // Retry with same metadata
+    if (capturedMetadata && capturedImageUri) {
+      createItemMutation.reset(); // Clear error state
+      createItemMutation.mutate({
+        imageUri: capturedImageUri,
+        type: capturedMetadata.type!,
+        colourId: capturedMetadata.colourId!,
+        name: capturedMetadata.name,
+      });
+    }
+  }, [capturedMetadata, capturedImageUri, createItemMutation]);
+
+  /**
+   * Handle skip after error.
+   */
+  const handleSkipAfterError = useCallback(() => {
+    // Track skip with failure reason
+    trackFirstItemSkipped('failure_then_skip');
+    // Close form and advance
+    setShowMetadataForm(false);
+    onSkipStep();
+  }, [onSkipStep]);
+
+  /**
+   * Handle mutation success.
+   */
+  useEffect(() => {
+    if (createItemMutation.isSuccess && createItemMutation.data) {
+      const item = createItemMutation.data.item;
+      setCreatedItem(item);
+
+      // Track success exactly once
+      if (!hasTrackedSaveSuccess.current) {
+        trackFirstItemSavedSuccess();
+        hasTrackedSaveSuccess.current = true;
+      }
+
+      // Show success toast
+      setShowSuccessToast(true);
+
+      // Close metadata form
+      setShowMetadataForm(false);
+
+      // Wait 2 seconds then advance to next step
+      setTimeout(() => {
+        onNext();
+      }, 2000);
+    }
+  }, [createItemMutation.isSuccess, createItemMutation.data, onNext]);
+
+  /**
+   * Handle mutation error.
+   */
+  useEffect(() => {
+    if (createItemMutation.isError && createItemMutation.error) {
+      const error = createItemMutation.error as CreateItemError;
+
+      // Track failure with error type
+      trackFirstItemSaveFailed(error.errorType);
+
+      // Log error via telemetry
+      logError(error, 'schema', {
+        feature: 'onboarding_first_item',
+        operation: 'saveItem',
+        metadata: {
+          errorType: error.errorType,
+        },
+      });
+    }
+  }, [createItemMutation.isError, createItemMutation.error]);
 
   /**
    * Register custom primary handler for this step.
@@ -238,6 +331,23 @@ export function FirstItemScreen(): React.JSX.Element {
     [colors, spacing]
   );
 
+  // Get error message for display
+  const errorMessage = useMemo(() => {
+    if (!createItemMutation.error) return null;
+
+    const error = createItemMutation.error as CreateItemError;
+    switch (error.errorType) {
+      case 'network':
+        return t('screens.onboarding.firstItem.metadata.errors.networkError');
+      case 'storage':
+        return t('screens.onboarding.firstItem.metadata.errors.storageError');
+      case 'database':
+        return t('screens.onboarding.firstItem.metadata.errors.databaseError');
+      default:
+        return t('screens.onboarding.firstItem.metadata.errors.unknownError');
+    }
+  }, [createItemMutation.error]);
+
   return (
     <>
       <OnboardingShell>
@@ -246,35 +356,42 @@ export function FirstItemScreen(): React.JSX.Element {
           accessibilityLabel={t('screens.onboarding.firstItem.accessibility.screenLabel')}
           accessibilityHint={t('screens.onboarding.firstItem.accessibility.screenHint')}
         >
-          {/* Title */}
-          <Text
-            style={styles.title}
-            accessibilityRole="header"
-            allowFontScaling={true}
-            maxFontSizeMultiplier={3}
-          >
-            {t('screens.onboarding.firstItem.title')}
-          </Text>
+          {/* Show item preview if created successfully */}
+          {createdItem ? (
+            <ItemPreviewCard item={createdItem} />
+          ) : (
+            <>
+              {/* Title */}
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.firstItem.title')}
+              </Text>
 
-          {/* Headline - Value proposition */}
-          <Text
-            style={styles.headline}
-            accessibilityLabel={t('screens.onboarding.firstItem.accessibility.headlineLabel')}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={3}
-          >
-            {t('screens.onboarding.firstItem.headline')}
-          </Text>
+              {/* Headline - Value proposition */}
+              <Text
+                style={styles.headline}
+                accessibilityLabel={t('screens.onboarding.firstItem.accessibility.headlineLabel')}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.firstItem.headline')}
+              </Text>
 
-          {/* Optional notice */}
-          <Text
-            style={styles.optional}
-            accessibilityLabel={t('screens.onboarding.firstItem.accessibility.optionalLabel')}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={3}
-          >
-            {t('screens.onboarding.firstItem.optional')}
-          </Text>
+              {/* Optional notice */}
+              <Text
+                style={styles.optional}
+                accessibilityLabel={t('screens.onboarding.firstItem.accessibility.optionalLabel')}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={3}
+              >
+                {t('screens.onboarding.firstItem.optional')}
+              </Text>
+            </>
+          )}
 
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </View>
@@ -299,8 +416,23 @@ export function FirstItemScreen(): React.JSX.Element {
           // Prevent dismissal by back button/gesture - form must be completed or cancelled
         }}
       >
-        <ItemMetadataForm onSave={handleMetadataSave} />
+        <ItemMetadataForm
+          initialMetadata={capturedMetadata || undefined}
+          onSave={handleMetadataSave}
+          onRetry={handleRetry}
+          onSkip={handleSkipAfterError}
+          loading={createItemMutation.isPending}
+          error={errorMessage}
+        />
       </Modal>
+
+      {/* Success toast */}
+      <Toast
+        visible={showSuccessToast}
+        message={t('screens.onboarding.firstItem.success.itemSaved')}
+        type="success"
+        onDismiss={() => setShowSuccessToast(false)}
+      />
     </>
   );
 }
