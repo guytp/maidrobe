@@ -253,11 +253,19 @@
         }
       },
       "firstItem": {
-        "title": "First Item",
-        "subtitle": "Step 3 of 4",
-        "description": "This is a placeholder for the First Wardrobe Item Capture screen. Story #123 will provide the full implementation with camera integration and guided item capture.",
+        "title": "Add Your First Item",
+        "headline": "Add one favourite piece so we can start tailoring looks to your real wardrobe.",
+        "optional": "This step is optional - you can add items later in the main app.",
+        "primaryAction": "Add your first item",
+        "skipAction": "Skip for now",
+        "guidance": "Lay the item flat on a plain background",
         "accessibility": {
-          "screenLabel": "First wardrobe item capture"
+          "screenLabel": "First wardrobe item capture",
+          "screenHint": "Guided experience to add your first wardrobe item",
+          "primaryActionLabel": "Add your first item",
+          "primaryActionHint": "Open camera to capture your first wardrobe item",
+          "headlineLabel": "Step description",
+          "optionalLabel": "Optional step notice"
         }
       },
       "success": {
