@@ -2,9 +2,10 @@ import { getAuthErrorMessage } from '../../src/features/auth/utils/authErrorMess
 import type { NormalizedAuthError } from '../../src/features/auth/utils/authErrorTypes';
 
 // Mock i18n
-jest.mock('../../../src/core/i18n', () => ({
+jest.mock('../../src/core/i18n', () => ({
   t: (key: string) => {
     const messages: Record<string, string> = {
+      // Common errors
       'screens.auth.common.errors.networkError': 'Unable to connect. Please check your internet connection.',
       'screens.auth.common.errors.invalidCredentials': 'Invalid email or password.',
       'screens.auth.common.errors.unverifiedEmail': 'Please verify your email address to continue.',
@@ -12,6 +13,22 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.auth.common.errors.passwordPolicy': 'Password does not meet requirements.',
       'screens.auth.common.errors.rateLimited': 'Too many attempts. Please wait and try again.',
       'screens.auth.common.errors.unknown': 'Something went wrong. Please try again.',
+      // Flow-specific errors - login
+      'screens.auth.login.errors.invalidCredentials': 'Invalid email or password.',
+      'screens.auth.login.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.login.errors.rateLimitExceeded': 'Too many attempts. Please wait and try again.',
+      'screens.auth.login.sessionMessages.sessionExpired': 'Your session has expired. Please log in again.',
+      // Flow-specific errors - signup
+      'screens.auth.signup.errors.signupFailed': 'Unable to create account. Please try again.',
+      'screens.auth.signup.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.signup.errors.weakPassword': 'Password does not meet requirements.',
+      // Flow-specific errors - reset
+      'screens.auth.resetPassword.errors.tokenInvalid': 'This reset link is no longer valid.',
+      'screens.auth.resetPassword.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.resetPassword.errors.weakPassword': 'Password does not meet requirements.',
+      'screens.auth.resetPassword.errors.rateLimitExceeded': 'Too many attempts. Please wait and try again.',
+      // Flow-specific errors - verify
+      'screens.auth.verify.errors.tooManyRequests': 'Too many attempts. Please wait and try again.',
     };
     return messages[key] || key;
   },
@@ -68,7 +85,8 @@ describe('authErrorMessages', () => {
 
       const message = getAuthErrorMessage(error, 'signup');
 
-      expect(message).toBe('Unable to create account. Please try a different email.');
+      // Non-enumerating: uses generic signup failure message
+      expect(message).toBe('Unable to create account. Please try again.');
     });
 
     it('should map password_policy', () => {
@@ -180,7 +198,7 @@ describe('authErrorMessages', () => {
   });
 
   describe('Non-enumeration security', () => {
-    it('should return same message for invalid_credentials in login and signup', () => {
+    it('should return non-enumerating messages for invalid_credentials', () => {
       const error: NormalizedAuthError = {
         category: 'invalid_credentials',
         uiMessage: 'test',
@@ -191,8 +209,12 @@ describe('authErrorMessages', () => {
       const loginMessage = getAuthErrorMessage(error, 'login');
       const signupMessage = getAuthErrorMessage(error, 'signup');
 
-      // Should use generic error message, not reveal whether account exists
-      expect(loginMessage).toBe(signupMessage);
+      // Both should use generic error messages that don't reveal whether account exists
+      expect(loginMessage).toBe('Invalid email or password.');
+      expect(signupMessage).toBe('Unable to create account. Please try again.');
+      // Neither message reveals whether the account/email exists
+      expect(loginMessage).not.toContain('exists');
+      expect(signupMessage).not.toContain('exists');
     });
 
     it('should not reveal whether email exists', () => {

@@ -22,6 +22,35 @@ import { t } from '../../../core/i18n';
 import type { NormalizedAuthError, AuthErrorCategory, AuthFlow } from './authErrorTypes';
 
 /**
+ * Union type of all valid i18n keys that can be returned by selectI18nKey.
+ *
+ * This type ensures compile-time validation of translation keys, preventing
+ * typos and invalid key paths from being returned by selectI18nKey.
+ *
+ * All keys are validated against the actual translation file structure.
+ */
+type AuthErrorI18nKey =
+  | 'screens.auth.login.errors.networkError'
+  | 'screens.auth.signup.errors.networkError'
+  | 'screens.auth.resetPassword.errors.networkError'
+  | 'screens.auth.common.errors.networkError'
+  | 'screens.auth.login.errors.invalidCredentials'
+  | 'screens.auth.signup.errors.signupFailed'
+  | 'screens.auth.resetPassword.errors.tokenInvalid'
+  | 'screens.auth.login.sessionMessages.sessionExpired'
+  | 'screens.auth.common.errors.invalidCredentials'
+  | 'screens.auth.common.errors.unverifiedEmail'
+  | 'screens.auth.common.errors.emailAlreadyInUse'
+  | 'screens.auth.signup.errors.weakPassword'
+  | 'screens.auth.resetPassword.errors.weakPassword'
+  | 'screens.auth.common.errors.passwordPolicy'
+  | 'screens.auth.login.errors.rateLimitExceeded'
+  | 'screens.auth.resetPassword.errors.rateLimitExceeded'
+  | 'screens.auth.verify.errors.tooManyRequests'
+  | 'screens.auth.common.errors.rateLimited'
+  | 'screens.auth.common.errors.unknown';
+
+/**
  * Gets user-facing error message for a normalized auth error.
  *
  * This is the main entry point for converting normalized auth errors
@@ -62,8 +91,9 @@ export function getAuthErrorMessage(
     const i18nKey = selectI18nKey(error.category, flow, error.code);
 
     // Step 2: Resolve i18n key to actual message
-    // Type assertion: selectI18nKey returns valid i18n keys constructed from known paths
-    let message = t(i18nKey as Parameters<typeof t>[0]);
+    // No type assertion needed: selectI18nKey now returns AuthErrorI18nKey
+    // which is a subset of valid TranslationKey, ensuring compile-time safety
+    let message = t(i18nKey);
 
     // Step 3: Apply dynamic replacements (e.g., {seconds} for rate limiting)
     message = applyDynamicReplacements(message, error);
@@ -94,16 +124,21 @@ export function getAuthErrorMessage(
  * - Signup: Generic message for existing email (don't confirm registration)
  * - Reset: Generic message (don't confirm email exists)
  *
+ * Type Safety:
+ * Returns AuthErrorI18nKey union type for compile-time validation.
+ * All return statements are checked by TypeScript to ensure they are
+ * valid translation keys, preventing typos and invalid paths.
+ *
  * @param category - Error category
  * @param flow - Authentication flow
  * @param code - Optional error code for additional context
- * @returns i18n key for the error message
+ * @returns Typed i18n key for the error message
  */
 function selectI18nKey(
   category: AuthErrorCategory,
   flow: AuthFlow,
   code?: string
-): string {
+): AuthErrorI18nKey {
   // NETWORK ERRORS: Same across all flows
   if (category === 'network') {
     // Use flow-specific network error messages where available
