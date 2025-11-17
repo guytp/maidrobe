@@ -816,5 +816,42 @@ describe('ItemMetadataForm', () => {
         name: 'New Name',
       });
     });
+
+    it('should show error for invalid initial name length on mount', () => {
+      const initialMetadata = {
+        type: ItemType.Top,
+        colourId: 'blue',
+        name: 'A'.repeat(101),
+      };
+
+      const { getByText } = render(
+        <TestWrapper>
+          <ItemMetadataForm onSave={mockOnSave} initialMetadata={initialMetadata} />
+        </TestWrapper>
+      );
+
+      expect(getByText('Name must be 100 characters or less')).toBeTruthy();
+    });
+
+    it('should disable save button with invalid initial name length', () => {
+      const initialMetadata = {
+        type: ItemType.Bottom,
+        colourId: 'red',
+        name: 'B'.repeat(150),
+      };
+
+      const { getByText } = render(
+        <TestWrapper>
+          <ItemMetadataForm onSave={mockOnSave} initialMetadata={initialMetadata} />
+        </TestWrapper>
+      );
+
+      // Verify error is shown
+      expect(getByText('Name must be 100 characters or less')).toBeTruthy();
+
+      // Verify save is not called when button pressed
+      fireEvent.press(getByText('Save Item'));
+      expect(mockOnSave).not.toHaveBeenCalled();
+    });
   });
 });

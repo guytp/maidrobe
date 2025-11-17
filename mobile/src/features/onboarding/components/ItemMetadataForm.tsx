@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -111,6 +111,18 @@ export function ItemMetadataForm({
 
     return isValid;
   }, [type, colourId, name]);
+
+  /**
+   * Validate initial metadata on mount or when it changes.
+   * This surfaces any pre-existing invalid values before the user taps save.
+   */
+  useEffect(() => {
+    if (initialMetadata) {
+      validateForm();
+    }
+    // Only validate when initialMetadata changes, not on every form field change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMetadata]);
 
   /**
    * Handle form submission.
