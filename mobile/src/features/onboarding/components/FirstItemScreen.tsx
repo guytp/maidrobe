@@ -9,11 +9,14 @@ import {
   trackFirstItemViewed,
   trackFirstItemStartedCapture,
   trackFirstItemSkipped,
+  trackFirstItemSavedSuccess,
 } from '../utils/onboardingAnalytics';
 import { useWardrobeItemCount } from '../utils/wardrobeUtils';
 import { CameraPlaceholder } from './CameraPlaceholder';
 import { checkCameraPermission } from '../utils/cameraPermissions';
 import { logError } from '../../../core/telemetry';
+import { ItemMetadataForm } from './ItemMetadataForm';
+import { ItemMetadata } from '../types/itemMetadata';
 
 /**
  * First Wardrobe Item Capture screen for onboarding flow.
@@ -66,6 +69,10 @@ export function FirstItemScreen(): React.JSX.Element {
 
   // Camera flow state
   const [showCamera, setShowCamera] = useState(false);
+
+  // Captured image and metadata state
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [showMetadataForm, setShowMetadataForm] = useState(false);
 
   // Track first item screen view once on mount
   useEffect(() => {
@@ -137,13 +144,14 @@ export function FirstItemScreen(): React.JSX.Element {
    * Handle successful photo capture from camera.
    */
   const handleCameraCapture = useCallback(
-    (_image: { uri: string }) => {
+    (image: { uri: string }) => {
+      // Store captured image
+      setCapturedImageUri(image.uri);
       setShowCamera(false);
-      // Proceed to next step (will be metadata form in Step 4)
-      // TODO: Pass captured image to metadata form in Step 4
-      onNext();
+      // Show metadata form
+      setShowMetadataForm(true);
     },
-    [onNext]
+    []
   );
 
   /**
@@ -156,6 +164,25 @@ export function FirstItemScreen(): React.JSX.Element {
     // Advance to next step
     onSkipStep();
   }, [onSkipStep]);
+
+  /**
+   * Handle metadata form save.
+   */
+  const handleMetadataSave = useCallback(
+    (metadata: ItemMetadata) => {
+      // Store metadata with captured image
+      // TODO: In Step 5, persist to Supabase here
+      // For now, we just track that the item was saved and advance
+
+      // Track successful save
+      trackFirstItemSavedSuccess();
+
+      setShowMetadataForm(false);
+      // Advance to next onboarding step
+      onNext();
+    },
+    [onNext]
+  );
 
   /**
    * Register custom primary handler for this step.
@@ -261,6 +288,18 @@ export function FirstItemScreen(): React.JSX.Element {
         onRequestClose={handleCameraCancel}
       >
         <CameraPlaceholder onCapture={handleCameraCapture} onCancel={handleCameraCancel} />
+      </Modal>
+
+      {/* Metadata form modal overlay */}
+      <Modal
+        visible={showMetadataForm}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => {
+          // Prevent dismissal by back button/gesture - form must be completed or cancelled
+        }}
+      >
+        <ItemMetadataForm onSave={handleMetadataSave} />
       </Modal>
     </>
   );

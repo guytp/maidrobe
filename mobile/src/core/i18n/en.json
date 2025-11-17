@@ -218,6 +218,33 @@
           "rateLimited": "Too many attempts. Please wait and try again.",
           "unknown": "Something went wrong. Please try again."
         }
+      },
+      "itemTypes": {
+        "top": "Top",
+        "bottom": "Bottom",
+        "dress": "Dress",
+        "outerwear": "Outerwear",
+        "shoes": "Shoes",
+        "accessories": "Accessories",
+        "other": "Other"
+      },
+      "colours": {
+        "black": "Black",
+        "white": "White",
+        "grey": "Grey",
+        "beige": "Beige",
+        "brown": "Brown",
+        "red": "Red",
+        "blue": "Blue",
+        "green": "Green",
+        "yellow": "Yellow",
+        "orange": "Orange",
+        "purple": "Purple",
+        "pink": "Pink",
+        "navy": "Navy",
+        "burgundy": "Burgundy",
+        "olive": "Olive",
+        "cream": "Cream"
       }
     },
     "onboarding": {
@@ -281,6 +308,24 @@
           "doThisLater": "Do this later",
           "retry": "Try Again"
         },
+        "metadata": {
+          "title": "Tell Us About This Item",
+          "subtitle": "Just a few quick details to help us organize your wardrobe",
+          "typeLabel": "Type",
+          "typeHelper": "What kind of item is this?",
+          "typePlaceholder": "Select item type",
+          "colourLabel": "Colour",
+          "colourHelper": "What is the main colour?",
+          "nameLabel": "Name (Optional)",
+          "nameHelper": "Give it a name to help you remember it",
+          "namePlaceholder": "e.g. Favorite blue jeans",
+          "saveButton": "Save Item",
+          "errors": {
+            "typeRequired": "Please select an item type",
+            "colourRequired": "Please select a colour",
+            "nameTooLong": "Name must be 100 characters or less"
+          }
+        },
         "accessibility": {
           "screenLabel": "First wardrobe item capture",
           "screenHint": "Guided experience to add your first wardrobe item",
@@ -291,7 +336,19 @@
           "cameraPlaceholder": "Camera placeholder screen",
           "usePlaceholderButton": "Use placeholder image button",
           "doThisLaterButton": "Do this later button",
-          "retryButton": "Retry button"
+          "retryButton": "Retry button",
+          "metadataForm": "Item metadata form",
+          "metadataFormHint": "Enter details about the captured item",
+          "typeSelector": "Item type selector",
+          "typeSelectorHint": "Select the type of clothing or accessory",
+          "colourSelector": "Colour selector",
+          "colourSelectorHint": "Select the main colour of the item",
+          "colourSwatch": "Colour swatch",
+          "colourSwatchHint": "Tap to select this colour",
+          "nameInput": "Item name input",
+          "nameInputHint": "Optional name or label for this item",
+          "saveButton": "Save item button",
+          "saveButtonHint": "Save this item and continue"
         }
       },
       "success": {
