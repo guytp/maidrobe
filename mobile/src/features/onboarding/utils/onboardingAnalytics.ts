@@ -274,3 +274,31 @@ export function trackWelcomeSkipped(): void {
     console.warn('[Onboarding Analytics] Failed to track welcome_skipped:', error);
   }
 }
+
+/**
+ * Track when preferences screen is viewed.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when the preferences screen first becomes visible in a session.
+ * Guarded against re-renders via useRef in the component.
+ *
+ * Prefs-specific event that provides finer granularity than the generic
+ * step_viewed event for analytics and funnel tracking.
+ *
+ * @param isResume - Whether this is a resumed session (vs fresh start)
+ */
+export function trackPrefsViewed(isResume: boolean): void {
+  try {
+    logSuccess('onboarding', 'prefs_viewed', {
+      data: {
+        step: 'prefs',
+        isResume,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_viewed:', error);
+  }
+}

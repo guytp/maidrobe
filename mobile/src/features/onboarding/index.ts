@@ -31,4 +31,5 @@ export {
   trackOnboardingSkippedAll,
   trackStateReset,
   trackStateResumed,
+  trackPrefsViewed,
 } from './utils/onboardingAnalytics';

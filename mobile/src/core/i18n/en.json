@@ -245,11 +245,42 @@
         }
       },
       "prefs": {
-        "title": "Preferences",
-        "subtitle": "Step 2 of 4",
-        "description": "This is a placeholder for the Style and Usage Preferences screen. Story #116 will provide the full implementation with preference collection forms and validation.",
+        "title": "Your Style Preferences",
+        "subtitle": "Help us understand what you like to wear",
+        "errorLoading": "Could not load your preferences. You can still continue.",
+        "colourTendency": {
+          "label": "What colours do you usually reach for?",
+          "neutrals": "Mostly neutrals",
+          "someColour": "Enjoy some colour",
+          "boldColours": "Love bold colours",
+          "notSure": "Not sure yet"
+        },
+        "exclusions": {
+          "label": "Anything you never wear?",
+          "skirts": "Skirts",
+          "shorts": "Shorts",
+          "crop_tops": "Crop tops",
+          "heels": "Heels",
+          "suits_blazers": "Suits/Blazers",
+          "sleeveless_tops": "Sleeveless tops",
+          "freeTextLabel": "Anything else?",
+          "freeTextPlaceholder": "E.g. no wool, no very tight clothes...",
+          "freeTextHint": "Add any other items or styles you prefer to avoid"
+        },
+        "noRepeat": {
+          "label": "How often can we repeat outfits?",
+          "okayWithRepeats": "Okay with repeats",
+          "oneWeek": "Avoid repeats within ~1 week",
+          "twoWeeks": "Avoid repeats within ~2 weeks"
+        },
+        "comfortNotes": {
+          "label": "Comfort & style notes",
+          "placeholder": "E.g. no tight waistbands, no very high heels, prefer soft fabrics...",
+          "hint": "Share any comfort preferences or style notes"
+        },
         "accessibility": {
-          "screenLabel": "Style and usage preferences"
+          "screenLabel": "Style and usage preferences",
+          "loading": "Loading your preferences"
         }
       },
       "firstItem": {
