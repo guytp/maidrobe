@@ -35,7 +35,7 @@ export interface WardrobeItem {
   /** Array of storage paths to item photos */
   photos: string[];
   /** Item type (top, bottom, dress, etc.) */
-  type: string;
+  type: ItemType;
   /** Array of colour IDs, first element is dominant colour */
   colour: string[];
   /** Optional user-provided name/label */
