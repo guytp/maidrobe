@@ -87,6 +87,9 @@ export function FirstItemScreen(): React.JSX.Element {
   // Track if save success has been fired (prevent duplicates)
   const hasTrackedSaveSuccess = useRef(false);
 
+  // Track if save error has been fired (prevent duplicates)
+  const hasTrackedSaveError = useRef(false);
+
   // Timer ref for delayed navigation cleanup
   const navigationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -191,6 +194,9 @@ export function FirstItemScreen(): React.JSX.Element {
 
       // Trigger mutation if we have both image and valid metadata
       if (capturedImageUri && metadata.type && metadata.colourId) {
+        // Reset error tracking flag for new save attempt
+        hasTrackedSaveError.current = false;
+
         createItemMutation.mutate({
           imageUri: capturedImageUri,
           type: metadata.type,
@@ -209,6 +215,9 @@ export function FirstItemScreen(): React.JSX.Element {
     // Retry with same metadata
     if (capturedMetadata && capturedImageUri) {
       createItemMutation.reset(); // Clear error state
+      // Reset error tracking flag for retry attempt
+      hasTrackedSaveError.current = false;
+
       createItemMutation.mutate({
         imageUri: capturedImageUri,
         type: capturedMetadata.type!,
@@ -277,8 +286,11 @@ export function FirstItemScreen(): React.JSX.Element {
     if (createItemMutation.isError && createItemMutation.error) {
       const error = createItemMutation.error as CreateItemError;
 
-      // Track failure with error type
-      trackFirstItemSaveFailed(error.errorType);
+      // Track failure with error type (fire once per error occurrence)
+      if (!hasTrackedSaveError.current) {
+        trackFirstItemSaveFailed(error.errorType);
+        hasTrackedSaveError.current = true;
+      }
 
       // Log error via telemetry
       logError(error, 'schema', {
