@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '../../../core/components';
@@ -32,6 +32,8 @@ import {
  * When any button is pressed, all buttons enter loading state for 500ms
  * to prevent rapid multiple taps and provide visual feedback during
  * navigation. The loading state automatically clears after the timeout.
+ * The timeout is properly cleaned up on component unmount to prevent
+ * memory leaks and state updates on unmounted components.
  *
  * @returns Footer component with navigation buttons
  */
@@ -42,6 +44,21 @@ export function OnboardingFooter(): React.JSX.Element {
 
   // Track if any action is in progress (prevents double-tap)
   const [isActionInProgress, setIsActionInProgress] = useState(false);
+
+  // Store timeout ID for cleanup on unmount
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Clear any pending timeout when component unmounts.
+   * This prevents memory leaks and state updates on unmounted components.
+   */
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   // Determine which buttons to show
   const isOptionalStep = currentStep === 'prefs' || currentStep === 'firstItem';
@@ -70,6 +87,7 @@ export function OnboardingFooter(): React.JSX.Element {
    * - Immediately sets loading state (disables all buttons)
    * - Calls onNext() to trigger navigation
    * - Resets loading state after 500ms timeout
+   * - Timeout stored in ref for cleanup on unmount
    * - Early return if already in progress
    */
   const handlePrimaryAction = useCallback(() => {
@@ -83,12 +101,18 @@ export function OnboardingFooter(): React.JSX.Element {
     setIsActionInProgress(true);
     onNext();
 
+    // Clear any existing timeout before setting new one
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
     // Reset loading state after brief delay
-    // This prevents double-tap while providing visual feedback
-    setTimeout(() => {
+    // Store timeout ID for cleanup on unmount
+    timeoutRef.current = setTimeout(() => {
       setIsActionInProgress(false);
+      timeoutRef.current = null;
     }, 500);
-  }, [onNext, isActionInProgress, isWelcomeStep]);
+  }, [onNext, isWelcomeStep]);
 
   /**
    * Handler for step-level skip action.
@@ -102,10 +126,18 @@ export function OnboardingFooter(): React.JSX.Element {
     setIsActionInProgress(true);
     onSkipStep();
 
-    setTimeout(() => {
+    // Clear any existing timeout before setting new one
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Reset loading state after brief delay
+    // Store timeout ID for cleanup on unmount
+    timeoutRef.current = setTimeout(() => {
       setIsActionInProgress(false);
+      timeoutRef.current = null;
     }, 500);
-  }, [onSkipStep, isActionInProgress]);
+  }, [onSkipStep]);
 
   /**
    * Handler for global skip onboarding action.
@@ -129,10 +161,18 @@ export function OnboardingFooter(): React.JSX.Element {
     setIsActionInProgress(true);
     onSkipOnboarding();
 
-    setTimeout(() => {
+    // Clear any existing timeout before setting new one
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Reset loading state after brief delay
+    // Store timeout ID for cleanup on unmount
+    timeoutRef.current = setTimeout(() => {
       setIsActionInProgress(false);
+      timeoutRef.current = null;
     }, 500);
-  }, [onSkipOnboarding, isActionInProgress, isWelcomeStep]);
+  }, [onSkipOnboarding, isWelcomeStep]);
 
   const styles = useMemo(
     () =>
