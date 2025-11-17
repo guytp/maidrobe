@@ -302,3 +302,67 @@ export function trackPrefsViewed(isResume: boolean): void {
     console.warn('[Onboarding Analytics] Failed to track prefs_viewed:', error);
   }
 }
+
+/**
+ * Track when preferences are saved via Next button.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user taps Next on the preferences screen and save completes successfully.
+ * Only includes privacy-safe boolean flags - no free-text content is logged.
+ *
+ * Prefs-specific event that tracks engagement with preference collection
+ * and provides insight into which sections users fill out.
+ *
+ * @param noRepeatSet - Whether user selected a no-repeat window
+ * @param colourTendencySelected - Whether user selected a colour tendency
+ * @param exclusionsSelected - Whether user selected any exclusions
+ * @param notesPresent - Whether user entered any comfort notes
+ */
+export function trackPrefsSaved(
+  noRepeatSet: boolean,
+  colourTendencySelected: boolean,
+  exclusionsSelected: boolean,
+  notesPresent: boolean
+): void {
+  try {
+    logSuccess('onboarding', 'prefs_saved', {
+      data: {
+        step: 'prefs',
+        noRepeatSet,
+        colourTendencySelected,
+        exclusionsSelected,
+        notesPresent,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_saved:', error);
+  }
+}
+
+/**
+ * Track when user skips preferences screen.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user taps Skip on the preferences screen.
+ * Duplicate prevention handled by footer's debouncing state.
+ *
+ * Prefs-specific event that tracks users who choose not to provide
+ * style and usage preferences during onboarding.
+ */
+export function trackPrefsSkipped(): void {
+  try {
+    logSuccess('onboarding', 'prefs_skipped', {
+      data: {
+        step: 'prefs',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_skipped:', error);
+  }
+}

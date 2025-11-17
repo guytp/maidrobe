@@ -1,16 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { OnboardingShell } from './OnboardingShell';
-import { useOnboardingContext } from '../context/OnboardingContext';
+import { OnboardingProvider, useOnboardingContext } from '../context/OnboardingContext';
 import { useUserPrefs } from '../api/useUserPrefs';
-import { toFormData } from '../utils/prefsMapping';
+import { useSavePrefs } from '../api/useSavePrefs';
+import { useStore } from '../../../core/state/store';
+import { toFormData, hasAnyData } from '../utils/prefsMapping';
 import { EXCLUSION_TAGS, DEFAULT_PREFS_FORM_DATA } from '../utils/prefsTypes';
 import type { PrefsFormData, ColourTendency, ExclusionTag, NoRepeatWindow } from '../utils/prefsTypes';
 import { MAX_COMFORT_NOTES_LENGTH } from '../utils/prefsValidation';
-import { trackPrefsViewed } from '../utils/onboardingAnalytics';
+import { trackPrefsViewed, trackPrefsSaved, trackPrefsSkipped } from '../utils/onboardingAnalytics';
+import { logError } from '../../../core/telemetry';
 
 /**
  * Style and Usage Preferences screen for onboarding flow.
@@ -34,22 +37,35 @@ import { trackPrefsViewed } from '../utils/onboardingAnalytics';
  */
 export function PrefsScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
-  const { currentStep } = useOnboardingContext();
+  const { currentStep, onNext: defaultOnNext, onSkipStep: defaultOnSkipStep } = useOnboardingContext();
+
+  // Get userId from store
+  const userId = useStore((state) => state.user?.id);
 
   // Fetch existing preferences
   const { data: prefsRow, isLoading, error } = useUserPrefs();
 
+  // Save preferences mutation
+  const savePrefs = useSavePrefs();
+
   // Local form state
   const [formData, setFormData] = useState<PrefsFormData>(DEFAULT_PREFS_FORM_DATA);
 
+  // Track initial form data for PATCH comparison
+  const [initialFormData, setInitialFormData] = useState<PrefsFormData>(DEFAULT_PREFS_FORM_DATA);
+
   // Track if prefs_viewed has been fired to prevent duplicates
   const hasTrackedView = useRef(false);
+
+  // Error message state for non-blocking errors
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Initialize form data from fetched prefs
   useEffect(() => {
     if (prefsRow !== undefined) {
       const mappedData = toFormData(prefsRow);
       setFormData(mappedData);
+      setInitialFormData(mappedData);
     }
   }, [prefsRow]);
 
@@ -94,6 +110,91 @@ export function PrefsScreen(): React.JSX.Element {
   const handleComfortNotesChange = (text: string) => {
     setFormData((prev) => ({ ...prev, comfortNotes: text }));
   };
+
+  /**
+   * Handle Next button press.
+   *
+   * Saves preferences with the following logic:
+   * - For new users (no existing row): Only save if hasAnyData is true
+   * - For existing users: Always save with PATCH semantics (only changed fields)
+   * - On success: Emit trackPrefsSaved analytics and navigate forward
+   * - On error: Log error, show message, but always navigate forward (non-blocking)
+   */
+  const handleNext = useCallback(async () => {
+    // Clear any previous error message
+    setErrorMessage(null);
+
+    // Guard: userId is required
+    if (!userId) {
+      logError(
+        new Error('User ID not available'),
+        'user',
+        {
+          feature: 'onboarding',
+          operation: 'prefs_save',
+          metadata: { step: 'prefs', reason: 'no_user_id' },
+        }
+      );
+      setErrorMessage('Unable to save preferences. Please try again.');
+      // Still navigate forward (non-blocking)
+      defaultOnNext();
+      return;
+    }
+
+    // Check if we should save
+    const shouldSave = prefsRow !== null || hasAnyData(formData);
+
+    if (!shouldSave) {
+      // User is new and didn't fill anything - skip save, just navigate
+      defaultOnNext();
+      return;
+    }
+
+    // Attempt to save
+    try {
+      await savePrefs.mutateAsync({
+        userId,
+        data: formData,
+        existingData: prefsRow ? initialFormData : null,
+      });
+
+      // Success: Emit analytics with privacy-safe flags
+      trackPrefsSaved(
+        formData.noRepeatWindow !== null,
+        formData.colourTendency !== 'not_sure',
+        formData.exclusions.checklist.length > 0 || formData.exclusions.freeText.trim().length > 0,
+        formData.comfortNotes.trim().length > 0
+      );
+
+      // Navigate forward
+      defaultOnNext();
+    } catch (err) {
+      // Error: Log, show message, but still navigate (non-blocking)
+      logError(
+        err instanceof Error ? err : new Error(String(err)),
+        'network',
+        {
+          feature: 'onboarding',
+          operation: 'prefs_save',
+          metadata: { step: 'prefs', hasExistingRow: prefsRow !== null },
+        }
+      );
+      setErrorMessage('Could not save your preferences, but you can continue.');
+
+      // Navigate forward anyway
+      defaultOnNext();
+    }
+  }, [userId, formData, initialFormData, prefsRow, savePrefs, defaultOnNext]);
+
+  /**
+   * Handle Skip button press.
+   *
+   * Does not save any data - just emits analytics and navigates forward.
+   */
+  const handleSkip = useCallback(() => {
+    trackPrefsSkipped();
+    defaultOnSkipStep();
+  }, [defaultOnSkipStep]);
 
   const styles = useMemo(
     () =>
@@ -233,7 +334,14 @@ export function PrefsScreen(): React.JSX.Element {
   const showError = error && !prefsRow;
 
   return (
-    <OnboardingShell>
+    <OnboardingProvider
+      currentStep={currentStep}
+      onNext={handleNext}
+      onSkipStep={handleSkip}
+      onSkipOnboarding={defaultOnNext}
+      onBack={() => {}}
+    >
+      <OnboardingShell>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -263,6 +371,16 @@ export function PrefsScreen(): React.JSX.Element {
               maxFontSizeMultiplier={2}
             >
               {t('screens.onboarding.prefs.errorLoading')}
+            </Text>
+          )}
+
+          {errorMessage && (
+            <Text
+              style={styles.helperText}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={2}
+            >
+              {errorMessage}
             </Text>
           )}
 
@@ -482,5 +600,6 @@ export function PrefsScreen(): React.JSX.Element {
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ScrollView>
     </OnboardingShell>
+    </OnboardingProvider>
   );
 }
