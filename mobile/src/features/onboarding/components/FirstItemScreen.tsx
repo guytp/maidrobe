@@ -103,8 +103,10 @@ export function FirstItemScreen(): React.JSX.Element {
     // - currentStep === 'firstItem': Prevents firing if currentStep changes while
     //   component is still mounted (can occur during navigation transitions when
     //   React hasn't unmounted this component yet but routing has advanced)
-    // - itemCount !== null: Wait for wardrobe count to load (currently immediate,
-    //   but will be async when Feature #3 is implemented)
+    // - itemCount !== null: Wait for wardrobe count to load. Note that 0 is a
+    //   valid loaded value (user has no existing items), while null indicates
+    //   the count is still loading. Currently returns 0 immediately, but will
+    //   be async when Feature #3 is implemented.
     if (!hasTrackedView.current && currentStep === 'firstItem' && itemCount !== null) {
       // For first-item screen during fresh onboarding, isResume is typically false
       // The shell-level trackStepViewed handles resume detection; this event tracks
