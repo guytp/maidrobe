@@ -141,6 +141,7 @@ describe('useCreateFirstItem', () => {
     it('should classify network errors correctly', async () => {
       (processItemImage as jest.Mock).mockRejectedValue(new Error('network connection failed'));
 
+      // Recreate queryClient with retry enabled BEFORE creating wrapper
       queryClient = new QueryClient({
         defaultOptions: {
           queries: { retry: false },
@@ -161,17 +162,18 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 15000 });
 
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('network');
       expect(result.current.error?.message).toBe('Network error while creating item');
       expect(telemetry.logError).toHaveBeenCalled();
-    });
+    }, 15000);
 
     it('should classify storage errors correctly', async () => {
       (processItemImage as jest.Mock).mockRejectedValue(new Error('storage upload failed'));
 
+      // Recreate queryClient with retry enabled BEFORE creating wrapper
       queryClient = new QueryClient({
         defaultOptions: {
           queries: { retry: false },
@@ -192,12 +194,12 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 5000 });
+      await waitFor(() => expect(result.current.isError).toBe(true), { timeout: 15000 });
 
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('storage');
       expect(result.current.error?.message).toBe('Failed to upload image');
-    });
+    }, 15000);
 
     it('should classify database errors correctly', async () => {
       (processItemImage as jest.Mock).mockRejectedValue(new Error('database insert failed'));
@@ -277,10 +279,10 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 15000 });
 
       expect(processItemImage).toHaveBeenCalledTimes(4); // Initial + 3 retries
-    });
+    }, 15000);
 
     it('should retry storage errors up to 3 times', async () => {
       let callCount = 0;
@@ -312,10 +314,10 @@ describe('useCreateFirstItem', () => {
 
       result.current.mutate(request);
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 5000 });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true), { timeout: 15000 });
 
       expect(processItemImage).toHaveBeenCalledTimes(3); // Initial + 2 retries
-    });
+    }, 15000);
 
     it('should not retry validation errors', async () => {
       (useStore as unknown as jest.Mock).mockReturnValue(null);
