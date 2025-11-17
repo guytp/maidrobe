@@ -130,14 +130,20 @@ export function WelcomeScreen(): React.JSX.Element {
               style={styles.valuePropsContainer}
               accessibilityLabel={t('screens.onboarding.welcome.accessibility.valuePropLabel')}
             >
-              {[1, 2, 3].map((num) => (
+              {(
+                [
+                  'screens.onboarding.welcome.valueProps.1',
+                  'screens.onboarding.welcome.valueProps.2',
+                  'screens.onboarding.welcome.valueProps.3',
+                ] as const
+              ).map((key) => (
                 <Text
-                  key={num}
+                  key={key}
                   style={styles.valueProp}
                   allowFontScaling={true}
                   maxFontSizeMultiplier={3}
                 >
-                  {t(`screens.onboarding.welcome.valueProps.${num}` as Parameters<typeof t>[0])}
+                  {t(key)}
                 </Text>
               ))}
             </View>
