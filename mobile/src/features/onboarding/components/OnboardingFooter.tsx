@@ -112,6 +112,7 @@ export function OnboardingFooter(): React.JSX.Element {
       setIsActionInProgress(false);
       timeoutRef.current = null;
     }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
   }, [onNext, isWelcomeStep]);
 
   /**
@@ -137,6 +138,7 @@ export function OnboardingFooter(): React.JSX.Element {
       setIsActionInProgress(false);
       timeoutRef.current = null;
     }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
   }, [onSkipStep]);
 
   /**
@@ -172,6 +174,7 @@ export function OnboardingFooter(): React.JSX.Element {
       setIsActionInProgress(false);
       timeoutRef.current = null;
     }, 500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
   }, [onSkipOnboarding, isWelcomeStep]);
 
   const styles = useMemo(
