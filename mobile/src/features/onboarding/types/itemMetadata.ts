@@ -62,28 +62,28 @@ export interface WardrobeColour {
  */
 export const WARDROBE_COLOUR_PALETTE: readonly WardrobeColour[] = [
   // Neutrals (most common in wardrobes)
-  { id: 'black', name: 'colours.black', hex: '#000000' },
-  { id: 'white', name: 'colours.white', hex: '#FFFFFF' },
-  { id: 'grey', name: 'colours.grey', hex: '#808080' },
-  { id: 'beige', name: 'colours.beige', hex: '#D4C5B0' },
-  { id: 'brown', name: 'colours.brown', hex: '#8B4513' },
+  { id: 'black', name: 'screens.auth.colours.black', hex: '#000000' },
+  { id: 'white', name: 'screens.auth.colours.white', hex: '#FFFFFF' },
+  { id: 'grey', name: 'screens.auth.colours.grey', hex: '#808080' },
+  { id: 'beige', name: 'screens.auth.colours.beige', hex: '#D4C5B0' },
+  { id: 'brown', name: 'screens.auth.colours.brown', hex: '#8B4513' },
 
   // Primary colours
-  { id: 'red', name: 'colours.red', hex: '#DC143C' },
-  { id: 'blue', name: 'colours.blue', hex: '#1E90FF' },
-  { id: 'green', name: 'colours.green', hex: '#228B22' },
-  { id: 'yellow', name: 'colours.yellow', hex: '#FFD700' },
+  { id: 'red', name: 'screens.auth.colours.red', hex: '#DC143C' },
+  { id: 'blue', name: 'screens.auth.colours.blue', hex: '#1E90FF' },
+  { id: 'green', name: 'screens.auth.colours.green', hex: '#228B22' },
+  { id: 'yellow', name: 'screens.auth.colours.yellow', hex: '#FFD700' },
 
   // Secondary colours
-  { id: 'orange', name: 'colours.orange', hex: '#FF8C00' },
-  { id: 'purple', name: 'colours.purple', hex: '#8A2BE2' },
-  { id: 'pink', name: 'colours.pink', hex: '#FF69B4' },
+  { id: 'orange', name: 'screens.auth.colours.orange', hex: '#FF8C00' },
+  { id: 'purple', name: 'screens.auth.colours.purple', hex: '#8A2BE2' },
+  { id: 'pink', name: 'screens.auth.colours.pink', hex: '#FF69B4' },
 
   // Additional common colours
-  { id: 'navy', name: 'colours.navy', hex: '#000080' },
-  { id: 'burgundy', name: 'colours.burgundy', hex: '#800020' },
-  { id: 'olive', name: 'colours.olive', hex: '#6B8E23' },
-  { id: 'cream', name: 'colours.cream', hex: '#FFFDD0' },
+  { id: 'navy', name: 'screens.auth.colours.navy', hex: '#000080' },
+  { id: 'burgundy', name: 'screens.auth.colours.burgundy', hex: '#800020' },
+  { id: 'olive', name: 'screens.auth.colours.olive', hex: '#6B8E23' },
+  { id: 'cream', name: 'screens.auth.colours.cream', hex: '#FFFDD0' },
 ];
 
 /**
