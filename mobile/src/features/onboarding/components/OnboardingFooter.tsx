@@ -72,10 +72,10 @@ export function OnboardingFooter(): React.JSX.Element {
   const primaryLabel = isFinalStep
     ? t('screens.onboarding.footer.buttons.getStarted')
     : isWelcomeStep
-    ? t('screens.onboarding.footer.buttons.getStarted')
-    : currentStep === 'firstItem'
-    ? t('screens.onboarding.firstItem.primaryAction')
-    : t('screens.onboarding.footer.buttons.next');
+      ? t('screens.onboarding.footer.buttons.getStarted')
+      : currentStep === 'firstItem'
+        ? t('screens.onboarding.firstItem.primaryAction')
+        : t('screens.onboarding.footer.buttons.next');
 
   /**
    * Handler for primary action (Get Started / Next).
@@ -225,15 +225,15 @@ export function OnboardingFooter(): React.JSX.Element {
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedLabel')
             : currentStep === 'firstItem'
-            ? t('screens.onboarding.firstItem.accessibility.primaryActionLabel')
-            : t('screens.onboarding.footer.accessibility.nextLabel')
+              ? t('screens.onboarding.firstItem.accessibility.primaryActionLabel')
+              : t('screens.onboarding.footer.accessibility.nextLabel')
         }
         accessibilityHint={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedHint')
             : currentStep === 'firstItem'
-            ? t('screens.onboarding.firstItem.accessibility.primaryActionHint')
-            : t('screens.onboarding.footer.accessibility.nextHint')
+              ? t('screens.onboarding.firstItem.accessibility.primaryActionHint')
+              : t('screens.onboarding.footer.accessibility.nextHint')
         }
       >
         {primaryLabel}

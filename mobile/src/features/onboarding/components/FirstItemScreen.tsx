@@ -159,16 +159,13 @@ export function FirstItemScreen(): React.JSX.Element {
   /**
    * Handle successful photo capture from camera.
    */
-  const handleCameraCapture = useCallback(
-    (image: { uri: string }) => {
-      // Store captured image
-      setCapturedImageUri(image.uri);
-      setShowCamera(false);
-      // Show metadata form
-      setShowMetadataForm(true);
-    },
-    []
-  );
+  const handleCameraCapture = useCallback((image: { uri: string }) => {
+    // Store captured image
+    setCapturedImageUri(image.uri);
+    setShowCamera(false);
+    // Show metadata form
+    setShowMetadataForm(true);
+  }, []);
 
   /**
    * Handle camera cancel / "Do this later" from camera view.

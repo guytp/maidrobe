@@ -114,9 +114,7 @@ export function CameraPlaceholder({
         <Button
           onPress={handleCapture}
           variant="primary"
-          accessibilityLabel={t(
-            'screens.onboarding.firstItem.accessibility.usePlaceholderButton'
-          )}
+          accessibilityLabel={t('screens.onboarding.firstItem.accessibility.usePlaceholderButton')}
           accessibilityHint="Simulates capturing a photo and proceeds with placeholder image data"
         >
           {t('screens.onboarding.firstItem.camera.captureButton')}

@@ -37,11 +37,7 @@ export interface ColourSelectorProps {
  * @param props - Component props
  * @returns Colour selector component
  */
-export function ColourSelector({
-  value,
-  onChange,
-  error,
-}: ColourSelectorProps): React.JSX.Element {
+export function ColourSelector({ value, onChange, error }: ColourSelectorProps): React.JSX.Element {
   const { colors, spacing } = useTheme();
 
   const styles = useMemo(
@@ -123,11 +119,7 @@ export function ColourSelector({
         <Text style={styles.required}> *</Text>
       </Text>
 
-      <Text
-        style={styles.helper}
-        allowFontScaling={true}
-        maxFontSizeMultiplier={2}
-      >
+      <Text style={styles.helper} allowFontScaling={true} maxFontSizeMultiplier={2}>
         {t('screens.onboarding.firstItem.metadata.colourHelper')}
       </Text>
 
@@ -161,10 +153,7 @@ export function ColourSelector({
                   ]}
                 />
                 <Text
-                  style={[
-                    styles.swatchLabel,
-                    isSelected && styles.swatchLabelSelected,
-                  ]}
+                  style={[styles.swatchLabel, isSelected && styles.swatchLabelSelected]}
                   allowFontScaling={true}
                   maxFontSizeMultiplier={2}
                   numberOfLines={1}
