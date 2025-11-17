@@ -647,9 +647,11 @@ describe('useSavePrefs', () => {
 
   describe('Mutation States', () => {
     it('exposes pending state correctly', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let resolveFn: ((value: any) => void) | null = null;
       const pendingPromise = new Promise((resolve) => {
-        resolveFn = resolve;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        resolveFn = resolve as (value: any) => void;
       });
 
       const mockSingle = jest.fn().mockReturnValue(pendingPromise);
@@ -683,9 +685,8 @@ describe('useSavePrefs', () => {
       expect(result.current.isError).toBe(false);
 
       // Clean up - resolve the promise
-      if (resolveFn) {
-        resolveFn({ data: mockPrefsRow, error: null });
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (resolveFn as any)?.({ data: mockPrefsRow, error: null });
     });
 
     it.skip('exposes error state correctly', async () => {
