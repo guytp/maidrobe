@@ -60,6 +60,7 @@ export function useCreateFirstItem() {
   const user = useStore((state) => state.user);
 
   return useMutation<CreateItemResponse, CreateItemError, CreateItemRequest>({
+    mutationKey: ['onboarding', 'createFirstItem', user?.id],
     mutationFn: async (request: CreateItemRequest) => {
       const startTime = Date.now();
 
