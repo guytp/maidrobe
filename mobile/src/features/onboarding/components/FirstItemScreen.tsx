@@ -87,6 +87,9 @@ export function FirstItemScreen(): React.JSX.Element {
   // Track if save success has been fired (prevent duplicates)
   const hasTrackedSaveSuccess = useRef(false);
 
+  // Timer ref for delayed navigation cleanup
+  const navigationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Create item mutation
   const createItemMutation = useCreateFirstItem();
 
@@ -246,11 +249,25 @@ export function FirstItemScreen(): React.JSX.Element {
       // Close metadata form
       setShowMetadataForm(false);
 
+      // Clear any existing navigation timer
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+      }
+
       // Wait 2 seconds then advance to next step
-      setTimeout(() => {
+      navigationTimerRef.current = setTimeout(() => {
         onNext();
+        navigationTimerRef.current = null;
       }, 2000);
     }
+
+    // Cleanup: clear timer on unmount or effect re-run
+    return () => {
+      if (navigationTimerRef.current) {
+        clearTimeout(navigationTimerRef.current);
+        navigationTimerRef.current = null;
+      }
+    };
   }, [createItemMutation.isSuccess, createItemMutation.data, onNext]);
 
   /**
