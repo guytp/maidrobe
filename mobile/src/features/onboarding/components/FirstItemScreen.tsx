@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
@@ -239,6 +239,34 @@ export function FirstItemScreen(): React.JSX.Element {
   }, [onSkipStep]);
 
   /**
+   * Handle metadata form close (Android back button or modal dismiss gesture).
+   * Shows confirmation dialog before canceling the form.
+   */
+  const handleMetadataFormClose = useCallback(() => {
+    Alert.alert(
+      'Cancel adding item?',
+      'Your progress will be lost. You can always add items later from your wardrobe.',
+      [
+        {
+          text: 'Keep editing',
+          style: 'cancel',
+        },
+        {
+          text: 'Cancel',
+          onPress: () => {
+            // Track skip with specific reason for back button
+            trackFirstItemSkipped('form_cancelled_via_back_button');
+            // Close form and advance
+            setShowMetadataForm(false);
+            onSkipStep();
+          },
+          style: 'destructive',
+        },
+      ]
+    );
+  }, [onSkipStep]);
+
+  /**
    * Handle mutation success.
    */
   useEffect(() => {
@@ -438,9 +466,7 @@ export function FirstItemScreen(): React.JSX.Element {
         visible={showMetadataForm}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={() => {
-          // Prevent dismissal by back button/gesture - form must be completed or cancelled
-        }}
+        onRequestClose={handleMetadataFormClose}
       >
         <ItemMetadataForm
           initialMetadata={capturedMetadata || undefined}
