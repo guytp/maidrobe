@@ -208,12 +208,16 @@ export function useCreateFirstItem() {
 }
 
 /**
- * Generate a UUID v4.
- * PLACEHOLDER: Mock UUID generation.
- * Real implementation would use crypto.randomUUID() or uuid package.
+ * Generate a UUID v7.
+ * PLACEHOLDER: Mock UUID v7 generation.
+ * Real implementation would use uuid v7 package (e.g., uuidv7() from 'uuid').
+ *
+ * Note: This mock implementation uses the v7 version identifier but does not
+ * include actual timestamp ordering. Feature #3 will provide proper UUIDv7
+ * generation with time-ordered properties for database performance.
  */
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
