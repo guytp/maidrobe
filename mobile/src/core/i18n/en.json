@@ -259,13 +259,39 @@
         "primaryAction": "Add your first item",
         "skipAction": "Skip for now",
         "guidance": "Lay the item flat on a plain background",
+        "camera": {
+          "placeholder": "Camera feature coming soon",
+          "placeholderHint": "Feature #3 will provide full camera functionality",
+          "captureButton": "Use Placeholder Image",
+          "retakeButton": "Retake",
+          "confirmButton": "Use This Photo"
+        },
+        "permissions": {
+          "deniedTitle": "Camera Access Needed",
+          "deniedMessage": "Maidrobe needs camera access to capture your wardrobe items. You can enable this in Settings or do this later.",
+          "doThisLater": "Do this later",
+          "openSettings": "Open Settings",
+          "retry": "Try Again"
+        },
+        "errors": {
+          "cameraFailedTitle": "Camera Unavailable",
+          "cameraFailedMessage": "The camera could not be initialized. This may happen on emulators or devices without a camera.",
+          "genericErrorTitle": "Something Went Wrong",
+          "genericErrorMessage": "An unexpected error occurred. Please try again or do this later.",
+          "doThisLater": "Do this later",
+          "retry": "Try Again"
+        },
         "accessibility": {
           "screenLabel": "First wardrobe item capture",
           "screenHint": "Guided experience to add your first wardrobe item",
           "primaryActionLabel": "Add your first item",
           "primaryActionHint": "Open camera to capture your first wardrobe item",
           "headlineLabel": "Step description",
-          "optionalLabel": "Optional step notice"
+          "optionalLabel": "Optional step notice",
+          "cameraPlaceholder": "Camera placeholder screen",
+          "usePlaceholderButton": "Use placeholder image button",
+          "doThisLaterButton": "Do this later button",
+          "retryButton": "Retry button"
         }
       },
       "success": {

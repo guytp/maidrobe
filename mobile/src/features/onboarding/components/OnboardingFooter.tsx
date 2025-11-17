@@ -41,7 +41,8 @@ import {
 export function OnboardingFooter(): React.JSX.Element {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
-  const { currentStep, onNext, onSkipStep, onSkipOnboarding } = useOnboardingContext();
+  const { currentStep, onNext, onSkipStep, onSkipOnboarding, customPrimaryHandler } =
+    useOnboardingContext();
 
   // Track if any action is in progress (prevents double-tap)
   const [isActionInProgress, setIsActionInProgress] = useState(false);
@@ -82,13 +83,16 @@ export function OnboardingFooter(): React.JSX.Element {
    * Wraps the onNext callback with loading state management to prevent
    * double-taps and provide visual feedback during navigation.
    *
+   * Supports custom primary handlers for steps that need special behavior
+   * (e.g., opening camera before advancing).
+   *
    * Analytics:
    * - Fires welcome_get_started_clicked for welcome step
    * - Duplicate prevention via isActionInProgress check
    *
    * Debouncing strategy:
    * - Immediately sets loading state (disables all buttons)
-   * - Calls onNext() to trigger navigation
+   * - Calls customPrimaryHandler if set, otherwise calls onNext()
    * - Resets loading state after 500ms timeout
    * - Timeout stored in ref for cleanup on unmount
    * - Early return if already in progress
@@ -102,7 +106,13 @@ export function OnboardingFooter(): React.JSX.Element {
     }
 
     setIsActionInProgress(true);
-    onNext();
+
+    // Use custom handler if provided, otherwise use default onNext
+    if (customPrimaryHandler) {
+      customPrimaryHandler();
+    } else {
+      onNext();
+    }
 
     // Clear any existing timeout before setting new one
     if (timeoutRef.current) {
@@ -116,7 +126,7 @@ export function OnboardingFooter(): React.JSX.Element {
       timeoutRef.current = null;
     }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
-  }, [onNext, isWelcomeStep]);
+  }, [onNext, isWelcomeStep, customPrimaryHandler]);
 
   /**
    * Handler for step-level skip action.

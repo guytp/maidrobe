@@ -73,6 +73,9 @@ export default function OnboardingLayout(): React.JSX.Element {
   // Local initialization state
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Custom primary handler for steps that need special behavior (e.g., camera)
+  const [customPrimaryHandler, setCustomPrimaryHandler] = useState<(() => void) | null>(null);
+
   // Track if this is a resumed session for analytics
   const isResumedSession = useRef(false);
 
@@ -542,6 +545,8 @@ export default function OnboardingLayout(): React.JSX.Element {
       onSkipStep={handleSkipStep}
       onSkipOnboarding={handleSkipOnboarding}
       onBack={handleBack}
+      customPrimaryHandler={customPrimaryHandler}
+      setCustomPrimaryHandler={setCustomPrimaryHandler}
     >
       <Stack
         screenOptions={{
