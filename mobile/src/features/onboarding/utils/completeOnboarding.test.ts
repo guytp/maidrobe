@@ -12,11 +12,20 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+  }),
+}));
+
+// Mock Supabase - using a function to allow dynamic returns
+const mockUpdate = jest.fn();
+const mockEq = jest.fn();
+const mockFrom = jest.fn();
+
 jest.mock('../../../services/supabase', () => ({
   supabase: {
-    auth: {
-      updateUser: jest.fn(),
-    },
+    from: mockFrom,
   },
 }));
 
@@ -47,8 +56,9 @@ jest.mock('../../../core/state/store', () => ({
     }),
 }));
 
-// Mock router replace
+// Mock router replace and query client
 let mockReplace = jest.fn();
+let mockInvalidateQueries = jest.fn();
 
 describe('useCompleteOnboarding', () => {
   beforeEach(() => {
@@ -56,12 +66,12 @@ describe('useCompleteOnboarding', () => {
     jest.clearAllTimers();
     mockUser = { id: 'user-123' };
     mockReplace = jest.fn();
+    mockInvalidateQueries = jest.fn().mockResolvedValue(undefined);
 
     // Default mock: successful backend update
-    (supabase.auth.updateUser as jest.Mock).mockResolvedValue({
-      data: {},
-      error: null,
-    });
+    mockEq.mockResolvedValue({ error: null });
+    mockUpdate.mockReturnValue({ eq: mockEq });
+    mockFrom.mockReturnValue({ update: mockUpdate });
   });
 
   afterEach(() => {
@@ -129,10 +139,20 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalledWith({
-          data: {
-            hasOnboarded: true,
-          },
+        expect(supabase.from).toHaveBeenCalledWith('profiles');
+      });
+    });
+
+    it('should invalidate React Query profile cache on successful backend update', async () => {
+      const { result } = renderHook(() => useCompleteOnboarding());
+
+      await act(async () => {
+        await result.current({});
+      });
+
+      await waitFor(() => {
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+          queryKey: ['profile', 'user-123'],
         });
       });
     });
@@ -284,10 +304,8 @@ describe('useCompleteOnboarding', () => {
     it('should reset guard after 30 seconds', async () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
-      // Make backend update hang
-      (supabase.auth.updateUser as jest.Mock).mockImplementation(
-        () => new Promise(() => {}) // Never resolves
-      );
+      // Make backend update hang by never resolving
+      mockEq.mockImplementation(() => new Promise(() => {}));
 
       act(() => {
         void result.current({});
@@ -304,7 +322,7 @@ describe('useCompleteOnboarding', () => {
         'user',
         expect.objectContaining({
           feature: 'onboarding',
-          operation: 'completeOnboarding',
+          operation: 'useCompleteOnboarding',
           metadata: expect.objectContaining({
             timeoutMs: 30000,
           }),
@@ -316,7 +334,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       // Make first call hang
-      (supabase.auth.updateUser as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+      mockEq.mockImplementation(() => new Promise(() => {}));
 
       act(() => {
         void result.current({});
@@ -328,10 +346,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       // Reset mock to succeed
-      (supabase.auth.updateUser as jest.Mock).mockResolvedValue({
-        data: {},
-        error: null,
-      });
+      mockEq.mockResolvedValue({ error: null });
 
       mockUpdateHasOnboarded.mockClear();
 
@@ -378,7 +393,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalled();
+        expect(mockEq).toHaveBeenCalled();
       });
 
       expect(mockOnSyncFailure).not.toHaveBeenCalled();
@@ -390,7 +405,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const networkError = new Error('Network request failed');
-      (supabase.auth.updateUser as jest.Mock)
+      (mockEq as jest.Mock)
         .mockRejectedValueOnce(networkError)
         .mockRejectedValueOnce(networkError)
         .mockResolvedValueOnce({ data: {}, error: null });
@@ -400,7 +415,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalledTimes(3);
+        expect(mockEq).toHaveBeenCalledTimes(3);
       });
 
       // Should log retries
@@ -419,7 +434,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const serverError = { message: 'Server error', status: 500 };
-      (supabase.auth.updateUser as jest.Mock)
+      (mockEq as jest.Mock)
         .mockRejectedValueOnce(serverError)
         .mockResolvedValueOnce({ data: {}, error: null });
 
@@ -428,7 +443,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalledTimes(2);
+        expect(mockEq).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -437,7 +452,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const networkError = new Error('Network request failed');
-      (supabase.auth.updateUser as jest.Mock).mockRejectedValue(networkError);
+      (mockEq as jest.Mock).mockRejectedValue(networkError);
 
       await act(async () => {
         await result.current({
@@ -446,7 +461,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalledTimes(3);
+        expect(mockEq).toHaveBeenCalledTimes(3);
       });
 
       expect(mockOnSyncFailure).toHaveBeenCalledWith(
@@ -458,7 +473,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const networkError = new Error('Network request failed');
-      (supabase.auth.updateUser as jest.Mock).mockRejectedValue(networkError);
+      (mockEq as jest.Mock).mockRejectedValue(networkError);
 
       await act(async () => {
         await result.current({});
@@ -484,14 +499,14 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const clientError = Object.assign(new Error('Bad request'), { status: 400 });
-      (supabase.auth.updateUser as jest.Mock).mockRejectedValue(clientError);
+      (mockEq as jest.Mock).mockRejectedValue(clientError);
 
       await act(async () => {
         await result.current({});
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalledTimes(1);
+        expect(mockEq).toHaveBeenCalledTimes(1);
       });
     });
 
@@ -500,7 +515,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const clientError = Object.assign(new Error('Bad request'), { status: 400 });
-      (supabase.auth.updateUser as jest.Mock).mockRejectedValue(clientError);
+      (mockEq as jest.Mock).mockRejectedValue(clientError);
 
       await act(async () => {
         await result.current({
@@ -517,7 +532,7 @@ describe('useCompleteOnboarding', () => {
       const { result } = renderHook(() => useCompleteOnboarding());
 
       const clientError = Object.assign(new Error('Bad request'), { status: 400 });
-      (supabase.auth.updateUser as jest.Mock).mockRejectedValue(clientError);
+      (mockEq as jest.Mock).mockRejectedValue(clientError);
 
       await act(async () => {
         await result.current({});
@@ -563,7 +578,7 @@ describe('useCompleteOnboarding', () => {
       });
 
       await waitFor(() => {
-        expect(supabase.auth.updateUser).toHaveBeenCalled();
+        expect(mockEq).toHaveBeenCalled();
       });
     });
 
@@ -598,7 +613,7 @@ describe('useCompleteOnboarding', () => {
       expect(mockReplace).toHaveBeenCalled();
 
       // Should not attempt backend update
-      expect(supabase.auth.updateUser).not.toHaveBeenCalled();
+      expect(mockEq).not.toHaveBeenCalled();
     });
 
     it('should handle empty options', async () => {
