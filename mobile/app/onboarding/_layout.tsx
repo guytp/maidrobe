@@ -2,19 +2,19 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, View, BackHandler } from 'react-native';
 import { useStore } from '../../src/core/state/store';
-import { OnboardingStep, getPreviousStep } from '../../src/features/onboarding';
+import {
+  OnboardingStep,
+  getPreviousStep,
+  useCompleteOnboarding,
+} from '../../src/features/onboarding';
 import { useTheme } from '../../src/core/theme';
 import { OnboardingProvider } from '../../src/features/onboarding/context/OnboardingContext';
 import {
   trackStepViewed,
   trackStepSkipped,
-  trackOnboardingCompleted,
-  trackOnboardingSkippedAll,
   trackStateReset,
   trackStateResumed,
 } from '../../src/features/onboarding/utils/onboardingAnalytics';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in TODO comment for story #95
-import { logSuccess, logError } from '../../src/core/telemetry';
 
 /**
  * Onboarding flow shell container.
@@ -68,7 +68,9 @@ export default function OnboardingLayout(): React.JSX.Element {
   const markStepSkipped = useStore((state) => state.markStepSkipped);
   const setCurrentStep = useStore((state) => state.setCurrentStep);
   const resetOnboardingState = useStore((state) => state.resetOnboardingState);
-  const updateHasOnboarded = useStore((state) => state.updateHasOnboarded);
+
+  // Shared completion helper
+  const completeOnboarding = useCompleteOnboarding();
 
   // Local initialization state
   const [isInitializing, setIsInitializing] = useState(true);
@@ -85,134 +87,25 @@ export default function OnboardingLayout(): React.JSX.Element {
   /**
    * Centralized onboarding completion handler.
    *
-   * This is the single source of truth for completing onboarding and navigating
-   * to the home screen. It handles both normal completion and global skip
-   * scenarios with a UX-first, best-effort approach.
-   *
-   * RESPONSIBILITIES:
-   * 1. Analytics tracking (completed vs. skipped_all events)
-   * 2. Optimistic local state update (hasOnboarded = true)
-   * 3. Onboarding state reset (currentStep, completedSteps, skippedSteps)
-   * 4. Navigation to /home route
-   * 5. Error logging with non-sensitive context
-   * 6. Server-side update (TODO: Story #95)
-   *
-   * REUSABLE FOR:
-   * - Normal onboarding completion (success step)
-   * - Global skip ("Skip for now" from any step)
-   * - Future reset onboarding flows
-   *
-   * UX-FIRST APPROACH:
-   * The user is ALWAYS allowed to proceed to home, even if backend updates fail.
-   * Local state is updated optimistically, and any server-side failures are
-   * logged for observability. This prevents blocking user progress due to
-   * transient network issues.
-   *
-   * OPTIMISTIC UPDATE & ROLLBACK:
-   * This function performs an optimistic update of hasOnboarded before the
-   * server-side update completes (when story #95 is implemented). If the
-   * server update fails:
-   * - The local optimistic state is reverted via updateHasOnboarded(previousValue)
-   * - The failure is logged to telemetry for observability
-   * - The user remains on /home (navigation is NOT reverted for better UX)
-   * - Profile refresh will sync authoritative server state on next app launch
-   *
-   * This dual-layer approach ensures:
-   * - Explicit rollback path (code guidelines compliance)
-   * - Self-correction via eventual consistency (profile refresh)
-   * - User experience is not disrupted by transient server errors
-   * - Observability through structured error logging
-   *
-   * Server failures are logged but do not block navigation or force user
-   * back into onboarding. The optimistic update ensures the user can
-   * proceed immediately.
+   * Wrapper around the shared useCompleteOnboarding hook that provides
+   * context-specific options based on the layout's state.
    *
    * @param isGlobalSkip - If true, user chose "Skip for now" (default: false)
    */
   const handleOnboardingComplete = useCallback(
     (isGlobalSkip = false) => {
-      // 1. Fire-and-forget analytics
-      if (isGlobalSkip) {
-        void trackOnboardingSkippedAll(currentStep || 'welcome', completedSteps, skippedSteps);
-      } else {
-        const duration =
-          onboardingStartTime.current !== null
-            ? Date.now() - onboardingStartTime.current
-            : undefined;
-        void trackOnboardingCompleted(completedSteps, skippedSteps, duration);
-      }
+      const duration =
+        onboardingStartTime.current !== null ? Date.now() - onboardingStartTime.current : undefined;
 
-      // 2. Capture previous hasOnboarded value for potential rollback
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Used in TODO comment for story #95
-      const previousHasOnboarded = user?.hasOnboarded ?? false;
-
-      // 3. Optimistically set hasOnboarded = true
-      updateHasOnboarded(true);
-
-      // 4. Clear local onboarding state
-      resetOnboardingState();
-
-      // 5. Navigate to home
-      try {
-        router.replace('/home');
-      } catch (error) {
-        // Log navigation failure but allow graceful degradation
-        logError(error, 'user', {
-          feature: 'onboarding',
-          operation: 'navigateToHome',
-          metadata: {
-            isGlobalSkip,
-            target: '/home',
-          },
-        });
-      }
-
-      // 6. Server-side update (placeholder - will be replaced when #95 is implemented)
-      // For now, just log the completion via telemetry
-      logSuccess('onboarding', 'completed', {
-        data: {
-          completedSteps,
-          skippedSteps,
-          isGlobalSkip,
-          stepCount: completedSteps.length,
-          skippedCount: skippedSteps.length,
-        },
+      void completeOnboarding({
+        isGlobalSkip,
+        completedSteps,
+        skippedSteps,
+        duration,
+        originStep: currentStep || 'welcome',
       });
-
-      // TODO: When story #95 API is available, add:
-      // try {
-      //   await updateUserOnboardingStatus({ hasOnboarded: true });
-      // } catch (error) {
-      //   // ROLLBACK: Revert optimistic update on server failure
-      //   updateHasOnboarded(previousHasOnboarded);
-      //
-      //   // Log error with rollback context for observability
-      //   logError(error, 'server', {
-      //     feature: 'onboarding',
-      //     operation: 'updateServerStatus',
-      //     metadata: {
-      //       attemptedValue: true,
-      //       rolledBackTo: previousHasOnboarded,
-      //       isGlobalSkip,
-      //     },
-      //   });
-      //
-      //   // NOTE: User remains on /home (navigation not reverted).
-      //   // The local rollback prevents hasOnboarded gate from incorrectly
-      //   // blocking re-entry to onboarding if the user navigates back.
-      //   // Profile refresh will sync authoritative server state on next launch,
-      //   // providing self-correction via eventual consistency.
-      // }
     },
-    [
-      updateHasOnboarded,
-      resetOnboardingState,
-      router,
-      completedSteps,
-      skippedSteps,
-      currentStep,
-      user,
-    ]
+    [completeOnboarding, completedSteps, skippedSteps, currentStep]
   );
 
   /**
