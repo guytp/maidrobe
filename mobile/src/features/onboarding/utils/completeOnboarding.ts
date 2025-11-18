@@ -4,6 +4,7 @@ import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError, logSuccess } from '../../../core/telemetry';
+import { t } from '../../../core/i18n';
 import {
   trackOnboardingCompleted,
   trackOnboardingSkippedAll,
@@ -350,9 +351,7 @@ export async function completeOnboardingForCurrentUser(
       // Notify user of sync failure if callback provided
       // This allows parent component to show a non-blocking toast
       if (options.onSyncFailure) {
-        options.onSyncFailure(
-          "Setup complete! We're still syncing your progress in the background."
-        );
+        options.onSyncFailure(t('screens.onboarding.syncFailureMessage'));
       }
 
       // CRITICAL: Invalidate React Query profile cache even on backend failure
