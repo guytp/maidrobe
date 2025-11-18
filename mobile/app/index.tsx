@@ -73,6 +73,8 @@ export default function Index(): React.JSX.Element {
   if (isHydrating) {
     return (
       <View
+        accessibilityRole="progressbar"
+        accessibilityLabel="Loading application"
         style={{
           flex: 1,
           justifyContent: 'center',
