@@ -186,7 +186,7 @@ describe('colourTranslation', () => {
         itemTypes.forEach((type) => {
           const displayName = getItemTypeDisplayName(type);
           // Should not return the translation key itself
-          expect(displayName).not.toContain('screens.auth.itemTypes');
+          expect(displayName).not.toContain('screens.shared.itemTypes');
           // Should return a non-empty string
           expect(displayName).toBeTruthy();
           expect(typeof displayName).toBe('string');

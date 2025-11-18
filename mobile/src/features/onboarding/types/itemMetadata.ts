@@ -62,28 +62,28 @@ export interface WardrobeColour {
  */
 export const WARDROBE_COLOUR_PALETTE: readonly WardrobeColour[] = [
   // Neutrals (most common in wardrobes)
-  { id: 'black', name: 'screens.auth.colours.black', hex: '#000000' },
-  { id: 'white', name: 'screens.auth.colours.white', hex: '#FFFFFF' },
-  { id: 'grey', name: 'screens.auth.colours.grey', hex: '#808080' },
-  { id: 'beige', name: 'screens.auth.colours.beige', hex: '#D4C5B0' },
-  { id: 'brown', name: 'screens.auth.colours.brown', hex: '#8B4513' },
+  { id: 'black', name: 'screens.shared.colours.black', hex: '#000000' },
+  { id: 'white', name: 'screens.shared.colours.white', hex: '#FFFFFF' },
+  { id: 'grey', name: 'screens.shared.colours.grey', hex: '#808080' },
+  { id: 'beige', name: 'screens.shared.colours.beige', hex: '#D4C5B0' },
+  { id: 'brown', name: 'screens.shared.colours.brown', hex: '#8B4513' },
 
   // Primary colours
-  { id: 'red', name: 'screens.auth.colours.red', hex: '#DC143C' },
-  { id: 'blue', name: 'screens.auth.colours.blue', hex: '#1E90FF' },
-  { id: 'green', name: 'screens.auth.colours.green', hex: '#228B22' },
-  { id: 'yellow', name: 'screens.auth.colours.yellow', hex: '#FFD700' },
+  { id: 'red', name: 'screens.shared.colours.red', hex: '#DC143C' },
+  { id: 'blue', name: 'screens.shared.colours.blue', hex: '#1E90FF' },
+  { id: 'green', name: 'screens.shared.colours.green', hex: '#228B22' },
+  { id: 'yellow', name: 'screens.shared.colours.yellow', hex: '#FFD700' },
 
   // Secondary colours
-  { id: 'orange', name: 'screens.auth.colours.orange', hex: '#FF8C00' },
-  { id: 'purple', name: 'screens.auth.colours.purple', hex: '#8A2BE2' },
-  { id: 'pink', name: 'screens.auth.colours.pink', hex: '#FF69B4' },
+  { id: 'orange', name: 'screens.shared.colours.orange', hex: '#FF8C00' },
+  { id: 'purple', name: 'screens.shared.colours.purple', hex: '#8A2BE2' },
+  { id: 'pink', name: 'screens.shared.colours.pink', hex: '#FF69B4' },
 
   // Additional common colours
-  { id: 'navy', name: 'screens.auth.colours.navy', hex: '#000080' },
-  { id: 'burgundy', name: 'screens.auth.colours.burgundy', hex: '#800020' },
-  { id: 'olive', name: 'screens.auth.colours.olive', hex: '#6B8E23' },
-  { id: 'cream', name: 'screens.auth.colours.cream', hex: '#FFFDD0' },
+  { id: 'navy', name: 'screens.shared.colours.navy', hex: '#000080' },
+  { id: 'burgundy', name: 'screens.shared.colours.burgundy', hex: '#800020' },
+  { id: 'olive', name: 'screens.shared.colours.olive', hex: '#6B8E23' },
+  { id: 'cream', name: 'screens.shared.colours.cream', hex: '#FFFDD0' },
 ];
 
 /**
