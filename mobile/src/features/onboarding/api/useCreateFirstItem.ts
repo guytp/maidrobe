@@ -201,8 +201,15 @@ export function useCreateFirstItem() {
           errorMessage = 'Failed to save item';
         }
 
+        // Map errorType to telemetry classification
+        let telemetryClassification: 'user' | 'network' | 'server' = 'server';
+        if (errorType === 'network') {
+          telemetryClassification = 'network';
+        }
+        // storage, database, and unknown map to 'server'
+
         // Log error
-        logError(error as Error, 'schema', {
+        logError(error as Error, telemetryClassification, {
           feature: 'onboarding_first_item',
           operation: 'createItem',
           metadata: {
