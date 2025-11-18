@@ -413,6 +413,7 @@
           "bodyLabel": "Next steps description"
         }
       },
+      "syncFailureMessage": "Setup complete! We're still syncing your progress in the background.",
       "footer": {
         "buttons": {
           "next": "Next",
