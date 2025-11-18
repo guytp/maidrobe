@@ -335,6 +335,40 @@ export async function completeOnboardingForCurrentUser(
           "Setup complete! We're still syncing your progress in the background."
         );
       }
+
+      // CRITICAL: Invalidate React Query profile cache even on backend failure
+      // This prevents stale cached hasOnboarded=false from being served while
+      // Zustand state has been optimistically set to hasOnboarded=true.
+      // Without this, components using useProfile might see inconsistent state
+      // and incorrectly route users back to onboarding on next session.
+      // The cache will refetch from the server (which still has hasOnboarded=false)
+      // on next read, maintaining correct server-side state as source of truth.
+      if (user?.id) {
+        try {
+          await queryClient.invalidateQueries({
+            queryKey: ['profile', user.id],
+          });
+
+          logSuccess('onboarding', 'profile_cache_invalidated_on_failure', {
+            data: {
+              userId: user.id,
+              queryKey: ['profile', user.id],
+              note: 'Cache invalidated despite backend failure to prevent stale data',
+            },
+          });
+        } catch (cacheError) {
+          // Cache invalidation failure is non-fatal but should be logged
+          // The stale cache will eventually expire based on React Query staleTime
+          logError(cacheError as Error, 'user', {
+            feature: 'onboarding',
+            operation: 'invalidateProfileCacheOnFailure',
+            metadata: {
+              userId: user.id,
+              note: 'Failed to invalidate cache after backend failure, may serve stale data',
+            },
+          });
+        }
+      }
     }
   }
 
