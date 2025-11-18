@@ -22,6 +22,10 @@ export { useOnboardingProtection } from './hooks/useOnboardingProtection';
 // API
 export { useHasWardrobeItems } from './api/useHasWardrobeItems';
 
+// Utils
+export { useCompleteOnboarding } from './utils/completeOnboarding';
+export type { CompleteOnboardingOptions } from './utils/completeOnboarding';
+
 // Store
 export type { OnboardingStep, OnboardingSlice } from './store/onboardingSlice';
 export { getPreviousStep, STEP_ORDER } from './store/onboardingSlice';
