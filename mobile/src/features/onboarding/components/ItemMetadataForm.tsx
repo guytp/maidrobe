@@ -327,12 +327,12 @@ export function ItemMetadataForm({
             <Text
               style={[
                 styles.characterCounter,
-                name.length > MAX_NAME_LENGTH && styles.characterCounterError,
+                name.trim().length > MAX_NAME_LENGTH && styles.characterCounterError,
               ]}
               allowFontScaling={true}
               maxFontSizeMultiplier={2}
             >
-              {name.length}/{MAX_NAME_LENGTH}
+              {name.trim().length}/{MAX_NAME_LENGTH}
             </Text>
             {nameError && (
               <Text
