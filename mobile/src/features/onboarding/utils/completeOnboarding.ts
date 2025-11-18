@@ -491,8 +491,41 @@ export function useCompleteOnboarding() {
   const updateHasOnboarded = useStore((state) => state.updateHasOnboarded);
   const resetOnboardingState = useStore((state) => state.resetOnboardingState);
 
-  // Guard to prevent concurrent executions
-  // This ensures idempotency even if the callback is invoked multiple times
+  // IDEMPOTENCY GUARD: useRef-based boolean to prevent concurrent executions
+  //
+  // CURRENT APPROACH (React Native without concurrent rendering):
+  // Using useRef<boolean> is acceptable because React Native's current architecture
+  // does not expose concurrent rendering behaviors. JavaScript execution is single-threaded,
+  // and state updates occur synchronously within the React Native runtime. This means:
+  // - Reading isCompletingRef.current and setting it to true happens atomically
+  // - No risk of race conditions between check and set operations
+  // - Async operations (await calls) yield control but don't create concurrency
+  //
+  // FUTURE CONSIDERATION (React 18+ concurrent features):
+  // If the app is upgraded to use React concurrent rendering features (e.g., startTransition,
+  // useDeferredValue, Suspense with streaming), the useRef approach may become insufficient.
+  // In concurrent mode, React can interrupt and resume rendering, potentially allowing
+  // multiple executions to pass the guard check before any sets the flag to true.
+  //
+  // MIGRATION PATH IF CONCURRENT FEATURES ARE ENABLED:
+  // Replace useRef with an atomic synchronization primitive such as:
+  // - async-mutex library: Provides proper mutex/lock semantics for async operations
+  // - Semaphore pattern: Limits concurrent executions to exactly one
+  // - Promise-based queue: Ensures sequential execution order
+  //
+  // Example with async-mutex:
+  //   const mutex = useRef(new Mutex());
+  //   const release = await mutex.current.acquire();
+  //   try { /* completion logic */ } finally { release(); }
+  //
+  // DECISION RATIONALE:
+  // Keep the simple useRef approach until concurrent rendering is confirmed in the
+  // React Native environment. The timeout safety mechanism (30s) provides additional
+  // protection against permanent locks even in edge cases.
+  //
+  // TESTING NOTE:
+  // The idempotency test at line 256-274 in completeOnboarding.test.ts verifies
+  // that concurrent invocations are properly serialized under current conditions.
   const isCompletingRef = useRef(false);
   // Timeout reference for safety reset mechanism
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
