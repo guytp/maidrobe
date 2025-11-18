@@ -492,6 +492,23 @@ describe('useCompleteOnboarding', () => {
         );
       });
     });
+
+    it('should invalidate React Query profile cache even when backend update fails', async () => {
+      const { result } = renderHook(() => useCompleteOnboarding());
+
+      const networkError = new Error('Network request failed');
+      (mockEq as jest.Mock).mockRejectedValue(networkError);
+
+      await act(async () => {
+        await result.current({});
+      });
+
+      await waitFor(() => {
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+          queryKey: ['profile', 'user-123'],
+        });
+      });
+    });
   });
 
   describe('Backend update failure - permanent errors without retry', () => {
@@ -541,6 +558,23 @@ describe('useCompleteOnboarding', () => {
       expect(mockUpdateHasOnboarded).toHaveBeenCalledWith(true);
       expect(mockResetOnboardingState).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/home');
+    });
+
+    it('should invalidate React Query profile cache even on permanent errors', async () => {
+      const { result } = renderHook(() => useCompleteOnboarding());
+
+      const clientError = Object.assign(new Error('Bad request'), { status: 400 });
+      (mockEq as jest.Mock).mockRejectedValue(clientError);
+
+      await act(async () => {
+        await result.current({});
+      });
+
+      await waitFor(() => {
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({
+          queryKey: ['profile', 'user-123'],
+        });
+      });
     });
   });
 
