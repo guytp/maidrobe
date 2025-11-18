@@ -499,6 +499,26 @@ export interface OnboardingGateMetadata {
  * decisions. It tracks when the gate is evaluated and what routing decision
  * is made based on the user's onboarding status and feature flag state.
  *
+ * ANALYTICS DASHBOARD VERIFICATION REQUIRED:
+ * The onboarding gate events are wired to the full telemetry pipeline and must
+ * be verified in analytics dashboards after deployment. These events are critical
+ * for understanding onboarding flow effectiveness and user routing behavior.
+ *
+ * Events to verify in dashboards:
+ * 1. onboarding_gate.shown - Gate evaluation triggered (app launch)
+ * 2. onboarding_gate.route_onboarding - User routed to onboarding flow
+ * 3. onboarding_gate.route_home - User routed to home (bypassed onboarding)
+ *
+ * Dashboard verification checklist:
+ * - Sentry: Check that events appear as breadcrumbs under 'onboarding' category
+ * - OpenTelemetry: Verify spans with onboarding.* attributes are being recorded
+ * - Event volumes: Validate counts match expected user flow patterns
+ * - Metadata: Confirm userId, hasOnboarded, gateEnabled, route fields populate
+ * - PII protection: Ensure no sensitive data leaks in event attributes
+ *
+ * WARNING: Do not alter event names (onboarding_gate.*) or semantics without
+ * updating dashboard queries, alert rules, and analytics configurations.
+ *
  * SECURITY:
  * - Automatically sanitizes metadata to remove PII
  * - Never logs raw tokens, passwords, or session objects
