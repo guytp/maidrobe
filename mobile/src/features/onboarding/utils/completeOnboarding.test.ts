@@ -484,7 +484,7 @@ describe('useCompleteOnboarding', () => {
           networkError,
           'server',
           expect.objectContaining({
-            operation: 'updateBackendHasOnboarded',
+            operation: 'completeOnboardingForCurrentUser',
             metadata: expect.objectContaining({
               retriesExhausted: true,
             }),
