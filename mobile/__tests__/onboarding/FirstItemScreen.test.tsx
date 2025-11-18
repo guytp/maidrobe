@@ -1169,7 +1169,7 @@ describe('FirstItemScreen', () => {
     it('should call logError with user classification for camera errors', async () => {
       (checkCameraPermission as jest.Mock).mockRejectedValue(new Error('Camera error'));
 
-      const { rerender } = render(
+      render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
