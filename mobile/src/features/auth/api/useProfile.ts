@@ -112,7 +112,7 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
         return mapProfileRowToProfile(data as ProfileRow);
       } catch (error) {
         // Log unexpected errors
-        logError(error as Error, 'client', {
+        logError(error as Error, 'server', {
           feature: 'auth',
           operation: 'fetchProfile',
           metadata: {
@@ -360,7 +360,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 
     return mapProfileRowToProfile(data as ProfileRow);
   } catch (error) {
-    logError(error as Error, 'client', {
+    logError(error as Error, 'server', {
       feature: 'auth',
       operation: 'fetchProfileDirect',
       metadata: {
