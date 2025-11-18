@@ -83,17 +83,48 @@ export function SuccessScreen(): React.JSX.Element {
     message: '',
   });
 
-  // Create custom primary handler that includes hasItems and determines completion type
-  // This bypasses the default _layout.handleOnboardingComplete to inject hasItems
-  // Duration is provided by OnboardingContext, tracked by _layout.tsx
+  /*
+   * CUSTOM PRIMARY HANDLER PATTERN
+   *
+   * Why this is needed:
+   * SuccessScreen needs to pass hasItems (from the local wardrobe query) to the
+   * completion analytics. The default _layout.handleNext -> handleOnboardingComplete
+   * flow doesn't have access to this component-specific data.
+   *
+   * How it works:
+   * 1. SuccessScreen queries wardrobe items via useHasWardrobeItems hook
+   * 2. SuccessScreen creates handleComplete with hasItems in closure
+   * 3. SuccessScreen registers handleComplete via setCustomPrimaryHandler (from context)
+   * 4. OnboardingContext stores the custom handler and passes it to children
+   * 5. OnboardingFooter checks for customPrimaryHandler in context
+   * 6. When user taps "Get Started", OnboardingFooter calls customPrimaryHandler
+   *    instead of the default onNext handler
+   * 7. handleComplete calls completeOnboarding directly with hasItems included
+   *
+   * Component interaction flow:
+   * User taps button -> OnboardingFooter.handlePrimaryAction
+   *                  -> checks customPrimaryHandler from OnboardingContext
+   *                  -> calls SuccessScreen.handleComplete (this function)
+   *                  -> completeOnboarding with hasItems
+   *
+   * Alternative considered:
+   * Passing hasItems through context would work, but custom handlers provide
+   * a more flexible pattern for any step that needs component-specific data
+   * at completion time (e.g., FirstItem could use this for capture metadata).
+   *
+   * Lifecycle:
+   * - Custom handler registered on mount via useEffect
+   * - Automatically unregistered on unmount to prevent stale closures
+   * - Re-registered when dependencies change (hasItems, completedSteps, etc.)
+   */
   const handleComplete = useCallback(() => {
-    // Call completion helper directly with full context
+    // Call completion helper directly with full context including hasItems
     void completeOnboarding({
       isGlobalSkip: false,
       completedSteps,
       skippedSteps,
       duration: onboardingDuration,
-      hasItems,
+      hasItems, // This is why we need a custom handler - injecting component-local data
       onSyncFailure: (message) => {
         setSyncFailureToast({
           visible: true,
@@ -104,10 +135,12 @@ export function SuccessScreen(): React.JSX.Element {
   }, [completeOnboarding, completedSteps, skippedSteps, onboardingDuration, hasItems]);
 
   // Register custom handler on mount, unregister on unmount
+  // This tells OnboardingFooter to use our handleComplete instead of _layout.handleNext
   useEffect(() => {
     if (setCustomPrimaryHandler) {
       setCustomPrimaryHandler(handleComplete);
 
+      // Cleanup: unregister handler when component unmounts
       return () => {
         setCustomPrimaryHandler(null);
       };
