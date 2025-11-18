@@ -254,30 +254,32 @@ async function executeRestore(): Promise<void> {
 
             profile = await fetchProfile(data.user.id);
             if (profile) {
-              // Retry succeeded
-              logAuthEvent('profile-fetch-retry-success', {
-                outcome: 'success',
-                metadata: {
-                  userId: data.user.id,
-                  attempt,
-                  accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
-                },
+              // Retry succeeded - log for monitoring
+              // eslint-disable-next-line no-console
+              console.log('[AuthRestore] Profile fetch retry succeeded', {
+                userId: data.user.id,
+                attempt,
+                accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
               });
               break;
             }
           }
 
-          // If still null after retries, log for monitoring
+          // If still null after retries, log error for monitoring
           if (!profile) {
-            logAuthEvent('profile-fetch-exhausted', {
-              outcome: 'failure',
-              metadata: {
-                userId: data.user.id,
-                accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
-                retriesAttempted: 2,
-                note: 'Profile fetch failed after retries for existing user',
-              },
-            });
+            logError(
+              new Error('Profile fetch failed after retries for existing user'),
+              'server',
+              {
+                feature: 'auth',
+                operation: 'auth-restore-profile-fetch',
+                metadata: {
+                  userId: data.user.id,
+                  accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+                  retriesAttempted: 2,
+                },
+              }
+            );
           }
         }
 
@@ -289,13 +291,11 @@ async function executeRestore(): Promise<void> {
         } else if (!isBrandNewUser && bundle?.hasOnboarded !== undefined) {
           // Existing user with null profile - fall back to cached value from bundle
           hasOnboarded = bundle.hasOnboarded;
-          logAuthEvent('profile-fallback-to-bundle', {
-            outcome: 'fallback',
-            metadata: {
-              userId: data.user.id,
-              bundleHasOnboarded: hasOnboarded,
-              note: 'Using cached hasOnboarded from bundle due to profile fetch failure',
-            },
+          // eslint-disable-next-line no-console
+          console.log('[AuthRestore] Using cached hasOnboarded from bundle', {
+            userId: data.user.id,
+            bundleHasOnboarded: hasOnboarded,
+            note: 'Profile fetch failed, falling back to bundle',
           });
         } else {
           // Brand new user or no cached value - default to false (safe for new users)
