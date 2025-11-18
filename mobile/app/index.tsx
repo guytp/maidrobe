@@ -42,8 +42,12 @@ import { useStore } from '../src/core/state/store';
  *   - New users can navigate to signup from login screen
  * - deriveRoute() returns 'verify' -> /auth/verify
  *   - Authenticated user but email not verified
+ * - deriveRoute() returns 'onboarding' -> /onboarding/welcome
+ *   - Authenticated and verified user who hasn't completed onboarding
+ *   - Only if onboarding gate feature flag is enabled
  * - deriveRoute() returns 'home' -> /home
- *   - Authenticated user with verified email
+ *   - Authenticated user with verified email and completed onboarding
+ *   - OR onboarding gate feature flag is disabled
  *
  * Navigation Semantics:
  * - Uses <Redirect> which replaces the current route in the stack
@@ -80,6 +84,11 @@ export default function Index(): React.JSX.Element {
 
   // Hydration complete - derive target route from auth state
   // This uses the centralized routing logic shared with useProtectedRoute
+  // The deriveRoute() function now considers:
+  // - isAuthenticated: whether user has valid session
+  // - isVerified: whether user's email is verified
+  // - hasOnboarded: whether user completed onboarding flow
+  // - onboardingGateEnabled: whether onboarding gate feature is enabled
   const targetRoute = deriveRoute();
 
   if (targetRoute === 'login') {
@@ -88,6 +97,10 @@ export default function Index(): React.JSX.Element {
 
   if (targetRoute === 'verify') {
     return <Redirect href="/auth/verify" />;
+  }
+
+  if (targetRoute === 'onboarding') {
+    return <Redirect href="/onboarding/welcome" />;
   }
 
   return <Redirect href="/home" />;
