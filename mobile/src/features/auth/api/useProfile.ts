@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { useQuery, UseQueryResult, QueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../services/supabase';
 import { logError } from '../../../core/telemetry';
 import type { Profile, ProfileRow } from '../types/profile';
@@ -151,35 +151,180 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
 }
 
 /**
- * Fetches profile directly without React Query caching.
+ * Fetches profile with React Query cache awareness.
  *
- * This is a utility function for use in contexts where React Query hooks
- * cannot be used (e.g., inside mutation callbacks, auth restore pipeline).
- * For component usage, prefer the useProfile hook for automatic caching.
+ * This function checks the React Query cache first before making a network
+ * request, allowing offline users to benefit from cached profile data. This
+ * is the recommended approach for most profile fetch scenarios outside of
+ * React components.
+ *
+ * CACHE STRATEGY:
+ * 1. Check React Query cache for ['profile', userId]
+ * 2. If cache hit, return cached data immediately
+ * 3. If cache miss or forceNetwork=true, fetch from network
+ * 4. Update cache with fresh data to maintain consistency
+ *
+ * OFFLINE BEHAVIOR:
+ * - Returns cached data even if potentially stale when offline
+ * - Allows app to function with cached profile data during network outages
+ * - Network fetch failures fall back to cached data if available
+ * - Graceful degradation: stale data is better than no data
  *
  * WHEN TO USE:
- * - Inside mutation onSuccess/onError callbacks
- * - In auth restore pipeline (authRestore.ts)
- * - In login flow (useLogin.ts)
- * - Any non-React context
+ * - Auth restore pipeline (authRestore.ts) - benefits from offline cache
+ * - Login flow when cached data is acceptable
+ * - Any scenario where offline resilience is needed
+ * - When QueryClient instance is available
  *
- * WHEN NOT TO USE:
- * - In React components (use useProfile hook instead)
- * - When you need automatic refetching
- * - When you need query state (isLoading, etc.)
+ * WHEN NOT TO USE (use fetchProfile instead):
+ * - When guaranteed fresh data is absolutely required
+ * - When QueryClient instance is not available
+ * - When you need to bypass cache intentionally
+ *
+ * LIMITATIONS:
+ * 1. Stale data risk: Offline users may receive outdated profile information
+ * 2. Cache key coupling: Must exactly match useProfile hook's query key
+ * 3. QueryClient dependency: Requires QueryClient instance parameter
+ * 4. Eventual consistency: Cache and database may be temporarily inconsistent
+ * 5. No automatic refetch: Does not set up background refetching like useProfile
+ * 6. Not for post-mutation validation: Use cache invalidation instead
+ *
+ * @param userId - The user ID to fetch profile for
+ * @param queryClient - React Query client instance for cache access
+ * @param options - Optional configuration
+ * @param options.forceNetwork - Skip cache and always fetch from network (default: false)
+ * @returns Promise resolving to profile or null
+ *
+ * @example
+ * ```typescript
+ * // In auth restore - benefit from cached data for offline resilience
+ * const profile = await fetchProfileWithCache(userId, queryClient);
+ *
+ * // Force fresh fetch when guaranteed fresh data is needed
+ * const profile = await fetchProfileWithCache(userId, queryClient, {
+ *   forceNetwork: true
+ * });
+ * ```
+ */
+export async function fetchProfileWithCache(
+  userId: string,
+  queryClient: QueryClient,
+  options?: { forceNetwork?: boolean }
+): Promise<Profile | null> {
+  const forceNetwork = options?.forceNetwork ?? false;
+
+  // Step 1: Check cache first unless forceNetwork is true
+  if (!forceNetwork) {
+    const cachedData = queryClient.getQueryData<Profile | null>(['profile', userId]);
+    if (cachedData !== undefined) {
+      // Cache hit - return cached data immediately
+      // Note: We return even potentially stale data for offline resilience
+      return cachedData;
+    }
+  }
+
+  // Step 2: Cache miss or forced network fetch - fetch from network
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, has_onboarded, created_at, updated_at')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      logError(error, 'server', {
+        feature: 'auth',
+        operation: 'fetchProfileWithCache',
+        metadata: {
+          userId,
+          errorCode: error.code,
+          errorMessage: error.message,
+          forceNetwork,
+        },
+      });
+
+      // Return null for not found errors
+      if (error.code === 'PGRST116') {
+        // Update cache with null to avoid repeated fetches
+        queryClient.setQueryData(['profile', userId], null);
+        return null;
+      }
+
+      // For network errors, fall back to cached data if available
+      const cachedData = queryClient.getQueryData<Profile | null>(['profile', userId]);
+      if (cachedData !== undefined) {
+        // Return stale cache data rather than failing completely
+        return cachedData;
+      }
+
+      throw error;
+    }
+
+    if (!data) {
+      // No profile found - update cache and return null
+      queryClient.setQueryData(['profile', userId], null);
+      return null;
+    }
+
+    // Step 3: Convert and cache the fresh data
+    const profile = mapProfileRowToProfile(data as ProfileRow);
+    queryClient.setQueryData(['profile', userId], profile);
+
+    return profile;
+  } catch (error) {
+    logError(error as Error, 'server', {
+      feature: 'auth',
+      operation: 'fetchProfileWithCache',
+      metadata: {
+        userId,
+        forceNetwork,
+        note: 'Network fetch failed, attempting cache fallback',
+      },
+    });
+
+    // Final fallback: return cached data if available
+    const cachedData = queryClient.getQueryData<Profile | null>(['profile', userId]);
+    if (cachedData !== undefined) {
+      return cachedData;
+    }
+
+    // No cache available - return null instead of throwing
+    // This allows the app to continue with degraded functionality
+    return null;
+  }
+}
+
+/**
+ * Fetches profile directly without React Query caching.
+ *
+ * This is a utility function that ALWAYS makes a network request and bypasses
+ * the React Query cache entirely. Use this only when guaranteed fresh data is
+ * required or when QueryClient is not available.
+ *
+ * For most use cases, prefer fetchProfileWithCache for better offline support.
+ *
+ * WHEN TO USE:
+ * - When QueryClient instance is not available
+ * - When guaranteed fresh data is absolutely required
+ * - When you need to bypass cache intentionally
+ * - Legacy code that doesn't have access to QueryClient
+ *
+ * WHEN NOT TO USE (use fetchProfileWithCache instead):
+ * - In auth restore pipeline (use cache-aware version)
+ * - When offline resilience is important
+ * - When you have access to QueryClient
+ *
+ * IMPORTANT: This function always makes a network call, even if fresh data
+ * exists in the React Query cache. This can cause unnecessary network traffic
+ * and poor offline behavior.
  *
  * @param userId - The user ID to fetch profile for
  * @returns Promise resolving to profile or null
  *
  * @example
  * ```typescript
- * // In a mutation callback
- * onSuccess: async (data) => {
- *   const profile = await fetchProfile(data.user.id);
- *   if (profile) {
- *     updateUser({ ...data.user, hasOnboarded: profile.hasOnboarded });
- *   }
- * }
+ * // In a context without QueryClient access
+ * const profile = await fetchProfile(userId);
  * ```
  */
 export async function fetchProfile(userId: string): Promise<Profile | null> {
