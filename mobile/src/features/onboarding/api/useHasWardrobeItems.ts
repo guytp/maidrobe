@@ -94,6 +94,11 @@ export function useHasWardrobeItems() {
       }
 
       try {
+        // PLACEHOLDER: This query anticipates the items table from Feature #3
+        // (Wardrobe Item Capture & Management). The table structure and RLS
+        // policies are based on expected schema. If table doesn't exist yet,
+        // count will be null and we'll treat it as 0 items (safe default).
+        //
         // Perform lightweight COUNT query with head:true to avoid fetching data
         // This is the most efficient way to check if any items exist
         // RLS policies on items table will automatically filter to current user
