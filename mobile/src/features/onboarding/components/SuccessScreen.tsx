@@ -6,17 +6,31 @@ import { useTheme } from '../../../core/theme';
 import { OnboardingShell } from './OnboardingShell';
 
 /**
- * Onboarding Success/End screen placeholder.
+ * Onboarding Success/End screen.
  *
- * This is a temporary placeholder that displays completion messaging.
- * Story #129 will provide the full implementation with success messaging,
- * visual celebration, and proper transition to the main app.
+ * Displays the final onboarding summary screen as a terminal step in the
+ * onboarding flow. This screen is shown when the user completes the last
+ * defined onboarding step without skipping the entire flow.
+ *
+ * Story #129 implementation:
+ * - Step 1: Success step configured as terminal (complete)
+ * - Step 2: Wardrobe-aware messaging variant (hasItems vs no items)
+ * - Step 3: Item query error handling
+ * - Step 4: Completion logic via handleOnboardingComplete in _layout.tsx
+ * - Step 5: Analytics events integration
  *
  * Current functionality:
- * - Displays completion message
- * - Shows placeholder content
+ * - Displays completion message using i18n strings
+ * - Shows placeholder content (to be enhanced in Steps 2-3)
  * - Uses app theme and accessibility standards
  * - Integrates with OnboardingShell for consistent layout and navigation
+ * - Primary CTA triggers completion via OnboardingContext.onNext
+ *
+ * Terminal step behavior:
+ * - No further steps after success (getNextStep returns null)
+ * - Footer shows Get Started button without skip options
+ * - Tapping Get Started calls handleOnboardingComplete in _layout.tsx
+ * - Only reachable when hasOnboarded=false (enforced by _layout.tsx gate)
  *
  * @returns Success screen component
  */
