@@ -210,14 +210,97 @@ async function executeRestore(): Promise<void> {
 
       // Step 5: Success path - refresh succeeded
       if (!error && data?.session && data?.user) {
-        // Fetch user profile to get has_onboarded flag
-        // This is critical for onboarding gate routing decisions
-        const profile = await fetchProfile(data.user.id);
+        // IMPROVED PROFILE FETCH LOGIC:
+        // Distinguish between brand new users (expected null profile) and existing
+        // users (unexpected null profile) to prevent incorrect onboarding routing
+        // when profile fetch fails due to transient issues.
+        //
+        // BRAND NEW USER: created_at within last 5 minutes
+        // - Null profile is expected (profile creation may be async)
+        // - Default to hasOnboarded=false (correct for new users)
+        //
+        // EXISTING USER: created_at > 5 minutes ago
+        // - Null profile is unexpected (network/database error)
+        // - Retry profile fetch with exponential backoff
+        // - Fall back to bundle.hasOnboarded if available
+        // - Log telemetry for monitoring and alerting
 
-        // Determine hasOnboarded value:
-        // - Use profile.hasOnboarded if profile exists
-        // - Default to false if profile doesn't exist (new user or fetch failed)
-        const hasOnboarded = profile?.hasOnboarded ?? false;
+        const userCreatedAt = data.user.created_at ? new Date(data.user.created_at).getTime() : 0;
+        const now = Date.now();
+        const accountAgeMs = now - userCreatedAt;
+        const isBrandNewUser = accountAgeMs < 5 * 60 * 1000; // Less than 5 minutes old
+
+        // Attempt profile fetch with retry for non-brand-new users
+        let profile = await fetchProfile(data.user.id);
+
+        // If profile is null and user is NOT brand new, this is unexpected
+        if (!profile && !isBrandNewUser) {
+          // Log unexpected null profile for monitoring
+          logError(new Error('Unexpected null profile for existing user'), 'server', {
+            feature: 'auth',
+            operation: 'restore-profile-fetch',
+            metadata: {
+              userId: data.user.id,
+              accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+              isBrandNewUser,
+              note: 'Profile fetch returned null for non-brand-new user, retrying',
+            },
+          });
+
+          // Retry profile fetch with exponential backoff (2 attempts)
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+
+            profile = await fetchProfile(data.user.id);
+            if (profile) {
+              // Retry succeeded
+              logAuthEvent('profile-fetch-retry-success', {
+                outcome: 'success',
+                metadata: {
+                  userId: data.user.id,
+                  attempt,
+                  accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+                },
+              });
+              break;
+            }
+          }
+
+          // If still null after retries, log for monitoring
+          if (!profile) {
+            logAuthEvent('profile-fetch-exhausted', {
+              outcome: 'failure',
+              metadata: {
+                userId: data.user.id,
+                accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+                retriesAttempted: 2,
+                note: 'Profile fetch failed after retries for existing user',
+              },
+            });
+          }
+        }
+
+        // Determine hasOnboarded value with intelligent fallback
+        let hasOnboarded = false;
+        if (profile?.hasOnboarded !== undefined) {
+          // Profile fetch succeeded - use authoritative server value
+          hasOnboarded = profile.hasOnboarded;
+        } else if (!isBrandNewUser && bundle?.hasOnboarded !== undefined) {
+          // Existing user with null profile - fall back to cached value from bundle
+          hasOnboarded = bundle.hasOnboarded;
+          logAuthEvent('profile-fallback-to-bundle', {
+            outcome: 'fallback',
+            metadata: {
+              userId: data.user.id,
+              bundleHasOnboarded: hasOnboarded,
+              note: 'Using cached hasOnboarded from bundle due to profile fetch failure',
+            },
+          });
+        } else {
+          // Brand new user or no cached value - default to false (safe for new users)
+          hasOnboarded = false;
+        }
 
         // Persist refreshed session to SecureStore WITH hasOnboarded
         // This ensures offline users have access to onboarding state without network
