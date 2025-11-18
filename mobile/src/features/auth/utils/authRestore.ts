@@ -1,6 +1,6 @@
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
-import { logAuthEvent, logError } from '../../../core/telemetry';
+import { logAuthEvent, logError, logSuccess } from '../../../core/telemetry';
 import {
   loadStoredSession,
   saveSessionFromSupabase,
@@ -255,11 +255,12 @@ async function executeRestore(): Promise<void> {
             profile = await fetchProfile(data.user.id);
             if (profile) {
               // Retry succeeded - log for monitoring
-              // eslint-disable-next-line no-console
-              console.log('[AuthRestore] Profile fetch retry succeeded', {
-                userId: data.user.id,
-                attempt,
-                accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+              logSuccess('auth', 'profile_fetch_retry_succeeded', {
+                data: {
+                  userId: data.user.id,
+                  attempt,
+                  accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+                },
               });
               break;
             }
@@ -291,11 +292,12 @@ async function executeRestore(): Promise<void> {
         } else if (!isBrandNewUser && bundle?.hasOnboarded !== undefined) {
           // Existing user with null profile - fall back to cached value from bundle
           hasOnboarded = bundle.hasOnboarded;
-          // eslint-disable-next-line no-console
-          console.log('[AuthRestore] Using cached hasOnboarded from bundle', {
-            userId: data.user.id,
-            bundleHasOnboarded: hasOnboarded,
-            note: 'Profile fetch failed, falling back to bundle',
+          logSuccess('auth', 'profile_fetch_fallback_bundle', {
+            data: {
+              userId: data.user.id,
+              bundleHasOnboarded: hasOnboarded,
+              note: 'Profile fetch failed, falling back to bundle',
+            },
           });
         } else {
           // Brand new user or no cached value - default to false (safe for new users)
