@@ -49,6 +49,12 @@ export interface CompleteOnboardingOptions {
  * It uses a guard to prevent concurrent executions and ensures only
  * one navigation occurs even if invoked repeatedly.
  *
+ * TIMEOUT SAFETY:
+ * A 30-second timeout ensures the guard is reset even if completion
+ * operations hang (e.g., network issues, router problems). This prevents
+ * the user from being permanently blocked from retrying completion while
+ * still protecting against rapid double-taps or concurrent invocations.
+ *
  * ERROR HANDLING:
  * Backend failures do not prevent local completion. If the Supabase
  * update fails:
@@ -93,6 +99,8 @@ export function useCompleteOnboarding() {
   // Guard to prevent concurrent executions
   // This ensures idempotency even if the callback is invoked multiple times
   const isCompletingRef = useRef(false);
+  // Timeout reference for safety reset mechanism
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   return useCallback(
     async (options: CompleteOnboardingOptions = {}) => {
@@ -102,6 +110,23 @@ export function useCompleteOnboarding() {
       }
 
       isCompletingRef.current = true;
+
+      // Safety timeout: Reset guard after 30 seconds to prevent permanent lock
+      // This protects against hung navigation, slow backend, or other stalls
+      // while still preventing rapid concurrent invocations
+      timeoutRef.current = setTimeout(() => {
+        isCompletingRef.current = false;
+        timeoutRef.current = null;
+
+        logError(new Error('Onboarding completion exceeded timeout'), 'user', {
+          feature: 'onboarding',
+          operation: 'completeOnboarding',
+          metadata: {
+            timeoutMs: 30000,
+            note: 'Completion took too long, guard reset to allow retry',
+          },
+        });
+      }, 30000);
 
       try {
         // Step 1: Fire analytics events (fire-and-forget)
@@ -222,6 +247,12 @@ export function useCompleteOnboarding() {
           }
         }
       } finally {
+        // Clear safety timeout if completion finished before timeout
+        if (timeoutRef.current !== null) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+
         // Reset completion guard
         // This allows the callback to be invoked again if needed
         // (though in practice, user will be on /home by now)
