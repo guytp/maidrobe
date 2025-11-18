@@ -399,6 +399,8 @@ export function FirstItemScreen(): React.JSX.Element {
         return t('screens.onboarding.firstItem.metadata.errors.storageError');
       case 'database':
         return t('screens.onboarding.firstItem.metadata.errors.databaseError');
+      case 'validation':
+        return t('screens.onboarding.firstItem.metadata.errors.validationError');
       default:
         return t('screens.onboarding.firstItem.metadata.errors.unknownError');
     }
