@@ -14,23 +14,32 @@ import { OnboardingShell } from './OnboardingShell';
  *
  * Story #129 implementation:
  * - Step 1: Success step configured as terminal (complete)
- * - Step 2: Wardrobe-aware messaging variant (hasItems vs no items)
- * - Step 3: Item query error handling
- * - Step 4: Completion logic via handleOnboardingComplete in _layout.tsx
- * - Step 5: Analytics events integration
+ * - Step 2: Final summary UI with completion messaging (complete)
+ * - Step 3: Wardrobe-aware messaging variant (hasItems vs no items)
+ * - Step 4: Item query error handling
+ * - Step 5: Completion logic via handleOnboardingComplete in _layout.tsx
+ * - Step 6: Analytics events integration
  *
  * Current functionality:
- * - Displays completion message using i18n strings
- * - Shows placeholder content (to be enhanced in Steps 2-3)
+ * - Displays completion confirmation with clear headline
+ * - Shows summary of what's configured and next steps
  * - Uses app theme and accessibility standards
  * - Integrates with OnboardingShell for consistent layout and navigation
- * - Primary CTA triggers completion via OnboardingContext.onNext
+ * - Primary CTA ("Get Started") triggers completion via OnboardingContext.onNext
+ * - Simple centered layout consistent with PrefsScreen pattern
+ *
+ * UI Structure:
+ * - Title: Completion confirmation ("You're all set!")
+ * - Headline: Brief summary ("Your closet is ready")
+ * - Body: Explanation of what's configured and encouragement to add items
+ * - CTA: Footer provides "Get Started" button (no skip options)
  *
  * Terminal step behavior:
  * - No further steps after success (getNextStep returns null)
  * - Footer shows Get Started button without skip options
  * - Tapping Get Started calls handleOnboardingComplete in _layout.tsx
  * - Only reachable when hasOnboarded=false (enforced by _layout.tsx gate)
+ * - Back navigation disabled (terminal step)
  *
  * @returns Success screen component
  */
@@ -50,18 +59,20 @@ export function SuccessScreen(): React.JSX.Element {
         title: {
           fontSize: 32,
           fontWeight: 'bold',
-          marginBottom: spacing.md,
+          marginBottom: spacing.sm,
           color: colors.textPrimary,
           textAlign: 'center',
         },
-        subtitle: {
-          fontSize: 18,
+        headline: {
+          fontSize: 20,
+          fontWeight: '600',
           marginBottom: spacing.lg,
-          color: colors.textSecondary,
+          color: colors.textPrimary,
           textAlign: 'center',
         },
-        description: {
-          fontSize: 14,
+        body: {
+          fontSize: 16,
+          lineHeight: 24,
           color: colors.textSecondary,
           textAlign: 'center',
           maxWidth: 400,
@@ -84,11 +95,21 @@ export function SuccessScreen(): React.JSX.Element {
         >
           {t('screens.onboarding.success.title')}
         </Text>
-        <Text style={styles.subtitle} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          {t('screens.onboarding.success.subtitle')}
+        <Text
+          style={styles.headline}
+          accessibilityLabel={t('screens.onboarding.success.accessibility.headlineLabel')}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={3}
+        >
+          {t('screens.onboarding.success.headline')}
         </Text>
-        <Text style={styles.description} allowFontScaling={true} maxFontSizeMultiplier={3}>
-          {t('screens.onboarding.success.description')}
+        <Text
+          style={styles.body}
+          accessibilityLabel={t('screens.onboarding.success.accessibility.bodyLabel')}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={3}
+        >
+          {t('screens.onboarding.success.body')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

@@ -372,11 +372,13 @@
         }
       },
       "success": {
-        "title": "All Set!",
-        "subtitle": "Step 4 of 4",
-        "description": "This is a placeholder for the Onboarding Success screen. Story #129 will provide the full implementation with celebration visuals and transition to the main app.",
+        "title": "You're all set!",
+        "headline": "Your closet is ready",
+        "body": "Your preferences are saved. You can now start adding items to your wardrobe and we'll help you create outfits based on what you own.",
         "accessibility": {
-          "screenLabel": "Onboarding complete"
+          "screenLabel": "Onboarding complete",
+          "headlineLabel": "Completion headline",
+          "bodyLabel": "Next steps description"
         }
       },
       "footer": {
