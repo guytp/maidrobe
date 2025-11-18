@@ -27,5 +27,10 @@ enable_confirmations = false
 enabled = true
 file_size_limit = "50MiB"
 
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
 [functions]
 enabled = true
