@@ -287,6 +287,70 @@ export async function checkFeatureFlag(flagName: FeatureFlagName): Promise<Featu
 }
 
 /**
+ * Checks if a feature flag is enabled synchronously (for use in synchronous contexts).
+ *
+ * This is a synchronous version of checkFeatureFlag that performs the same logic
+ * without the async wrapper. It's intended for use in contexts where async/await
+ * cannot be used, such as:
+ * - Zustand store getters
+ * - Synchronous utility functions
+ * - React render functions (prefer hooks in most cases)
+ *
+ * BEHAVIOR: This function performs the exact same checks as checkFeatureFlag(),
+ * including version compatibility checks. The only difference is that it returns
+ * the result synchronously instead of returning a Promise. This is possible because
+ * the current implementation reads from environment variables synchronously.
+ *
+ * For most use cases, prefer the async checkFeatureFlag() function. Only use
+ * this synchronous version when absolutely necessary in synchronous contexts
+ * where async/await cannot be used.
+ *
+ * @param flagName - The name of the feature flag to check
+ * @returns Flag status with enabled state and version compatibility
+ *
+ * @example
+ * ```typescript
+ * // In a Zustand store getter
+ * deriveRoute: () => {
+ *   const onboardingGateEnabled = checkFeatureFlagSync('onboarding.gate').enabled;
+ *   // Use onboardingGateEnabled for routing logic...
+ * }
+ * ```
+ */
+export function checkFeatureFlagSync(flagName: FeatureFlagName): FeatureFlagResult {
+  try {
+    // Get flag configuration from environment variables
+    const config = getFlagConfig(flagName);
+
+    // Parse minimum required version from configuration
+    const minVersion = parseVersion(config.minVersion);
+
+    // Compare client version against minimum required version
+    // requiresUpdate is true if client version is older than required
+    const requiresUpdate = compareVersions(CLIENT_VERSION, minVersion) < 0;
+
+    // Return result with flag status and version compatibility
+    return {
+      enabled: config.enabled,
+      requiresUpdate,
+      message: requiresUpdate ? config.message : undefined,
+    };
+  } catch (error) {
+    // On error, fail safe by allowing the operation
+    // Log the error for monitoring
+    // eslint-disable-next-line no-console
+    console.error('[FeatureFlags] Error checking feature flag (sync):', error);
+
+    // Fail-safe: enable feature and don't require update
+    // This ensures app remains functional even if flag system fails
+    return {
+      enabled: true,
+      requiresUpdate: false,
+    };
+  }
+}
+
+/**
  * Gets the current client version.
  *
  * @returns Client version object
