@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { OnboardingShell } from './OnboardingShell';
+import { useHasWardrobeItems } from '../api/useHasWardrobeItems';
 
 /**
  * Onboarding Success/End screen.
@@ -15,14 +16,17 @@ import { OnboardingShell } from './OnboardingShell';
  * Story #129 implementation:
  * - Step 1: Success step configured as terminal (complete)
  * - Step 2: Final summary UI with completion messaging (complete)
- * - Step 3: Wardrobe-aware messaging variant (hasItems vs no items)
- * - Step 4: Item query error handling
+ * - Step 3: Wardrobe-aware messaging variant (complete)
+ * - Step 4: Item query error handling (complete)
  * - Step 5: Completion logic via handleOnboardingComplete in _layout.tsx
  * - Step 6: Analytics events integration
  *
  * Current functionality:
  * - Displays completion confirmation with clear headline
- * - Shows summary of what's configured and next steps
+ * - Shows wardrobe-aware summary based on item count
+ * - Queries user's wardrobe items non-blocking via useHasWardrobeItems
+ * - Renders safe default (no items) initially and on query errors
+ * - Updates to richer message when user has items
  * - Uses app theme and accessibility standards
  * - Integrates with OnboardingShell for consistent layout and navigation
  * - Primary CTA ("Get Started") triggers completion via OnboardingContext.onNext
@@ -31,8 +35,14 @@ import { OnboardingShell } from './OnboardingShell';
  * UI Structure:
  * - Title: Completion confirmation ("You're all set!")
  * - Headline: Brief summary ("Your closet is ready")
- * - Body: Explanation of what's configured and encouragement to add items
+ * - Body: Wardrobe-aware message (no items vs has items variant)
  * - CTA: Footer provides "Get Started" button (no skip options)
+ *
+ * Wardrobe-aware messaging:
+ * - Default (no items or error): Encourages adding items to wardrobe
+ * - Has items (>=1 item): Acknowledges first item and encourages more
+ * - Query runs non-blocking, safe default shown immediately
+ * - All errors handled gracefully, screen remains interactive
  *
  * Terminal step behavior:
  * - No further steps after success (getNextStep returns null)
@@ -45,6 +55,12 @@ import { OnboardingShell } from './OnboardingShell';
  */
 export function SuccessScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
+
+  // Query whether user has any wardrobe items for contextual messaging
+  // This runs non-blocking - component renders with default while query executes
+  // On error or while loading, we use safe default (no items variant)
+  const { data: wardrobeData } = useHasWardrobeItems();
+  const hasItems = wardrobeData?.hasItems ?? false;
 
   const styles = useMemo(
     () =>
@@ -109,7 +125,9 @@ export function SuccessScreen(): React.JSX.Element {
           allowFontScaling={true}
           maxFontSizeMultiplier={3}
         >
-          {t('screens.onboarding.success.body')}
+          {hasItems
+            ? t('screens.onboarding.success.bodyHasItems')
+            : t('screens.onboarding.success.bodyNoItems')}
         </Text>
 
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

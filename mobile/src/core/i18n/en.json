@@ -374,7 +374,8 @@
       "success": {
         "title": "You're all set!",
         "headline": "Your closet is ready",
-        "body": "Your preferences are saved. You can now start adding items to your wardrobe and we'll help you create outfits based on what you own.",
+        "bodyNoItems": "Your preferences are saved. Start adding items to your wardrobe and we'll help you create outfits based on what you own.",
+        "bodyHasItems": "Your preferences are saved and you've added your first item! Keep building your wardrobe and we'll help you create outfits from your collection.",
         "accessibility": {
           "screenLabel": "Onboarding complete",
           "headlineLabel": "Completion headline",
