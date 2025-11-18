@@ -114,8 +114,14 @@ export default function OnboardingLayout(): React.JSX.Element {
         skippedSteps,
         duration,
         originStep: currentStep || 'welcome',
-        // hasItems defaults to false for global skip path since user
-        // hasn't necessarily reached success screen with item query
+        // INTENTIONAL: When user globally skips onboarding, hasItems is
+        // explicitly set to false. This assumes the user has not yet added
+        // wardrobe items (they skipped before reaching the success screen
+        // where the items query would run). This default is intentional for
+        // both analytics tracking and UX consistency - it ensures we don't
+        // incorrectly report item presence and allows proper funnel analysis.
+        // This is NOT an accidental omission - do not change without considering
+        // the analytics and UX implications.
         hasItems: false,
         onSyncFailure: (message) => {
           setSyncFailureToast({
