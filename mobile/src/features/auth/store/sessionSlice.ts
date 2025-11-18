@@ -384,14 +384,6 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
     // This ensures new users are routed to onboarding when gate is enabled
     const hasOnboarded = state.user?.hasOnboarded ?? false;
 
-    // Server state takes precedence: clear local onboarding progress
-    // if server reports hasOnboarded=true but local state has onboarding progress
-    // This ensures local Zustand onboarding state is treated as secondary
-    // to the authoritative server profile flag
-    if (hasOnboarded && state.currentStep !== null) {
-      get().resetOnboardingState();
-    }
-
     return deriveInitialRouteFromAuthState({
       isAuthenticated: state.isAuthenticated,
       isVerified: state.isVerified(),
