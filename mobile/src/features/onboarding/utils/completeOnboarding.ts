@@ -142,21 +142,24 @@ export interface CompleteOnboardingOptions {
  * It uses a guard to prevent concurrent executions and ensures only
  * one navigation occurs even if invoked repeatedly.
  *
- * TIMEOUT SAFETY:
+ * TIMEOUT SAFETY (AC5):
  * A 30-second timeout ensures the guard is reset even if completion
  * operations hang (e.g., network issues, router problems). This prevents
  * the user from being permanently blocked from retrying completion while
  * still protecting against rapid double-taps or concurrent invocations.
+ * The 30s value balances allowing for slow networks while preventing
+ * indefinite hangs.
  *
- * ERROR HANDLING:
+ * ERROR HANDLING (AC6, NFR3):
  * Backend failures do not prevent local completion. If the Supabase
  * update fails:
  * - Local state is still updated (optimistic)
  * - Navigation still occurs (user proceeds to app)
- * - Transient failures are retried with exponential backoff (3 attempts)
- * - Permanent failures (4xx errors) are not retried
+ * - Transient failures are retried with exponential backoff (3 attempts, AC6)
+ * - Permanent failures (4xx errors) are not retried (NFR3)
  * - Error is logged for observability
- * - User may see onboarding again if backend never updates (acceptable)
+ * - User notified via optional onSyncFailure callback (AC6)
+ * - User may see onboarding again if backend never updates (acceptable per AC6)
  *
  * This follows the UX-first approach: never trap the user in onboarding
  * due to backend issues. Local completion ensures forward progress.
@@ -206,7 +209,7 @@ export function useCompleteOnboarding() {
 
       isCompletingRef.current = true;
 
-      // Safety timeout: Reset guard after 30 seconds to prevent permanent lock
+      // Safety timeout: Reset guard after 30 seconds to prevent permanent lock (AC5)
       // This protects against hung navigation, slow backend, or other stalls
       // while still preventing rapid concurrent invocations
       timeoutRef.current = setTimeout(() => {
@@ -233,13 +236,15 @@ export function useCompleteOnboarding() {
         if (options.isGlobalSkip) {
           // Global skip path: user bypassed onboarding entirely
           // Fire legacy skipped_all event for backward compatibility
+          // NOTE: trackOnboardingSkippedAll is not part of the AC9 spec but maintained
+          // for backward compatibility with existing analytics dashboards
           void trackOnboardingSkippedAll(
             options.originStep || 'welcome',
             completedSteps,
             skippedSteps
           );
 
-          // Fire exit_to_home event with skipped_entire_flow method
+          // Fire exit_to_home event with skipped_entire_flow method (AC9)
           void trackOnboardingExitToHome('skipped_entire_flow', hasItems, options.originStep);
         } else {
           // Normal completion path: user reached success screen
@@ -247,7 +252,7 @@ export function useCompleteOnboarding() {
           const hasSkippedSteps = skippedSteps.length > 0;
 
           if (hasSkippedSteps) {
-            // User completed with some per-step skips
+            // User completed with some per-step skips (AC9)
             void trackOnboardingCompletedWithSkips(
               completedSteps,
               skippedSteps,
@@ -256,12 +261,14 @@ export function useCompleteOnboarding() {
             );
             void trackOnboardingExitToHome('completed_with_skips', hasItems);
           } else {
-            // User completed all steps without skipping
+            // User completed all steps without skipping (AC9)
             void trackOnboardingCompletedAllSteps(completedSteps, options.duration, hasItems);
             void trackOnboardingExitToHome('completed_all_steps', hasItems);
           }
 
           // Fire legacy completed event for backward compatibility
+          // NOTE: trackOnboardingCompleted is not part of the AC9 spec but maintained
+          // for backward compatibility with existing analytics dashboards
           void trackOnboardingCompleted(completedSteps, skippedSteps, options.duration);
         }
 
