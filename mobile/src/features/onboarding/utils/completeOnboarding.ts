@@ -390,7 +390,7 @@ export async function completeOnboardingForCurrentUser(
     } catch (error) {
       // Cache invalidation failure is non-fatal
       // Query will eventually refetch on stale time expiry
-      logError(error as Error, 'client', {
+      logError(error as Error, 'user', {
         feature: 'onboarding',
         operation: 'invalidateProfileCache',
         metadata: {
