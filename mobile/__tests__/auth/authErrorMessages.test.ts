@@ -6,27 +6,35 @@ jest.mock('../../src/core/i18n', () => ({
   t: (key: string) => {
     const messages: Record<string, string> = {
       // Common errors
-      'screens.auth.common.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.common.errors.networkError':
+        'Unable to connect. Please check your internet connection.',
       'screens.auth.common.errors.invalidCredentials': 'Invalid email or password.',
       'screens.auth.common.errors.unverifiedEmail': 'Please verify your email address to continue.',
-      'screens.auth.common.errors.emailAlreadyInUse': 'Unable to create account. Please try a different email.',
+      'screens.auth.common.errors.emailAlreadyInUse':
+        'Unable to create account. Please try a different email.',
       'screens.auth.common.errors.passwordPolicy': 'Password does not meet requirements.',
       'screens.auth.common.errors.rateLimited': 'Too many attempts. Please wait and try again.',
       'screens.auth.common.errors.unknown': 'Something went wrong. Please try again.',
       // Flow-specific errors - login
       'screens.auth.login.errors.invalidCredentials': 'Invalid email or password.',
-      'screens.auth.login.errors.networkError': 'Unable to connect. Please check your internet connection.',
-      'screens.auth.login.errors.rateLimitExceeded': 'Too many attempts. Please wait and try again.',
-      'screens.auth.login.sessionMessages.sessionExpired': 'Your session has expired. Please log in again.',
+      'screens.auth.login.errors.networkError':
+        'Unable to connect. Please check your internet connection.',
+      'screens.auth.login.errors.rateLimitExceeded':
+        'Too many attempts. Please wait and try again.',
+      'screens.auth.login.sessionMessages.sessionExpired':
+        'Your session has expired. Please log in again.',
       // Flow-specific errors - signup
       'screens.auth.signup.errors.signupFailed': 'Unable to create account. Please try again.',
-      'screens.auth.signup.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.signup.errors.networkError':
+        'Unable to connect. Please check your internet connection.',
       'screens.auth.signup.errors.weakPassword': 'Password does not meet requirements.',
       // Flow-specific errors - reset
       'screens.auth.resetPassword.errors.tokenInvalid': 'This reset link is no longer valid.',
-      'screens.auth.resetPassword.errors.networkError': 'Unable to connect. Please check your internet connection.',
+      'screens.auth.resetPassword.errors.networkError':
+        'Unable to connect. Please check your internet connection.',
       'screens.auth.resetPassword.errors.weakPassword': 'Password does not meet requirements.',
-      'screens.auth.resetPassword.errors.rateLimitExceeded': 'Too many attempts. Please wait and try again.',
+      'screens.auth.resetPassword.errors.rateLimitExceeded':
+        'Too many attempts. Please wait and try again.',
       // Flow-specific errors - verify
       'screens.auth.verify.errors.tooManyRequests': 'Too many attempts. Please wait and try again.',
     };

@@ -76,10 +76,7 @@ import type {
  * // }
  * ```
  */
-export function handleAuthError(
-  rawError: unknown,
-  context: AuthErrorContext
-): NormalizedAuthError {
+export function handleAuthError(rawError: unknown, context: AuthErrorContext): NormalizedAuthError {
   try {
     // Extract error information defensively
     const errorInfo = extractErrorInfo(rawError);
@@ -473,10 +470,11 @@ function mapCategoryToSeverity(category: AuthErrorCategory): AuthErrorSeverity {
     case 'unknown':
       return 'error';
 
-    default:
+    default: {
       // Exhaustive check - TypeScript will error if we miss a category
       const _exhaustive: never = category;
       return 'error';
+    }
   }
 }
 
@@ -513,9 +511,10 @@ function isErrorRetryable(category: AuthErrorCategory, context: AuthErrorContext
     case 'password_policy':
       return false;
 
-    default:
+    default: {
       const _exhaustive: never = category;
       return false;
+    }
   }
 }
 
@@ -548,9 +547,10 @@ function mapCategoryToMessageKey(category: AuthErrorCategory): string {
       return 'auth.errors.rateLimited';
     case 'unknown':
       return 'auth.errors.unknown';
-    default:
+    default: {
       const _exhaustive: never = category;
       return 'auth.errors.unknown';
+    }
   }
 }
 

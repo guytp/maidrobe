@@ -203,9 +203,7 @@ describe('sessionPersistence', () => {
         const invalidBundle = {
           lastAuthSuccessAt: mockLastAuthSuccessAt,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -232,9 +230,7 @@ describe('sessionPersistence', () => {
           session: 'not-an-object',
           lastAuthSuccessAt: mockLastAuthSuccessAt,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -253,9 +249,7 @@ describe('sessionPersistence', () => {
         const invalidBundle = {
           session: mockSession,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -282,9 +276,7 @@ describe('sessionPersistence', () => {
           session: mockSession,
           lastAuthSuccessAt: 12345,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -304,9 +296,7 @@ describe('sessionPersistence', () => {
           session: mockSession,
           lastAuthSuccessAt: 'not-a-date',
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -334,9 +324,7 @@ describe('sessionPersistence', () => {
           lastAuthSuccessAt: mockLastAuthSuccessAt,
           needsRefresh: 'true',
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -989,10 +977,7 @@ describe('sessionPersistence', () => {
       // Test loadStoredSession
       (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null);
       await loadStoredSession();
-      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
-        storageKey,
-        expect.any(Object)
-      );
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith(storageKey, expect.any(Object));
 
       jest.clearAllMocks();
 
@@ -1010,10 +995,7 @@ describe('sessionPersistence', () => {
       // Test clearStoredSession
       (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
       await clearStoredSession();
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(
-        storageKey,
-        expect.any(Object)
-      );
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(storageKey, expect.any(Object));
     });
 
     it('should not expose sensitive data in logs', async () => {
@@ -1070,9 +1052,7 @@ describe('sessionPersistence', () => {
         session: { ...mockSession, user: null },
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
       (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const result = await loadStoredSession();
@@ -1090,9 +1070,7 @@ describe('sessionPersistence', () => {
         session: sessionWithoutToken,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
       (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const result = await loadStoredSession();
@@ -1141,9 +1119,7 @@ describe('sessionPersistence', () => {
         session: mockSession,
         lastAuthSuccessAt: '',
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
       (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
       const result = await loadStoredSession();
@@ -1165,9 +1141,7 @@ describe('sessionPersistence', () => {
         unexpectedField: 'should-not-cause-crash',
         anotherField: 12345,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(bundleWithExtra)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(bundleWithExtra));
 
       const result = await loadStoredSession();
 
@@ -1202,7 +1176,11 @@ describe('sessionPersistence', () => {
         JSON.stringify({ session: 'not-object', lastAuthSuccessAt: mockLastAuthSuccessAt }),
         JSON.stringify({ session: mockSession, lastAuthSuccessAt: 12345 }),
         JSON.stringify({ session: mockSession, lastAuthSuccessAt: 'not-a-date' }),
-        JSON.stringify({ session: mockSession, lastAuthSuccessAt: mockLastAuthSuccessAt, needsRefresh: 'true' }),
+        JSON.stringify({
+          session: mockSession,
+          lastAuthSuccessAt: mockLastAuthSuccessAt,
+          needsRefresh: 'true',
+        }),
       ];
 
       for (const invalidData of invalidCases) {
@@ -1240,9 +1218,7 @@ describe('sessionPersistence', () => {
         },
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(deeplyNested)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(deeplyNested));
 
       const result = await loadStoredSession();
 
@@ -1270,9 +1246,7 @@ describe('sessionPersistence', () => {
         session: invalidSession,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
 
       const result = await loadStoredSession();
 
@@ -1289,9 +1263,7 @@ describe('sessionPersistence', () => {
         session: invalidSession,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
 
       const result = await loadStoredSession();
 
@@ -1314,9 +1286,7 @@ describe('sessionPersistence', () => {
           session: mockSession,
           lastAuthSuccessAt: invalidDate,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -1333,9 +1303,7 @@ describe('sessionPersistence', () => {
         session: mockSession,
         lastAuthSuccessAt: '9999-12-31T23:59:59.999Z',
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
 
       const result = await loadStoredSession();
 
@@ -1349,9 +1317,7 @@ describe('sessionPersistence', () => {
         session: mockSession,
         lastAuthSuccessAt: '0000-01-01T00:00:00.000Z',
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
 
       const result = await loadStoredSession();
 
@@ -1369,9 +1335,7 @@ describe('sessionPersistence', () => {
           lastAuthSuccessAt: mockLastAuthSuccessAt,
           needsRefresh: truthyValue,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -1391,9 +1355,7 @@ describe('sessionPersistence', () => {
           lastAuthSuccessAt: mockLastAuthSuccessAt,
           needsRefresh: falsyValue,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(invalidBundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
         (SecureStore.deleteItemAsync as jest.Mock).mockResolvedValue(undefined);
 
         const result = await loadStoredSession();
@@ -1413,9 +1375,7 @@ describe('sessionPersistence', () => {
         session: invalidSession,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(invalidBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(invalidBundle));
 
       const result = await loadStoredSession();
 
@@ -1500,9 +1460,7 @@ describe('sessionPersistence', () => {
 
     it('should handle clearStoredSession failing during corruption cleanup', async () => {
       (SecureStore.getItemAsync as jest.Mock).mockResolvedValue('invalid-json{');
-      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(
-        new Error('Delete failed')
-      );
+      (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValue(new Error('Delete failed'));
 
       const result = await loadStoredSession();
 
@@ -1522,7 +1480,7 @@ describe('sessionPersistence', () => {
       ]);
 
       expect(results).toHaveLength(3);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result).toEqual(mockBundle);
       });
       expect(SecureStore.getItemAsync).toHaveBeenCalledTimes(3);
@@ -1541,9 +1499,7 @@ describe('sessionPersistence', () => {
     });
 
     it('should handle markNeedsRefresh when loadStoredSession fails internally', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(
-        new Error('Read error')
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Read error'));
 
       await markNeedsRefresh();
 
@@ -1557,9 +1513,7 @@ describe('sessionPersistence', () => {
     });
 
     it('should handle clearNeedsRefresh when loadStoredSession fails internally', async () => {
-      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(
-        new Error('Read error')
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('Read error'));
 
       await clearNeedsRefresh();
 
@@ -1696,9 +1650,7 @@ describe('sessionPersistence', () => {
         session: largeSession,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(largeBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(largeBundle));
 
       const result = await loadStoredSession();
 
@@ -1722,9 +1674,7 @@ describe('sessionPersistence', () => {
         session: unicodeSession,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(unicodeBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(unicodeBundle));
 
       const result = await loadStoredSession();
 
@@ -1745,9 +1695,7 @@ describe('sessionPersistence', () => {
           session: mockSession,
           lastAuthSuccessAt: timestamp,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(bundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(bundle));
 
         const result = await loadStoredSession();
 
@@ -1769,9 +1717,7 @@ describe('sessionPersistence', () => {
         session: sessionWithNullMetadata,
         lastAuthSuccessAt: mockLastAuthSuccessAt,
       };
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(bundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(bundle));
 
       const result = await loadStoredSession();
 
@@ -1795,9 +1741,7 @@ describe('sessionPersistence', () => {
           session: sessionWithEdgeExpiry,
           lastAuthSuccessAt: mockLastAuthSuccessAt,
         };
-        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-          JSON.stringify(bundle)
-        );
+        (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(bundle));
 
         const result = await loadStoredSession();
 
@@ -1808,9 +1752,7 @@ describe('sessionPersistence', () => {
 
     it('should handle rapid sequential save and load operations', async () => {
       (SecureStore.setItemAsync as jest.Mock).mockResolvedValue(undefined);
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
-        JSON.stringify(mockBundle)
-      );
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(JSON.stringify(mockBundle));
 
       // Rapid fire operations
       await saveSessionFromSupabase(mockSession, mockLastAuthSuccessAt);

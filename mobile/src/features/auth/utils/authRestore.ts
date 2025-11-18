@@ -394,17 +394,13 @@ async function executeRestore(): Promise<void> {
     const i18nKey = mapLogoutReasonToI18nKey('restore-failed-error');
     useStore.getState().markUnauthenticated(i18nKey);
 
-    logError(
-      error instanceof Error ? error : new Error('Unknown restore error'),
-      'server',
-      {
-        feature: 'auth',
-        operation: 'restore',
-        metadata: {
-          reason: 'unexpected_error',
-        },
-      }
-    );
+    logError(error instanceof Error ? error : new Error('Unknown restore error'), 'server', {
+      feature: 'auth',
+      operation: 'restore',
+      metadata: {
+        reason: 'unexpected_error',
+      },
+    });
 
     logAuthEvent('auth-restore-failed-stale', {
       outcome: 'failure',
