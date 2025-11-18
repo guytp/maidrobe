@@ -150,7 +150,7 @@ export function FirstItemScreen(): React.JSX.Element {
       }
     } catch (error) {
       // Camera initialization error
-      logError(error as Error, 'schema', {
+      logError(error as Error, 'user', {
         feature: 'onboarding_first_item',
         operation: 'startCamera',
         metadata: {
@@ -322,8 +322,17 @@ export function FirstItemScreen(): React.JSX.Element {
         hasTrackedSaveError.current = true;
       }
 
+      // Map CreateItemError.errorType to telemetry classification
+      let classification: 'user' | 'network' | 'server' = 'server';
+      if (error.errorType === 'network') {
+        classification = 'network';
+      } else if (error.errorType === 'validation') {
+        classification = 'user';
+      }
+      // storage, database, and unknown map to 'server'
+
       // Log error via telemetry
-      logError(error, 'schema', {
+      logError(error, classification, {
         feature: 'onboarding_first_item',
         operation: 'saveItem',
         metadata: {
