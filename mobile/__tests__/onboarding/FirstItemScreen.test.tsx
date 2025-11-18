@@ -900,12 +900,27 @@ describe('FirstItemScreen', () => {
     });
 
     it('should display network error message for network errors', async () => {
-      const { rerender, queryByTestId } = render(
+      const { rerender, queryByTestId, getByTestId } = render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
       );
 
+      // First, trigger camera flow to show metadata form
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(getByTestId('camera-capture')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('camera-capture'));
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-save')).toBeTruthy();
+      });
+
+      // Now set error state
       const error = new Error('Network error') as any;
       error.errorType = 'network';
 
@@ -927,12 +942,27 @@ describe('FirstItemScreen', () => {
     });
 
     it('should display storage error message for storage errors', async () => {
-      const { rerender, queryByTestId } = render(
+      const { rerender, queryByTestId, getByTestId } = render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
       );
 
+      // First, trigger camera flow to show metadata form
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(getByTestId('camera-capture')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('camera-capture'));
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-save')).toBeTruthy();
+      });
+
+      // Now set error state
       const error = new Error('Storage error') as any;
       error.errorType = 'storage';
 
@@ -954,12 +984,27 @@ describe('FirstItemScreen', () => {
     });
 
     it('should display database error message for database errors', async () => {
-      const { rerender, queryByTestId } = render(
+      const { rerender, queryByTestId, getByTestId } = render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
       );
 
+      // First, trigger camera flow to show metadata form
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(getByTestId('camera-capture')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('camera-capture'));
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-save')).toBeTruthy();
+      });
+
+      // Now set error state
       const error = new Error('Database error') as any;
       error.errorType = 'database';
 
@@ -981,12 +1026,27 @@ describe('FirstItemScreen', () => {
     });
 
     it('should display unknown error message for other errors', async () => {
-      const { rerender, queryByTestId } = render(
+      const { rerender, queryByTestId, getByTestId } = render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
       );
 
+      // First, trigger camera flow to show metadata form
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(getByTestId('camera-capture')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('camera-capture'));
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-save')).toBeTruthy();
+      });
+
+      // Now set error state
       const error = new Error('Unknown error') as any;
       error.errorType = 'unknown';
 
@@ -1008,12 +1068,27 @@ describe('FirstItemScreen', () => {
     });
 
     it('should display validation error message for validation errors', async () => {
-      const { rerender, queryByTestId } = render(
+      const { rerender, queryByTestId, getByTestId } = render(
         <TestWrapper>
           <FirstItemScreen />
         </TestWrapper>
       );
 
+      // First, trigger camera flow to show metadata form
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(getByTestId('camera-capture')).toBeTruthy();
+      });
+
+      fireEvent.press(getByTestId('camera-capture'));
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-save')).toBeTruthy();
+      });
+
+      // Now set error state
       const error = new Error('Validation error') as any;
       error.errorType = 'validation';
 
@@ -1217,16 +1292,14 @@ describe('FirstItemScreen', () => {
 
     it('should show confirmation dialog on metadata form dismiss', async () => {
       jest.spyOn(Alert, 'alert');
-      await setupWithMetadataForm();
+      const { getByTestId } = await setupWithMetadataForm();
 
-      // Simulate onRequestClose being called
-      const modal = require('react-native').Modal;
-      const onRequestClose = modal.mock.calls.find((call: any) => call[0]?.onRequestClose)?.[0]
-        ?.onRequestClose;
+      // Get the Modal component and extract its onRequestClose prop
+      const modalElement = getByTestId('metadata-form-modal');
+      const onRequestClose = modalElement.props.onRequestClose;
 
-      if (onRequestClose) {
-        onRequestClose();
-      }
+      // Trigger the onRequestClose handler
+      onRequestClose();
 
       expect(Alert.alert).toHaveBeenCalledWith(
         'Cancel adding item?',
@@ -1240,15 +1313,14 @@ describe('FirstItemScreen', () => {
 
     it('should have "Keep editing" option with cancel style', async () => {
       jest.spyOn(Alert, 'alert');
-      await setupWithMetadataForm();
+      const { getByTestId } = await setupWithMetadataForm();
 
-      const modal = require('react-native').Modal;
-      const onRequestClose = modal.mock.calls.find((call: any) => call[0]?.onRequestClose)?.[0]
-        ?.onRequestClose;
+      // Get the Modal component and extract its onRequestClose prop
+      const modalElement = getByTestId('metadata-form-modal');
+      const onRequestClose = modalElement.props.onRequestClose;
 
-      if (onRequestClose) {
-        onRequestClose();
-      }
+      // Trigger the onRequestClose handler
+      onRequestClose();
 
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const buttons = alertCall[2];
@@ -1260,15 +1332,14 @@ describe('FirstItemScreen', () => {
 
     it('should have "Cancel" option with destructive style', async () => {
       jest.spyOn(Alert, 'alert');
-      await setupWithMetadataForm();
+      const { getByTestId } = await setupWithMetadataForm();
 
-      const modal = require('react-native').Modal;
-      const onRequestClose = modal.mock.calls.find((call: any) => call[0]?.onRequestClose)?.[0]
-        ?.onRequestClose;
+      // Get the Modal component and extract its onRequestClose prop
+      const modalElement = getByTestId('metadata-form-modal');
+      const onRequestClose = modalElement.props.onRequestClose;
 
-      if (onRequestClose) {
-        onRequestClose();
-      }
+      // Trigger the onRequestClose handler
+      onRequestClose();
 
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const buttons = alertCall[2];
@@ -1280,15 +1351,14 @@ describe('FirstItemScreen', () => {
 
     it('should track skip with form_cancelled_via_back_button when Cancel pressed', async () => {
       jest.spyOn(Alert, 'alert');
-      await setupWithMetadataForm();
+      const { getByTestId } = await setupWithMetadataForm();
 
-      const modal = require('react-native').Modal;
-      const onRequestClose = modal.mock.calls.find((call: any) => call[0]?.onRequestClose)?.[0]
-        ?.onRequestClose;
+      // Get the Modal component and extract its onRequestClose prop
+      const modalElement = getByTestId('metadata-form-modal');
+      const onRequestClose = modalElement.props.onRequestClose;
 
-      if (onRequestClose) {
-        onRequestClose();
-      }
+      // Trigger the onRequestClose handler
+      onRequestClose();
 
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const buttons = alertCall[2];
