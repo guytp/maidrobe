@@ -119,8 +119,8 @@ export function useCompleteOnboarding() {
             skippedSteps
           );
 
-          // Fire exit_to_home event with global_skip method
-          void trackOnboardingExitToHome('global_skip', hasItems, options.originStep);
+          // Fire exit_to_home event with skipped_entire_flow method
+          void trackOnboardingExitToHome('skipped_entire_flow', hasItems, options.originStep);
         } else {
           // Normal completion path: user reached success screen
           // Determine if all steps were completed or some were skipped
@@ -138,7 +138,7 @@ export function useCompleteOnboarding() {
           } else {
             // User completed all steps without skipping
             void trackOnboardingCompletedAllSteps(completedSteps, options.duration, hasItems);
-            void trackOnboardingExitToHome('completed_all', hasItems);
+            void trackOnboardingExitToHome('completed_all_steps', hasItems);
           }
 
           // Fire legacy completed event for backward compatibility
