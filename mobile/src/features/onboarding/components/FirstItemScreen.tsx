@@ -246,15 +246,15 @@ export function FirstItemScreen(): React.JSX.Element {
    */
   const handleMetadataFormClose = useCallback(() => {
     Alert.alert(
-      'Cancel adding item?',
-      'Your progress will be lost. You can always add items later from your wardrobe.',
+      t('screens.onboarding.firstItem.cancelConfirmation.title'),
+      t('screens.onboarding.firstItem.cancelConfirmation.message'),
       [
         {
-          text: 'Keep editing',
+          text: t('screens.onboarding.firstItem.cancelConfirmation.keepEditing'),
           style: 'cancel',
         },
         {
-          text: 'Cancel',
+          text: t('screens.onboarding.firstItem.cancelConfirmation.cancel'),
           onPress: () => {
             // Track skip with specific reason for back button
             trackFirstItemSkipped('form_cancelled_via_back_button');

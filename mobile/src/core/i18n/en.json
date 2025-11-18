@@ -339,6 +339,12 @@
           "itemSaved": "Item saved successfully!",
           "previewTitle": "Your First Item"
         },
+        "cancelConfirmation": {
+          "title": "Cancel adding item?",
+          "message": "Your progress will be lost. You can always add items later from your wardrobe.",
+          "keepEditing": "Keep editing",
+          "cancel": "Cancel"
+        },
         "accessibility": {
           "screenLabel": "First wardrobe item capture",
           "screenHint": "Guided experience to add your first wardrobe item",
