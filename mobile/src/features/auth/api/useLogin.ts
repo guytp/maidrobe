@@ -473,14 +473,57 @@ export function useLogin() {
       // Calculate request latency for performance monitoring
       const latency = context?.startTime ? Date.now() - context.startTime : undefined;
 
-      // Fetch user profile to get has_onboarded flag
-      // This is critical for onboarding gate routing decisions
-      const profile = await fetchProfile(data.user.id);
+      // SAFE PROFILE FETCH WITH ERROR HANDLING:
+      // Wrap async fetchProfile in try/catch to prevent unhandled promise rejections.
+      // While fetchProfile has internal error handling, exceptions can still propagate
+      // in unexpected scenarios (network failures, timeout errors, etc.).
+      //
+      // FALLBACK STRATEGY:
+      // If profile fetch throws an exception, default hasOnboarded to false (safe default).
+      // This ensures new users see onboarding, while existing users will have their
+      // hasOnboarded state restored from the session bundle on next cold start.
+      let profile = null;
+      let hasOnboarded = false;
 
-      // Determine hasOnboarded value:
-      // - Use profile.hasOnboarded if profile exists
-      // - Default to false if profile doesn't exist (new user or fetch failed)
-      const hasOnboarded = profile?.hasOnboarded ?? false;
+      try {
+        // Fetch user profile to get has_onboarded flag
+        // This is critical for onboarding gate routing decisions
+        profile = await fetchProfile(data.user.id);
+
+        // Determine hasOnboarded value:
+        // - Use profile.hasOnboarded if profile exists
+        // - Default to false if profile doesn't exist (new user or fetch failed)
+        hasOnboarded = profile?.hasOnboarded ?? false;
+      } catch (error) {
+        // Profile fetch threw an exception (unexpected error not caught internally)
+        // Log error for monitoring and alerting
+        logError(
+          error instanceof Error ? error : new Error('Unknown profile fetch error'),
+          'server',
+          {
+            feature: 'auth',
+            operation: 'login-profile-fetch',
+            metadata: {
+              userId: data.user.id,
+              note: 'Profile fetch threw exception during login, defaulting hasOnboarded to false',
+            },
+          }
+        );
+
+        // Emit telemetry event for monitoring
+        logAuthEvent('login-profile-fetch-error', {
+          outcome: 'failure',
+          metadata: {
+            userId: data.user.id,
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            note: 'Profile fetch exception caught, using safe default hasOnboarded=false',
+          },
+        });
+
+        // Default to false (safe for new users, will be corrected from bundle for existing users)
+        hasOnboarded = false;
+        profile = null;
+      }
 
       // Business logic: Update Zustand session store with authenticated user
       useStore.getState().setUser({
@@ -501,13 +544,16 @@ export function useLogin() {
 
       // Persist session bundle to SecureStore for cold-start restoration
       // This enables auth state restoration and offline trust window logic
+      // Include hasOnboarded in bundle for offline resilience (Story #95)
       // Cast to Session type - we know this comes from Supabase signInWithPassword
-      saveSessionFromSupabase(data.session as any, new Date().toISOString()).catch((error) => {
-        // Log error but don't throw - session save failures are non-critical
-        // User is still authenticated in current session
-        // eslint-disable-next-line no-console
-        console.error('[Login] Failed to save session bundle:', error);
-      });
+      saveSessionFromSupabase(data.session as any, new Date().toISOString(), hasOnboarded).catch(
+        (error) => {
+          // Log error but don't throw - session save failures are non-critical
+          // User is still authenticated in current session
+          // eslint-disable-next-line no-console
+          console.error('[Login] Failed to save session bundle:', error);
+        }
+      );
 
       // Log structured auth event for observability
       // SECURITY: Do NOT log the session object - it contains access_token and refresh_token
