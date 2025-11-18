@@ -8,6 +8,9 @@ import {
   trackWelcomeViewed,
   trackWelcomeGetStartedClicked,
   trackWelcomeSkipped,
+  trackOnboardingCompletedAllSteps,
+  trackOnboardingCompletedWithSkips,
+  trackOnboardingExitToHome,
 } from './onboardingAnalytics';
 import type { OnboardingStep } from '../store/onboardingSlice';
 import { logSuccess } from '../../../core/telemetry';
@@ -474,6 +477,321 @@ describe('onboardingAnalytics', () => {
     });
   });
 
+  describe('trackOnboardingCompletedAllSteps', () => {
+    it('should call logSuccess with correct event name and payload', () => {
+      const completedSteps: OnboardingStep[] = ['welcome', 'prefs', 'firstItem', 'success'];
+      const durationMs = 180000;
+      const hasItems = true;
+
+      trackOnboardingCompletedAllSteps(completedSteps, durationMs, hasItems);
+
+      expect(logSuccess).toHaveBeenCalledTimes(1);
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_all_steps', {
+        latency: 180000,
+        data: {
+          completedSteps: ['welcome', 'prefs', 'firstItem', 'success'],
+          totalSteps: 4,
+          hasItems: true,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should work without optional parameters', () => {
+      const completedSteps: OnboardingStep[] = ['welcome', 'success'];
+
+      trackOnboardingCompletedAllSteps(completedSteps);
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_all_steps', {
+        latency: undefined,
+        data: {
+          completedSteps: ['welcome', 'success'],
+          totalSteps: 2,
+          hasItems: false,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should default hasItems to false when not provided', () => {
+      trackOnboardingCompletedAllSteps(['welcome', 'prefs'], 60000);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(false);
+    });
+
+    it('should handle hasItems explicitly set to false', () => {
+      trackOnboardingCompletedAllSteps(['welcome'], undefined, false);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(false);
+    });
+
+    it('should handle hasItems set to true', () => {
+      trackOnboardingCompletedAllSteps(['welcome', 'prefs'], 90000, true);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(true);
+    });
+
+    it('should calculate totalSteps correctly', () => {
+      trackOnboardingCompletedAllSteps(['welcome', 'prefs', 'firstItem'], 120000);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.totalSteps).toBe(3);
+    });
+
+    it('should handle empty completedSteps array', () => {
+      trackOnboardingCompletedAllSteps([]);
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_all_steps', {
+        latency: undefined,
+        data: {
+          completedSteps: [],
+          totalSteps: 0,
+          hasItems: false,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should include valid ISO timestamp', () => {
+      trackOnboardingCompletedAllSteps(['welcome']);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      const timestamp = call[2].data.timestamp;
+      expect(() => new Date(timestamp)).not.toThrow();
+      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('should catch errors and log warning without throwing', () => {
+      (logSuccess as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Telemetry failure');
+      });
+
+      expect(() => trackOnboardingCompletedAllSteps(['welcome'], 1000, true)).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[Onboarding Analytics] Failed to track completed_all_steps:',
+        expect.any(Error)
+      );
+    });
+  });
+
+  describe('trackOnboardingCompletedWithSkips', () => {
+    it('should call logSuccess with correct event name and payload', () => {
+      const completedSteps: OnboardingStep[] = ['welcome', 'success'];
+      const skippedSteps: OnboardingStep[] = ['prefs', 'firstItem'];
+      const durationMs = 90000;
+      const hasItems = false;
+
+      trackOnboardingCompletedWithSkips(completedSteps, skippedSteps, durationMs, hasItems);
+
+      expect(logSuccess).toHaveBeenCalledTimes(1);
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_with_skips', {
+        latency: 90000,
+        data: {
+          completedSteps: ['welcome', 'success'],
+          skippedSteps: ['prefs', 'firstItem'],
+          totalSteps: 4,
+          hasItems: false,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should work without optional parameters', () => {
+      const completedSteps: OnboardingStep[] = ['welcome', 'prefs'];
+      const skippedSteps: OnboardingStep[] = ['firstItem'];
+
+      trackOnboardingCompletedWithSkips(completedSteps, skippedSteps);
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_with_skips', {
+        latency: undefined,
+        data: {
+          completedSteps: ['welcome', 'prefs'],
+          skippedSteps: ['firstItem'],
+          totalSteps: 3,
+          hasItems: false,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should default hasItems to false when not provided', () => {
+      trackOnboardingCompletedWithSkips(['welcome'], ['prefs'], 60000);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(false);
+    });
+
+    it('should handle hasItems set to true', () => {
+      trackOnboardingCompletedWithSkips(['welcome'], ['prefs'], 60000, true);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(true);
+    });
+
+    it('should calculate totalSteps correctly with both arrays', () => {
+      trackOnboardingCompletedWithSkips(['welcome', 'prefs'], ['firstItem'], 90000);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.totalSteps).toBe(3);
+    });
+
+    it('should handle empty skippedSteps array', () => {
+      trackOnboardingCompletedWithSkips(['welcome', 'prefs'], []);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.totalSteps).toBe(2);
+      expect(call[2].data.skippedSteps).toEqual([]);
+    });
+
+    it('should handle empty completedSteps array', () => {
+      trackOnboardingCompletedWithSkips([], ['welcome', 'prefs']);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.totalSteps).toBe(2);
+      expect(call[2].data.completedSteps).toEqual([]);
+    });
+
+    it('should handle both arrays empty', () => {
+      trackOnboardingCompletedWithSkips([], []);
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'completed_with_skips', {
+        latency: undefined,
+        data: {
+          completedSteps: [],
+          skippedSteps: [],
+          totalSteps: 0,
+          hasItems: false,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should include valid ISO timestamp', () => {
+      trackOnboardingCompletedWithSkips(['welcome'], ['prefs']);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      const timestamp = call[2].data.timestamp;
+      expect(() => new Date(timestamp)).not.toThrow();
+      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('should catch errors and log warning without throwing', () => {
+      (logSuccess as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Telemetry failure');
+      });
+
+      expect(() =>
+        trackOnboardingCompletedWithSkips(['welcome'], ['prefs'], 1000, true)
+      ).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[Onboarding Analytics] Failed to track completed_with_skips:',
+        expect.any(Error)
+      );
+    });
+  });
+
+  describe('trackOnboardingExitToHome', () => {
+    it('should call logSuccess with correct event name and method completed_all_steps', () => {
+      trackOnboardingExitToHome('completed_all_steps');
+
+      expect(logSuccess).toHaveBeenCalledTimes(1);
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'exit_to_home', {
+        data: {
+          method: 'completed_all_steps',
+          hasItems: false,
+          originStep: null,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should call logSuccess with method completed_with_skips and hasItems', () => {
+      trackOnboardingExitToHome('completed_with_skips', true);
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'exit_to_home', {
+        data: {
+          method: 'completed_with_skips',
+          hasItems: true,
+          originStep: null,
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should call logSuccess with method skipped_entire_flow and all params', () => {
+      trackOnboardingExitToHome('skipped_entire_flow', false, 'prefs');
+
+      expect(logSuccess).toHaveBeenCalledWith('onboarding', 'exit_to_home', {
+        data: {
+          method: 'skipped_entire_flow',
+          hasItems: false,
+          originStep: 'prefs',
+          timestamp: expect.any(String),
+        },
+      });
+    });
+
+    it('should default hasItems to false when not provided', () => {
+      trackOnboardingExitToHome('completed_all_steps');
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.hasItems).toBe(false);
+    });
+
+    it('should default originStep to null when not provided', () => {
+      trackOnboardingExitToHome('completed_all_steps', true);
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      expect(call[2].data.originStep).toBe(null);
+    });
+
+    it('should handle all three method values correctly', () => {
+      const methods: ('completed_all_steps' | 'completed_with_skips' | 'skipped_entire_flow')[] = [
+        'completed_all_steps',
+        'completed_with_skips',
+        'skipped_entire_flow',
+      ];
+
+      methods.forEach((method) => {
+        jest.clearAllMocks();
+        trackOnboardingExitToHome(method, true, 'welcome');
+
+        expect(logSuccess).toHaveBeenCalledWith('onboarding', 'exit_to_home', {
+          data: {
+            method,
+            hasItems: true,
+            originStep: 'welcome',
+            timestamp: expect.any(String),
+          },
+        });
+      });
+    });
+
+    it('should include valid ISO timestamp', () => {
+      trackOnboardingExitToHome('completed_all_steps');
+
+      const call = (logSuccess as jest.Mock).mock.calls[0];
+      const timestamp = call[2].data.timestamp;
+      expect(() => new Date(timestamp)).not.toThrow();
+      expect(timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('should catch errors and log warning without throwing', () => {
+      (logSuccess as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Telemetry failure');
+      });
+
+      expect(() => trackOnboardingExitToHome('skipped_entire_flow', true, 'prefs')).not.toThrow();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        '[Onboarding Analytics] Failed to track exit_to_home:',
+        expect.any(Error)
+      );
+    });
+  });
+
   describe('Fire-and-forget pattern', () => {
     it('should return void for all tracking functions', () => {
       expect(trackStepViewed('welcome', false)).toBeUndefined();
@@ -485,6 +803,9 @@ describe('onboardingAnalytics', () => {
       expect(trackWelcomeViewed(false)).toBeUndefined();
       expect(trackWelcomeGetStartedClicked()).toBeUndefined();
       expect(trackWelcomeSkipped()).toBeUndefined();
+      expect(trackOnboardingCompletedAllSteps([])).toBeUndefined();
+      expect(trackOnboardingCompletedWithSkips([], [])).toBeUndefined();
+      expect(trackOnboardingExitToHome('completed_all_steps')).toBeUndefined();
     });
 
     it('should not throw errors even when logSuccess fails', () => {
@@ -502,6 +823,9 @@ describe('onboardingAnalytics', () => {
         trackWelcomeViewed(false);
         trackWelcomeGetStartedClicked();
         trackWelcomeSkipped();
+        trackOnboardingCompletedAllSteps([]);
+        trackOnboardingCompletedWithSkips([], []);
+        trackOnboardingExitToHome('completed_all_steps');
       }).not.toThrow();
     });
 
@@ -519,8 +843,11 @@ describe('onboardingAnalytics', () => {
       trackWelcomeViewed(false);
       trackWelcomeGetStartedClicked();
       trackWelcomeSkipped();
+      trackOnboardingCompletedAllSteps([]);
+      trackOnboardingCompletedWithSkips([], []);
+      trackOnboardingExitToHome('completed_all_steps');
 
-      expect(consoleWarnSpy).toHaveBeenCalledTimes(9);
+      expect(consoleWarnSpy).toHaveBeenCalledTimes(12);
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('[Onboarding Analytics] Failed to track'),
         expect.any(Error)
@@ -540,6 +867,9 @@ describe('onboardingAnalytics', () => {
         () => trackWelcomeViewed(false),
         () => trackWelcomeGetStartedClicked(),
         () => trackWelcomeSkipped(),
+        () => trackOnboardingCompletedAllSteps([]),
+        () => trackOnboardingCompletedWithSkips([], []),
+        () => trackOnboardingExitToHome('completed_all_steps'),
       ];
 
       functions.forEach((fn) => {
