@@ -512,7 +512,7 @@ export function trackOnboardingCompletedWithSkips(
  * @param originStep - Step the user was on when exiting (for global skip)
  */
 export function trackOnboardingExitToHome(
-  method: 'completed_all' | 'completed_with_skips' | 'global_skip',
+  method: 'completed_all_steps' | 'completed_with_skips' | 'skipped_entire_flow',
   hasItems?: boolean,
   originStep?: OnboardingStep | string
 ): void {
