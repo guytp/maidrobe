@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useRouter } from 'expo-router';
+import { useQueryClient, QueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError, logSuccess } from '../../../core/telemetry';
@@ -12,6 +13,7 @@ import {
 } from './onboardingAnalytics';
 import type { OnboardingStep } from '../store/onboardingSlice';
 import type { ProfileUpdatePayload } from '../../auth/types/profile';
+import type { Router } from 'expo-router';
 
 /**
  * Classifies Supabase errors to determine if they are transient and should be retried.
@@ -125,51 +127,291 @@ export interface CompleteOnboardingOptions {
 }
 
 /**
- * Custom hook for completing the onboarding flow.
+ * Context required for completing onboarding.
  *
- * Provides a callback that handles all aspects of onboarding completion:
- * - Fires analytics events
- * - Updates backend hasOnboarded flag (with error handling)
- * - Clears local onboarding state
- * - Navigates to main app
+ * This interface defines all dependencies needed by the completion utility.
+ * Separating these makes the function testable and allows both hook and
+ * non-hook usage patterns.
+ */
+export interface CompleteOnboardingContext {
+  /** Current authenticated user */
+  user: { id: string; email: string } | null;
+  /** React Query client for cache invalidation */
+  queryClient: QueryClient;
+  /** Zustand action to update hasOnboarded flag in session state */
+  updateHasOnboarded: (value: boolean) => void;
+  /** Zustand action to reset onboarding state (steps, progress) */
+  resetOnboardingState: () => void;
+  /** Expo router for navigation */
+  router: Router;
+}
+
+/**
+ * Completes the onboarding flow for the current authenticated user.
  *
- * This is a shared helper that can be called from:
- * - Success step primary CTA
- * - Global "Skip onboarding" action
- * - Any other completion context
+ * This is a dedicated client-side helper that handles all aspects of
+ * transitioning a user from hasOnboarded=false to hasOnboarded=true.
+ * It is the single source of truth for onboarding completion logic.
  *
- * IDEMPOTENCY:
- * The returned callback is idempotent and safe to call multiple times.
- * It uses a guard to prevent concurrent executions and ensures only
- * one navigation occurs even if invoked repeatedly.
+ * RESPONSIBILITIES:
+ * 1. Fire analytics events for completion/skip tracking
+ * 2. Update backend public.profiles.has_onboarded flag via Supabase
+ * 3. Invalidate React Query profile cache to ensure fresh data
+ * 4. Update Zustand session state (optimistic update)
+ * 5. Clear local onboarding progress state
+ * 6. Navigate user to main home route
  *
- * TIMEOUT SAFETY (AC5):
- * A 30-second timeout ensures the guard is reset even if completion
- * operations hang (e.g., network issues, router problems). This prevents
- * the user from being permanently blocked from retrying completion while
- * still protecting against rapid double-taps or concurrent invocations.
- * The 30s value balances allowing for slow networks while preventing
- * indefinite hangs.
+ * CRITICAL GUARANTEES:
+ * - hasOnboarded is ONLY set to true, NEVER reverted to false
+ * - Backend update is idempotent (safe to call multiple times)
+ * - Local state updated optimistically (user proceeds even on backend failure)
+ * - Navigation happens regardless of backend success
+ * - React Query cache invalidated only on successful backend update
  *
- * ERROR HANDLING (AC6, NFR3):
- * Backend failures do not prevent local completion. If the Supabase
- * update fails:
- * - Local state is still updated (optimistic)
- * - Navigation still occurs (user proceeds to app)
- * - Transient failures are retried with exponential backoff (3 attempts, AC6)
- * - Permanent failures (4xx errors) are not retried (NFR3)
- * - Error is logged for observability
- * - User notified via optional onSyncFailure callback (AC6)
- * - User may see onboarding again if backend never updates (acceptable per AC6)
+ * USAGE:
+ * This utility can be called directly from non-React contexts or wrapped
+ * in the useCompleteOnboarding hook for React component usage.
  *
- * This follows the UX-first approach: never trap the user in onboarding
- * due to backend issues. Local completion ensures forward progress.
+ * ERROR HANDLING:
+ * - Backend failures are retried with exponential backoff (3 attempts)
+ * - Transient errors (network, 5xx) are retried automatically
+ * - Permanent errors (4xx, RLS) are not retried
+ * - Local completion always succeeds even if backend fails
+ * - Sync failures reported via optional onSyncFailure callback
  *
- * BACKEND UPDATE:
- * Updates public.profiles.has_onboarded via Supabase database update:
- * - Idempotent by design
- * - Respects RLS automatically (user can only update own profile)
- * - Updates public.profiles table
+ * @param context - Dependencies (user, queryClient, actions, router)
+ * @param options - Completion options (analytics data, callbacks)
+ * @returns Promise that resolves when completion flow finishes
+ *
+ * @example
+ * ```typescript
+ * // Direct usage in utility function
+ * await completeOnboardingForCurrentUser(
+ *   {
+ *     user: currentUser,
+ *     queryClient: client,
+ *     updateHasOnboarded: store.updateHasOnboarded,
+ *     resetOnboardingState: store.resetOnboardingState,
+ *     router: expoRouter,
+ *   },
+ *   {
+ *     isGlobalSkip: false,
+ *     completedSteps: ['welcome', 'prefs'],
+ *     hasItems: true,
+ *   }
+ * );
+ * ```
+ */
+export async function completeOnboardingForCurrentUser(
+  context: CompleteOnboardingContext,
+  options: CompleteOnboardingOptions = {}
+): Promise<void> {
+  const { user, queryClient, updateHasOnboarded, resetOnboardingState, router } = context;
+
+  // Step 1: Fire analytics events (fire-and-forget)
+  // These are non-blocking and should not prevent completion
+  const hasItems = options.hasItems ?? false;
+  const completedSteps = options.completedSteps || [];
+  const skippedSteps = options.skippedSteps || [];
+
+  if (options.isGlobalSkip) {
+    // Global skip path: user bypassed onboarding entirely
+    // Fire legacy skipped_all event for backward compatibility
+    // NOTE: trackOnboardingSkippedAll is not part of the AC9 spec but maintained
+    // for backward compatibility with existing analytics dashboards
+    void trackOnboardingSkippedAll(
+      options.originStep || 'welcome',
+      completedSteps,
+      skippedSteps
+    );
+
+    // Fire exit_to_home event with skipped_entire_flow method (AC9)
+    void trackOnboardingExitToHome('skipped_entire_flow', hasItems, options.originStep);
+  } else {
+    // Normal completion path: user reached success screen
+    // Determine if all steps were completed or some were skipped
+    const hasSkippedSteps = skippedSteps.length > 0;
+
+    if (hasSkippedSteps) {
+      // User completed with some per-step skips (AC9)
+      void trackOnboardingCompletedWithSkips(
+        completedSteps,
+        skippedSteps,
+        options.duration,
+        hasItems
+      );
+      void trackOnboardingExitToHome('completed_with_skips', hasItems);
+    } else {
+      // User completed all steps without skipping (AC9)
+      void trackOnboardingCompletedAllSteps(completedSteps, options.duration, hasItems);
+      void trackOnboardingExitToHome('completed_all_steps', hasItems);
+    }
+
+    // Fire legacy completed event for backward compatibility
+    // NOTE: trackOnboardingCompleted is not part of the AC9 spec but maintained
+    // for backward compatibility with existing analytics dashboards
+    void trackOnboardingCompleted(completedSteps, skippedSteps, options.duration);
+  }
+
+  // Step 2: Update backend hasOnboarded flag with retry logic
+  // This happens first to ensure data consistency before UI updates
+  // If this fails, we still proceed with local updates (optimistic)
+  let backendUpdateSucceeded = false;
+  if (user?.id) {
+    try {
+      // Update profile in public.profiles table with retry on transient failures
+      // This is idempotent - calling multiple times is safe
+      // RLS ensures user can only update their own profile
+      // CRITICAL: hasOnboarded is ONLY set to true, NEVER false
+      await retryWithBackoff(
+        async () => {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ has_onboarded: true } as ProfileUpdatePayload)
+            .eq('id', user.id);
+
+          if (error) {
+            throw error;
+          }
+
+          return { success: true };
+        },
+        {
+          maxAttempts: 3,
+          shouldRetry: isTransientSupabaseError,
+          getDelay: (attempt) => {
+            // Exponential backoff with jitter: 1s, 2s, 4s (plus 0-1s random)
+            // Formula consistent with React Query config
+            return Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 30000);
+          },
+          onRetry: (error, attempt) => {
+            // Log retry attempts for observability
+            logError(error as Error, 'server', {
+              feature: 'onboarding',
+              operation: 'completeOnboardingForCurrentUser',
+              metadata: {
+                userId: user.id,
+                attempt,
+                maxAttempts: 3,
+                willRetry: true,
+                note: 'Retrying backend update due to transient error',
+              },
+            });
+          },
+        }
+      );
+
+      backendUpdateSucceeded = true;
+
+      // Log successful backend update
+      logSuccess('onboarding', 'backend_update_succeeded', {
+        data: {
+          userId: user.id,
+          completedSteps: options.completedSteps || [],
+          skippedSteps: options.skippedSteps || [],
+          isGlobalSkip: options.isGlobalSkip ?? false,
+        },
+      });
+    } catch (error) {
+      // Backend update failed after all retries
+      // We still proceed with local updates and navigation (UX-first approach)
+      backendUpdateSucceeded = false;
+
+      logError(error as Error, 'server', {
+        feature: 'onboarding',
+        operation: 'completeOnboardingForCurrentUser',
+        metadata: {
+          userId: user.id,
+          isGlobalSkip: options.isGlobalSkip ?? false,
+          retriesExhausted: true,
+          note: 'Backend update failed after retries, proceeding with local completion',
+        },
+      });
+
+      // Notify user of sync failure if callback provided
+      // This allows parent component to show a non-blocking toast
+      if (options.onSyncFailure) {
+        options.onSyncFailure(
+          "Setup complete! We're still syncing your progress in the background."
+        );
+      }
+    }
+  }
+
+  // Step 3: Invalidate React Query profile cache (only if backend succeeded)
+  // This ensures useProfile hook refetches and gets the updated hasOnboarded value
+  // Skip if backend update failed to avoid cache inconsistency
+  if (backendUpdateSucceeded && user?.id) {
+    try {
+      await queryClient.invalidateQueries({
+        queryKey: ['profile', user.id],
+      });
+
+      logSuccess('onboarding', 'profile_cache_invalidated', {
+        data: {
+          userId: user.id,
+          queryKey: ['profile', user.id],
+        },
+      });
+    } catch (error) {
+      // Cache invalidation failure is non-fatal
+      // Query will eventually refetch on stale time expiry
+      logError(error as Error, 'client', {
+        feature: 'onboarding',
+        operation: 'invalidateProfileCache',
+        metadata: {
+          userId: user.id,
+          note: 'Failed to invalidate cache, query will refetch on next stale check',
+        },
+      });
+    }
+  }
+
+  // Step 4: Optimistically update local Zustand session state
+  // This happens immediately to provide instant UI feedback
+  // CRITICAL: hasOnboarded is ONLY set to true, NEVER false
+  updateHasOnboarded(true);
+
+  // Step 5: Clear all local onboarding state
+  // Resets currentStep, completedSteps, skippedSteps to initial state
+  resetOnboardingState();
+
+  // Step 6: Navigate to main app entry (home)
+  // Using replace to prevent back navigation to onboarding
+  try {
+    router.replace('/home');
+  } catch (error) {
+    // Log navigation failure but don't throw
+    // User might still be navigated by router's error recovery
+    logError(error as Error, 'user', {
+      feature: 'onboarding',
+      operation: 'navigateToHome',
+      metadata: {
+        isGlobalSkip: options.isGlobalSkip ?? false,
+        target: '/home',
+      },
+    });
+  }
+}
+
+/**
+ * React hook for completing the onboarding flow.
+ *
+ * This hook wraps the completeOnboardingForCurrentUser utility function
+ * with React-specific dependencies (hooks for router, queryClient, store).
+ * It provides a memoized callback that can be safely used in React components.
+ *
+ * FEATURES:
+ * - Idempotent: Safe to call multiple times (uses guard)
+ * - Timeout safety: 30s timeout prevents permanent lock
+ * - Error resilient: Local completion succeeds even on backend failure
+ * - Cache invalidation: Updates React Query profile cache
+ *
+ * USAGE:
+ * This is the recommended way to complete onboarding from React components:
+ * - Success screen
+ * - Layout skip handlers
+ * - Any completion context in the component tree
  *
  * @returns Memoized callback to complete onboarding
  *
@@ -191,6 +433,7 @@ export interface CompleteOnboardingOptions {
  */
 export function useCompleteOnboarding() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
   const updateHasOnboarded = useStore((state) => state.updateHasOnboarded);
   const resetOnboardingState = useStore((state) => state.resetOnboardingState);
@@ -210,7 +453,7 @@ export function useCompleteOnboarding() {
 
       isCompletingRef.current = true;
 
-      // Safety timeout: Reset guard after 30 seconds to prevent permanent lock (AC5)
+      // Safety timeout: Reset guard after 30 seconds to prevent permanent lock
       // This protects against hung navigation, slow backend, or other stalls
       // while still preventing rapid concurrent invocations
       timeoutRef.current = setTimeout(() => {
@@ -219,7 +462,7 @@ export function useCompleteOnboarding() {
 
         logError(new Error('Onboarding completion exceeded timeout'), 'user', {
           feature: 'onboarding',
-          operation: 'completeOnboarding',
+          operation: 'useCompleteOnboarding',
           metadata: {
             timeoutMs: 30000,
             note: 'Completion took too long, guard reset to allow retry',
@@ -228,161 +471,18 @@ export function useCompleteOnboarding() {
       }, 30000);
 
       try {
-        // Step 1: Fire analytics events (fire-and-forget)
-        // These are non-blocking and should not prevent completion
-        const hasItems = options.hasItems ?? false;
-        const completedSteps = options.completedSteps || [];
-        const skippedSteps = options.skippedSteps || [];
-
-        if (options.isGlobalSkip) {
-          // Global skip path: user bypassed onboarding entirely
-          // Fire legacy skipped_all event for backward compatibility
-          // NOTE: trackOnboardingSkippedAll is not part of the AC9 spec but maintained
-          // for backward compatibility with existing analytics dashboards
-          void trackOnboardingSkippedAll(
-            options.originStep || 'welcome',
-            completedSteps,
-            skippedSteps
-          );
-
-          // Fire exit_to_home event with skipped_entire_flow method (AC9)
-          void trackOnboardingExitToHome('skipped_entire_flow', hasItems, options.originStep);
-        } else {
-          // Normal completion path: user reached success screen
-          // Determine if all steps were completed or some were skipped
-          const hasSkippedSteps = skippedSteps.length > 0;
-
-          if (hasSkippedSteps) {
-            // User completed with some per-step skips (AC9)
-            void trackOnboardingCompletedWithSkips(
-              completedSteps,
-              skippedSteps,
-              options.duration,
-              hasItems
-            );
-            void trackOnboardingExitToHome('completed_with_skips', hasItems);
-          } else {
-            // User completed all steps without skipping (AC9)
-            void trackOnboardingCompletedAllSteps(completedSteps, options.duration, hasItems);
-            void trackOnboardingExitToHome('completed_all_steps', hasItems);
-          }
-
-          // Fire legacy completed event for backward compatibility
-          // NOTE: trackOnboardingCompleted is not part of the AC9 spec but maintained
-          // for backward compatibility with existing analytics dashboards
-          void trackOnboardingCompleted(completedSteps, skippedSteps, options.duration);
-        }
-
-        // Step 2: Optimistically update local state
-        // This happens immediately to provide instant feedback
-        // If backend fails, we still want local completion to succeed
-        updateHasOnboarded(true);
-
-        // Step 3: Clear all local onboarding state
-        // Resets currentStep, completedSteps, skippedSteps to initial state
-        resetOnboardingState();
-
-        // Step 4: Navigate to main app entry (Closet)
-        // Using replace to prevent back navigation to onboarding
-        try {
-          router.replace('/home');
-        } catch (error) {
-          // Log navigation failure but don't throw
-          // User might still be navigated by router's error recovery
-          logError(error as Error, 'user', {
-            feature: 'onboarding',
-            operation: 'navigateToHome',
-            metadata: {
-              isGlobalSkip: options.isGlobalSkip ?? false,
-              target: '/home',
-            },
-          });
-        }
-
-        // Step 5: Update backend hasOnboarded flag with retry logic
-        // This happens after local completion to ensure user proceeds
-        // even if backend is unavailable
-        if (user?.id) {
-          try {
-            // Update profile in public.profiles table with retry on transient failures
-            // This is idempotent - calling multiple times is safe
-            // RLS ensures user can only update their own profile
-            await retryWithBackoff(
-              async () => {
-                const { error } = await supabase
-                  .from('profiles')
-                  .update({ has_onboarded: true } as ProfileUpdatePayload)
-                  .eq('id', user.id);
-
-                if (error) {
-                  throw error;
-                }
-
-                return { success: true };
-              },
-              {
-                maxAttempts: 3,
-                shouldRetry: isTransientSupabaseError,
-                getDelay: (attempt) => {
-                  // Exponential backoff with jitter: 1s, 2s, 4s (plus 0-1s random)
-                  // Formula consistent with React Query config
-                  return Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 30000);
-                },
-                onRetry: (error, attempt) => {
-                  // Log retry attempts for observability
-                  logError(error as Error, 'server', {
-                    feature: 'onboarding',
-                    operation: 'updateBackendHasOnboarded',
-                    metadata: {
-                      userId: user.id,
-                      attempt,
-                      maxAttempts: 3,
-                      willRetry: true,
-                      note: 'Retrying backend update due to transient error',
-                    },
-                  });
-                },
-              }
-            );
-
-            // Log successful backend update
-            logSuccess('onboarding', 'backend_update_succeeded', {
-              data: {
-                userId: user.id,
-                completedSteps: options.completedSteps || [],
-                skippedSteps: options.skippedSteps || [],
-                isGlobalSkip: options.isGlobalSkip ?? false,
-              },
-            });
-          } catch (error) {
-            // Backend update failed after all retries
-            // User is already on /home with local state updated
-            // This is acceptable - eventual consistency will sync later
-
-            logError(error as Error, 'server', {
-              feature: 'onboarding',
-              operation: 'updateBackendHasOnboarded',
-              metadata: {
-                userId: user.id,
-                isGlobalSkip: options.isGlobalSkip ?? false,
-                retriesExhausted: true,
-                note: 'Local completion succeeded, backend update failed after retries',
-              },
-            });
-
-            // NOTE: User may see onboarding again on next launch if backend
-            // never updates. This is acceptable per UX-first approach.
-            // We don't revert local state because user has already navigated.
-
-            // Notify user of sync failure if callback provided
-            // This allows parent component to show a non-blocking toast
-            if (options.onSyncFailure) {
-              options.onSyncFailure(
-                "Setup complete! We're still syncing your progress in the background."
-              );
-            }
-          }
-        }
+        // Delegate to the standalone utility function
+        // This function handles all the completion logic
+        await completeOnboardingForCurrentUser(
+          {
+            user,
+            queryClient,
+            updateHasOnboarded,
+            resetOnboardingState,
+            router,
+          },
+          options
+        );
       } finally {
         // Clear safety timeout if completion finished before timeout
         if (timeoutRef.current !== null) {
@@ -396,6 +496,6 @@ export function useCompleteOnboarding() {
         isCompletingRef.current = false;
       }
     },
-    [user, updateHasOnboarded, resetOnboardingState, router]
+    [user, queryClient, updateHasOnboarded, resetOnboardingState, router]
   );
 }
