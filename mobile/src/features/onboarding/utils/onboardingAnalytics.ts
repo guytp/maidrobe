@@ -514,7 +514,7 @@ export function trackOnboardingCompletedWithSkips(
 export function trackOnboardingExitToHome(
   method: 'completed_all_steps' | 'completed_with_skips' | 'skipped_entire_flow',
   hasItems?: boolean,
-  originStep?: OnboardingStep | string
+  originStep?: OnboardingStep
 ): void {
   try {
     logSuccess('onboarding', 'exit_to_home', {

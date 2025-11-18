@@ -25,7 +25,7 @@ export interface CompleteOnboardingOptions {
   /** Duration of onboarding in milliseconds */
   duration?: number;
   /** Step the user was on when they skipped (for global skip) */
-  originStep?: OnboardingStep | string;
+  originStep?: OnboardingStep;
   /** Whether user has wardrobe items (defaults to false) */
   hasItems?: boolean;
 }
@@ -114,7 +114,7 @@ export function useCompleteOnboarding() {
           // Global skip path: user bypassed onboarding entirely
           // Fire legacy skipped_all event for backward compatibility
           void trackOnboardingSkippedAll(
-            (options.originStep as OnboardingStep) || 'welcome',
+            options.originStep || 'welcome',
             completedSteps,
             skippedSteps
           );
