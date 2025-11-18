@@ -111,9 +111,9 @@ export function useRecaptcha(): UseRecaptchaReturn {
 
   const executeRecaptcha = useCallback(async (action: string): Promise<RecaptchaResult> => {
     // Check feature flag
-    const isEnabled = checkFeatureFlag('auth.recaptcha');
+    const featureFlag = await checkFeatureFlag('auth.recaptcha');
 
-    if (!isEnabled) {
+    if (!featureFlag.enabled) {
       // Feature disabled - skip reCAPTCHA
       logAuthEvent('recaptcha-skipped', {
         outcome: 'feature_disabled',

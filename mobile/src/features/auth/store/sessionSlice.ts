@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { deriveInitialRouteFromAuthState, AuthRoute } from '../utils/authRouting';
-import { checkFeatureFlag } from '../../../core/featureFlags';
+import { checkFeatureFlagSync } from '../../../core/featureFlags';
 
 /**
  * User entity representing authenticated user information.
@@ -366,9 +366,10 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
   deriveRoute: () => {
     const state = get();
 
-    // Check if onboarding gate feature is enabled
+    // Check if onboarding gate feature is enabled (synchronous check)
+    // Uses checkFeatureFlagSync since deriveRoute is a synchronous getter
     // Defaults to true if not specified (fail-safe: show onboarding)
-    const onboardingGateResult = checkFeatureFlag('onboarding.gate');
+    const onboardingGateResult = checkFeatureFlagSync('onboarding.gate');
     const onboardingGateEnabled = onboardingGateResult.enabled;
 
     // Extract hasOnboarded from user object, default to false if not set
