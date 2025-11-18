@@ -22,6 +22,8 @@ export interface OnboardingContextValue {
   customPrimaryHandler?: (() => void) | null;
   /** Set custom primary handler */
   setCustomPrimaryHandler?: (handler: (() => void) | null) => void;
+  /** Onboarding duration in milliseconds (undefined if not yet started) */
+  onboardingDuration?: number;
 }
 
 /**
@@ -48,6 +50,8 @@ export interface OnboardingProviderProps {
   customPrimaryHandler?: (() => void) | null;
   /** Set custom primary handler */
   setCustomPrimaryHandler?: (handler: (() => void) | null) => void;
+  /** Onboarding duration in milliseconds */
+  onboardingDuration?: number;
   /** Child components */
   children: React.ReactNode;
 }
@@ -73,6 +77,7 @@ export function OnboardingProvider({
   onBack,
   customPrimaryHandler,
   setCustomPrimaryHandler,
+  onboardingDuration,
   children,
 }: OnboardingProviderProps): React.JSX.Element {
   const value: OnboardingContextValue = {
@@ -83,6 +88,7 @@ export function OnboardingProvider({
     onBack,
     customPrimaryHandler,
     setCustomPrimaryHandler,
+    onboardingDuration,
   };
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

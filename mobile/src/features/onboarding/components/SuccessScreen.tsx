@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
@@ -59,7 +59,7 @@ import { Toast } from '../../../core/components/Toast';
  */
 export function SuccessScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
-  const { setCustomPrimaryHandler } = useOnboardingContext();
+  const { setCustomPrimaryHandler, onboardingDuration } = useOnboardingContext();
 
   // Query whether user has any wardrobe items for contextual messaging
   // This runs non-blocking - component renders with default while query executes
@@ -74,10 +74,6 @@ export function SuccessScreen(): React.JSX.Element {
   // Get shared completion helper
   const completeOnboarding = useCompleteOnboarding();
 
-  // Track onboarding start time (will be in _layout, but we need duration)
-  // For now, we don't have access to start time, so duration will be undefined
-  const onboardingStartTimeRef = useRef<number | null>(null);
-
   // Toast state for backend sync failures
   const [syncFailureToast, setSyncFailureToast] = useState<{
     visible: boolean;
@@ -89,19 +85,14 @@ export function SuccessScreen(): React.JSX.Element {
 
   // Create custom primary handler that includes hasItems and determines completion type
   // This bypasses the default _layout.handleOnboardingComplete to inject hasItems
+  // Duration is provided by OnboardingContext, tracked by _layout.tsx
   const handleComplete = useCallback(() => {
-    // Calculate duration if we had a start time
-    // In practice, _layout tracks this, but we don't have access here
-    const duration = onboardingStartTimeRef.current
-      ? Date.now() - onboardingStartTimeRef.current
-      : undefined;
-
     // Call completion helper directly with full context
     void completeOnboarding({
       isGlobalSkip: false,
       completedSteps,
       skippedSteps,
-      duration,
+      duration: onboardingDuration,
       hasItems,
       onSyncFailure: (message) => {
         setSyncFailureToast({
@@ -110,7 +101,7 @@ export function SuccessScreen(): React.JSX.Element {
         });
       },
     });
-  }, [completeOnboarding, completedSteps, skippedSteps, hasItems]);
+  }, [completeOnboarding, completedSteps, skippedSteps, onboardingDuration, hasItems]);
 
   // Register custom handler on mount, unregister on unmount
   useEffect(() => {
