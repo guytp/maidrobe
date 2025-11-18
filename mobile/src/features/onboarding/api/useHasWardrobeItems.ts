@@ -98,6 +98,8 @@ export function useHasWardrobeItems() {
         // (Wardrobe Item Capture & Management). The table structure and RLS
         // policies are based on expected schema. If table doesn't exist yet,
         // count will be null and we'll treat it as 0 items (safe default).
+        // NOTE: This query may need revisiting once Feature #3's schema is
+        // finalized to ensure it aligns with the actual implementation.
         //
         // Perform lightweight COUNT query with head:true to avoid fetching data
         // This is the most efficient way to check if any items exist
