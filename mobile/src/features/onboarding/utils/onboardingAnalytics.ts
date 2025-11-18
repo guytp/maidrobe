@@ -23,6 +23,19 @@ import { logSuccess } from '../../../core/telemetry';
 import type { OnboardingStep } from '../store/onboardingSlice';
 
 /**
+ * Method used to exit onboarding and transition to the main app.
+ *
+ * Valid values:
+ * - 'completed_all_steps': User completed all onboarding steps without skipping any
+ * - 'completed_with_skips': User completed onboarding but skipped one or more steps
+ * - 'skipped_entire_flow': User bypassed the entire onboarding flow via global skip
+ */
+export type OnboardingExitMethod =
+  | 'completed_all_steps'
+  | 'completed_with_skips'
+  | 'skipped_entire_flow';
+
+/**
  * Track when a step is viewed.
  *
  * This is a fire-and-forget operation that will not block navigation.
@@ -512,7 +525,7 @@ export function trackOnboardingCompletedWithSkips(
  * @param originStep - Step the user was on when exiting (for global skip)
  */
 export function trackOnboardingExitToHome(
-  method: 'completed_all_steps' | 'completed_with_skips' | 'skipped_entire_flow',
+  method: OnboardingExitMethod,
   hasItems?: boolean,
   originStep?: OnboardingStep
 ): void {
