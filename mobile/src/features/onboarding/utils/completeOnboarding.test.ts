@@ -509,6 +509,33 @@ describe('useCompleteOnboarding', () => {
         });
       });
     });
+
+    it('should emit telemetry metric when retries are exhausted', async () => {
+      const { result } = renderHook(() => useCompleteOnboarding());
+
+      const networkError = new Error('Network request failed');
+      (mockEq as jest.Mock).mockRejectedValue(networkError);
+
+      await act(async () => {
+        await result.current({});
+      });
+
+      await waitFor(() => {
+        expect(telemetry.logSuccess).toHaveBeenCalledWith(
+          'onboarding',
+          'backend_update_retries_exhausted',
+          expect.objectContaining({
+            data: expect.objectContaining({
+              userId: 'user-123',
+              errorType: 'Error',
+              errorMessage: 'Network request failed',
+              isTransient: true,
+              maxAttempts: 3,
+            }),
+          })
+        );
+      });
+    });
   });
 
   describe('Backend update failure - permanent errors without retry', () => {
@@ -574,6 +601,33 @@ describe('useCompleteOnboarding', () => {
         expect(mockInvalidateQueries).toHaveBeenCalledWith({
           queryKey: ['profile', 'user-123'],
         });
+      });
+    });
+
+    it('should emit telemetry metric for permanent errors without retry', async () => {
+      const { result } = renderHook(() => useCompleteOnboarding());
+
+      const clientError = Object.assign(new Error('Bad request'), { status: 400 });
+      (mockEq as jest.Mock).mockRejectedValue(clientError);
+
+      await act(async () => {
+        await result.current({});
+      });
+
+      await waitFor(() => {
+        expect(telemetry.logSuccess).toHaveBeenCalledWith(
+          'onboarding',
+          'backend_update_retries_exhausted',
+          expect.objectContaining({
+            data: expect.objectContaining({
+              userId: 'user-123',
+              errorType: 'Error',
+              errorMessage: 'Bad request',
+              isTransient: false,
+              maxAttempts: 3,
+            }),
+          })
+        );
       });
     });
   });
