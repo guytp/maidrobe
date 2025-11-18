@@ -119,6 +119,8 @@ export interface CompleteOnboardingOptions {
   originStep?: OnboardingStep;
   /** Whether user has wardrobe items (defaults to false) */
   hasItems?: boolean;
+  /** Optional callback when backend sync fails after retries (for toast notification) */
+  onSyncFailure?: (message: string) => void;
 }
 
 /**
@@ -364,9 +366,13 @@ export function useCompleteOnboarding() {
             // never updates. This is acceptable per UX-first approach.
             // We don't revert local state because user has already navigated.
 
-            // TODO: Consider showing non-blocking toast here
-            // Would require toast state management in parent component
-            // For now, silent failure with telemetry logging is sufficient
+            // Notify user of sync failure if callback provided
+            // This allows parent component to show a non-blocking toast
+            if (options.onSyncFailure) {
+              options.onSyncFailure(
+                "Setup complete! We're still syncing your progress in the background."
+              );
+            }
           }
         }
       } finally {

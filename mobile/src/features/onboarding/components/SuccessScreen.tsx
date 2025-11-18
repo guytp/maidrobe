@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
@@ -8,6 +8,7 @@ import { OnboardingShell } from './OnboardingShell';
 import { useHasWardrobeItems } from '../api/useHasWardrobeItems';
 import { useOnboardingContext } from '../context/OnboardingContext';
 import { useCompleteOnboarding } from '../utils/completeOnboarding';
+import { Toast } from '../../../core/components/Toast';
 
 /**
  * Onboarding Success/End screen.
@@ -77,6 +78,15 @@ export function SuccessScreen(): React.JSX.Element {
   // For now, we don't have access to start time, so duration will be undefined
   const onboardingStartTimeRef = useRef<number | null>(null);
 
+  // Toast state for backend sync failures
+  const [syncFailureToast, setSyncFailureToast] = useState<{
+    visible: boolean;
+    message: string;
+  }>({
+    visible: false,
+    message: '',
+  });
+
   // Create custom primary handler that includes hasItems and determines completion type
   // This bypasses the default _layout.handleOnboardingComplete to inject hasItems
   const handleComplete = useCallback(() => {
@@ -93,6 +103,12 @@ export function SuccessScreen(): React.JSX.Element {
       skippedSteps,
       duration,
       hasItems,
+      onSyncFailure: (message) => {
+        setSyncFailureToast({
+          visible: true,
+          message,
+        });
+      },
     });
   }, [completeOnboarding, completedSteps, skippedSteps, hasItems]);
 
@@ -143,40 +159,56 @@ export function SuccessScreen(): React.JSX.Element {
   );
 
   return (
-    <OnboardingShell>
-      <View
-        style={styles.container}
-        accessibilityLabel={t('screens.onboarding.success.accessibility.screenLabel')}
-      >
-        <Text
-          style={styles.title}
-          accessibilityRole="header"
-          allowFontScaling={true}
-          maxFontSizeMultiplier={3}
+    <>
+      <OnboardingShell>
+        <View
+          style={styles.container}
+          accessibilityLabel={t('screens.onboarding.success.accessibility.screenLabel')}
         >
-          {t('screens.onboarding.success.title')}
-        </Text>
-        <Text
-          style={styles.headline}
-          accessibilityLabel={t('screens.onboarding.success.accessibility.headlineLabel')}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={3}
-        >
-          {t('screens.onboarding.success.headline')}
-        </Text>
-        <Text
-          style={styles.body}
-          accessibilityLabel={t('screens.onboarding.success.accessibility.bodyLabel')}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={3}
-        >
-          {hasItems
-            ? t('screens.onboarding.success.bodyHasItems')
-            : t('screens.onboarding.success.bodyNoItems')}
-        </Text>
+          <Text
+            style={styles.title}
+            accessibilityRole="header"
+            allowFontScaling={true}
+            maxFontSizeMultiplier={3}
+          >
+            {t('screens.onboarding.success.title')}
+          </Text>
+          <Text
+            style={styles.headline}
+            accessibilityLabel={t('screens.onboarding.success.accessibility.headlineLabel')}
+            allowFontScaling={true}
+            maxFontSizeMultiplier={3}
+          >
+            {t('screens.onboarding.success.headline')}
+          </Text>
+          <Text
+            style={styles.body}
+            accessibilityLabel={t('screens.onboarding.success.accessibility.bodyLabel')}
+            allowFontScaling={true}
+            maxFontSizeMultiplier={3}
+          >
+            {hasItems
+              ? t('screens.onboarding.success.bodyHasItems')
+              : t('screens.onboarding.success.bodyNoItems')}
+          </Text>
 
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      </View>
-    </OnboardingShell>
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        </View>
+      </OnboardingShell>
+
+      {/* Toast for backend sync failures */}
+      <Toast
+        visible={syncFailureToast.visible}
+        message={syncFailureToast.message}
+        type="info"
+        duration={5000}
+        onDismiss={() =>
+          setSyncFailureToast({
+            visible: false,
+            message: '',
+          })
+        }
+      />
+    </>
   );
 }
