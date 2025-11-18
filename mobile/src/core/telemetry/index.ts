@@ -265,6 +265,17 @@ export type AuthEventType =
   | 'route-guard-authorized';
 
 /**
+ * Onboarding gate event types for tracking routing decisions.
+ *
+ * These events track when the onboarding gate is evaluated and what
+ * routing decision is made based on the user's onboarding status.
+ */
+export type OnboardingGateEventType =
+  | 'onboarding_gate.shown'
+  | 'onboarding_gate.route_onboarding'
+  | 'onboarding_gate.route_home';
+
+/**
  * Metadata for authentication event logging.
  *
  * SECURITY: Never include passwords, tokens, or other sensitive PII.
@@ -461,4 +472,114 @@ export function logAuthEvent(eventType: AuthEventType, metadata?: AuthEventMetad
     spanAttributes.latency = metadata.latency;
   }
   endSpan(spanId, status, spanAttributes, metadata?.errorCode);
+}
+
+/**
+ * Metadata for onboarding gate event logging.
+ *
+ * SECURITY: Never include passwords, tokens, or other sensitive PII.
+ */
+export interface OnboardingGateMetadata {
+  /** User ID if available (safe to log) */
+  userId?: string;
+  /** Whether user has completed onboarding (from profile) */
+  hasOnboarded: boolean;
+  /** Whether onboarding gate feature flag is enabled */
+  gateEnabled: boolean;
+  /** Target route determined by gate logic */
+  route: 'onboarding' | 'home';
+  /** Additional non-PII metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Logs a structured onboarding gate event to telemetry system.
+ *
+ * This function provides standardized logging for onboarding gate routing
+ * decisions. It tracks when the gate is evaluated and what routing decision
+ * is made based on the user's onboarding status and feature flag state.
+ *
+ * SECURITY:
+ * - Automatically sanitizes metadata to remove PII
+ * - Never logs raw tokens, passwords, or session objects
+ * - User IDs are safe to log for analytics purposes
+ *
+ * Integration:
+ * - Console logging in development
+ * - Sentry when enabled (EXPO_PUBLIC_SENTRY_ENABLED=true)
+ * - OpenTelemetry when enabled (EXPO_PUBLIC_OTEL_ENABLED=true)
+ *
+ * @param eventType - Type of gate event (shown, route_onboarding, route_home)
+ * @param metadata - Event metadata (userId, hasOnboarded, gateEnabled, route)
+ *
+ * @example
+ * ```ts
+ * // Gate evaluation
+ * trackOnboardingGateEvent('onboarding_gate.shown', {
+ *   userId: 'abc-123',
+ *   hasOnboarded: false,
+ *   gateEnabled: true,
+ *   route: 'onboarding'
+ * });
+ *
+ * // Routing to onboarding
+ * trackOnboardingGateEvent('onboarding_gate.route_onboarding', {
+ *   userId: 'abc-123',
+ *   hasOnboarded: false,
+ *   gateEnabled: true,
+ *   route: 'onboarding'
+ * });
+ *
+ * // Routing to home
+ * trackOnboardingGateEvent('onboarding_gate.route_home', {
+ *   userId: 'abc-123',
+ *   hasOnboarded: true,
+ *   gateEnabled: true,
+ *   route: 'home'
+ * });
+ * ```
+ */
+export function trackOnboardingGateEvent(
+  eventType: OnboardingGateEventType,
+  metadata: OnboardingGateMetadata
+): void {
+  // Sanitize metadata to remove PII
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata as Record<string, unknown>);
+
+  // Structure the event for consistent querying
+  const event = {
+    type: 'onboarding-gate-event',
+    eventType,
+    userId: metadata.userId,
+    hasOnboarded: metadata.hasOnboarded,
+    gateEnabled: metadata.gateEnabled,
+    route: metadata.route,
+    metadata: sanitizedMetadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Always log to console for development visibility
+  // eslint-disable-next-line no-console
+  console.log('[Onboarding Gate Event]', event);
+
+  // Send to Sentry when enabled (as breadcrumb for context)
+  addBreadcrumb({
+    category: 'onboarding',
+    message: eventType,
+    level: 'info',
+    data: sanitizedMetadata,
+  });
+
+  // Send to OpenTelemetry when enabled
+  // Create span for gate operation with onboarding.* attributes
+  const spanId = startSpan(`onboarding.${eventType}`, {
+    'onboarding.event_type': eventType,
+    'onboarding.user_id': metadata.userId || 'anonymous',
+    'onboarding.has_onboarded': metadata.hasOnboarded,
+    'onboarding.gate_enabled': metadata.gateEnabled,
+    'onboarding.route': metadata.route,
+  });
+
+  // End span immediately (instant event)
+  endSpan(spanId, SpanStatusCode.OK);
 }
