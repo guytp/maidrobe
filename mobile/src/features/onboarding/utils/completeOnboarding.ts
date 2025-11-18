@@ -13,6 +13,97 @@ import {
 import type { OnboardingStep } from '../store/onboardingSlice';
 
 /**
+ * Classifies Supabase errors to determine if they are transient and should be retried.
+ *
+ * @param error - Error from Supabase operation
+ * @returns true if error is transient (network, 5xx server errors), false if permanent (4xx client errors)
+ */
+function isTransientSupabaseError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+
+    // Network-related errors are transient
+    if (
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('timeout') ||
+      message.includes('connection') ||
+      message.includes('offline')
+    ) {
+      return true;
+    }
+
+    // Check for HTTP status codes in error object
+    if ('status' in error) {
+      const status = (error as { status: number }).status;
+      // 5xx server errors are transient, 4xx client errors are permanent
+      if (status >= 500 && status < 600) {
+        return true;
+      }
+      if (status >= 400 && status < 500) {
+        return false;
+      }
+    }
+  }
+
+  // Conservative: treat unknown errors as transient to allow retry
+  return true;
+}
+
+/**
+ * Retry an async operation with exponential backoff.
+ *
+ * Implements bounded retry with exponential backoff and jitter, consistent
+ * with the app's React Query configuration. Retries only on transient errors.
+ *
+ * @param operation - Async function to retry
+ * @param options - Retry configuration
+ * @returns Result of successful operation
+ * @throws Error from final attempt if all retries exhausted
+ */
+async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  options: {
+    maxAttempts: number;
+    shouldRetry: (error: unknown, attempt: number) => boolean;
+    getDelay: (attempt: number) => number;
+    onRetry?: (error: unknown, attempt: number) => void;
+  }
+): Promise<T> {
+  const { maxAttempts, shouldRetry, getDelay, onRetry } = options;
+
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+
+      // Check if we should retry this error
+      const isLastAttempt = attempt === maxAttempts - 1;
+      const willRetry = !isLastAttempt && shouldRetry(error, attempt);
+
+      if (!willRetry) {
+        throw error;
+      }
+
+      // Call retry callback if provided
+      if (onRetry) {
+        onRetry(error, attempt + 1);
+      }
+
+      // Wait before retrying
+      const delay = getDelay(attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  // Should not reach here, but throw last error as fallback
+  throw lastError;
+}
+
+/**
  * Options for completing the onboarding flow.
  */
 export interface CompleteOnboardingOptions {
@@ -60,6 +151,8 @@ export interface CompleteOnboardingOptions {
  * update fails:
  * - Local state is still updated (optimistic)
  * - Navigation still occurs (user proceeds to app)
+ * - Transient failures are retried with exponential backoff (3 attempts)
+ * - Permanent failures (4xx errors) are not retried
  * - Error is logged for observability
  * - User may see onboarding again if backend never updates (acceptable)
  *
@@ -196,22 +289,51 @@ export function useCompleteOnboarding() {
           });
         }
 
-        // Step 5: Update backend hasOnboarded flag
+        // Step 5: Update backend hasOnboarded flag with retry logic
         // This happens after local completion to ensure user proceeds
         // even if backend is unavailable
         if (user?.id) {
           try {
-            // Update user metadata via Supabase Auth
+            // Update user metadata via Supabase Auth with retry on transient failures
             // This is idempotent - calling multiple times is safe
-            const { error } = await supabase.auth.updateUser({
-              data: {
-                hasOnboarded: true,
-              },
-            });
+            await retryWithBackoff(
+              async () => {
+                const { error } = await supabase.auth.updateUser({
+                  data: {
+                    hasOnboarded: true,
+                  },
+                });
 
-            if (error) {
-              throw error;
-            }
+                if (error) {
+                  throw error;
+                }
+
+                return { success: true };
+              },
+              {
+                maxAttempts: 3,
+                shouldRetry: isTransientSupabaseError,
+                getDelay: (attempt) => {
+                  // Exponential backoff with jitter: 1s, 2s, 4s (plus 0-1s random)
+                  // Formula consistent with React Query config
+                  return Math.min(1000 * Math.pow(2, attempt) + Math.random() * 1000, 30000);
+                },
+                onRetry: (error, attempt) => {
+                  // Log retry attempts for observability
+                  logError(error as Error, 'server', {
+                    feature: 'onboarding',
+                    operation: 'updateBackendHasOnboarded',
+                    metadata: {
+                      userId: user.id,
+                      attempt,
+                      maxAttempts: 3,
+                      willRetry: true,
+                      note: 'Retrying backend update due to transient error',
+                    },
+                  });
+                },
+              }
+            );
 
             // Log successful backend update
             logSuccess('onboarding', 'backend_update_succeeded', {
@@ -223,7 +345,7 @@ export function useCompleteOnboarding() {
               },
             });
           } catch (error) {
-            // Backend update failed, but local completion already succeeded
+            // Backend update failed after all retries
             // User is already on /home with local state updated
             // This is acceptable - eventual consistency will sync later
 
@@ -233,7 +355,8 @@ export function useCompleteOnboarding() {
               metadata: {
                 userId: user.id,
                 isGlobalSkip: options.isGlobalSkip ?? false,
-                note: 'Local completion succeeded, backend update failed',
+                retriesExhausted: true,
+                note: 'Local completion succeeded, backend update failed after retries',
               },
             });
 
