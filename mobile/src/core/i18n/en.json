@@ -218,7 +218,9 @@
           "rateLimited": "Too many attempts. Please wait and try again.",
           "unknown": "Something went wrong. Please try again."
         }
-      },
+      }
+    },
+    "shared": {
       "itemTypes": {
         "top": "Top",
         "bottom": "Bottom",

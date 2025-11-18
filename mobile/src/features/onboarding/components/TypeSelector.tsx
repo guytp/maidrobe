@@ -130,7 +130,7 @@ export function TypeSelector({ value, onChange, error }: TypeSelectorProps): Rea
       >
         {types.map((type) => {
           const isSelected = value === type;
-          const typeLabel = t(`screens.auth.itemTypes.${type}`);
+          const typeLabel = t(`screens.shared.itemTypes.${type}`);
 
           return (
             <Pressable

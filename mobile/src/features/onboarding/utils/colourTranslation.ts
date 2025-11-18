@@ -36,7 +36,7 @@ import type { ItemType } from '../types/itemMetadata';
 export function getColourDisplayName(colourId: string | null | undefined): string {
   // Handle null, undefined, or empty string
   if (!colourId || colourId.trim() === '') {
-    return t('screens.auth.colours.unknown');
+    return t('screens.shared.colours.unknown');
   }
 
   // Find colour in canonical palette
@@ -44,12 +44,12 @@ export function getColourDisplayName(colourId: string | null | undefined): strin
 
   // If colour not found in palette, return fallback
   if (!colour) {
-    return t('screens.auth.colours.unknown');
+    return t('screens.shared.colours.unknown');
   }
 
   // Validate that colour.name follows expected pattern
-  // Expected: 'screens.auth.colours.<colourId>'
-  const expectedPrefix = 'screens.auth.colours.';
+  // Expected: 'screens.shared.colours.<colourId>'
+  const expectedPrefix = 'screens.shared.colours.';
   if (!colour.name.startsWith(expectedPrefix)) {
     // Colour definition has malformed translation key
     // Log warning in development and return fallback
@@ -59,10 +59,10 @@ export function getColourDisplayName(colourId: string | null | undefined): strin
           `Expected format: '${expectedPrefix}<colourId>'`
       );
     }
-    return t('screens.auth.colours.unknown');
+    return t('screens.shared.colours.unknown');
   }
 
-  // Extract the colour key suffix (e.g., 'black' from 'screens.auth.colours.black')
+  // Extract the colour key suffix (e.g., 'black' from 'screens.shared.colours.black')
   const colourKey = colour.name.substring(expectedPrefix.length);
 
   // Validate that the suffix matches the colour ID
@@ -74,23 +74,23 @@ export function getColourDisplayName(colourId: string | null | undefined): strin
           `Translation key: '${colour.name}'`
       );
     }
-    return t('screens.auth.colours.unknown');
+    return t('screens.shared.colours.unknown');
   }
 
   // Safely translate the colour name
   // We know the key format is correct, but t() will still return the key
   // itself if the translation is missing from en.json
-  const translatedName = t(colour.name as 'screens.auth.colours.unknown');
+  const translatedName = t(colour.name as 'screens.shared.colours.unknown');
 
   // Check if translation failed (t() returns the key when not found)
   if (translatedName === colour.name) {
     if (__DEV__) {
       console.warn(
         `Translation missing for colour key: '${colour.name}'. ` +
-          `Add this key to en.json under screens.auth.colours.`
+          `Add this key to en.json under screens.shared.colours.`
       );
     }
-    return t('screens.auth.colours.unknown');
+    return t('screens.shared.colours.unknown');
   }
 
   return translatedName;
@@ -119,26 +119,26 @@ export function getColourDisplayName(colourId: string | null | undefined): strin
 export function getItemTypeDisplayName(itemType: ItemType | string | null | undefined): string {
   // Handle null, undefined, or empty string
   if (!itemType || (typeof itemType === 'string' && itemType.trim() === '')) {
-    return t('screens.auth.itemTypes.other');
+    return t('screens.shared.itemTypes.other');
   }
 
   // Construct translation key
-  // Expected format: 'screens.auth.itemTypes.<type>'
-  const translationKey = `screens.auth.itemTypes.${itemType}`;
+  // Expected format: 'screens.shared.itemTypes.<type>'
+  const translationKey = `screens.shared.itemTypes.${itemType}`;
 
   // Translate the item type
   // t() will return the key itself if translation is missing
-  const translatedName = t(translationKey as 'screens.auth.itemTypes.other');
+  const translatedName = t(translationKey as 'screens.shared.itemTypes.other');
 
   // Check if translation failed
   if (translatedName === translationKey) {
     if (__DEV__) {
       console.warn(
         `Translation missing for item type key: '${translationKey}'. ` +
-          `Add this key to en.json under screens.auth.itemTypes.`
+          `Add this key to en.json under screens.shared.itemTypes.`
       );
     }
-    return t('screens.auth.itemTypes.other');
+    return t('screens.shared.itemTypes.other');
   }
 
   return translatedName;
@@ -172,7 +172,7 @@ export function validateColourPalette(): {
 
   for (const colour of WARDROBE_COLOUR_PALETTE) {
     // Check translation key format
-    const expectedPrefix = 'screens.auth.colours.';
+    const expectedPrefix = 'screens.shared.colours.';
     if (!colour.name.startsWith(expectedPrefix)) {
       errors.push(
         `Colour '${colour.id}' has malformed translation key: '${colour.name}'. ` +
@@ -191,7 +191,7 @@ export function validateColourPalette(): {
     }
 
     // Check translation exists
-    const translated = t(colour.name as 'screens.auth.colours.unknown');
+    const translated = t(colour.name as 'screens.shared.colours.unknown');
     if (translated === colour.name) {
       errors.push(`Translation missing for colour key: '${colour.name}'`);
     }
