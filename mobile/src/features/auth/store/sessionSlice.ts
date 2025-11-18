@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import { deriveInitialRouteFromAuthState, AuthRoute } from '../utils/authRouting';
+import { checkFeatureFlag } from '../../../core/featureFlags';
 
 /**
  * User entity representing authenticated user information.
@@ -337,15 +338,15 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
    * user should be routed based on their current authentication status.
    *
    * The method extracts the normalized auth state (isAuthenticated,
-   * isVerified) and delegates to deriveInitialRouteFromAuthState for the
-   * actual routing decision. This ensures consistent routing behavior
-   * across:
+   * isVerified, hasOnboarded) and checks the onboarding gate feature flag,
+   * then delegates to deriveInitialRouteFromAuthState for the actual routing
+   * decision. This ensures consistent routing behavior across:
    * - Cold start navigation (Step 5)
    * - Route protection hooks (Story #7)
    * - Deep link handling
    * - Session state changes
    *
-   * @returns Route descriptor: 'login', 'verify', or 'home'
+   * @returns Route descriptor: 'login', 'verify', 'onboarding', or 'home'
    *
    * @example
    * ```typescript
@@ -355,16 +356,30 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
    *   router.replace('/auth/login');
    * } else if (targetRoute === 'verify') {
    *   router.replace('/auth/verify');
+   * } else if (targetRoute === 'onboarding') {
+   *   router.replace('/onboarding/welcome');
    * } else {
-   *   router.replace('/(tabs)/home');
+   *   router.replace('/home');
    * }
    * ```
    */
   deriveRoute: () => {
     const state = get();
+
+    // Check if onboarding gate feature is enabled
+    // Defaults to true if not specified (fail-safe: show onboarding)
+    const onboardingGateResult = checkFeatureFlag('onboarding.gate');
+    const onboardingGateEnabled = onboardingGateResult.enabled;
+
+    // Extract hasOnboarded from user object, default to false if not set
+    // This ensures new users are routed to onboarding when gate is enabled
+    const hasOnboarded = state.user?.hasOnboarded ?? false;
+
     return deriveInitialRouteFromAuthState({
       isAuthenticated: state.isAuthenticated,
       isVerified: state.isVerified(),
+      hasOnboarded,
+      onboardingGateEnabled,
     });
   },
 });

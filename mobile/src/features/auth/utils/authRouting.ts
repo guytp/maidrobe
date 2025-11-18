@@ -73,12 +73,13 @@
  * These routes correspond to the main navigation stacks in the app:
  * - 'login': Unauthenticated flow (sign in, sign up, password reset)
  * - 'verify': Email verification prompt (authenticated but unverified)
- * - 'home': Main application (authenticated and verified)
+ * - 'onboarding': First-time user onboarding flow (authenticated, verified, not onboarded)
+ * - 'home': Main application (authenticated, verified, and onboarded)
  *
  * The navigation layer is responsible for mapping these descriptors to
  * actual Expo Router paths or React Navigation stack names.
  */
-export type AuthRoute = 'login' | 'verify' | 'home';
+export type AuthRoute = 'login' | 'verify' | 'onboarding' | 'home';
 
 /**
  * Normalized auth state input for routing decisions.
@@ -119,6 +120,29 @@ export interface AuthRoutingInput {
    * prompt screen.
    */
   isVerified: boolean;
+
+  /**
+   * Whether the user has completed the onboarding flow.
+   *
+   * This flag is read from the public.profiles.has_onboarded column.
+   * New users have this set to false by default. It is set to true when
+   * the user completes or skips the onboarding flow.
+   *
+   * Used by the onboarding gate to route new users to the onboarding flow
+   * instead of directly to the main app.
+   */
+  hasOnboarded: boolean;
+
+  /**
+   * Whether the onboarding gate feature is enabled.
+   *
+   * This flag is read from the feature flag system (onboarding.gate).
+   * When disabled, users skip the onboarding flow regardless of hasOnboarded
+   * status and are routed directly to home.
+   *
+   * Allows for gradual rollout, testing, and rollback of the onboarding gate.
+   */
+  onboardingGateEnabled: boolean;
 }
 
 /**
@@ -132,13 +156,15 @@ export interface AuthRoutingInput {
  *
  * 1. **Unauthenticated**: Route to login (primary gate)
  * 2. **Authenticated but unverified**: Route to email verification
- * 3. **Authenticated and verified**: Route to home (full access)
+ * 3. **Authenticated and verified but not onboarded** (if gate enabled): Route to onboarding
+ * 4. **Authenticated, verified, and onboarded** (or gate disabled): Route to home (full access)
  *
  * ## Security Model
  *
  * The function enforces a fail-safe security model:
  * - Defaults to denying access (routes to login)
- * - Requires explicit verification flag for home access
+ * - Requires explicit verification flag for onboarding/home access
+ * - Onboarding gate is optional via feature flag
  * - No special cases or bypasses
  *
  * ## Idempotency
@@ -156,11 +182,8 @@ export interface AuthRoutingInput {
  *     expect(deriveInitialRouteFromAuthState({
  *       isAuthenticated: false,
  *       isVerified: false,
- *     })).toBe('login');
- *
- *     expect(deriveInitialRouteFromAuthState({
- *       isAuthenticated: false,
- *       isVerified: true, // Impossible state, but handled safely
+ *       hasOnboarded: false,
+ *       onboardingGateEnabled: true,
  *     })).toBe('login');
  *   });
  *
@@ -168,13 +191,35 @@ export interface AuthRoutingInput {
  *     expect(deriveInitialRouteFromAuthState({
  *       isAuthenticated: true,
  *       isVerified: false,
+ *       hasOnboarded: false,
+ *       onboardingGateEnabled: true,
  *     })).toBe('verify');
  *   });
  *
- *   it('routes to home when authenticated and verified', () => {
+ *   it('routes to onboarding when gate enabled and not onboarded', () => {
  *     expect(deriveInitialRouteFromAuthState({
  *       isAuthenticated: true,
  *       isVerified: true,
+ *       hasOnboarded: false,
+ *       onboardingGateEnabled: true,
+ *     })).toBe('onboarding');
+ *   });
+ *
+ *   it('routes to home when onboarded', () => {
+ *     expect(deriveInitialRouteFromAuthState({
+ *       isAuthenticated: true,
+ *       isVerified: true,
+ *       hasOnboarded: true,
+ *       onboardingGateEnabled: true,
+ *     })).toBe('home');
+ *   });
+ *
+ *   it('routes to home when gate disabled (skip onboarding)', () => {
+ *     expect(deriveInitialRouteFromAuthState({
+ *       isAuthenticated: true,
+ *       isVerified: true,
+ *       hasOnboarded: false,
+ *       onboardingGateEnabled: false,
  *     })).toBe('home');
  *   });
  * });
@@ -188,6 +233,8 @@ export interface AuthRoutingInput {
  * deriveInitialRouteFromAuthState({
  *   isAuthenticated: false,
  *   isVerified: false,
+ *   hasOnboarded: false,
+ *   onboardingGateEnabled: true,
  * });
  * // Returns: 'login'
  *
@@ -196,14 +243,28 @@ export interface AuthRoutingInput {
  * deriveInitialRouteFromAuthState({
  *   isAuthenticated: true,
  *   isVerified: false,
+ *   hasOnboarded: false,
+ *   onboardingGateEnabled: true,
  * });
  * // Returns: 'verify'
  *
  * @example
- * // Fully authenticated and verified
+ * // Authenticated and verified but not onboarded (gate enabled)
  * deriveInitialRouteFromAuthState({
  *   isAuthenticated: true,
  *   isVerified: true,
+ *   hasOnboarded: false,
+ *   onboardingGateEnabled: true,
+ * });
+ * // Returns: 'onboarding'
+ *
+ * @example
+ * // Fully authenticated, verified, and onboarded
+ * deriveInitialRouteFromAuthState({
+ *   isAuthenticated: true,
+ *   isVerified: true,
+ *   hasOnboarded: true,
+ *   onboardingGateEnabled: true,
  * });
  * // Returns: 'home'
  */
@@ -222,7 +283,16 @@ export function deriveInitialRouteFromAuthState(
     return 'verify';
   }
 
-  // Both gates passed: user is authenticated and verified
+  // Gate 3: Check onboarding status (if gate is enabled)
+  // Authenticated and verified users who haven't completed onboarding
+  // are routed to the onboarding flow before accessing the main app
+  if (input.onboardingGateEnabled && !input.hasOnboarded) {
+    return 'onboarding';
+  }
+
+  // All gates passed: user is authenticated, verified, and either:
+  // - Has completed onboarding, OR
+  // - Onboarding gate is disabled
   // Grant access to the main application
   return 'home';
 }

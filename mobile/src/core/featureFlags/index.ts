@@ -78,8 +78,27 @@ export interface FeatureFlagResult {
 
 /**
  * Supported feature flag names.
+ *
+ * Feature flags control availability of features and version compatibility.
+ * Each flag maps to environment variables:
+ * - EXPO_PUBLIC_FEATURE_{FLAG_NAME}_ENABLED (boolean, default: true)
+ * - EXPO_PUBLIC_FEATURE_{FLAG_NAME}_MIN_VERSION (semver, default: 0.0.0)
+ *
+ * Available flags:
+ * - auth.login: Login feature
+ * - auth.signup: Signup feature
+ * - auth.logout: Logout feature
+ * - auth.recaptcha: reCAPTCHA integration
+ * - auth.errorLogging: Auth error logging
+ * - onboarding.gate: Onboarding gate routing (routes new users to onboarding flow)
  */
-export type FeatureFlagName = 'auth.login' | 'auth.signup' | 'auth.logout' | 'auth.recaptcha' | 'auth.errorLogging';
+export type FeatureFlagName =
+  | 'auth.login'
+  | 'auth.signup'
+  | 'auth.logout'
+  | 'auth.recaptcha'
+  | 'auth.errorLogging'
+  | 'onboarding.gate';
 
 /**
  * Client version information for compatibility checks.
