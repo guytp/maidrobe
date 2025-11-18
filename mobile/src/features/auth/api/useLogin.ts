@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../../services/supabase';
-import { logAuthEvent } from '../../../core/telemetry';
+import { logAuthEvent, logError } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { checkFeatureFlag } from '../../../core/featureFlags';
 import { t } from '../../../core/i18n';
@@ -509,16 +509,6 @@ export function useLogin() {
             },
           }
         );
-
-        // Emit telemetry event for monitoring
-        logAuthEvent('login-profile-fetch-error', {
-          outcome: 'failure',
-          metadata: {
-            userId: data.user.id,
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-            note: 'Profile fetch exception caught, using safe default hasOnboarded=false',
-          },
-        });
 
         // Default to false (safe for new users, will be corrected from bundle for existing users)
         hasOnboarded = false;
