@@ -84,7 +84,9 @@ describe('OnboardingFooter', () => {
 
       const getStartedButton = getByLabelText('Get Started');
       expect(getStartedButton).toBeTruthy();
-      expect(getStartedButton.props.accessibilityHint).toBe('Complete onboarding and go to home screen');
+      expect(getStartedButton.props.accessibilityHint).toBe(
+        'Complete onboarding and go to home screen'
+      );
     });
 
     it('should have correct accessibility label for Global Skip button', () => {

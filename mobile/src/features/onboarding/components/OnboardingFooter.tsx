@@ -5,7 +5,11 @@ import { Button } from '../../../core/components';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { useOnboardingContext } from '../context/OnboardingContext';
-import { trackWelcomeGetStartedClicked, trackWelcomeSkipped } from '../utils/onboardingAnalytics';
+import {
+  trackWelcomeGetStartedClicked,
+  trackWelcomeSkipped,
+  trackFirstItemSkipped,
+} from '../utils/onboardingAnalytics';
 
 /**
  * Onboarding footer component with navigation controls.
@@ -37,7 +41,8 @@ import { trackWelcomeGetStartedClicked, trackWelcomeSkipped } from '../utils/onb
 export function OnboardingFooter(): React.JSX.Element {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
-  const { currentStep, onNext, onSkipStep, onSkipOnboarding } = useOnboardingContext();
+  const { currentStep, onNext, onSkipStep, onSkipOnboarding, customPrimaryHandler } =
+    useOnboardingContext();
 
   // Track if any action is in progress (prevents double-tap)
   const [isActionInProgress, setIsActionInProgress] = useState(false);
@@ -68,7 +73,9 @@ export function OnboardingFooter(): React.JSX.Element {
     ? t('screens.onboarding.footer.buttons.getStarted')
     : isWelcomeStep
       ? t('screens.onboarding.footer.buttons.getStarted')
-      : t('screens.onboarding.footer.buttons.next');
+      : currentStep === 'firstItem'
+        ? t('screens.onboarding.firstItem.primaryAction')
+        : t('screens.onboarding.footer.buttons.next');
 
   /**
    * Handler for primary action (Get Started / Next).
@@ -76,13 +83,16 @@ export function OnboardingFooter(): React.JSX.Element {
    * Wraps the onNext callback with loading state management to prevent
    * double-taps and provide visual feedback during navigation.
    *
+   * Supports custom primary handlers for steps that need special behavior
+   * (e.g., opening camera before advancing).
+   *
    * Analytics:
    * - Fires welcome_get_started_clicked for welcome step
    * - Duplicate prevention via isActionInProgress check
    *
    * Debouncing strategy:
    * - Immediately sets loading state (disables all buttons)
-   * - Calls onNext() to trigger navigation
+   * - Calls customPrimaryHandler if set, otherwise calls onNext()
    * - Resets loading state after 500ms timeout
    * - Timeout stored in ref for cleanup on unmount
    * - Early return if already in progress
@@ -96,7 +106,13 @@ export function OnboardingFooter(): React.JSX.Element {
     }
 
     setIsActionInProgress(true);
-    onNext();
+
+    // Use custom handler if provided, otherwise use default onNext
+    if (customPrimaryHandler) {
+      customPrimaryHandler();
+    } else {
+      onNext();
+    }
 
     // Clear any existing timeout before setting new one
     if (timeoutRef.current) {
@@ -110,16 +126,26 @@ export function OnboardingFooter(): React.JSX.Element {
       timeoutRef.current = null;
     }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
-  }, [onNext, isWelcomeStep]);
+  }, [onNext, isWelcomeStep, customPrimaryHandler]);
 
   /**
    * Handler for step-level skip action.
    *
    * Wraps the onSkipStep callback with loading state management.
+   *
+   * Analytics:
+   * - Fires first_item_skipped with reason 'pure_skip' for firstItem step
+   * - Duplicate prevention via isActionInProgress check
+   *
    * Same debouncing strategy as primary action.
    */
   const handleSkipStepAction = useCallback(() => {
     if (isActionInProgress) return;
+
+    // Fire first-item-specific analytics if on firstItem step
+    if (currentStep === 'firstItem') {
+      trackFirstItemSkipped('pure_skip');
+    }
 
     setIsActionInProgress(true);
     onSkipStep();
@@ -136,7 +162,7 @@ export function OnboardingFooter(): React.JSX.Element {
       timeoutRef.current = null;
     }, 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- isActionInProgress intentionally omitted to prevent callback recreation
-  }, [onSkipStep]);
+  }, [onSkipStep, currentStep]);
 
   /**
    * Handler for global skip onboarding action.
@@ -198,12 +224,16 @@ export function OnboardingFooter(): React.JSX.Element {
         accessibilityLabel={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedLabel')
-            : t('screens.onboarding.footer.accessibility.nextLabel')
+            : currentStep === 'firstItem'
+              ? t('screens.onboarding.firstItem.accessibility.primaryActionLabel')
+              : t('screens.onboarding.footer.accessibility.nextLabel')
         }
         accessibilityHint={
           isFinalStep || isWelcomeStep
             ? t('screens.onboarding.footer.accessibility.getStartedHint')
-            : t('screens.onboarding.footer.accessibility.nextHint')
+            : currentStep === 'firstItem'
+              ? t('screens.onboarding.firstItem.accessibility.primaryActionHint')
+              : t('screens.onboarding.footer.accessibility.nextHint')
         }
       >
         {primaryLabel}

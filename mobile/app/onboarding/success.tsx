@@ -10,7 +10,10 @@ import { useTheme } from '../../src/core/theme';
  * to ensure only authenticated users can access onboarding.
  *
  * Protected route: requires authenticated user.
- * Later steps will add hasOnboarded gate to redirect completed users to home.
+ * The hasOnboarded gate is enforced by the parent _layout.tsx, which redirects
+ * users with hasOnboarded=true to /home before any onboarding routes render.
+ * This ensures the success screen is only reachable during an active onboarding
+ * flow (hasOnboarded=false).
  *
  * @returns Success route component
  */

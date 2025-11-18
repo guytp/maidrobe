@@ -220,6 +220,36 @@
         }
       }
     },
+    "shared": {
+      "itemTypes": {
+        "top": "Top",
+        "bottom": "Bottom",
+        "dress": "Dress",
+        "outerwear": "Outerwear",
+        "shoes": "Shoes",
+        "accessories": "Accessories",
+        "other": "Other"
+      },
+      "colours": {
+        "black": "Black",
+        "white": "White",
+        "grey": "Grey",
+        "beige": "Beige",
+        "brown": "Brown",
+        "red": "Red",
+        "blue": "Blue",
+        "green": "Green",
+        "yellow": "Yellow",
+        "orange": "Orange",
+        "purple": "Purple",
+        "pink": "Pink",
+        "navy": "Navy",
+        "burgundy": "Burgundy",
+        "olive": "Olive",
+        "cream": "Cream",
+        "unknown": "Unknown"
+      }
+    },
     "onboarding": {
       "welcome": {
         "appName": "Maidrobe",
@@ -284,19 +314,103 @@
         }
       },
       "firstItem": {
-        "title": "First Item",
-        "subtitle": "Step 3 of 4",
-        "description": "This is a placeholder for the First Wardrobe Item Capture screen. Story #123 will provide the full implementation with camera integration and guided item capture.",
+        "title": "Add Your First Item",
+        "headline": "Add one favourite piece so we can start tailoring looks to your real wardrobe.",
+        "optional": "This step is optional - you can add items later in the main app.",
+        "primaryAction": "Add your first item",
+        "skipAction": "Skip for now",
+        "guidance": "Lay the item flat on a plain background",
+        "camera": {
+          "placeholder": "Camera feature coming soon",
+          "placeholderHint": "Feature #3 will provide full camera functionality",
+          "captureButton": "Use Placeholder Image",
+          "retakeButton": "Retake",
+          "confirmButton": "Use This Photo"
+        },
+        "permissions": {
+          "deniedTitle": "Camera Access Needed",
+          "deniedMessage": "Maidrobe needs camera access to capture your wardrobe items. You can enable this in Settings or do this later.",
+          "doThisLater": "Do this later",
+          "openSettings": "Open Settings",
+          "retry": "Try Again"
+        },
+        "errors": {
+          "cameraFailedTitle": "Camera Unavailable",
+          "cameraFailedMessage": "The camera could not be initialized. This may happen on emulators or devices without a camera.",
+          "genericErrorTitle": "Something Went Wrong",
+          "genericErrorMessage": "An unexpected error occurred. Please try again or do this later.",
+          "doThisLater": "Do this later",
+          "retry": "Try Again"
+        },
+        "metadata": {
+          "title": "Tell Us About This Item",
+          "subtitle": "Just a few quick details to help us organize your wardrobe",
+          "typeLabel": "Type",
+          "typeHelper": "What kind of item is this?",
+          "typePlaceholder": "Select item type",
+          "colourLabel": "Colour",
+          "colourHelper": "What is the main colour?",
+          "nameLabel": "Name (Optional)",
+          "nameHelper": "Give it a name to help you remember it",
+          "namePlaceholder": "e.g. Favorite blue jeans",
+          "saveButton": "Save Item",
+          "retryButton": "Try Again",
+          "skipButton": "Do this later",
+          "errors": {
+            "typeRequired": "Please select an item type",
+            "colourRequired": "Please select a colour",
+            "nameTooLong": "Name must be 100 characters or less",
+            "networkError": "Unable to save. Please check your connection and try again.",
+            "storageError": "Unable to upload photo. Please try again.",
+            "databaseError": "Unable to save item. Please try again.",
+            "validationError": "Please check your information and try again.",
+            "unknownError": "Something went wrong. Please try again or do this later."
+          }
+        },
+        "success": {
+          "itemSaved": "Item saved successfully!",
+          "previewTitle": "Your First Item"
+        },
+        "cancelConfirmation": {
+          "title": "Cancel adding item?",
+          "message": "Your progress will be lost. You can always add items later from your wardrobe.",
+          "keepEditing": "Keep editing",
+          "cancel": "Cancel"
+        },
         "accessibility": {
-          "screenLabel": "First wardrobe item capture"
+          "screenLabel": "First wardrobe item capture",
+          "screenHint": "Guided experience to add your first wardrobe item",
+          "primaryActionLabel": "Add your first item",
+          "primaryActionHint": "Open camera to capture your first wardrobe item",
+          "headlineLabel": "Step description",
+          "optionalLabel": "Optional step notice",
+          "cameraPlaceholder": "Camera placeholder screen",
+          "usePlaceholderButton": "Use placeholder image button",
+          "doThisLaterButton": "Do this later button",
+          "retryButton": "Retry button",
+          "metadataForm": "Item metadata form",
+          "metadataFormHint": "Enter details about the captured item",
+          "typeSelector": "Item type selector",
+          "typeSelectorHint": "Select the type of clothing or accessory",
+          "colourSelector": "Colour selector",
+          "colourSelectorHint": "Select the main colour of the item",
+          "colourSwatch": "Colour swatch",
+          "colourSwatchHint": "Tap to select this colour",
+          "nameInput": "Item name input",
+          "nameInputHint": "Optional name or label for this item",
+          "saveButton": "Save item button",
+          "saveButtonHint": "Save this item and continue"
         }
       },
       "success": {
-        "title": "All Set!",
-        "subtitle": "Step 4 of 4",
-        "description": "This is a placeholder for the Onboarding Success screen. Story #129 will provide the full implementation with celebration visuals and transition to the main app.",
+        "title": "You're all set!",
+        "headline": "Your closet is ready",
+        "bodyNoItems": "Your preferences are saved. Start adding items to your wardrobe and we'll help you create outfits based on what you own.",
+        "bodyHasItems": "Your preferences are saved and you've added your first item! Keep building your wardrobe and we'll help you create outfits from your collection.",
         "accessibility": {
-          "screenLabel": "Onboarding complete"
+          "screenLabel": "Onboarding complete",
+          "headlineLabel": "Completion headline",
+          "bodyLabel": "Next steps description"
         }
       },
       "footer": {

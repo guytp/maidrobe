@@ -23,6 +23,19 @@ import { logSuccess } from '../../../core/telemetry';
 import type { OnboardingStep } from '../store/onboardingSlice';
 
 /**
+ * Method used to exit onboarding and transition to the main app.
+ *
+ * Valid values:
+ * - 'completed_all_steps': User completed all onboarding steps without skipping any
+ * - 'completed_with_skips': User completed onboarding but skipped one or more steps
+ * - 'skipped_entire_flow': User bypassed the entire onboarding flow via global skip
+ */
+export type OnboardingExitMethod =
+  | 'completed_all_steps'
+  | 'completed_with_skips'
+  | 'skipped_entire_flow';
+
+/**
  * Track when a step is viewed.
  *
  * This is a fire-and-forget operation that will not block navigation.
@@ -276,23 +289,26 @@ export function trackWelcomeSkipped(): void {
 }
 
 /**
- * Track when preferences screen is viewed.
+ * Track when first item screen is viewed.
  *
  * This is a fire-and-forget operation that will not block navigation.
- * Emitted once when the preferences screen first becomes visible in a session.
+ * Emitted once when the first item capture step becomes visible in a session.
  * Guarded against re-renders via useRef in the component.
  *
- * Prefs-specific event that provides finer granularity than the generic
- * step_viewed event for analytics and funnel tracking.
+ * First-item-specific event that provides finer granularity than the generic
+ * step_viewed event for analytics and funnel tracking. Includes hasExistingItems
+ * flag to understand if users are adding their very first item or have items already.
  *
  * @param isResume - Whether this is a resumed session (vs fresh start)
+ * @param hasExistingItems - Whether the user already has items in their wardrobe
  */
-export function trackPrefsViewed(isResume: boolean): void {
+export function trackFirstItemViewed(isResume: boolean, hasExistingItems: boolean): void {
   try {
-    logSuccess('onboarding', 'prefs_viewed', {
+    logSuccess('onboarding', 'first_item_viewed', {
       data: {
-        step: 'prefs',
+        step: 'firstItem',
         isResume,
+        hasExistingItems,
         timestamp: new Date().toISOString(),
       },
     });
@@ -332,6 +348,151 @@ export function trackPrefsSaved(
         colourTendencySelected,
         exclusionsSelected,
         notesPresent,
+    console.warn('[Onboarding Analytics] Failed to track first_item_viewed:', error);
+  }
+}
+
+/**
+ * Track when user starts camera capture from first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when the camera capture UI successfully opens from the first item step.
+ * This indicates the user has engaged with the primary CTA and begun the capture flow.
+ *
+ * First-item-specific event that tracks engagement with the camera capture feature
+ * and measures drop-off between viewing the step and starting capture.
+ */
+export function trackFirstItemStartedCapture(): void {
+  try {
+    logSuccess('onboarding', 'first_item_started_capture', {
+      data: {
+        step: 'firstItem',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_started_capture:', error);
+  }
+}
+
+/**
+ * Track when user successfully saves their first item.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when an item is successfully created and persisted to the database
+ * from the first item onboarding step. This represents successful completion of
+ * the item capture flow.
+ *
+ * First-item-specific event that tracks successful item creation during onboarding.
+ * Should be fired exactly once per successfully saved item to avoid double-counting.
+ */
+export function trackFirstItemSavedSuccess(): void {
+  try {
+    logSuccess('onboarding', 'first_item_saved_success', {
+      data: {
+        step: 'firstItem',
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_saved_success:', error);
+  }
+}
+
+/**
+ * Track when item save fails during first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted each time a save/upload attempt fails, including retries.
+ * Includes a coarse errorType to help diagnose common failure patterns
+ * without exposing sensitive error details.
+ *
+ * First-item-specific event that tracks failures during item persistence.
+ * Helps identify systemic issues with uploads, network connectivity, or
+ * database operations during the onboarding flow.
+ *
+ * @param errorType - Coarse error classification (e.g., 'upload', 'db_insert', 'timeout', 'offline')
+ */
+export function trackFirstItemSaveFailed(errorType: string): void {
+  try {
+    logSuccess('onboarding', 'first_item_save_failed', {
+      data: {
+        step: 'firstItem',
+        errorType,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_save_failed:', error);
+  }
+}
+
+/**
+ * Track when user skips the first item step.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when the user leaves the first item step without creating an item,
+ * via either "Skip this step" or "Do this later" actions. The reason field
+ * helps distinguish between different skip contexts.
+ *
+ * First-item-specific event that tracks users who choose not to add an item
+ * during onboarding. The reason provides context about why they skipped:
+ * - 'pure_skip': User clicked "Skip this step" without attempting capture
+ * - 'failure_then_skip': User attempted capture/save but hit errors and chose "Do this later"
+ * - 'permission_denied_then_skip': User denied camera permission and chose "Do this later"
+ *
+ * @param reason - Context for why the step was skipped
+ */
+export function trackFirstItemSkipped(reason: string): void {
+  try {
+    logSuccess('onboarding', 'first_item_skipped', {
+      data: {
+        step: 'firstItem',
+        reason,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track first_item_skipped:', error);
+  }
+}
+
+/**
+ * Track when onboarding is completed with all steps.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user completes onboarding by progressing through all steps
+ * without using any per-step skip buttons (though global skip is possible
+ * and tracked separately).
+ *
+ * This provides finer granularity than the generic 'completed' event,
+ * distinguishing users who engaged with every step from those who skipped
+ * some optional content.
+ *
+ * @param completedSteps - Array of steps that were completed
+ * @param durationMs - Total time spent in onboarding (optional)
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ */
+export function trackOnboardingCompletedAllSteps(
+  completedSteps: OnboardingStep[],
+  durationMs?: number,
+  hasItems?: boolean
+): void {
+  try {
+    logSuccess('onboarding', 'completed_all_steps', {
+      latency: durationMs,
+      data: {
+        completedSteps,
+        totalSteps: completedSteps.length,
+        hasItems: hasItems ?? false,
         timestamp: new Date().toISOString(),
       },
     });
@@ -357,12 +518,81 @@ export function trackPrefsSkipped(): void {
     logSuccess('onboarding', 'prefs_skipped', {
       data: {
         step: 'prefs',
+    console.warn('[Onboarding Analytics] Failed to track completed_all_steps:', error);
+  }
+}
+
+/**
+ * Track when onboarding is completed with some skips.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user completes onboarding by reaching the success screen
+ * but used per-step skip buttons on one or more optional steps.
+ *
+ * This provides finer granularity than the generic 'completed' event,
+ * distinguishing users who skipped optional content from those who
+ * engaged with every step.
+ *
+ * @param completedSteps - Array of steps that were completed
+ * @param skippedSteps - Array of steps that were skipped
+ * @param durationMs - Total time spent in onboarding (optional)
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ */
+export function trackOnboardingCompletedWithSkips(
+  completedSteps: OnboardingStep[],
+  skippedSteps: OnboardingStep[],
+  durationMs?: number,
+  hasItems?: boolean
+): void {
+  try {
+    logSuccess('onboarding', 'completed_with_skips', {
+      latency: durationMs,
+      data: {
+        completedSteps,
+        skippedSteps,
+        totalSteps: completedSteps.length + skippedSteps.length,
+        hasItems: hasItems ?? false,
         timestamp: new Date().toISOString(),
       },
     });
   } catch (error) {
     // Silently fail - analytics should never block user flow
     // eslint-disable-next-line no-console
-    console.warn('[Onboarding Analytics] Failed to track prefs_skipped:', error);
+    console.warn('[Onboarding Analytics] Failed to track completed_with_skips:', error);
+  }
+}
+
+/**
+ * Track when user exits onboarding to home screen.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted whenever the user transitions from the onboarding flow to the
+ * main app (Closet) via any completion path.
+ *
+ * This event provides a unified tracking point for all onboarding exits,
+ * allowing analytics to measure conversion and understand exit paths.
+ *
+ * @param method - The completion method used
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ * @param originStep - Step the user was on when exiting (for global skip)
+ */
+export function trackOnboardingExitToHome(
+  method: OnboardingExitMethod,
+  hasItems?: boolean,
+  originStep?: OnboardingStep
+): void {
+  try {
+    logSuccess('onboarding', 'exit_to_home', {
+      data: {
+        method,
+        hasItems: hasItems ?? false,
+        originStep: originStep ?? null,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track exit_to_home:', error);
   }
 }
