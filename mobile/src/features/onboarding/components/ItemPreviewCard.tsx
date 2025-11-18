@@ -139,7 +139,7 @@ export function ItemPreviewCard({ item }: ItemPreviewCardProps): React.JSX.Eleme
         </Text>
         {item.name && (
           <Text style={styles.nameText} allowFontScaling={true} maxFontSizeMultiplier={2}>
-            &quot;{item.name}&quot;
+            "{item.name}"
           </Text>
         )}
       </View>
