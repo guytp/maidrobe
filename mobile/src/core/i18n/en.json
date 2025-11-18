@@ -332,6 +332,7 @@
             "networkError": "Unable to save. Please check your connection and try again.",
             "storageError": "Unable to upload photo. Please try again.",
             "databaseError": "Unable to save item. Please try again.",
+            "validationError": "Please check your information and try again.",
             "unknownError": "Something went wrong. Please try again or do this later."
           }
         },
