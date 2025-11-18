@@ -441,6 +441,13 @@ export default function OnboardingLayout(): React.JSX.Element {
   }
 
   /**
+   * Calculate current onboarding duration for context.
+   * Returns undefined if onboarding hasn't started yet.
+   */
+  const currentDuration =
+    onboardingStartTime.current !== null ? Date.now() - onboardingStartTime.current : undefined;
+
+  /**
    * Render Stack navigator for onboarding steps with context provider.
    *
    * This only renders after routing decisions are complete (both isHydrating
@@ -460,6 +467,7 @@ export default function OnboardingLayout(): React.JSX.Element {
       onBack={handleBack}
       customPrimaryHandler={customPrimaryHandler}
       setCustomPrimaryHandler={setCustomPrimaryHandler}
+      onboardingDuration={currentDuration}
     >
       <Stack
         screenOptions={{
