@@ -63,7 +63,12 @@ export function SuccessScreen(): React.JSX.Element {
 
   // Query whether user has any wardrobe items for contextual messaging
   // This runs non-blocking - component renders with default while query executes
-  // On error or while loading, we use safe default (no items variant)
+  // Defaults to false (no items) when:
+  // - Query is still loading (instant render, no spinner)
+  // - Query encounters any error (network, auth, etc.)
+  // - Items table doesn't exist yet (Feature #3 not implemented)
+  // - User genuinely has no items
+  // This safe default ensures screen always shows actionable messaging
   const { data: wardrobeData } = useHasWardrobeItems();
   const hasItems = wardrobeData?.hasItems ?? false;
 
