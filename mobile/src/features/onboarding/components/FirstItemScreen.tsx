@@ -24,6 +24,15 @@ import { ItemPreviewCard } from './ItemPreviewCard';
 import { WardrobeItem } from '../types/wardrobeItem';
 
 /**
+ * Delay in milliseconds before navigating to the next onboarding step
+ * after successfully creating the first wardrobe item.
+ *
+ * This delay allows users to see the success toast and item preview
+ * before the navigation transition occurs.
+ */
+const SUCCESS_NAVIGATION_DELAY_MS = 2000;
+
+/**
  * First Wardrobe Item Capture screen for onboarding flow.
  *
  * This screen guides users through adding their first wardrobe item during onboarding.
@@ -293,11 +302,11 @@ export function FirstItemScreen(): React.JSX.Element {
         clearTimeout(navigationTimerRef.current);
       }
 
-      // Wait 2 seconds then advance to next step
+      // Wait before advancing to next step (allows user to see success state)
       navigationTimerRef.current = setTimeout(() => {
         onNext();
         navigationTimerRef.current = null;
-      }, 2000);
+      }, SUCCESS_NAVIGATION_DELAY_MS);
     }
 
     // Cleanup: clear timer on unmount or effect re-run
