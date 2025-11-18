@@ -6,6 +6,7 @@ import { queryClient } from '../src/core/query/client';
 import { useAuthStateListener } from '../src/features/auth/hooks/useAuthStateListener';
 import { useTokenRefreshManager } from '../src/features/auth/hooks/useTokenRefreshManager';
 import { restoreAuthStateOnLaunch } from '../src/features/auth/utils/authRestore';
+import { validateColourPalette } from '../src/features/onboarding/utils/colourTranslation';
 
 export default function RootLayout(): React.JSX.Element {
   // Restore auth state on cold start
@@ -13,6 +14,14 @@ export default function RootLayout(): React.JSX.Element {
   // validates it, attempts refresh if needed, and handles offline trust window
   useEffect(() => {
     restoreAuthStateOnLaunch();
+
+    // Validate colour palette translations in development
+    if (__DEV__) {
+      const { valid, errors } = validateColourPalette();
+      if (!valid) {
+        console.error('[Colour Palette Validation] Errors detected:', errors);
+      }
+    }
   }, []);
 
   // Global auth state listener - syncs Supabase auth with local store
