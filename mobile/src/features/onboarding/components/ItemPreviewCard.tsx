@@ -4,6 +4,7 @@ import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { WardrobeItem } from '../types/wardrobeItem';
 import { WARDROBE_COLOUR_PALETTE } from '../types/itemMetadata';
+import { getColourDisplayName, getItemTypeDisplayName } from '../utils/colourTranslation';
 
 /**
  * Item preview card component props.
@@ -41,13 +42,13 @@ export interface ItemPreviewCardProps {
 export function ItemPreviewCard({ item }: ItemPreviewCardProps): React.JSX.Element {
   const { colors, spacing, radius } = useTheme();
 
-  // Get colour info
+  // Get colour info using type-safe helper
+  const colourName = getColourDisplayName(item.colour[0]);
   const colour = WARDROBE_COLOUR_PALETTE.find((c) => c.id === item.colour[0]);
-  const colourName = colour ? t(colour.name as Parameters<typeof t>[0]) : 'Unknown';
   const colourHex = colour?.hex || '#CCCCCC';
 
-  // Get type label
-  const typeLabel = t(`screens.auth.itemTypes.${item.type}` as Parameters<typeof t>[0]);
+  // Get type label using type-safe helper
+  const typeLabel = getItemTypeDisplayName(item.type);
 
   const styles = useMemo(
     () =>
