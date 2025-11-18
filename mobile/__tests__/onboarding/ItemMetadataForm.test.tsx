@@ -392,6 +392,47 @@ describe('ItemMetadataForm', () => {
       // Error should be cleared
       expect(queryByText('Name must be 100 characters or less')).toBeNull();
     });
+
+    it('should show trimmed character count for name with leading/trailing spaces', () => {
+      const { getByPlaceholderText, getByText } = render(
+        <TestWrapper>
+          <ItemMetadataForm onSave={mockOnSave} />
+        </TestWrapper>
+      );
+
+      const nameInput = getByPlaceholderText('e.g., Blue Summer Dress');
+      fireEvent.changeText(nameInput, '  Test  ');
+
+      expect(getByText('4/100')).toBeTruthy();
+    });
+
+    it('should show trimmed character count matching saved value', () => {
+      const { getByPlaceholderText, getByText } = render(
+        <TestWrapper>
+          <ItemMetadataForm onSave={mockOnSave} />
+        </TestWrapper>
+      );
+
+      const nameInput = getByPlaceholderText('e.g., Blue Summer Dress');
+      fireEvent.changeText(nameInput, '   My Item   ');
+
+      expect(getByText('7/100')).toBeTruthy();
+    });
+
+    it('should show error styling when trimmed length exceeds limit', () => {
+      const { getByPlaceholderText, getByText } = render(
+        <TestWrapper>
+          <ItemMetadataForm onSave={mockOnSave} />
+        </TestWrapper>
+      );
+
+      const nameInput = getByPlaceholderText('e.g., Blue Summer Dress');
+      const longName = 'A'.repeat(101);
+      fireEvent.changeText(nameInput, longName);
+
+      const counter = getByText('101/100');
+      expect(counter).toBeTruthy();
+    });
   });
 
   describe('Save Callback', () => {

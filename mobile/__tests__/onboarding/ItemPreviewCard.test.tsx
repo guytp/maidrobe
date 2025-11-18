@@ -248,17 +248,17 @@ describe('ItemPreviewCard', () => {
         </TestWrapper>
       );
 
-      expect(getByText('"My Favorite Shirt"')).toBeTruthy();
+      expect(getByText('My Favorite Shirt')).toBeTruthy();
     });
 
-    it('should display name in quotes with italic styling', () => {
+    it('should display name with italic styling', () => {
       const { getByText } = render(
         <TestWrapper>
           <ItemPreviewCard item={mockItem} />
         </TestWrapper>
       );
 
-      const nameText = getByText('"My Favorite Shirt"');
+      const nameText = getByText('My Favorite Shirt');
       expect(nameText).toBeTruthy();
       expect(nameText.props.style.fontStyle).toBe('italic');
     });
@@ -299,9 +299,23 @@ describe('ItemPreviewCard', () => {
 
       expect(
         getByText(
-          '"This is a very long name for a wardrobe item that should still display correctly"'
+          'This is a very long name for a wardrobe item that should still display correctly'
         )
       ).toBeTruthy();
+    });
+
+    it('should handle names with quotes cleanly', () => {
+      const item = {
+        ...mockItem,
+        name: 'My "Favorite" Shirt',
+      };
+      const { getByText } = render(
+        <TestWrapper>
+          <ItemPreviewCard item={item} />
+        </TestWrapper>
+      );
+
+      expect(getByText('My "Favorite" Shirt')).toBeTruthy();
     });
   });
 
@@ -464,7 +478,7 @@ describe('ItemPreviewCard', () => {
         </TestWrapper>
       );
 
-      const nameText = getByText('"My Favorite Shirt"');
+      const nameText = getByText('My Favorite Shirt');
       expect(nameText.props.allowFontScaling).toBe(true);
       expect(nameText.props.maxFontSizeMultiplier).toBe(2);
     });
@@ -516,7 +530,7 @@ describe('ItemPreviewCard', () => {
       expect(getByText('Your First Item')).toBeTruthy();
       expect(getByText('Top')).toBeTruthy();
       expect(getByText('Black')).toBeTruthy();
-      expect(getByText('"My Favorite Shirt"')).toBeTruthy();
+      expect(getByText('My Favorite Shirt')).toBeTruthy();
       expect(getByLabelText('Black colour swatch')).toBeTruthy();
     });
 
@@ -540,7 +554,7 @@ describe('ItemPreviewCard', () => {
       expect(getByText('Your First Item')).toBeTruthy();
       expect(getByText('Other')).toBeTruthy();
       expect(getByText('Grey')).toBeTruthy();
-      expect(queryByText(/"/)).toBeNull();
+      expect(queryByText('My Favorite Shirt')).toBeNull();
     });
 
     it('should handle re-render with same item', () => {
@@ -587,7 +601,7 @@ describe('ItemPreviewCard', () => {
 
       expect(getByText('Dress')).toBeTruthy();
       expect(getByText('Red')).toBeTruthy();
-      expect(getByText('"Summer Dress"')).toBeTruthy();
+      expect(getByText('Summer Dress')).toBeTruthy();
     });
   });
 });

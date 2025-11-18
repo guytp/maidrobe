@@ -167,7 +167,14 @@ describe('useCreateFirstItem', () => {
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('network');
       expect(result.current.error?.message).toBe('Network error while creating item');
-      expect(telemetry.logError).toHaveBeenCalled();
+      expect(telemetry.logError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'network',
+        expect.objectContaining({
+          feature: 'onboarding_first_item',
+          operation: 'createItem',
+        })
+      );
     }, 15000);
 
     it('should classify storage errors correctly', async () => {
@@ -199,6 +206,14 @@ describe('useCreateFirstItem', () => {
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('storage');
       expect(result.current.error?.message).toBe('Failed to upload image');
+      expect(telemetry.logError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'server',
+        expect.objectContaining({
+          feature: 'onboarding_first_item',
+          operation: 'createItem',
+        })
+      );
     }, 15000);
 
     it('should classify database errors correctly', async () => {
@@ -222,6 +237,14 @@ describe('useCreateFirstItem', () => {
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('database');
       expect(result.current.error?.message).toBe('Failed to save item');
+      expect(telemetry.logError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'server',
+        expect.objectContaining({
+          feature: 'onboarding_first_item',
+          operation: 'createItem',
+        })
+      );
     });
 
     it('should classify unknown errors correctly', async () => {
@@ -245,6 +268,14 @@ describe('useCreateFirstItem', () => {
       expect(result.current.error).toBeInstanceOf(CreateItemError);
       expect((result.current.error as CreateItemError).errorType).toBe('unknown');
       expect(result.current.error?.message).toBe('Failed to create item');
+      expect(telemetry.logError).toHaveBeenCalledWith(
+        expect.any(Error),
+        'server',
+        expect.objectContaining({
+          feature: 'onboarding_first_item',
+          operation: 'createItem',
+        })
+      );
     });
   });
 
