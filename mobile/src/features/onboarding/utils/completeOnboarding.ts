@@ -328,6 +328,25 @@ export async function completeOnboardingForCurrentUser(
         },
       });
 
+      // Emit metric event for retry exhaustion monitoring in production
+      // This allows tracking the frequency and characteristics of onboarding sync failures
+      // across the user base to identify systemic issues or patterns
+      const isTransientError = isTransientSupabaseError(error);
+      const errorType = error instanceof Error ? error.constructor.name : 'Unknown';
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      logSuccess('onboarding', 'backend_update_retries_exhausted', {
+        data: {
+          userId: user.id,
+          isGlobalSkip: options.isGlobalSkip ?? false,
+          errorType,
+          errorMessage,
+          isTransient: isTransientError,
+          maxAttempts: 3,
+          note: 'All retry attempts exhausted for backend hasOnboarded update',
+        },
+      });
+
       // Notify user of sync failure if callback provided
       // This allows parent component to show a non-blocking toast
       if (options.onSyncFailure) {
