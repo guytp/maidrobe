@@ -95,7 +95,59 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
           // Return null instead of throwing for missing profiles
           // This allows the app to handle missing profiles gracefully
           if (error.code === 'PGRST116') {
-            // Not found error - profile doesn't exist yet
+            // Not found error - distinguish brand new vs existing user
+            // Brand new users: missing profile is expected (async profile creation)
+            // Existing users: missing profile is a data integrity issue
+
+            try {
+              // Fetch user metadata to determine account age
+              const { data: userData } = await supabase.auth.getUser();
+
+              if (userData?.user?.created_at) {
+                const userCreatedAt = new Date(userData.user.created_at).getTime();
+                const now = Date.now();
+                const accountAgeMs = now - userCreatedAt;
+                const accountAgeMinutes = Math.floor(accountAgeMs / (60 * 1000));
+                const isBrandNewUser = accountAgeMs < 5 * 60 * 1000; // Less than 5 minutes
+
+                if (isBrandNewUser) {
+                  // Brand new user - missing profile is expected
+                  return null;
+                } else {
+                  // Existing user - missing profile is a data integrity issue
+                  logError(
+                    new Error('Profile not found for existing user'),
+                    'server',
+                    {
+                      feature: 'auth',
+                      operation: 'fetchProfile',
+                      metadata: {
+                        userId,
+                        errorCode: 'PGRST116',
+                        accountAgeMinutes,
+                        isBrandNewUser,
+                        note: 'Data integrity issue: existing user has no profile row',
+                      },
+                    }
+                  );
+                  // Still return null to allow app to continue with degraded functionality
+                  return null;
+                }
+              }
+            } catch (authError) {
+              // If we can't fetch user metadata, log and return null
+              logError(authError as Error, 'server', {
+                feature: 'auth',
+                operation: 'fetchProfile',
+                metadata: {
+                  userId,
+                  errorCode: 'PGRST116',
+                  note: 'Failed to fetch user metadata for account age check',
+                },
+              });
+            }
+
+            // Fallback: return null if we couldn't determine user age
             return null;
           }
 
@@ -268,7 +320,64 @@ export async function fetchProfileWithCache(
 
       // Return null for not found errors
       if (error.code === 'PGRST116') {
-        // Update cache with null to avoid repeated fetches
+        // Not found error - distinguish brand new vs existing user
+        // Brand new users: missing profile is expected (async profile creation)
+        // Existing users: missing profile is a data integrity issue
+
+        try {
+          // Fetch user metadata to determine account age
+          const { data: userData } = await supabase.auth.getUser();
+
+          if (userData?.user?.created_at) {
+            const userCreatedAt = new Date(userData.user.created_at).getTime();
+            const now = Date.now();
+            const accountAgeMs = now - userCreatedAt;
+            const accountAgeMinutes = Math.floor(accountAgeMs / (60 * 1000));
+            const isBrandNewUser = accountAgeMs < 5 * 60 * 1000; // Less than 5 minutes
+
+            if (isBrandNewUser) {
+              // Brand new user - missing profile is expected
+              // Update cache with null to avoid repeated fetches
+              queryClient.setQueryData(['profile', userId], null);
+              return null;
+            } else {
+              // Existing user - missing profile is a data integrity issue
+              logError(
+                new Error('Profile not found for existing user'),
+                'server',
+                {
+                  feature: 'auth',
+                  operation: 'fetchProfileWithCache',
+                  metadata: {
+                    userId,
+                    errorCode: 'PGRST116',
+                    accountAgeMinutes,
+                    isBrandNewUser,
+                    forceNetwork,
+                    note: 'Data integrity issue: existing user has no profile row',
+                  },
+                }
+              );
+              // Update cache with null but allow retry by React Query
+              queryClient.setQueryData(['profile', userId], null);
+              return null;
+            }
+          }
+        } catch (authError) {
+          // If we can't fetch user metadata, log and return null
+          logError(authError as Error, 'server', {
+            feature: 'auth',
+            operation: 'fetchProfileWithCache',
+            metadata: {
+              userId,
+              errorCode: 'PGRST116',
+              forceNetwork,
+              note: 'Failed to fetch user metadata for account age check',
+            },
+          });
+        }
+
+        // Fallback: update cache and return null if we couldn't determine user age
         queryClient.setQueryData(['profile', userId], null);
         return null;
       }
@@ -394,6 +503,59 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
 
       // Return null for not found errors
       if (error.code === 'PGRST116') {
+        // Not found error - distinguish brand new vs existing user
+        // Brand new users: missing profile is expected (async profile creation)
+        // Existing users: missing profile is a data integrity issue
+
+        try {
+          // Fetch user metadata to determine account age
+          const { data: userData } = await supabase.auth.getUser();
+
+          if (userData?.user?.created_at) {
+            const userCreatedAt = new Date(userData.user.created_at).getTime();
+            const now = Date.now();
+            const accountAgeMs = now - userCreatedAt;
+            const accountAgeMinutes = Math.floor(accountAgeMs / (60 * 1000));
+            const isBrandNewUser = accountAgeMs < 5 * 60 * 1000; // Less than 5 minutes
+
+            if (isBrandNewUser) {
+              // Brand new user - missing profile is expected
+              return null;
+            } else {
+              // Existing user - missing profile is a data integrity issue
+              logError(
+                new Error('Profile not found for existing user'),
+                'server',
+                {
+                  feature: 'auth',
+                  operation: 'fetchProfileDirect',
+                  metadata: {
+                    userId,
+                    errorCode: 'PGRST116',
+                    accountAgeMinutes,
+                    isBrandNewUser,
+                    note: 'Data integrity issue: existing user has no profile row',
+                  },
+                }
+              );
+              // Still return null to allow app to continue
+              return null;
+            }
+          }
+        } catch (authError) {
+          // If we can't fetch user metadata, log and return null
+          logError(authError as Error, 'server', {
+            feature: 'auth',
+            operation: 'fetchProfileDirect',
+            metadata: {
+              userId,
+              errorCode: 'PGRST116',
+              note: 'Failed to fetch user metadata for account age check',
+            },
+          });
+        }
+
+        // Fallback: return null if we couldn't determine user age
         return null;
       }
 
