@@ -358,7 +358,7 @@ export function FirstItemScreen(): React.JSX.Element {
   useEffect(() => {
     if (currentStep === 'firstItem' && setCustomPrimaryHandler) {
       // Set our camera handler as the primary action
-      setCustomPrimaryHandler(() => handleStartCamera);
+      setCustomPrimaryHandler(handleStartCamera);
     }
 
     return () => {
@@ -479,6 +479,7 @@ export function FirstItemScreen(): React.JSX.Element {
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleCameraCancel}
+        testID="camera-modal"
       >
         <CameraPlaceholder onCapture={handleCameraCapture} onCancel={handleCameraCancel} />
       </Modal>
@@ -489,6 +490,7 @@ export function FirstItemScreen(): React.JSX.Element {
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleMetadataFormClose}
+        testID="metadata-form-modal"
       >
         <ItemMetadataForm
           initialMetadata={capturedMetadata || undefined}
