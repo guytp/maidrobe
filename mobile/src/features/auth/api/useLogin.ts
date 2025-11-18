@@ -156,6 +156,7 @@ async function recordAttempt(): Promise<void> {
   await setAttempts(attempts);
 }
 
+
 /**
  * React Query mutation hook for user login with email and password.
  *

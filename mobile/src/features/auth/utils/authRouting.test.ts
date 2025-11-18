@@ -7,7 +7,11 @@
  * authRouting.ts lines 154-181.
  */
 
-import { deriveInitialRouteFromAuthState, AuthRoutingInput, AuthRoute } from './authRouting';
+import {
+  deriveInitialRouteFromAuthState,
+  AuthRoutingInput,
+  AuthRoute,
+} from './authRouting';
 
 describe('deriveInitialRouteFromAuthState', () => {
   describe('Unauthenticated users', () => {
@@ -792,7 +796,9 @@ describe('deriveInitialRouteFromAuthState', () => {
         isVerified: false,
       };
 
-      const results = Array.from({ length: 100 }, () => deriveInitialRouteFromAuthState(input));
+      const results = Array.from({ length: 100 }, () =>
+        deriveInitialRouteFromAuthState(input)
+      );
 
       // All results should be identical
       expect(new Set(results).size).toBe(1);
@@ -935,12 +941,14 @@ describe('deriveInitialRouteFromAuthState', () => {
         },
       ];
 
-      completeMatrix.forEach(({ isAuthenticated, isVerified, expectedRoute, explanation }) => {
-        const input: AuthRoutingInput = { isAuthenticated, isVerified };
-        const result = deriveInitialRouteFromAuthState(input);
+      completeMatrix.forEach(
+        ({ isAuthenticated, isVerified, expectedRoute, explanation }) => {
+          const input: AuthRoutingInput = { isAuthenticated, isVerified };
+          const result = deriveInitialRouteFromAuthState(input);
 
-        expect(result).toBe(expectedRoute);
-      });
+          expect(result).toBe(expectedRoute);
+        }
+      );
     });
   });
 });
