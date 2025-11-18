@@ -1,8 +1,9 @@
 import { useQuery, UseQueryResult, QueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
 import { supabase } from '../../../services/supabase';
 import { logError } from '../../../core/telemetry';
-import type { Profile, ProfileRow } from '../types/profile';
-import { mapProfileRowToProfile } from '../types/profile';
+import type { Profile } from '../types/profile';
+import { mapProfileRowToProfile, ProfileRowSchema } from '../types/profile';
 
 /**
  * React Query hook to fetch the current user's profile from public.profiles.
@@ -108,8 +109,30 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
           return null;
         }
 
-        // Convert database row to application type
-        return mapProfileRowToProfile(data as ProfileRow);
+        // Validate profile data with Zod schema before mapping
+        try {
+          const validatedData = ProfileRowSchema.parse(data);
+          return mapProfileRowToProfile(validatedData);
+        } catch (zodError) {
+          // Log schema validation error
+          logError(zodError as Error, 'schema', {
+            feature: 'auth',
+            operation: 'validateProfile',
+            metadata: {
+              userId,
+              receivedData: data,
+              zodIssues:
+                zodError instanceof z.ZodError
+                  ? zodError.issues.map((i) => ({
+                      path: i.path,
+                      message: i.message,
+                    }))
+                  : undefined,
+            },
+          });
+
+          throw new Error('Invalid profile data received from server');
+        }
       } catch (error) {
         // Log unexpected errors
         logError(error as Error, 'server', {
@@ -266,11 +289,34 @@ export async function fetchProfileWithCache(
       return null;
     }
 
-    // Step 3: Convert and cache the fresh data
-    const profile = mapProfileRowToProfile(data as ProfileRow);
-    queryClient.setQueryData(['profile', userId], profile);
+    // Step 3: Validate, convert, and cache the fresh data
+    try {
+      const validatedData = ProfileRowSchema.parse(data);
+      const profile = mapProfileRowToProfile(validatedData);
+      queryClient.setQueryData(['profile', userId], profile);
 
-    return profile;
+      return profile;
+    } catch (zodError) {
+      // Log schema validation error
+      logError(zodError as Error, 'schema', {
+        feature: 'auth',
+        operation: 'validateProfileWithCache',
+        metadata: {
+          userId,
+          receivedData: data,
+          forceNetwork,
+          zodIssues:
+            zodError instanceof z.ZodError
+              ? zodError.issues.map((i) => ({
+                  path: i.path,
+                  message: i.message,
+                }))
+              : undefined,
+        },
+      });
+
+      throw new Error('Invalid profile data received from server');
+    }
   } catch (error) {
     logError(error as Error, 'server', {
       feature: 'auth',
@@ -358,7 +404,30 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
       return null;
     }
 
-    return mapProfileRowToProfile(data as ProfileRow);
+    // Validate profile data with Zod schema before mapping
+    try {
+      const validatedData = ProfileRowSchema.parse(data);
+      return mapProfileRowToProfile(validatedData);
+    } catch (zodError) {
+      // Log schema validation error
+      logError(zodError as Error, 'schema', {
+        feature: 'auth',
+        operation: 'validateProfileDirect',
+        metadata: {
+          userId,
+          receivedData: data,
+          zodIssues:
+            zodError instanceof z.ZodError
+              ? zodError.issues.map((i) => ({
+                  path: i.path,
+                  message: i.message,
+                }))
+              : undefined,
+        },
+      });
+
+      throw new Error('Invalid profile data received from server');
+    }
   } catch (error) {
     logError(error as Error, 'server', {
       feature: 'auth',
