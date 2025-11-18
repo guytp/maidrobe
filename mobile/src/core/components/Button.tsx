@@ -137,7 +137,11 @@ export function Button({
           color={variant === 'primary' ? colors.background : colors.textPrimary}
         />
       ) : (
-        <Text style={textStyle} allowFontScaling={true} maxFontSizeMultiplier={2}>
+        <Text
+          style={textStyle}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={2}
+        >
           {children}
         </Text>
       )}

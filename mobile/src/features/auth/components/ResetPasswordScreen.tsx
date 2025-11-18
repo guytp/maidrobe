@@ -661,9 +661,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasMinLength
-                      ? colors.success
-                      : colors.textSecondary,
+                    backgroundColor: policyRules.hasMinLength ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -680,9 +678,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasUppercase
-                      ? colors.success
-                      : colors.textSecondary,
+                    backgroundColor: policyRules.hasUppercase ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -699,9 +695,7 @@ export function ResetPasswordScreen() {
                 style={[
                   styles.policyRuleIndicator,
                   {
-                    backgroundColor: policyRules.hasLowercase
-                      ? colors.success
-                      : colors.textSecondary,
+                    backgroundColor: policyRules.hasLowercase ? colors.success : colors.textSecondary,
                   },
                 ]}
                 accessibilityRole="checkbox"
@@ -717,9 +711,7 @@ export function ResetPasswordScreen() {
               <View
                 style={[
                   styles.policyRuleIndicator,
-                  {
-                    backgroundColor: policyRules.hasNumber ? colors.success : colors.textSecondary,
-                  },
+                  { backgroundColor: policyRules.hasNumber ? colors.success : colors.textSecondary },
                 ]}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: policyRules.hasNumber }}
@@ -734,9 +726,7 @@ export function ResetPasswordScreen() {
               <View
                 style={[
                   styles.policyRuleIndicator,
-                  {
-                    backgroundColor: policyRules.hasSymbol ? colors.success : colors.textSecondary,
-                  },
+                  { backgroundColor: policyRules.hasSymbol ? colors.success : colors.textSecondary },
                 ]}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: policyRules.hasSymbol }}

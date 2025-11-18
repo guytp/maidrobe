@@ -5,7 +5,6 @@ Maidrobe's feature flag system provides remote configuration and version compati
 ## Overview
 
 The feature flag system enables:
-
 - **Remote Feature Control**: Enable/disable features via environment variables
 - **Version Compatibility**: Enforce minimum client versions for breaking changes
 - **Gradual Rollouts**: Deploy features incrementally to different environments
@@ -28,19 +27,16 @@ Client App -> checkFeatureFlag() -> Environment Variables -> Flag Decision
 **Purpose**: Controls availability of the login authentication flow.
 
 **Default State**:
-
 - Development: `true` (enabled)
 - Staging: `true` (enabled)
 - Production: `true` (enabled)
 
 **Affected Flows**:
-
 - `/auth/login` screen
 - Session authentication
 - Credential validation
 
 **Configuration**:
-
 ```bash
 EXPO_PUBLIC_FEATURE_AUTH_LOGIN_ENABLED=true
 EXPO_PUBLIC_FEATURE_AUTH_LOGIN_MIN_VERSION=0.0.0
@@ -55,19 +51,16 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGIN_MIN_VERSION=0.0.0
 **Purpose**: Controls availability of the signup/registration flow.
 
 **Default State**:
-
 - Development: `true` (enabled)
 - Staging: `true` (enabled)
 - Production: `true` (enabled)
 
 **Affected Flows**:
-
 - `/auth/signup` screen
 - Account creation
 - Email verification flow
 
 **Configuration**:
-
 ```bash
 EXPO_PUBLIC_FEATURE_AUTH_SIGNUP_ENABLED=true
 EXPO_PUBLIC_FEATURE_AUTH_SIGNUP_MIN_VERSION=0.0.0
@@ -82,19 +75,16 @@ EXPO_PUBLIC_FEATURE_AUTH_SIGNUP_MIN_VERSION=0.0.0
 **Purpose**: Controls availability of the logout functionality.
 
 **Default State**:
-
 - Development: `true` (enabled)
 - Staging: `true` (enabled)
 - Production: `true` (enabled)
 
 **Affected Flows**:
-
 - Logout button/action
 - Session termination
 - Local state cleanup
 
 **Configuration**:
-
 ```bash
 EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_ENABLED=true
 EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_MIN_VERSION=0.0.0
@@ -109,13 +99,11 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_MIN_VERSION=0.0.0
 **Purpose**: Enables Google reCAPTCHA v3 verification for authentication flows to prevent bot abuse and automated attacks. When enabled, sensitive auth operations include an invisible CAPTCHA challenge that verifies users are human based on behavioral analysis.
 
 **Default State**:
-
 - Development: `false` (disabled - easier testing without CAPTCHA)
 - Staging: `false` (disabled until WebView integration complete)
 - Production: `false` (disabled - pending full implementation)
 
 **Affected Flows**:
-
 - **Forgot Password Flow**: Adds optional reCAPTCHA verification before sending reset email
   - Location: `ForgotPasswordScreen` (password reset request)
   - Behavior: Executes CAPTCHA before calling password reset API
@@ -127,7 +115,6 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_MIN_VERSION=0.0.0
   - Fail-open: If verification fails or is unavailable, reset still proceeds
 
 **How It Works**:
-
 1. Client generates reCAPTCHA token (currently mock, WebView integration pending)
 2. Token sent to Supabase Edge Function `verify-recaptcha`
 3. Edge Function validates token with Google's API
@@ -136,7 +123,6 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_MIN_VERSION=0.0.0
 6. Result returned to client (success/failure)
 
 **Implementation Status**:
-
 - Backend Verification: **IMPLEMENTED**
   - Edge Function: `edge-functions/supabase/functions/verify-recaptcha`
   - Google reCAPTCHA v3 integration complete
@@ -152,25 +138,21 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGOUT_MIN_VERSION=0.0.0
 **Dependencies**:
 
 Backend (Supabase):
-
 - Environment variable: `RECAPTCHA_SECRET_KEY` (from Google reCAPTCHA admin)
 - Environment variable: `RECAPTCHA_SCORE_THRESHOLD` (default: 0.5)
 - Edge Function: `verify-recaptcha` deployed and accessible
 
 Client (Mobile):
-
 - Environment variable: `EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED`
 - Environment variable: `EXPO_PUBLIC_RECAPTCHA_SITE_KEY` (future - for WebView)
 - Package: `react-native-webview` (future - for real token generation)
 
 Google reCAPTCHA:
-
 - Site registered at https://www.google.com/recaptcha/admin
 - reCAPTCHA v3 enabled
 - Domains configured (localhost, staging, production)
 
 **Configuration**:
-
 ```bash
 # Enable/disable the feature
 EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED=false
@@ -183,21 +165,18 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 ```
 
 **When Disabled**:
-
 - CAPTCHA verification is skipped entirely
 - Auth flows proceed normally without bot detection
 - No tokens generated or verified
 - Telemetry logs "recaptcha-skipped" event
 
 **When Enabled**:
-
 - CAPTCHA verification executes before sensitive operations
 - Currently uses mock tokens (testing only)
 - Verification fails open (allows request on error)
 - Telemetry logs verification attempts and results
 
 **Security Considerations**:
-
 - **Fail-Open Design**: Service unavailability never blocks legitimate users
 - **Score-Based**: Threshold (0.5) balances security vs. user friction
 - **Invisible**: reCAPTCHA v3 has no user interaction (no checkboxes)
@@ -207,21 +186,18 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 **Rollout Plan**:
 
 **Phase 1: Backend Verification Ready** (COMPLETE)
-
 - Edge Function deployed
 - Google reCAPTCHA v3 integration tested
 - Score threshold configured
 - Fail-open behavior verified
 
 **Phase 2: Client Mock Integration** (COMPLETE)
-
 - useRecaptcha hook implemented
 - Mock token generation for testing
 - Feature flag integration complete
 - Telemetry events logging
 
 **Phase 3: WebView Integration** (PENDING - Required for Production)
-
 - Add `react-native-webview` dependency
 - Create RecaptchaWebView component
 - Load reCAPTCHA v3 script in hidden WebView
@@ -230,7 +206,6 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 - Test on iOS and Android devices
 
 **Phase 4: Internal Testing** (PENDING)
-
 - Enable flag in development builds
 - Test with real reCAPTCHA tokens
 - Verify score distribution
@@ -238,7 +213,6 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 - Validate fail-open behavior
 
 **Phase 5: Staging Deployment** (PENDING)
-
 - Enable flag in staging environment
 - Monitor verification success rate
 - Identify false positives
@@ -246,14 +220,12 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 - Load test verification endpoint
 
 **Phase 6: Baseline Metrics** (PENDING)
-
 - Measure current abuse rates without CAPTCHA
 - Establish baseline for comparison
 - Identify abuse patterns
 - Determine target success rate
 
 **Phase 7: Production Rollout** (PENDING)
-
 - Enable for 10% of production traffic
 - Monitor metrics: success rate, false positives, abuse prevention
 - Gradually increase to 25%, 50%, 75%, 100%
@@ -261,7 +233,6 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 - Document lessons learned
 
 **Metrics to Monitor**:
-
 - Verification success rate (target: >95%)
 - Average score distribution
 - False positive rate (legitimate users blocked)
@@ -272,26 +243,22 @@ EXPO_PUBLIC_RECAPTCHA_SITE_KEY=your_site_key_here
 
 **Troubleshooting**:
 
-_Low scores for legitimate users:_
-
+*Low scores for legitimate users:*
 - Lower `RECAPTCHA_SCORE_THRESHOLD` (e.g., 0.3)
 - Check for accessibility issues (screen readers)
 - Review geographic distribution
 
-_High false positive rate:_
-
+*High false positive rate:*
 - Verify fail-open behavior working
 - Check network connectivity
 - Review Google reCAPTCHA dashboard
 
-_Service unavailable errors:_
-
+*Service unavailable errors:*
 - Verify `RECAPTCHA_SECRET_KEY` configured
 - Check Edge Function logs
 - Validate Google API status
 
 **Related Documentation**:
-
 - Backend Implementation: `edge-functions/supabase/functions/verify-recaptcha/README.md`
 - Client Hook: `mobile/src/features/auth/hooks/useRecaptcha.ts`
 - Feature Flag Module: `mobile/src/core/featureFlags/index.ts`
@@ -311,44 +278,36 @@ For a feature flag named `category.feature`:
 - **Minimum Version**: `EXPO_PUBLIC_FEATURE_CATEGORY_FEATURE_MIN_VERSION`
 
 Examples:
-
 - `auth.login` -> `EXPO_PUBLIC_FEATURE_AUTH_LOGIN_ENABLED`
 - `auth.recaptcha` -> `EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED`
 
 ### Environment Variables
 
 **Flag State** (boolean):
-
 ```bash
 EXPO_PUBLIC_FEATURE_{FLAG_NAME}_ENABLED=true|false
 ```
-
 - Accepts: `true`, `false`, `1`, `0`, `yes`, `no` (case-insensitive)
 - Default: `true` (fail-safe - features enabled by default)
 
 **Minimum Version** (semver):
-
 ```bash
 EXPO_PUBLIC_FEATURE_{FLAG_NAME}_MIN_VERSION=1.2.3
 ```
-
 - Format: `major.minor.patch` (e.g., `1.2.3`)
 - Default: `0.0.0` (no restriction)
 - Purpose: Force app updates for breaking API changes
 
 **Update Message** (string):
-
 ```bash
 EXPO_PUBLIC_FEATURE_UPDATE_MESSAGE=Please update your app to continue.
 ```
-
 - Shown when client version is below minimum required
 - Default: "Please update your app to continue."
 
 ### Configuration Files
 
 Development:
-
 ```bash
 # .env.development
 EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED=false
@@ -356,7 +315,6 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGIN_ENABLED=true
 ```
 
 Staging:
-
 ```bash
 # .env.staging
 EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED=false
@@ -364,7 +322,6 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGIN_ENABLED=true
 ```
 
 Production:
-
 ```bash
 # .env.production
 EXPO_PUBLIC_FEATURE_AUTH_RECAPTCHA_ENABLED=false
@@ -410,7 +367,7 @@ const useMyFeature = () => {
   const [isEnabled, setIsEnabled] = useState(false);
 
   useEffect(() => {
-    checkFeatureFlag('auth.recaptcha').then((flag) => {
+    checkFeatureFlag('auth.recaptcha').then(flag => {
       setIsEnabled(flag.enabled && !flag.requiresUpdate);
     });
   }, []);
@@ -473,7 +430,7 @@ export type FeatureFlagName =
   | 'auth.signup'
   | 'auth.logout'
   | 'auth.recaptcha'
-  | 'your.newFlag'; // Add here
+  | 'your.newFlag';  // Add here
 ```
 
 ### 2. Configure Environment Variables
@@ -495,7 +452,6 @@ Add a section to this README following the template:
 **Purpose**: Brief description of what this flag controls.
 
 **Default State**:
-
 - Development: true/false
 - Staging: true/false
 - Production: true/false
@@ -523,7 +479,6 @@ The feature flag system enforces minimum client versions to prevent incompatible
 ### How It Works
 
 1. Client version defined in `mobile/src/core/featureFlags/index.ts`:
-
 ```typescript
 const CLIENT_VERSION: ClientVersion = {
   major: 0,
@@ -533,7 +488,6 @@ const CLIENT_VERSION: ClientVersion = {
 ```
 
 2. Minimum version specified in environment variable:
-
 ```bash
 EXPO_PUBLIC_FEATURE_AUTH_LOGIN_MIN_VERSION=1.2.0
 ```
@@ -545,13 +499,11 @@ EXPO_PUBLIC_FEATURE_AUTH_LOGIN_MIN_VERSION=1.2.0
 ### Semver Comparison
 
 Versions are compared hierarchically:
-
 - Major version mismatch: incompatible
 - Minor version mismatch: incompatible (when major matches)
 - Patch version mismatch: incompatible (when major and minor match)
 
 Example:
-
 - Client: `0.1.0`
 - Required: `1.0.0`
 - Result: `requiresUpdate = true`
@@ -573,7 +525,6 @@ if (flag.requiresUpdate) {
 The current environment-variable-based system will migrate to Unleash for advanced features:
 
 **Planned Features**:
-
 - User targeting (% rollouts, user IDs, segments)
 - A/B testing and experiments
 - Real-time flag updates without app rebuild
@@ -581,7 +532,6 @@ The current environment-variable-based system will migrate to Unleash for advanc
 - Analytics and metrics dashboard
 
 **Migration Path**:
-
 1. Set up Unleash server or use hosted service
 2. Configure environment variables:
    - `EXPO_PUBLIC_UNLEASH_URL`
@@ -598,7 +548,6 @@ The current environment-variable-based system will migrate to Unleash for advanc
 **Interface Compatibility**:
 
 The `FeatureFlagResult` interface will remain the same:
-
 ```typescript
 interface FeatureFlagResult {
   enabled: boolean;
@@ -608,7 +557,6 @@ interface FeatureFlagResult {
 ```
 
 Unleash will populate these fields from:
-
 - `enabled`: Unleash SDK `isEnabled()` result
 - `requiresUpdate`: Version comparison using flag metadata
 - `message`: Custom message from flag variant
@@ -673,7 +621,6 @@ logEvent('feature-flag-checked', {
 ### Key Metrics
 
 Monitor:
-
 - Flag check frequency per flag
 - Enabled/disabled ratio
 - Version compatibility issues
@@ -703,7 +650,6 @@ console.log('[FeatureFlags] Result:', { enabled: true, requiresUpdate: false });
 ## Support
 
 For questions or issues:
-
 - Feature flag implementation: `mobile/src/core/featureFlags/`
 - Backend verification: `edge-functions/supabase/functions/verify-recaptcha/`
 - Documentation updates: This file (`mobile/src/core/featureFlags/README.md`)

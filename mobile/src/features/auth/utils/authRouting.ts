@@ -207,7 +207,9 @@ export interface AuthRoutingInput {
  * });
  * // Returns: 'home'
  */
-export function deriveInitialRouteFromAuthState(input: AuthRoutingInput): AuthRoute {
+export function deriveInitialRouteFromAuthState(
+  input: AuthRoutingInput
+): AuthRoute {
   // Gate 1: Check authentication status
   // Unauthenticated users must sign in before accessing any protected routes
   if (!input.isAuthenticated) {

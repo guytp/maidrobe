@@ -44,6 +44,7 @@ interface SignUpMutationContext {
   startTime: number;
 }
 
+
 /**
  * React Query mutation hook for user signup with email and password.
  *

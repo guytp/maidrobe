@@ -72,15 +72,7 @@ jest.mock('../../src/core/state/store', () => ({
 }));
 
 // Mock Toast component - define before mocking to use in factory
-const MockToast = ({
-  visible,
-  message,
-  onDismiss,
-}: {
-  visible: boolean;
-  message: string;
-  onDismiss: () => void;
-}) =>
+const MockToast = ({ visible, message, onDismiss }: { visible: boolean; message: string; onDismiss: () => void }) =>
   visible ? (
     <TouchableOpacity testID="success-toast" onPress={onDismiss}>
       <View>
@@ -662,9 +654,12 @@ describe('ResetPasswordScreen', () => {
 
   describe('Form Submission Flow', () => {
     it('should show validation error when submitting weak password', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -682,9 +677,12 @@ describe('ResetPasswordScreen', () => {
     });
 
     it('should show error when passwords do not match on submit', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -727,9 +725,12 @@ describe('ResetPasswordScreen', () => {
         remainingSeconds: 300,
       });
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -799,9 +800,12 @@ describe('ResetPasswordScreen', () => {
         error: 'reCAPTCHA verification failed',
       });
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -860,7 +864,9 @@ describe('ResetPasswordScreen', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(resetAttemptRateLimit.recordResetAttempt).toHaveBeenCalledWith('valid-access-token');
+        expect(resetAttemptRateLimit.recordResetAttempt).toHaveBeenCalledWith(
+          'valid-access-token'
+        );
       });
     });
 
@@ -928,7 +934,9 @@ describe('ResetPasswordScreen', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(resetAttemptRateLimit.clearResetAttempts).toHaveBeenCalledWith('valid-access-token');
+        expect(resetAttemptRateLimit.clearResetAttempts).toHaveBeenCalledWith(
+          'valid-access-token'
+        );
       });
     });
 
@@ -988,9 +996,12 @@ describe('ResetPasswordScreen', () => {
     it('should cleanup timeout on unmount to prevent memory leak', async () => {
       jest.useFakeTimers();
 
-      const { getByPlaceholderText, getByLabelText, unmount } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, unmount } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -1021,9 +1032,12 @@ describe('ResetPasswordScreen', () => {
         error: { message: 'Link expired or invalid' },
       });
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -1138,9 +1152,12 @@ describe('ResetPasswordScreen', () => {
         () => new Promise((resolve) => setTimeout(() => resolve({ data: {}, error: null }), 100))
       );
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByPlaceholderText, getByLabelText, getByText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
       const passwordInput = getByPlaceholderText('Enter new password');
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
@@ -1304,9 +1321,7 @@ describe('ResetPasswordScreen', () => {
 
       fireEvent.press(getByText('Resend Reset Email'));
 
-      expect(mockPush).toHaveBeenCalledWith(
-        '/auth/forgot-password?email=user%2Btest%40example.com'
-      );
+      expect(mockPush).toHaveBeenCalledWith('/auth/forgot-password?email=user%2Btest%40example.com');
     });
   });
 });
