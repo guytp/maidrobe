@@ -8,6 +8,7 @@ import {
   markNeedsRefresh as markNeedsRefreshInStorage,
 } from '../storage/sessionPersistence';
 import { deriveTokenExpiry } from './tokenExpiry';
+import { fetchProfile } from '../api/useProfile';
 
 /**
  * Offline trust window duration in milliseconds (7 days).
@@ -219,12 +220,21 @@ async function executeRestore(): Promise<void> {
           tokenType: data.session.token_type || 'bearer',
         };
 
+        // Fetch user profile to get has_onboarded flag
+        // This is critical for onboarding gate routing decisions
+        const profile = await fetchProfile(data.user.id);
+
+        // Determine hasOnboarded value:
+        // - Use profile.hasOnboarded if profile exists
+        // - Default to false if profile doesn't exist (new user or fetch failed)
+        const hasOnboarded = profile?.hasOnboarded ?? false;
+
         // Create user object
         const user = {
           id: data.user.id,
           email: data.user.email || '',
           emailVerified: !!data.user.email_confirmed_at,
-          hasOnboarded: false,
+          hasOnboarded,
         };
 
         // Apply authenticated state atomically
@@ -236,6 +246,8 @@ async function executeRestore(): Promise<void> {
           outcome: 'success',
           metadata: {
             emailVerified: user.emailVerified,
+            hasOnboarded,
+            profileFetched: !!profile,
           },
         });
 
@@ -345,12 +357,22 @@ async function executeRestore(): Promise<void> {
         tokenType: bundle.session.token_type || 'bearer',
       };
 
+      // Fetch user profile to get has_onboarded flag
+      // This is critical for onboarding gate routing decisions
+      // Even in offline mode, we attempt to fetch profile
+      const profile = await fetchProfile(storedUser.id);
+
+      // Determine hasOnboarded value:
+      // - Use profile.hasOnboarded if profile exists
+      // - Default to false if profile doesn't exist (offline or fetch failed)
+      const hasOnboarded = profile?.hasOnboarded ?? false;
+
       // Create user object
       const user = {
         id: storedUser.id,
         email: storedUser.email || '',
         emailVerified: !!storedUser.email_confirmed_at,
-        hasOnboarded: false,
+        hasOnboarded,
       };
 
       // Apply authenticated state
@@ -365,6 +387,8 @@ async function executeRestore(): Promise<void> {
         outcome: 'offline-trusted',
         metadata: {
           timeSinceLastAuthDays: Math.floor(timeSinceLastAuth / (24 * 60 * 60 * 1000)),
+          hasOnboarded,
+          profileFetched: !!profile,
         },
       });
 

@@ -7,6 +7,9 @@
  */
 
 export * from './store/sessionSlice';
+export * from './types/profile';
+export * from './api/useProfile';
+export * from './api/useUpdateProfile';
 export * from './api/useSignUp';
 export * from './api/useResendVerification';
 export * from './api/useLogin';
