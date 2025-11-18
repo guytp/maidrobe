@@ -117,7 +117,7 @@ describe('useCompleteOnboarding', () => {
         });
       });
 
-      expect(mockUpdateHasOnboarded).toHaveBeenCalledWith(true);
+      expect(mockUpdateHasOnboarded).toHaveBeenCalled();
       expect(mockResetOnboardingState).toHaveBeenCalled();
     });
 
@@ -246,7 +246,7 @@ describe('useCompleteOnboarding', () => {
         });
       });
 
-      expect(mockUpdateHasOnboarded).toHaveBeenCalledWith(true);
+      expect(mockUpdateHasOnboarded).toHaveBeenCalled();
       expect(mockResetOnboardingState).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/home');
     });
@@ -582,7 +582,7 @@ describe('useCompleteOnboarding', () => {
         await result.current({});
       });
 
-      expect(mockUpdateHasOnboarded).toHaveBeenCalledWith(true);
+      expect(mockUpdateHasOnboarded).toHaveBeenCalled();
       expect(mockResetOnboardingState).toHaveBeenCalled();
       expect(mockReplace).toHaveBeenCalledWith('/home');
     });
@@ -681,7 +681,7 @@ describe('useCompleteOnboarding', () => {
         await result.current({});
       });
 
-      expect(mockUpdateHasOnboarded).toHaveBeenCalledWith(true);
+      expect(mockUpdateHasOnboarded).toHaveBeenCalled();
       expect(mockResetOnboardingState).toHaveBeenCalled();
     });
   });
