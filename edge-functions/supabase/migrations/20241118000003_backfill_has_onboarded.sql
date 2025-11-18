@@ -12,7 +12,7 @@ SET has_onboarded = true
 WHERE has_onboarded IS NULL;
 
 -- Verify backfill completed successfully
--- This query should return 0 if all rows were updated
+-- This query must return 0 or the migration will fail
 DO $$
 DECLARE
   null_count INTEGER;
@@ -22,7 +22,9 @@ BEGIN
   WHERE has_onboarded IS NULL;
 
   IF null_count > 0 THEN
-    RAISE WARNING 'Backfill incomplete: % rows still have NULL has_onboarded', null_count;
+    RAISE EXCEPTION 'Backfill incomplete: % rows still have NULL has_onboarded. Migration cannot proceed until all profiles have has_onboarded set.', null_count
+      USING ERRCODE = '23502', -- not_null_violation
+            HINT = 'Check for concurrent inserts, RLS policies, or database permissions that may have prevented the UPDATE from completing.';
   ELSE
     RAISE NOTICE 'Backfill successful: All existing profiles have has_onboarded set';
   END IF;
