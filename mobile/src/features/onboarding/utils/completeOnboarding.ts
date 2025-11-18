@@ -3,7 +3,13 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError, logSuccess } from '../../../core/telemetry';
-import { trackOnboardingCompleted, trackOnboardingSkippedAll } from './onboardingAnalytics';
+import {
+  trackOnboardingCompleted,
+  trackOnboardingSkippedAll,
+  trackOnboardingCompletedAllSteps,
+  trackOnboardingCompletedWithSkips,
+  trackOnboardingExitToHome,
+} from './onboardingAnalytics';
 import type { OnboardingStep } from '../store/onboardingSlice';
 
 /**
@@ -20,6 +26,8 @@ export interface CompleteOnboardingOptions {
   duration?: number;
   /** Step the user was on when they skipped (for global skip) */
   originStep?: OnboardingStep | string;
+  /** Whether user has wardrobe items (defaults to false) */
+  hasItems?: boolean;
 }
 
 /**
@@ -98,18 +106,43 @@ export function useCompleteOnboarding() {
       try {
         // Step 1: Fire analytics events (fire-and-forget)
         // These are non-blocking and should not prevent completion
+        const hasItems = options.hasItems ?? false;
+        const completedSteps = options.completedSteps || [];
+        const skippedSteps = options.skippedSteps || [];
+
         if (options.isGlobalSkip) {
+          // Global skip path: user bypassed onboarding entirely
+          // Fire legacy skipped_all event for backward compatibility
           void trackOnboardingSkippedAll(
             (options.originStep as OnboardingStep) || 'welcome',
-            options.completedSteps || [],
-            options.skippedSteps || []
+            completedSteps,
+            skippedSteps
           );
+
+          // Fire exit_to_home event with global_skip method
+          void trackOnboardingExitToHome('global_skip', hasItems, options.originStep);
         } else {
-          void trackOnboardingCompleted(
-            options.completedSteps || [],
-            options.skippedSteps || [],
-            options.duration
-          );
+          // Normal completion path: user reached success screen
+          // Determine if all steps were completed or some were skipped
+          const hasSkippedSteps = skippedSteps.length > 0;
+
+          if (hasSkippedSteps) {
+            // User completed with some per-step skips
+            void trackOnboardingCompletedWithSkips(
+              completedSteps,
+              skippedSteps,
+              options.duration,
+              hasItems
+            );
+            void trackOnboardingExitToHome('completed_with_skips', hasItems);
+          } else {
+            // User completed all steps without skipping
+            void trackOnboardingCompletedAllSteps(completedSteps, options.duration, hasItems);
+            void trackOnboardingExitToHome('completed_all', hasItems);
+          }
+
+          // Fire legacy completed event for backward compatibility
+          void trackOnboardingCompleted(completedSteps, skippedSteps, options.duration);
         }
 
         // Step 2: Optimistically update local state
