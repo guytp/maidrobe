@@ -16,6 +16,7 @@ import {
   trackStateResumed,
 } from '../../src/features/onboarding/utils/onboardingAnalytics';
 import { logError } from '../../src/core/telemetry';
+import { Toast } from '../../src/core/components/Toast';
 
 /**
  * Onboarding flow shell container.
@@ -76,6 +77,15 @@ export default function OnboardingLayout(): React.JSX.Element {
   // Local initialization state
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Toast state for backend sync failures
+  const [syncFailureToast, setSyncFailureToast] = useState<{
+    visible: boolean;
+    message: string;
+  }>({
+    visible: false,
+    message: '',
+  });
+
   // Custom primary handler for steps that need special behavior (e.g., camera)
   const [customPrimaryHandler, setCustomPrimaryHandler] = useState<(() => void) | null>(null);
 
@@ -107,6 +117,12 @@ export default function OnboardingLayout(): React.JSX.Element {
         // hasItems defaults to false for global skip path since user
         // hasn't necessarily reached success screen with item query
         hasItems: false,
+        onSyncFailure: (message) => {
+          setSyncFailureToast({
+            visible: true,
+            message,
+          });
+        },
       });
     },
     [completeOnboarding, completedSteps, skippedSteps, currentStep]
@@ -457,6 +473,20 @@ export default function OnboardingLayout(): React.JSX.Element {
         <Stack.Screen name="first-item" />
         <Stack.Screen name="success" />
       </Stack>
+
+      {/* Toast for backend sync failures */}
+      <Toast
+        visible={syncFailureToast.visible}
+        message={syncFailureToast.message}
+        type="info"
+        duration={5000}
+        onDismiss={() =>
+          setSyncFailureToast({
+            visible: false,
+            message: '',
+          })
+        }
+      />
     </OnboardingProvider>
   );
 }
