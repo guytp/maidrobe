@@ -1,10 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
+import { useStore } from '../../../core/state/store';
 import { OnboardingShell } from './OnboardingShell';
 import { useHasWardrobeItems } from '../api/useHasWardrobeItems';
+import { useOnboardingContext } from '../context/OnboardingContext';
+import { useCompleteOnboarding } from '../utils/completeOnboarding';
 
 /**
  * Onboarding Success/End screen.
@@ -55,12 +58,54 @@ import { useHasWardrobeItems } from '../api/useHasWardrobeItems';
  */
 export function SuccessScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
+  const { setCustomPrimaryHandler } = useOnboardingContext();
 
   // Query whether user has any wardrobe items for contextual messaging
   // This runs non-blocking - component renders with default while query executes
   // On error or while loading, we use safe default (no items variant)
   const { data: wardrobeData } = useHasWardrobeItems();
   const hasItems = wardrobeData?.hasItems ?? false;
+
+  // Get onboarding state from store to determine completion type
+  const completedSteps = useStore((state) => state.completedSteps);
+  const skippedSteps = useStore((state) => state.skippedSteps);
+
+  // Get shared completion helper
+  const completeOnboarding = useCompleteOnboarding();
+
+  // Track onboarding start time (will be in _layout, but we need duration)
+  // For now, we don't have access to start time, so duration will be undefined
+  const onboardingStartTimeRef = useRef<number | null>(null);
+
+  // Create custom primary handler that includes hasItems and determines completion type
+  // This bypasses the default _layout.handleOnboardingComplete to inject hasItems
+  const handleComplete = useCallback(() => {
+    // Calculate duration if we had a start time
+    // In practice, _layout tracks this, but we don't have access here
+    const duration = onboardingStartTimeRef.current
+      ? Date.now() - onboardingStartTimeRef.current
+      : undefined;
+
+    // Call completion helper directly with full context
+    void completeOnboarding({
+      isGlobalSkip: false,
+      completedSteps,
+      skippedSteps,
+      duration,
+      hasItems,
+    });
+  }, [completeOnboarding, completedSteps, skippedSteps, hasItems]);
+
+  // Register custom handler on mount, unregister on unmount
+  useEffect(() => {
+    if (setCustomPrimaryHandler) {
+      setCustomPrimaryHandler(handleComplete);
+
+      return () => {
+        setCustomPrimaryHandler(null);
+      };
+    }
+  }, [setCustomPrimaryHandler, handleComplete]);
 
   const styles = useMemo(
     () =>

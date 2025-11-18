@@ -104,6 +104,9 @@ export default function OnboardingLayout(): React.JSX.Element {
         skippedSteps,
         duration,
         originStep: currentStep || 'welcome',
+        // hasItems defaults to false for global skip path since user
+        // hasn't necessarily reached success screen with item query
+        hasItems: false,
       });
     },
     [completeOnboarding, completedSteps, skippedSteps, currentStep]

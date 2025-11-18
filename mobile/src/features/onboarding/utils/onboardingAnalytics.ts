@@ -418,3 +418,116 @@ export function trackFirstItemSkipped(reason: string): void {
     console.warn('[Onboarding Analytics] Failed to track first_item_skipped:', error);
   }
 }
+
+/**
+ * Track when onboarding is completed with all steps.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user completes onboarding by progressing through all steps
+ * without using any per-step skip buttons (though global skip is possible
+ * and tracked separately).
+ *
+ * This provides finer granularity than the generic 'completed' event,
+ * distinguishing users who engaged with every step from those who skipped
+ * some optional content.
+ *
+ * @param completedSteps - Array of steps that were completed
+ * @param durationMs - Total time spent in onboarding (optional)
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ */
+export function trackOnboardingCompletedAllSteps(
+  completedSteps: OnboardingStep[],
+  durationMs?: number,
+  hasItems?: boolean
+): void {
+  try {
+    logSuccess('onboarding', 'completed_all_steps', {
+      latency: durationMs,
+      data: {
+        completedSteps,
+        totalSteps: completedSteps.length,
+        hasItems: hasItems ?? false,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track completed_all_steps:', error);
+  }
+}
+
+/**
+ * Track when onboarding is completed with some skips.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted when user completes onboarding by reaching the success screen
+ * but used per-step skip buttons on one or more optional steps.
+ *
+ * This provides finer granularity than the generic 'completed' event,
+ * distinguishing users who skipped optional content from those who
+ * engaged with every step.
+ *
+ * @param completedSteps - Array of steps that were completed
+ * @param skippedSteps - Array of steps that were skipped
+ * @param durationMs - Total time spent in onboarding (optional)
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ */
+export function trackOnboardingCompletedWithSkips(
+  completedSteps: OnboardingStep[],
+  skippedSteps: OnboardingStep[],
+  durationMs?: number,
+  hasItems?: boolean
+): void {
+  try {
+    logSuccess('onboarding', 'completed_with_skips', {
+      latency: durationMs,
+      data: {
+        completedSteps,
+        skippedSteps,
+        totalSteps: completedSteps.length + skippedSteps.length,
+        hasItems: hasItems ?? false,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track completed_with_skips:', error);
+  }
+}
+
+/**
+ * Track when user exits onboarding to home screen.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted whenever the user transitions from the onboarding flow to the
+ * main app (Closet) via any completion path.
+ *
+ * This event provides a unified tracking point for all onboarding exits,
+ * allowing analytics to measure conversion and understand exit paths.
+ *
+ * @param method - The completion method used
+ * @param hasItems - Whether user has wardrobe items (optional, defaults to false)
+ * @param originStep - Step the user was on when exiting (for global skip)
+ */
+export function trackOnboardingExitToHome(
+  method: 'completed_all' | 'completed_with_skips' | 'global_skip',
+  hasItems?: boolean,
+  originStep?: OnboardingStep | string
+): void {
+  try {
+    logSuccess('onboarding', 'exit_to_home', {
+      data: {
+        method,
+        hasItems: hasItems ?? false,
+        originStep: originStep ?? null,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track exit_to_home:', error);
+  }
+}
