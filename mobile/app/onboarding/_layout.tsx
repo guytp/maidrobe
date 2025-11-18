@@ -15,6 +15,7 @@ import {
   trackStateReset,
   trackStateResumed,
 } from '../../src/features/onboarding/utils/onboardingAnalytics';
+import { logError } from '../../src/core/telemetry';
 
 /**
  * Onboarding flow shell container.
