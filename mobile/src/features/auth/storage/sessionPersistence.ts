@@ -104,6 +104,40 @@ export interface StoredSessionBundle {
    * to ensure tokens are updated as soon as network is available.
    */
   needsRefresh?: boolean;
+
+  /**
+   * Optional flag indicating whether the user has completed onboarding.
+   *
+   * This field is persisted in the session bundle to support offline scenarios
+   * where the device cannot fetch the user's profile from the server. Without
+   * this field, offline users would incorrectly be routed to onboarding on
+   * every cold start even after completing onboarding.
+   *
+   * OFFLINE TRUST MODE BEHAVIOR:
+   * When the device is offline during auth restore and the session is within
+   * the 7-day trust window, the auth restore pipeline uses this cached value
+   * to determine onboarding state instead of attempting a network fetch that
+   * will fail or timeout.
+   *
+   * SOURCE OF TRUTH:
+   * The server's public.profiles.has_onboarded column is the authoritative
+   * source of truth. This field is a cached copy for offline resilience only.
+   * When online, the profile is always fetched fresh and this cache is updated.
+   *
+   * SYNCHRONIZATION:
+   * - Set when user completes onboarding (completeOnboarding.ts)
+   * - Updated on successful login (useLogin.ts)
+   * - Updated on successful token refresh (authRestore.ts)
+   * - Cleared on logout or session invalidation
+   *
+   * BACKWARD COMPATIBILITY:
+   * This field is optional to support existing session bundles that were
+   * saved before this field was added. If undefined, the auth restore logic
+   * will attempt to fetch the profile or default to false.
+   *
+   * Added in: Story #95 (Onboarding Gate and User Flag Handling)
+   */
+  hasOnboarded?: boolean;
 }
 
 /**
@@ -387,7 +421,8 @@ export async function loadStoredSession(): Promise<StoredSessionBundle | null> {
  */
 export async function saveSessionFromSupabase(
   session: Session,
-  lastAuthSuccessAt: string
+  lastAuthSuccessAt: string,
+  hasOnboarded?: boolean
 ): Promise<void> {
   try {
     // Validate inputs
@@ -418,6 +453,7 @@ export async function saveSessionFromSupabase(
       session,
       lastAuthSuccessAt,
       needsRefresh: false, // Reset on successful auth
+      ...(hasOnboarded !== undefined && { hasOnboarded }), // Include only if defined
     };
 
     // Stringify bundle

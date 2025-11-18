@@ -210,16 +210,6 @@ async function executeRestore(): Promise<void> {
 
       // Step 5: Success path - refresh succeeded
       if (!error && data?.session && data?.user) {
-        // Persist refreshed session to SecureStore
-        await saveSessionFromSupabase(data.session, new Date().toISOString());
-
-        // Derive token metadata
-        const { expiresAt } = deriveTokenExpiry(data.session);
-        const tokenMetadata = {
-          expiresAt,
-          tokenType: data.session.token_type || 'bearer',
-        };
-
         // Fetch user profile to get has_onboarded flag
         // This is critical for onboarding gate routing decisions
         const profile = await fetchProfile(data.user.id);
@@ -228,6 +218,17 @@ async function executeRestore(): Promise<void> {
         // - Use profile.hasOnboarded if profile exists
         // - Default to false if profile doesn't exist (new user or fetch failed)
         const hasOnboarded = profile?.hasOnboarded ?? false;
+
+        // Persist refreshed session to SecureStore WITH hasOnboarded
+        // This ensures offline users have access to onboarding state without network
+        await saveSessionFromSupabase(data.session, new Date().toISOString(), hasOnboarded);
+
+        // Derive token metadata
+        const { expiresAt } = deriveTokenExpiry(data.session);
+        const tokenMetadata = {
+          expiresAt,
+          tokenType: data.session.token_type || 'bearer',
+        };
 
         // Create user object
         const user = {
@@ -365,15 +366,45 @@ async function executeRestore(): Promise<void> {
         tokenType: bundle.session.token_type || 'bearer',
       };
 
-      // Fetch user profile to get has_onboarded flag
-      // This is critical for onboarding gate routing decisions
-      // Even in offline mode, we attempt to fetch profile
-      const profile = await fetchProfile(storedUser.id);
+      // OFFLINE-SAFE ONBOARDING STATE RESOLUTION:
+      // When device is offline, we cannot reliably fetch the profile from the server.
+      // To prevent incorrectly routing returning users through onboarding, we use
+      // a multi-tier fallback strategy:
+      //
+      // 1. Cached hasOnboarded from session bundle (persisted on last successful auth)
+      //    - Most reliable for offline scenarios
+      //    - Updated on every login/refresh when online
+      //    - Survives app restarts and cold starts
+      //
+      // 2. Attempt profile fetch (will fail if truly offline)
+      //    - Provides fresh data if network is actually available
+      //    - Allows us to detect and correct stale cache
+      //
+      // 3. Default to false only if both above are unavailable
+      //    - Conservative fallback for truly new users
+      //    - Ensures onboarding is shown when needed
+      //
+      // This approach prevents the following bug:
+      // - User completes onboarding while online
+      // - User goes offline
+      // - App cold starts and enters offline trust mode
+      // - Without cached hasOnboarded, profile fetch fails
+      // - User incorrectly sent back through onboarding
+      let hasOnboarded = false;
 
-      // Determine hasOnboarded value:
-      // - Use profile.hasOnboarded if profile exists
-      // - Default to false if profile doesn't exist (offline or fetch failed)
-      const hasOnboarded = profile?.hasOnboarded ?? false;
+      // Tier 1: Check cached hasOnboarded from bundle (offline-safe)
+      if (bundle.hasOnboarded !== undefined) {
+        hasOnboarded = bundle.hasOnboarded;
+      }
+
+      // Tier 2: Attempt fresh profile fetch (opportunistic, may fail offline)
+      const profile = await fetchProfile(storedUser.id);
+      if (profile?.hasOnboarded !== undefined) {
+        // Fresh data available - use it and it will be cached on next save
+        hasOnboarded = profile.hasOnboarded;
+      }
+
+      // Tier 3: hasOnboarded already initialized to false as conservative default
 
       // Create user object
       const user = {
