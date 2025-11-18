@@ -82,10 +82,7 @@ type AuthErrorI18nKey =
  * // Returns: "Invalid email or password."
  * ```
  */
-export function getAuthErrorMessage(
-  error: NormalizedAuthError,
-  flow: AuthFlow
-): string {
+export function getAuthErrorMessage(error: NormalizedAuthError, flow: AuthFlow): string {
   try {
     // Step 1: Select appropriate i18n key based on category and flow
     const i18nKey = selectI18nKey(error.category, flow, error.code);
@@ -262,10 +259,7 @@ function selectI18nKey(
  * // Returns: "Please wait 45 seconds."
  * ```
  */
-function applyDynamicReplacements(
-  message: string,
-  error: NormalizedAuthError
-): string {
+function applyDynamicReplacements(message: string, error: NormalizedAuthError): string {
   // Handle {seconds} placeholder for rate limiting
   if (message.includes('{seconds}')) {
     const seconds = extractSecondsFromError(error);
@@ -354,9 +348,10 @@ function getFallbackMessage(category: AuthErrorCategory, flow: AuthFlow): string
     case 'unknown':
       return 'Something went wrong. Please try again.';
 
-    default:
+    default: {
       const _exhaustive: never = category;
       return 'Something went wrong. Please try again.';
+    }
   }
 }
 

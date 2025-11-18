@@ -438,17 +438,13 @@ export async function saveSessionFromSupabase(
     });
   } catch (error) {
     // Log error but don't throw - save failures shouldn't block auth flow
-    logError(
-      error instanceof Error ? error : new Error('Unknown error saving session'),
-      'server',
-      {
-        feature: 'auth',
-        operation: 'session-save',
-        metadata: {
-          reason: 'storage_error',
-        },
-      }
-    );
+    logError(error instanceof Error ? error : new Error('Unknown error saving session'), 'server', {
+      feature: 'auth',
+      operation: 'session-save',
+      metadata: {
+        reason: 'storage_error',
+      },
+    });
 
     logAuthEvent('session-save-error', {
       outcome: 'failure',
