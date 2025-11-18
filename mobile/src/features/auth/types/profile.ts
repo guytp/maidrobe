@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * User profile types for the auth feature.
  *
@@ -15,21 +17,45 @@
  */
 
 /**
+ * Zod schema for validating profile data from Supabase.
+ *
+ * This schema validates the raw response from the public.profiles table
+ * to ensure data integrity before it enters the application layer. All
+ * profile data must pass this validation before being mapped to the
+ * application Profile type.
+ *
+ * Validation rules:
+ * - id: Must be a valid UUID string
+ * - has_onboarded: Must be a boolean
+ * - created_at: Must be a string (ISO 8601 timestamp from Postgres)
+ * - updated_at: Must be a string (ISO 8601 timestamp from Postgres)
+ *
+ * @throws {z.ZodError} If the profile data doesn't match the expected schema
+ *
+ * @example
+ * ```typescript
+ * const { data } = await supabase.from('profiles').select('*').single();
+ * const validatedData = ProfileRowSchema.parse(data);
+ * const profile = mapProfileRowToProfile(validatedData);
+ * ```
+ */
+export const ProfileRowSchema = z.object({
+  id: z.string().uuid(),
+  has_onboarded: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+/**
  * Database row structure for public.profiles table.
  *
  * This matches the exact schema in the database with snake_case field names.
  * Used for type-safe Supabase queries and responses.
+ *
+ * Note: This type is inferred from ProfileRowSchema to ensure runtime
+ * validation and compile-time types stay in sync.
  */
-export interface ProfileRow {
-  /** User ID (references auth.users.id) */
-  id: string;
-  /** Whether the user has completed onboarding */
-  has_onboarded: boolean;
-  /** Timestamp when profile was created */
-  created_at: string;
-  /** Timestamp when profile was last updated */
-  updated_at: string;
-}
+export type ProfileRow = z.infer<typeof ProfileRowSchema>;
 
 /**
  * Application-facing profile type with camelCase fields.
