@@ -11,6 +11,7 @@ import {
   trackOnboardingExitToHome,
 } from './onboardingAnalytics';
 import type { OnboardingStep } from '../store/onboardingSlice';
+import type { ProfileUpdatePayload } from '../../auth/types/profile';
 
 /**
  * Classifies Supabase errors to determine if they are transient and should be retried.
@@ -165,10 +166,10 @@ export interface CompleteOnboardingOptions {
  * due to backend issues. Local completion ensures forward progress.
  *
  * BACKEND UPDATE:
- * Updates user metadata via supabase.auth.updateUser() which is:
+ * Updates public.profiles.has_onboarded via Supabase database update:
  * - Idempotent by design
- * - Respects RLS automatically
- * - Updates auth.users metadata field
+ * - Respects RLS automatically (user can only update own profile)
+ * - Updates public.profiles table
  *
  * @returns Memoized callback to complete onboarding
  *
@@ -303,15 +304,15 @@ export function useCompleteOnboarding() {
         // even if backend is unavailable
         if (user?.id) {
           try {
-            // Update user metadata via Supabase Auth with retry on transient failures
+            // Update profile in public.profiles table with retry on transient failures
             // This is idempotent - calling multiple times is safe
+            // RLS ensures user can only update their own profile
             await retryWithBackoff(
               async () => {
-                const { error } = await supabase.auth.updateUser({
-                  data: {
-                    hasOnboarded: true,
-                  },
-                });
+                const { error } = await supabase
+                  .from('profiles')
+                  .update({ has_onboarded: true } as ProfileUpdatePayload)
+                  .eq('id', user.id);
 
                 if (error) {
                   throw error;

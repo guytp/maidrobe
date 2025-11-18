@@ -12,6 +12,7 @@ import { saveSessionFromSupabase } from '../storage/sessionPersistence';
 import { handleAuthError } from '../utils/authErrorHandler';
 import { getAuthErrorMessage } from '../utils/authErrorMessages';
 import { logAuthErrorToSentry } from '../utils/logAuthErrorToSentry';
+import { fetchProfile } from './useProfile';
 
 /**
  * Zod schema for login request validation
@@ -468,16 +469,25 @@ export function useLogin() {
         throw new Error(userMessage);
       }
     },
-    onSuccess: (data, _variables, context) => {
+    onSuccess: async (data, _variables, context) => {
       // Calculate request latency for performance monitoring
       const latency = context?.startTime ? Date.now() - context.startTime : undefined;
+
+      // Fetch user profile to get has_onboarded flag
+      // This is critical for onboarding gate routing decisions
+      const profile = await fetchProfile(data.user.id);
+
+      // Determine hasOnboarded value:
+      // - Use profile.hasOnboarded if profile exists
+      // - Default to false if profile doesn't exist (new user or fetch failed)
+      const hasOnboarded = profile?.hasOnboarded ?? false;
 
       // Business logic: Update Zustand session store with authenticated user
       useStore.getState().setUser({
         id: data.user.id,
         email: data.user.email,
         emailVerified: !!data.user.email_confirmed_at,
-        hasOnboarded: false,
+        hasOnboarded,
       });
 
       // Store token metadata (expiry time and type) - NOT the actual tokens
@@ -507,6 +517,8 @@ export function useLogin() {
         latency,
         metadata: {
           emailVerified: !!data.user.email_confirmed_at,
+          hasOnboarded,
+          profileFetched: !!profile,
         },
       });
     },
