@@ -139,7 +139,7 @@ export interface CompleteOnboardingContext {
   /** React Query client for cache invalidation */
   queryClient: QueryClient;
   /** Zustand action to update hasOnboarded flag in session state */
-  updateHasOnboarded: (value: boolean) => void;
+  updateHasOnboarded: () => void;
   /** Zustand action to reset onboarding state (steps, progress) */
   resetOnboardingState: () => void;
   /** Expo router for navigation */
@@ -423,7 +423,7 @@ export async function completeOnboardingForCurrentUser(
   // Step 4: Optimistically update local Zustand session state
   // This happens immediately to provide instant UI feedback
   // CRITICAL: hasOnboarded is ONLY set to true, NEVER false
-  updateHasOnboarded(true);
+  updateHasOnboarded();
 
   // Step 5: Clear all local onboarding state
   // Resets currentStep, completedSteps, skippedSteps to initial state

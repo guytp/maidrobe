@@ -50,7 +50,7 @@ export interface TokenMetadata {
  * ACTIONS - Basic:
  * @property setUser - Action to set the authenticated user (also sets isAuthenticated=true)
  * @property updateEmailVerified - Action to update the emailVerified status
- * @property updateHasOnboarded - Action to update the hasOnboarded status
+ * @property updateHasOnboarded - Action to mark user as having completed onboarding (one-way: false -> true)
  * @property setTokenMetadata - Action to store token metadata (expiry, type)
  * @property clearUser - Action to clear the authenticated user (also sets isAuthenticated=false)
  * @property setInitialized - Action to mark auth initialization as complete
@@ -86,7 +86,7 @@ export interface SessionSlice {
   // Basic actions (backward compatible)
   setUser: (user: User) => void;
   updateEmailVerified: (verified: boolean) => void;
-  updateHasOnboarded: (completed: boolean) => void;
+  updateHasOnboarded: () => void;
   setTokenMetadata: (expiresAt: number, tokenType: string) => void;
   clearUser: () => void;
   setInitialized: (initialized: boolean) => void;
@@ -169,13 +169,21 @@ export const createSessionSlice: StateCreator<SessionSlice, [], [], SessionSlice
     })),
 
   /**
-   * Updates the onboarding completion status of the current user.
+   * Marks the user as having completed onboarding.
    *
-   * @param completed - Whether the user has completed onboarding
+   * INVARIANT: This action ONLY sets hasOnboarded to true. Once a user
+   * completes onboarding, they should never be sent through it again.
+   * This is a one-way state transition that cannot be reversed.
+   *
+   * The hasOnboarded flag is the authoritative gate for routing users
+   * past the onboarding flow. Setting it to false would violate business
+   * logic and potentially create routing loops or inconsistent state.
+   *
+   * @throws Never - This is a pure state update with no side effects
    */
-  updateHasOnboarded: (completed) =>
+  updateHasOnboarded: () =>
     set((state) => ({
-      user: state.user ? { ...state.user, hasOnboarded: completed } : null,
+      user: state.user ? { ...state.user, hasOnboarded: true } : null,
     })),
 
   /**
