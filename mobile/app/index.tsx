@@ -2,6 +2,8 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useStore } from '../src/core/state/store';
+import { trackOnboardingGateEvent } from '../src/core/telemetry';
+import { checkFeatureFlagSync } from '../src/core/featureFlags';
 
 /**
  * Root entry point for the application.
@@ -64,6 +66,7 @@ import { useStore } from '../src/core/state/store';
 export default function Index(): React.JSX.Element {
   const isHydrating = useStore((state) => state.isHydrating);
   const deriveRoute = useStore((state) => state.deriveRoute);
+  const user = useStore((state) => state.user);
 
   // Show loading state while auth is hydrating
   // This prevents premature redirects before we know if a valid session exists
@@ -91,6 +94,22 @@ export default function Index(): React.JSX.Element {
   // - onboardingGateEnabled: whether onboarding gate feature is enabled
   const targetRoute = deriveRoute();
 
+  // Get onboarding gate state for analytics
+  const onboardingGateResult = checkFeatureFlagSync('onboarding.gate');
+  const hasOnboarded = user?.hasOnboarded ?? false;
+
+  // Track onboarding gate evaluation
+  // This event is emitted every time the gate is shown (app launch)
+  // It provides visibility into routing decisions and feature flag state
+  if (targetRoute === 'onboarding' || targetRoute === 'home') {
+    trackOnboardingGateEvent('onboarding_gate.shown', {
+      userId: user?.id,
+      hasOnboarded,
+      gateEnabled: onboardingGateResult.enabled,
+      route: targetRoute === 'onboarding' ? 'onboarding' : 'home',
+    });
+  }
+
   if (targetRoute === 'login') {
     return <Redirect href="/auth/login" />;
   }
@@ -100,7 +119,24 @@ export default function Index(): React.JSX.Element {
   }
 
   if (targetRoute === 'onboarding') {
+    // Track routing decision to onboarding
+    trackOnboardingGateEvent('onboarding_gate.route_onboarding', {
+      userId: user?.id,
+      hasOnboarded,
+      gateEnabled: onboardingGateResult.enabled,
+      route: 'onboarding',
+    });
     return <Redirect href="/onboarding/welcome" />;
+  }
+
+  // Track routing decision to home (if onboarding gate was relevant)
+  if (onboardingGateResult.enabled) {
+    trackOnboardingGateEvent('onboarding_gate.route_home', {
+      userId: user?.id,
+      hasOnboarded,
+      gateEnabled: onboardingGateResult.enabled,
+      route: 'home',
+    });
   }
 
   return <Redirect href="/home" />;

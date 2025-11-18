@@ -18,6 +18,19 @@ import { mapProfileRowToProfile } from '../types/profile';
  * - Retry: 3 times for transient errors
  * - Query key: ['profile', userId]
  *
+ * CACHING STRATEGY:
+ * - Cached data is used optimistically for immediate routing decisions
+ * - Background refetches happen automatically after stale time expires
+ * - No mid-session routing changes (routing only occurs on cold start)
+ * - Cache invalidation triggered after successful profile updates
+ * - Stale data is acceptable for routing (eventual consistency model)
+ *
+ * ROUTING USAGE:
+ * - app/index.tsx uses cached profile data for immediate redirect decisions
+ * - authRestore.ts fetches fresh profile data on app launch
+ * - No re-routing occurs if cached data becomes stale mid-session
+ * - User experience prioritized over perfect consistency
+ *
  * SECURITY:
  * - Uses Row Level Security (RLS) automatically
  * - User can only fetch their own profile
@@ -29,7 +42,7 @@ import { mapProfileRowToProfile } from '../types/profile';
  * - Missing profiles return undefined (handled by caller)
  *
  * PERFORMANCE:
- * - Fetches minimal fields (id, has_onboarded)
+ * - Fetches minimal fields (id, has_onboarded, created_at, updated_at)
  * - Single query with .single() for efficiency
  * - React Query cache prevents redundant fetches
  *

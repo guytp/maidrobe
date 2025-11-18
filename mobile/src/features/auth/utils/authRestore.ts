@@ -240,6 +240,14 @@ async function executeRestore(): Promise<void> {
         // Apply authenticated state atomically
         useStore.getState().applyAuthenticatedUser(user, tokenMetadata);
 
+        // Server state takes precedence: clear local onboarding progress
+        // if server reports hasOnboarded=true
+        // This ensures local Zustand onboarding state is treated as secondary
+        // to the authoritative server profile flag
+        if (hasOnboarded) {
+          useStore.getState().resetOnboardingState();
+        }
+
         // Emit success telemetry
         logAuthEvent('auth-restore-success', {
           userId: user.id,
