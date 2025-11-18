@@ -166,6 +166,13 @@ jest.mock('../../src/core/i18n', () => ({
       'screens.onboarding.firstItem.metadata.errors.storageError': 'Storage error occurred',
       'screens.onboarding.firstItem.metadata.errors.databaseError': 'Database error occurred',
       'screens.onboarding.firstItem.metadata.errors.unknownError': 'Unknown error occurred',
+      'screens.onboarding.firstItem.metadata.errors.validationError':
+        'Please check your information and try again.',
+      'screens.onboarding.firstItem.cancelConfirmation.title': 'Cancel adding item?',
+      'screens.onboarding.firstItem.cancelConfirmation.message':
+        'Your progress will be lost. You can always add items later from your wardrobe.',
+      'screens.onboarding.firstItem.cancelConfirmation.keepEditing': 'Keep editing',
+      'screens.onboarding.firstItem.cancelConfirmation.cancel': 'Cancel',
       'screens.onboarding.firstItem.accessibility.screenLabel': 'First item screen',
       'screens.onboarding.firstItem.accessibility.screenHint': 'Add your first wardrobe item',
       'screens.onboarding.firstItem.accessibility.headlineLabel':
@@ -882,7 +889,7 @@ describe('FirstItemScreen', () => {
       );
 
       await waitFor(() => {
-        expect(telemetry.logError).toHaveBeenCalledWith(error, 'schema', {
+        expect(telemetry.logError).toHaveBeenCalledWith(error, 'server', {
           feature: 'onboarding_first_item',
           operation: 'saveItem',
           metadata: {
@@ -997,6 +1004,189 @@ describe('FirstItemScreen', () => {
 
       await waitFor(() => {
         expect(queryByTestId('metadata-error')).toBeTruthy();
+      });
+    });
+
+    it('should display validation error message for validation errors', async () => {
+      const { rerender, queryByTestId } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const error = new Error('Validation error') as any;
+      error.errorType = 'validation';
+
+      (useCreateFirstItem as jest.Mock).mockReturnValue({
+        ...defaultMutationState,
+        isError: true,
+        error,
+      });
+
+      rerender(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(queryByTestId('metadata-error')).toBeTruthy();
+      });
+    });
+
+    it('should call logError with user classification for validation errors', async () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const error = new Error('Validation error') as any;
+      error.errorType = 'validation';
+
+      (useCreateFirstItem as jest.Mock).mockReturnValue({
+        ...defaultMutationState,
+        isError: true,
+        error,
+      });
+
+      rerender(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(telemetry.logError).toHaveBeenCalledWith(error, 'user', {
+          feature: 'onboarding_first_item',
+          operation: 'saveItem',
+          metadata: {
+            errorType: 'validation',
+          },
+        });
+      });
+    });
+
+    it('should call logError with network classification for network errors', async () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const error = new Error('Network error') as any;
+      error.errorType = 'network';
+
+      (useCreateFirstItem as jest.Mock).mockReturnValue({
+        ...defaultMutationState,
+        isError: true,
+        error,
+      });
+
+      rerender(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(telemetry.logError).toHaveBeenCalledWith(error, 'network', {
+          feature: 'onboarding_first_item',
+          operation: 'saveItem',
+          metadata: {
+            errorType: 'network',
+          },
+        });
+      });
+    });
+
+    it('should call logError with server classification for database errors', async () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const error = new Error('Database error') as any;
+      error.errorType = 'database';
+
+      (useCreateFirstItem as jest.Mock).mockReturnValue({
+        ...defaultMutationState,
+        isError: true,
+        error,
+      });
+
+      rerender(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(telemetry.logError).toHaveBeenCalledWith(error, 'server', {
+          feature: 'onboarding_first_item',
+          operation: 'saveItem',
+          metadata: {
+            errorType: 'database',
+          },
+        });
+      });
+    });
+
+    it('should call logError with server classification for unknown errors', async () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const error = new Error('Unknown error') as any;
+      error.errorType = 'unknown';
+
+      (useCreateFirstItem as jest.Mock).mockReturnValue({
+        ...defaultMutationState,
+        isError: true,
+        error,
+      });
+
+      rerender(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(telemetry.logError).toHaveBeenCalledWith(error, 'server', {
+          feature: 'onboarding_first_item',
+          operation: 'saveItem',
+          metadata: {
+            errorType: 'unknown',
+          },
+        });
+      });
+    });
+
+    it('should call logError with user classification for camera errors', async () => {
+      (checkCameraPermission as jest.Mock).mockRejectedValue(new Error('Camera error'));
+
+      const { rerender } = render(
+        <TestWrapper>
+          <FirstItemScreen />
+        </TestWrapper>
+      );
+
+      const customHandler = mockSetCustomPrimaryHandler.mock.calls[0][0];
+      await customHandler();
+
+      await waitFor(() => {
+        expect(telemetry.logError).toHaveBeenCalledWith(
+          expect.any(Error),
+          'user',
+          expect.objectContaining({
+            feature: 'onboarding_first_item',
+            operation: 'startCamera',
+          })
+        );
       });
     });
   });
