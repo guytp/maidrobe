@@ -84,6 +84,13 @@ Applies final constraints:
 - Sets `DEFAULT false` for new users
 - Completes backwards-compatible migration
 
+### 5. Update handle_new_user with has_onboarded (20241119000001)
+
+Updates the `handle_new_user` trigger function:
+- Explicitly sets `has_onboarded = false` for new user profiles
+- Makes initialization explicit rather than relying solely on DEFAULT constraint
+- Ensures consistent behavior across all new user signups
+
 ## Migration Strategy
 
 The `has_onboarded` column uses a three-phase migration strategy:
