@@ -289,6 +289,34 @@ export function trackWelcomeSkipped(): void {
 }
 
 /**
+ * Track when preferences screen is viewed.
+ *
+ * This is a fire-and-forget operation that will not block navigation.
+ * Emitted once when the preferences step becomes visible in a session.
+ * Guarded against re-renders via useRef in the component.
+ *
+ * Prefs-specific event that provides finer granularity than the generic
+ * step_viewed event for analytics and funnel tracking.
+ *
+ * @param isResume - Whether this is a resumed session (vs fresh start)
+ */
+export function trackPrefsViewed(isResume: boolean): void {
+  try {
+    logSuccess('onboarding', 'prefs_viewed', {
+      data: {
+        step: 'prefs',
+        isResume,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_viewed:', error);
+  }
+}
+
+/**
  * Track when first item screen is viewed.
  *
  * This is a fire-and-forget operation that will not block navigation.
@@ -348,7 +376,13 @@ export function trackPrefsSaved(
         colourTendencySelected,
         exclusionsSelected,
         notesPresent,
-    console.warn('[Onboarding Analytics] Failed to track first_item_viewed:', error);
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_saved:', error);
   }
 }
 
@@ -518,7 +552,13 @@ export function trackPrefsSkipped(): void {
     logSuccess('onboarding', 'prefs_skipped', {
       data: {
         step: 'prefs',
-    console.warn('[Onboarding Analytics] Failed to track completed_all_steps:', error);
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    // Silently fail - analytics should never block user flow
+    // eslint-disable-next-line no-console
+    console.warn('[Onboarding Analytics] Failed to track prefs_skipped:', error);
   }
 }
 
