@@ -441,7 +441,11 @@ export default function OnboardingLayout(): React.JSX.Element {
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator size="large" color={colors.textPrimary} />
+        <ActivityIndicator
+          size="large"
+          color={colors.textPrimary}
+          accessibilityLabel="Loading onboarding"
+        />
       </View>
     );
   }
