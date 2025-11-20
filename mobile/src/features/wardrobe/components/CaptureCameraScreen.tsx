@@ -24,9 +24,10 @@ import { CameraView, CameraType, FlashMode } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
-import { isCaptureOrigin, CaptureOrigin, CaptureSource } from '../../../core/types/capture';
+import { isCaptureOrigin, CaptureOrigin, CaptureSource, CaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { validateCapturedImage } from '../../../core/utils/imageValidation';
 
 /**
  * Camera capture screen - live preview and photo capture.
@@ -149,9 +150,23 @@ export function CaptureCameraScreen(): React.JSX.Element {
         throw new Error('No photo URI returned');
       }
 
+      // Validate the captured image
+      const validation = validateCapturedImage(
+        photo.uri,
+        photo.width,
+        photo.height,
+        'image/jpeg' // Camera always produces JPEG
+      );
+
+      if (!validation.isValid) {
+        throw new Error(validation.errorMessage || 'Image validation failed');
+      }
+
       // Create payload using stored origin and source (fallback to params/defaults)
-      const payload = {
+      const payload: CaptureImagePayload = {
         uri: photo.uri,
+        width: photo.width || 0,
+        height: photo.height || 0,
         origin: origin || 'wardrobe',
         source: (captureSource || 'camera') as CaptureSource,
         createdAt: new Date().toISOString(),
@@ -165,6 +180,8 @@ export function CaptureCameraScreen(): React.JSX.Element {
         userId: user?.id,
         origin: origin || undefined,
         source: 'camera',
+        width: photo.width,
+        height: photo.height,
       });
 
       // Navigate to crop

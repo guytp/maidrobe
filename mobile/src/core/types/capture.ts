@@ -54,6 +54,8 @@ export type CaptureSource = 'camera' | 'gallery';
  * ```typescript
  * const payload: CaptureImagePayload = {
  *   uri: 'file:///path/to/temp/image.jpg',
+ *   width: 1920,
+ *   height: 1080,
  *   origin: 'wardrobe',
  *   source: 'camera',
  *   createdAt: '2024-01-15T10:30:00.000Z'
@@ -70,6 +72,16 @@ export interface CaptureImagePayload {
    * @example "file:///path/to/app/cache/image.jpg"
    */
   uri: string;
+
+  /**
+   * Image width in pixels.
+   */
+  width: number;
+
+  /**
+   * Image height in pixels.
+   */
+  height: number;
 
   /**
    * Origin context - which feature initiated the capture flow.
@@ -159,6 +171,10 @@ export function isCaptureImagePayload(value: unknown): value is CaptureImagePayl
   return (
     typeof payload.uri === 'string' &&
     payload.uri.length > 0 &&
+    typeof payload.width === 'number' &&
+    payload.width >= 0 &&
+    typeof payload.height === 'number' &&
+    payload.height >= 0 &&
     isCaptureOrigin(payload.origin) &&
     isCaptureSource(payload.source) &&
     typeof payload.createdAt === 'string' &&
