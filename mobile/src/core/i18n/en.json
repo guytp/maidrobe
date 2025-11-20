@@ -454,6 +454,34 @@
         "galleryHint": "Open gallery to select a photo",
         "cancelButton": "Cancel button",
         "cancelHint": "Cancel and go back"
+      },
+      "permissions": {
+        "camera": {
+          "deniedTitle": "Camera Access Needed",
+          "deniedMessage": "Maidrobe needs camera access to take photos of your wardrobe items. Allow camera access to continue, or choose a photo from your gallery instead.",
+          "blockedTitle": "Camera Access Blocked",
+          "blockedMessage": "Camera access has been permanently denied. Please enable camera access in Settings to take photos, or choose from your gallery instead.",
+          "unavailableTitle": "Camera Unavailable",
+          "unavailableMessage": "No camera was found on this device. Please choose a photo from your gallery instead."
+        },
+        "gallery": {
+          "deniedTitle": "Gallery Access Needed",
+          "deniedMessage": "Maidrobe needs gallery access to choose photos. Allow gallery access to continue, or take a photo with your camera instead.",
+          "blockedTitle": "Gallery Access Blocked",
+          "blockedMessage": "Gallery access has been permanently denied. Please enable gallery access in Settings to choose photos, or take a photo with your camera instead."
+        },
+        "bothBlocked": {
+          "title": "Permissions Needed",
+          "message": "Both camera and gallery access have been blocked. Please enable at least one in Settings to add wardrobe items."
+        },
+        "actions": {
+          "tryAgain": "Try Again",
+          "allowAccess": "Allow Access",
+          "openSettings": "Open Settings",
+          "useGallery": "Use Gallery Instead",
+          "useCamera": "Use Camera Instead",
+          "cancel": "Cancel"
+        }
       }
     },
     "crop": {
