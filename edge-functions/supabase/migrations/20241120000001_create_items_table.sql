@@ -39,6 +39,41 @@ CREATE TABLE IF NOT EXISTS public.items (
   deleted_at TIMESTAMPTZ
 );
 
+-- Create indexes for query performance and future foreign key references
+-- Primary key index on id is implicit from PRIMARY KEY constraint
+
+-- Index on user_id for user-scoped queries and foreign key performance
+CREATE INDEX IF NOT EXISTS idx_items_user_id
+  ON public.items(user_id);
+
+-- Composite index on (user_id, created_at DESC) for recency-based per-user listings
+-- Supports queries like: SELECT * FROM items WHERE user_id = ? ORDER BY created_at DESC
+-- This is the primary index for library views showing newest items first
+CREATE INDEX IF NOT EXISTS idx_items_user_id_created_at
+  ON public.items(user_id, created_at DESC);
+
+-- Composite index on (user_id, updated_at DESC) for recently-modified listings
+-- Supports queries like: SELECT * FROM items WHERE user_id = ? ORDER BY updated_at DESC
+-- Useful for "recently updated" views and sync operations
+CREATE INDEX IF NOT EXISTS idx_items_user_id_updated_at
+  ON public.items(user_id, updated_at DESC);
+
+-- Partial index on image_processing_status for background processing jobs
+-- Only indexes rows with pending or processing status to minimize index size
+-- Supports queries like: SELECT * FROM items WHERE image_processing_status = 'pending'
+-- Used by Edge Functions to find items needing background removal and thumbnails
+CREATE INDEX IF NOT EXISTS idx_items_image_processing_status
+  ON public.items(image_processing_status)
+  WHERE image_processing_status IN ('pending', 'processing');
+
+-- Partial index on attribute_status for background processing jobs
+-- Only indexes rows with pending or processing status to minimize index size
+-- Supports queries like: SELECT * FROM items WHERE attribute_status = 'pending'
+-- Used by Edge Functions to find items needing AI attribute detection
+CREATE INDEX IF NOT EXISTS idx_items_attribute_status
+  ON public.items(attribute_status)
+  WHERE attribute_status IN ('pending', 'processing');
+
 -- Drop existing trigger if it exists (for idempotency)
 DROP TRIGGER IF EXISTS set_updated_at ON public.items;
 
