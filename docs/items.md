@@ -45,7 +45,7 @@ The `public.items` table stores all wardrobe items with their metadata, image st
 ```
 Column                     | Type         | Nullable | Default           | Description
 ---------------------------|--------------|----------|-------------------|---------------------------
-id                         | UUID         | NO       | gen_random_uuid() | Primary key
+id                         | UUID         | NO       | (client-provided) | Primary key (UUIDv7)
 user_id                    | UUID         | NO       | -                 | Owner (FK to auth.users)
 name                       | TEXT         | YES      | NULL              | User-provided name
 tags                       | TEXT[]       | YES      | NULL              | User-defined tags
@@ -90,7 +90,9 @@ deleted_at                 | TIMESTAMPTZ  | YES      | NULL              | Soft 
 
 **`id`** (UUID)
 - Unique identifier for the item
-- Auto-generated using `gen_random_uuid()`
+- Client-generated UUIDv7 (no server-side default)
+- Must be provided by client on INSERT (see mobile/src/features/onboarding/api/useCreateFirstItem.ts)
+- Time-ordered for better database index performance
 - Used as foreign key target in outfits and wear_history tables
 
 **`user_id`** (UUID)
@@ -564,10 +566,16 @@ const { data } = await supabase.storage
 ### Create New Item
 
 ```typescript
-// 1. Create item record (without images)
+// 1. Generate UUIDv7 for the item
+// Note: Use a proper UUIDv7 library (e.g., 'uuidv7' package)
+// Example placeholder - replace with actual implementation
+const itemId = generateUUIDv7(); // Must be time-ordered UUIDv7
+
+// 2. Create item record (without images)
 const { data: item, error } = await supabase
   .from('items')
   .insert({
+    id: itemId, // Required: client-generated UUIDv7
     user_id: userId, // Will be enforced by RLS
     name: 'Blue Shirt',
     tags: ['casual', 'work']
@@ -575,17 +583,17 @@ const { data: item, error } = await supabase
   .select()
   .single();
 
-// 2. Upload original image
-const imagePath = `user/${userId}/items/${item.id}/original.jpg`;
+// 3. Upload original image
+const imagePath = `user/${userId}/items/${itemId}/original.jpg`;
 const { error: uploadError } = await supabase.storage
   .from('wardrobe-items')
   .upload(imagePath, imageFile);
 
-// 3. Update item with image path
+// 4. Update item with image path
 await supabase
   .from('items')
   .update({ original_key: imagePath })
-  .eq('id', item.id);
+  .eq('id', itemId);
 ```
 
 ### Query User's Items
