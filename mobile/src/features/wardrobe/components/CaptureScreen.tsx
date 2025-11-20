@@ -14,7 +14,7 @@
  * @module features/wardrobe/components/CaptureScreen
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -39,6 +39,11 @@ export function CaptureScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ origin?: string }>();
   const user = useStore((state) => state.user);
+  const setOrigin = useStore((state) => state.setOrigin);
+  const setSource = useStore((state) => state.setSource);
+  const isNavigating = useStore((state) => state.isNavigating);
+  const setIsNavigating = useStore((state) => state.setIsNavigating);
+  const resetCapture = useStore((state) => state.resetCapture);
 
   // Validate and extract origin param
   const origin: CaptureOrigin | null = isCaptureOrigin(params.origin) ? params.origin : null;
@@ -46,10 +51,7 @@ export function CaptureScreen(): React.JSX.Element {
   // Permissions hook
   const permissions = useCapturePermissions(origin);
 
-  // Navigation debouncing state
-  const [isNavigating, setIsNavigating] = useState(false);
-
-  // Track invalid origin on mount
+  // Initialize origin in store and track flow opened
   useEffect(() => {
     if (!origin) {
       trackCaptureEvent('capture_flow_opened', {
@@ -72,13 +74,21 @@ export function CaptureScreen(): React.JSX.Element {
         { cancelable: false }
       );
     } else {
+      // Set origin in store for access throughout capture flow
+      setOrigin(origin);
+
       // Track successful capture flow opened
       trackCaptureEvent('capture_flow_opened', {
         userId: user?.id,
         origin,
       });
     }
-  }, [origin, user?.id, router]);
+
+    // Cleanup on unmount - reset capture state
+    return () => {
+      resetCapture();
+    };
+  }, [origin, user?.id, router, setOrigin, resetCapture]);
 
   /**
    * Handles cancel/back navigation based on origin.
@@ -137,6 +147,7 @@ export function CaptureScreen(): React.JSX.Element {
     if (permissions.camera.status === 'granted') {
       // Permission already granted - proceed to camera
       setIsNavigating(true);
+      setSource('camera');
       trackCaptureEvent('capture_source_selected', {
         userId: user?.id,
         origin: origin || undefined,
@@ -211,6 +222,7 @@ export function CaptureScreen(): React.JSX.Element {
     if (permissions.gallery.status === 'granted') {
       // Permission already granted - proceed to gallery
       setIsNavigating(true);
+      setSource('gallery');
       trackCaptureEvent('capture_source_selected', {
         userId: user?.id,
         origin: origin || undefined,

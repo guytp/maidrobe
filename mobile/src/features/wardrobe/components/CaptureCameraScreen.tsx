@@ -24,7 +24,7 @@ import { CameraView, CameraType, FlashMode } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
-import { isCaptureOrigin, CaptureOrigin } from '../../../core/types/capture';
+import { isCaptureOrigin, CaptureOrigin, CaptureSource } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 
@@ -41,21 +41,29 @@ export function CaptureCameraScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ origin?: string }>();
   const user = useStore((state) => state.user);
+  const captureOrigin = useStore((state) => state.origin);
+  const captureSource = useStore((state) => state.source);
   const setPayload = useStore((state) => state.setPayload);
+  const errorMessage = useStore((state) => state.errorMessage);
+  const setErrorMessage = useStore((state) => state.setErrorMessage);
+  const setIsNavigating = useStore((state) => state.setIsNavigating);
 
   // Refs
   const cameraRef = useRef<CameraView>(null);
 
-  // Validate and extract origin param
-  const origin: CaptureOrigin | null = isCaptureOrigin(params.origin) ? params.origin : null;
+  // Validate and extract origin param (fallback to store origin)
+  const origin: CaptureOrigin | null = isCaptureOrigin(params.origin)
+    ? params.origin
+    : captureOrigin;
 
   // State
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string>('');
   const [flashMode, setFlashMode] = useState<FlashMode>('off');
   const [facing] = useState<CameraType>('back');
+
+  // Derived state
+  const hasError = errorMessage !== null;
 
   // Track camera opened
   useEffect(() => {
@@ -89,14 +97,13 @@ export function CaptureCameraScreen(): React.JSX.Element {
    */
   const handleCameraReady = () => {
     setIsCameraReady(true);
-    setHasError(false);
+    setErrorMessage(null);
   };
 
   /**
    * Handles camera mounting errors.
    */
   const handleCameraError = () => {
-    setHasError(true);
     setErrorMessage(t('screens.captureCamera.errors.initFailed'));
     trackCaptureEvent('camera_error', {
       userId: user?.id,
@@ -125,6 +132,7 @@ export function CaptureCameraScreen(): React.JSX.Element {
     }
 
     setIsCapturing(true);
+    setIsNavigating(true);
 
     try {
       if (!cameraRef.current) {
@@ -141,11 +149,11 @@ export function CaptureCameraScreen(): React.JSX.Element {
         throw new Error('No photo URI returned');
       }
 
-      // Create payload
+      // Create payload using stored origin and source (fallback to params/defaults)
       const payload = {
         uri: photo.uri,
         origin: origin || 'wardrobe',
-        source: 'camera' as const,
+        source: (captureSource || 'camera') as CaptureSource,
         createdAt: new Date().toISOString(),
       };
 
@@ -161,10 +169,13 @@ export function CaptureCameraScreen(): React.JSX.Element {
 
       // Navigate to crop
       router.push('/crop');
+
+      // Clear navigation flag after a delay
+      setTimeout(() => setIsNavigating(false), 500);
     } catch {
       // Handle capture error
       setIsCapturing(false);
-      setHasError(true);
+      setIsNavigating(false);
       setErrorMessage(t('screens.captureCamera.errors.captureFailed'));
       trackCaptureEvent('camera_error', {
         userId: user?.id,
@@ -178,8 +189,7 @@ export function CaptureCameraScreen(): React.JSX.Element {
    * Handles retry after error.
    */
   const handleRetry = () => {
-    setHasError(false);
-    setErrorMessage('');
+    setErrorMessage(null);
     setIsCameraReady(false);
   };
 
