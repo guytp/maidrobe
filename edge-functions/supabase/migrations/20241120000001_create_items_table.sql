@@ -7,7 +7,17 @@
 -- This table stores all wardrobe items with metadata, image keys, and processing status
 CREATE TABLE IF NOT EXISTS public.items (
   -- Primary key and user reference
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- id: UUIDv7 primary key (client-generated, no server default)
+  -- Per project guidelines, all primary keys use UUIDv7 for time-ordered properties.
+  -- Clients MUST provide a valid UUIDv7 when inserting items.
+  -- Client implementation reference: mobile/src/features/onboarding/api/useCreateFirstItem.ts
+  -- Benefits of client-side UUIDv7:
+  --   - Time-ordered for better database performance (index locality)
+  --   - Enables offline-first workflows (client can generate IDs without server)
+  --   - Sortable by creation time using ID alone
+  --   - Compatible with distributed systems
+  -- If INSERT omits id, database will reject with NOT NULL constraint error.
+  id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
 
   -- Wardrobe item metadata fields
@@ -164,7 +174,7 @@ CREATE POLICY "Users can delete their own items"
 
 -- Add documentation comments
 COMMENT ON TABLE public.items IS 'Wardrobe items with metadata, image storage keys, and processing status. Row-level security ensures users can only access their own items. Supports soft delete via deleted_at.';
-COMMENT ON COLUMN public.items.id IS 'Unique identifier for the item. Primary key.';
+COMMENT ON COLUMN public.items.id IS 'Unique identifier for the item. Primary key. Must be client-generated UUIDv7 (no server default). Time-ordered for performance.';
 COMMENT ON COLUMN public.items.user_id IS 'Owner of the item. References auth.users(id) with cascade delete.';
 COMMENT ON COLUMN public.items.name IS 'User-provided name or label for the item.';
 COMMENT ON COLUMN public.items.tags IS 'User-defined tags for organization and search.';
