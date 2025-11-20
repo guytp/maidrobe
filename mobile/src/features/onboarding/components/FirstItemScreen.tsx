@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Alert, Modal, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -23,6 +23,7 @@ import { useCreateFirstItem, CreateItemError } from '../api/useCreateFirstItem';
 import { Toast } from '../../../core/components/Toast';
 import { ItemPreviewCard } from './ItemPreviewCard';
 import { WardrobeItem } from '../types/wardrobeItem';
+import { useStore } from '../../../core/state/store';
 
 /**
  * Delay in milliseconds before navigating to the next onboarding step
@@ -73,15 +74,14 @@ export function FirstItemScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
   const { currentStep, onNext, onSkipStep, setCustomPrimaryHandler } = useOnboardingContext();
   const router = useRouter();
+  const isNavigating = useStore((state) => state.isNavigating);
+  const setIsNavigating = useStore((state) => state.setIsNavigating);
 
   // Track if first_item_viewed has been fired to prevent duplicates on re-renders
   const hasTrackedView = useRef(false);
 
   // Track if camera has been opened (for analytics)
   const hasOpenedCamera = useRef(false);
-
-  // Navigation state to prevent duplicate pushes
-  const [isNavigating, setIsNavigating] = useState(false);
 
   // Get wardrobe item count for analytics (returns 0 as placeholder until Feature #3)
   const itemCount = useWardrobeItemCount();
