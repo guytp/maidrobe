@@ -9,7 +9,7 @@
  * - Step 2: Navigation shell, origin param handling, back navigation ✓
  * - Step 3: Permissions handling ✓
  * - Step 4: Camera integration ✓
- * - Step 5: Gallery integration and image validation (future)
+ * - Step 5: Gallery integration and image validation ✓
  *
  * @module features/wardrobe/components/CaptureScreen
  */
@@ -21,10 +21,12 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
-import { isCaptureOrigin, CaptureOrigin } from '../../../core/types/capture';
+import { isCaptureOrigin, CaptureOrigin, CaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
+import { useGalleryPicker } from '../hooks/useGalleryPicker';
+import { getValidationErrorMessage } from '../../../core/utils/imageValidation';
 
 /**
  * Capture screen - initial choice between camera and gallery.
@@ -43,6 +45,7 @@ export function CaptureScreen(): React.JSX.Element {
   const setSource = useStore((state) => state.setSource);
   const isNavigating = useStore((state) => state.isNavigating);
   const setIsNavigating = useStore((state) => state.setIsNavigating);
+  const setPayload = useStore((state) => state.setPayload);
   const resetCapture = useStore((state) => state.resetCapture);
 
   // Validate and extract origin param
@@ -50,6 +53,9 @@ export function CaptureScreen(): React.JSX.Element {
 
   // Permissions hook
   const permissions = useCapturePermissions(origin);
+
+  // Gallery picker hook
+  const galleryPicker = useGalleryPicker(origin);
 
   // Initialize origin in store and track flow opened
   useEffect(() => {
@@ -211,10 +217,11 @@ export function CaptureScreen(): React.JSX.Element {
    * Handles gallery button press with permission checks.
    *
    * Checks gallery permission status, shows appropriate dialogs,
-   * and requests permission if needed.
+   * and requests permission if needed. Launches gallery picker and
+   * handles result with validation and payload construction.
    */
   const handleChooseGallery = async () => {
-    if (isNavigating || permissions.isLoading) {
+    if (isNavigating || permissions.isLoading || galleryPicker.isLoading) {
       return;
     }
 
@@ -229,13 +236,65 @@ export function CaptureScreen(): React.JSX.Element {
         source: 'gallery',
       });
 
-      // Placeholder for Step 5 - actual gallery integration
-      Alert.alert('Gallery', 'Gallery integration will be implemented in Step 5.', [
-        {
-          text: 'OK',
-          onPress: () => setIsNavigating(false),
-        },
-      ]);
+      // Launch gallery picker
+      const result = await galleryPicker.pickImage();
+
+      // Handle picker result
+      if (result.success) {
+        // Construct payload with validated image
+        const payload: CaptureImagePayload = {
+          uri: result.uri,
+          width: result.width,
+          height: result.height,
+          origin: origin || 'wardrobe',
+          source: 'gallery',
+          createdAt: new Date().toISOString(),
+        };
+
+        // Store payload and navigate to crop
+        setPayload(payload);
+        router.push('/crop');
+
+        // Reset navigation state after navigation
+        setTimeout(() => setIsNavigating(false), 500);
+      } else if (result.reason === 'cancelled') {
+        // User cancelled picker - just reset navigation state
+        setIsNavigating(false);
+      } else if (result.reason === 'invalid') {
+        // Image validation failed - show error with retry option
+        setIsNavigating(false);
+        Alert.alert(
+          t('screens.capture.errors.invalidImage'),
+          result.error || getValidationErrorMessage('invalid_dimensions'),
+          [
+            {
+              text: t('screens.capture.errors.tryAgain'),
+              onPress: () => handleChooseGallery(),
+            },
+            {
+              text: t('screens.capture.errors.cancel'),
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        // Other errors (permission_denied, error)
+        setIsNavigating(false);
+        Alert.alert(
+          t('screens.capture.errors.galleryError'),
+          result.error || t('screens.capture.errors.galleryErrorMessage'),
+          [
+            {
+              text: t('screens.capture.errors.tryAgain'),
+              onPress: () => handleChooseGallery(),
+            },
+            {
+              text: t('screens.capture.errors.cancel'),
+              style: 'cancel',
+            },
+          ]
+        );
+      }
     } else if (permissions.gallery.status === 'blocked') {
       // Permission permanently denied - show settings dialog
       Alert.alert(
@@ -359,7 +418,7 @@ export function CaptureScreen(): React.JSX.Element {
           <Button
             onPress={handleChooseGallery}
             variant="secondary"
-            disabled={permissions.isLoading || isNavigating}
+            disabled={permissions.isLoading || isNavigating || galleryPicker.isLoading}
             accessibilityLabel={t('screens.capture.accessibility.galleryButton')}
             accessibilityHint={t('screens.capture.accessibility.galleryHint')}
           >
