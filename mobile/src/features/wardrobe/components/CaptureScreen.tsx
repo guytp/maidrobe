@@ -7,8 +7,8 @@
  *
  * Implementation status:
  * - Step 2: Navigation shell, origin param handling, back navigation ✓
- * - Step 3: Permissions handling (current)
- * - Step 4: Camera integration (future)
+ * - Step 3: Permissions handling ✓
+ * - Step 4: Camera integration ✓
  * - Step 5: Gallery integration and image validation (future)
  *
  * @module features/wardrobe/components/CaptureScreen
@@ -143,13 +143,9 @@ export function CaptureScreen(): React.JSX.Element {
         source: 'camera',
       });
 
-      // Placeholder for Step 4 - actual camera integration
-      Alert.alert('Camera', 'Camera integration will be implemented in Step 4.', [
-        {
-          text: 'OK',
-          onPress: () => setIsNavigating(false),
-        },
-      ]);
+      // Navigate to camera screen
+      router.push(`/capture/camera?origin=${origin || 'wardrobe'}`);
+      setTimeout(() => setIsNavigating(false), 500);
     } else if (permissions.camera.status === 'blocked') {
       // Permission permanently denied - show settings dialog
       Alert.alert(
