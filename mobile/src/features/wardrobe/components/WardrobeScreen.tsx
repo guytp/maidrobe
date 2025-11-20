@@ -19,7 +19,7 @@
  * @module features/wardrobe/components/WardrobeScreen
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -40,9 +40,8 @@ export function WardrobeScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
   const router = useRouter();
   const user = useStore((state) => state.user);
-
-  // Navigation state to prevent duplicate pushes
-  const [isNavigating, setIsNavigating] = useState(false);
+  const isNavigating = useStore((state) => state.isNavigating);
+  const setIsNavigating = useStore((state) => state.setIsNavigating);
 
   /**
    * Handles navigation to capture flow with origin=wardrobe.
