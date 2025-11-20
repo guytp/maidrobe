@@ -287,6 +287,7 @@ export type OnboardingGateEventType =
 export type CaptureEventType =
   | 'capture_flow_opened'
   | 'capture_source_selected'
+  | 'camera_opened'
   | 'camera_permission_requested'
   | 'camera_permission_granted'
   | 'camera_permission_denied'

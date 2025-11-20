@@ -484,6 +484,34 @@
         }
       }
     },
+    "captureCamera": {
+      "title": "Take Photo",
+      "guidance": "Position the item in the frame",
+      "shutter": "Capture",
+      "cancel": "Cancel",
+      "processing": "Processing...",
+      "flashOff": "Flash Off",
+      "flashOn": "Flash On",
+      "flashAuto": "Flash Auto",
+      "errors": {
+        "initFailed": "Failed to initialize camera. Please try again or use the gallery instead.",
+        "captureFailed": "Failed to capture photo. Please try again.",
+        "retry": "Retry",
+        "switchToGallery": "Use Gallery Instead"
+      },
+      "accessibility": {
+        "screenLabel": "Camera capture screen",
+        "screenHint": "Take a photo of your wardrobe item",
+        "shutterButton": "Take photo",
+        "shutterHint": "Capture image for your wardrobe",
+        "cancelButton": "Cancel photo capture",
+        "cancelHint": "Return to capture options",
+        "flashToggle": "Flash control",
+        "flashHint": "Toggle flash mode",
+        "errorOverlay": "Camera error",
+        "errorHint": "Camera initialization or capture failed"
+      }
+    },
     "crop": {
       "title": "Adjust Photo",
       "placeholder": "Crop and adjust your photo",
