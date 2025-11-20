@@ -276,6 +276,29 @@ export type OnboardingGateEventType =
   | 'onboarding_gate.route_home';
 
 /**
+ * Capture flow event types for tracking wardrobe item capture operations.
+ *
+ * These events track the capture flow from initial entry through image
+ * selection/capture and hand-off to the crop screen. Used to monitor
+ * conversion rates, permission issues, and error patterns.
+ *
+ * Event naming convention: snake_case with capture_ prefix
+ */
+export type CaptureEventType =
+  | 'capture_flow_opened'
+  | 'capture_source_selected'
+  | 'camera_permission_denied'
+  | 'camera_permission_blocked'
+  | 'gallery_permission_denied'
+  | 'gallery_permission_blocked'
+  | 'gallery_picker_cancelled'
+  | 'capture_cancelled'
+  | 'capture_handoff_to_crop'
+  | 'camera_error'
+  | 'gallery_error'
+  | 'image_validation_failed';
+
+/**
  * Metadata for authentication event logging.
  *
  * SECURITY: Never include passwords, tokens, or other sensitive PII.
@@ -564,7 +587,7 @@ export function trackOnboardingGateEvent(
   metadata: OnboardingGateMetadata
 ): void {
   // Sanitize metadata to remove PII
-  const sanitizedMetadata = sanitizeAuthMetadata(metadata as Record<string, unknown>);
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata as unknown as Record<string, unknown>);
 
   // Structure the event for consistent querying
   const event = {
@@ -602,4 +625,138 @@ export function trackOnboardingGateEvent(
 
   // End span immediately (instant event)
   endSpan(spanId, SpanStatusCode.OK);
+}
+
+/**
+ * Metadata for capture event logging.
+ *
+ * SECURITY: Never include passwords, tokens, or other sensitive PII.
+ * Image URIs are logged as they are local file paths, not user content.
+ */
+export interface CaptureEventMetadata {
+  /** User ID if available (safe to log) */
+  userId?: string;
+  /** Capture origin context - wardrobe or onboarding */
+  origin?: 'wardrobe' | 'onboarding';
+  /** Image source - camera or gallery */
+  source?: 'camera' | 'gallery';
+  /** Error code or classification if failure */
+  errorCode?: string;
+  /** Additional non-PII metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Logs a structured capture flow event to telemetry system.
+ *
+ * This function provides standardized logging for all capture flow operations
+ * including entry, source selection, permissions, errors, and hand-off to crop.
+ * It ensures that:
+ * - All capture events use consistent structure
+ * - No PII (user images, raw tokens) is ever logged
+ * - Events include userId, origin, source, and errorCode
+ * - Events can be easily queried in Sentry/Honeycomb
+ *
+ * SECURITY:
+ * - Automatically sanitizes metadata to remove PII
+ * - Never logs image content or EXIF data
+ * - Local file URIs are safe to log as they don't expose user content
+ *
+ * Integration:
+ * - Console logging in development
+ * - Sentry when enabled (EXPO_PUBLIC_SENTRY_ENABLED=true)
+ * - OpenTelemetry when enabled (EXPO_PUBLIC_OTEL_ENABLED=true)
+ *
+ * @param eventType - Type of capture event (capture_flow_opened, camera_error, etc.)
+ * @param metadata - Event metadata (userId, origin, source, errorCode)
+ *
+ * @example
+ * ```ts
+ * // Flow opened
+ * trackCaptureEvent('capture_flow_opened', {
+ *   userId: 'abc-123',
+ *   origin: 'wardrobe'
+ * });
+ *
+ * // Source selected
+ * trackCaptureEvent('capture_source_selected', {
+ *   userId: 'abc-123',
+ *   origin: 'onboarding',
+ *   source: 'camera'
+ * });
+ *
+ * // Permission denied
+ * trackCaptureEvent('camera_permission_denied', {
+ *   userId: 'abc-123',
+ *   origin: 'wardrobe',
+ *   errorCode: 'permission_denied'
+ * });
+ *
+ * // Hand-off to crop
+ * trackCaptureEvent('capture_handoff_to_crop', {
+ *   userId: 'abc-123',
+ *   origin: 'onboarding',
+ *   source: 'gallery'
+ * });
+ * ```
+ */
+export function trackCaptureEvent(
+  eventType: CaptureEventType,
+  metadata?: CaptureEventMetadata
+): void {
+  // Sanitize metadata to remove PII
+  const sanitizedMetadata = metadata
+    ? sanitizeAuthMetadata(metadata as Record<string, unknown>)
+    : {};
+
+  // Determine if this is an error event
+  const isError =
+    eventType.includes('error') ||
+    eventType.includes('denied') ||
+    eventType.includes('blocked') ||
+    eventType.includes('failed');
+
+  // Structure the event for consistent querying
+  const event = {
+    type: 'capture-event',
+    eventType,
+    userId: metadata?.userId,
+    origin: metadata?.origin,
+    source: metadata?.source,
+    errorCode: metadata?.errorCode,
+    metadata: sanitizedMetadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Always log to console for development visibility
+  if (isError) {
+    // eslint-disable-next-line no-console
+    console.error('[Capture Event]', event);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[Capture Event]', event);
+  }
+
+  // Send to Sentry when enabled
+  // Error events use breadcrumbs with error level, success events use info level
+  addBreadcrumb({
+    category: 'capture',
+    message: eventType,
+    level: isError ? 'error' : 'info',
+    data: sanitizedMetadata,
+  });
+
+  // Send to OpenTelemetry when enabled
+  // Create span for capture operation with capture.* attributes
+  const spanId = startSpan(`capture.${eventType}`, {
+    'capture.event_type': eventType,
+    'capture.user_id': metadata?.userId || 'anonymous',
+    'capture.origin': metadata?.origin || 'unknown',
+    'capture.source': metadata?.source || 'unknown',
+    'capture.error_code': metadata?.errorCode || '',
+  });
+
+  // End span with appropriate status
+  const status = isError ? SpanStatusCode.ERROR : SpanStatusCode.OK;
+  endSpan(spanId, status, {}, metadata?.errorCode);
 }
