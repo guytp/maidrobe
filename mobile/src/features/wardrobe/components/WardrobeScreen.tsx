@@ -136,11 +136,7 @@ export function WardrobeScreen(): React.JSX.Element {
         >
           {t('screens.wardrobe.empty')}
         </Text>
-        <Text
-          style={styles.emptyHint}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={styles.emptyHint} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {t('screens.wardrobe.emptyHint')}
         </Text>
         <View style={styles.addButton}>
