@@ -84,6 +84,84 @@ CREATE TRIGGER set_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
+-- Enable Row Level Security
+-- This is critical for security - ensures users can only access their own items
+ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS "Users can view their own items" ON public.items;
+DROP POLICY IF EXISTS "Users can insert their own items" ON public.items;
+DROP POLICY IF EXISTS "Users can update their own items" ON public.items;
+DROP POLICY IF EXISTS "Users can delete their own items" ON public.items;
+
+-- RLS Policy: Allow users to SELECT their own non-deleted items
+-- Automatically filters out soft-deleted items (deleted_at IS NULL)
+-- This ensures normal user-facing queries only return active items
+CREATE POLICY "Users can view their own items"
+  ON public.items
+  FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id AND deleted_at IS NULL);
+
+-- RLS Policy: Allow users to INSERT items with their own user_id
+-- Enforces that user_id must match the authenticated user
+-- This prevents users from creating items for other users
+CREATE POLICY "Users can insert their own items"
+  ON public.items
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policy: Allow users to UPDATE their own items
+-- USING clause restricts which rows can be updated (must be owned by user)
+-- WITH CHECK clause prevents changing user_id to another user
+CREATE POLICY "Users can update their own items"
+  ON public.items
+  FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- RLS Policy: Allow users to DELETE their own items
+-- Note: Soft delete (setting deleted_at) is preferred and uses UPDATE policy
+-- This DELETE policy allows hard deletion if needed
+CREATE POLICY "Users can delete their own items"
+  ON public.items
+  FOR DELETE
+  TO authenticated
+  USING (auth.uid() = user_id);
+
+-- Service Role and Edge Functions Access Pattern:
+--
+-- Edge Functions should authenticate as the user they are acting on behalf of:
+--   1. Receive user JWT from client request or extract from auth context
+--   2. Create Supabase client with the user's JWT:
+--        const supabase = createClient(
+--          supabaseUrl,
+--          supabaseAnonKey,
+--          { global: { headers: { Authorization: `Bearer ${userJwt}` } } }
+--        )
+--   3. RLS policies automatically enforce user_id = auth.uid() for that user
+--   4. Edge Functions can only access items belonging to the authenticated user
+--
+-- This user impersonation pattern ensures:
+--   - Background jobs (image processing, attribute detection) respect user boundaries
+--   - No single Edge Function can access all users' data
+--   - Audit trails show operations performed as the user
+--
+-- Service role (bypasses RLS) should ONLY be used for:
+--   - Administrative operations (bulk data migrations, system maintenance)
+--   - Cross-user analytics or reporting (with appropriate access controls)
+--   - Scheduled cleanup jobs that operate on all users (e.g., purging old deleted items)
+--
+-- IMPORTANT: Service role access must be:
+--   - Carefully audited and logged
+--   - Restricted to trusted server-side code only
+--   - Never exposed to client applications
+--   - Documented with clear justification for each use case
+--
+-- Anonymous users are denied all access (no policies defined for anon role).
+
 -- Add documentation comments
 COMMENT ON TABLE public.items IS 'Wardrobe items with metadata, image storage keys, and processing status. Row-level security ensures users can only access their own items. Supports soft delete via deleted_at.';
 COMMENT ON COLUMN public.items.id IS 'Unique identifier for the item. Primary key.';
