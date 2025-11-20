@@ -15,7 +15,7 @@ import { CaptureSlice, createCaptureSlice } from './captureSlice';
  * Currently includes:
  * - SessionSlice: User authentication state (user, setUser, clearUser)
  * - OnboardingSlice: Onboarding progress state (currentStep, completedSteps, skippedSteps)
- * - CaptureSlice: Capture flow payload (payload, setPayload, clearPayload)
+ * - CaptureSlice: Capture flow state (origin, source, isNavigating, errorMessage, payload)
  *
  * Future slices can be added using intersection types:
  * ```
