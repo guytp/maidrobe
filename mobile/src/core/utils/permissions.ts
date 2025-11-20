@@ -75,7 +75,7 @@ export async function checkCameraPermission(): Promise<PermissionStatus> {
   try {
     const response = await Camera.getCameraPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch (error) {
+  } catch {
     // If permission check fails, treat as undetermined
     return 'undetermined';
   }
@@ -93,7 +93,7 @@ export async function requestCameraPermission(): Promise<PermissionStatus> {
   try {
     const response = await Camera.requestCameraPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch (error) {
+  } catch {
     // If permission request fails, treat as denied
     return 'denied';
   }
@@ -108,7 +108,7 @@ export async function checkGalleryPermission(): Promise<PermissionStatus> {
   try {
     const response = await ImagePicker.getMediaLibraryPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch (error) {
+  } catch {
     // If permission check fails, treat as undetermined
     return 'undetermined';
   }
@@ -126,7 +126,7 @@ export async function requestGalleryPermission(): Promise<PermissionStatus> {
   try {
     const response = await ImagePicker.requestMediaLibraryPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch (error) {
+  } catch {
     // If permission request fails, treat as denied
     return 'denied';
   }
@@ -153,7 +153,7 @@ export async function openAppSettings(): Promise<boolean> {
       return true;
     }
     return false;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
