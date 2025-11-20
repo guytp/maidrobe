@@ -157,3 +157,87 @@ export async function openAppSettings(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Ensures camera permission is granted by checking and requesting if needed.
+ *
+ * This is a convenience function that encapsulates the common pattern of
+ * checking permission status and requesting if not already granted.
+ *
+ * Flow:
+ * 1. Check current camera permission status
+ * 2. If already granted, return granted
+ * 3. If undetermined or denied, request permission
+ * 4. Return the final permission status
+ *
+ * @returns Promise resolving to final permission status
+ *
+ * @example
+ * ```ts
+ * const status = await ensureCameraPermission();
+ * if (status === 'granted') {
+ *   // Open camera
+ * } else if (status === 'blocked') {
+ *   // Show settings dialog
+ * }
+ * ```
+ */
+export async function ensureCameraPermission(): Promise<PermissionStatus> {
+  // Check current status
+  const currentStatus = await checkCameraPermission();
+
+  // If already granted, return immediately
+  if (currentStatus === 'granted') {
+    return 'granted';
+  }
+
+  // If blocked, cannot request - return blocked
+  if (currentStatus === 'blocked') {
+    return 'blocked';
+  }
+
+  // Request permission (undetermined or denied)
+  return await requestCameraPermission();
+}
+
+/**
+ * Ensures media library permission is granted by checking and requesting if needed.
+ *
+ * This is a convenience function that encapsulates the common pattern of
+ * checking permission status and requesting if not already granted.
+ *
+ * Flow:
+ * 1. Check current gallery permission status
+ * 2. If already granted, return granted
+ * 3. If undetermined or denied, request permission
+ * 4. Return the final permission status
+ *
+ * @returns Promise resolving to final permission status
+ *
+ * @example
+ * ```ts
+ * const status = await ensureMediaLibraryPermission();
+ * if (status === 'granted') {
+ *   // Open gallery picker
+ * } else if (status === 'blocked') {
+ *   // Show settings dialog
+ * }
+ * ```
+ */
+export async function ensureMediaLibraryPermission(): Promise<PermissionStatus> {
+  // Check current status
+  const currentStatus = await checkGalleryPermission();
+
+  // If already granted, return immediately
+  if (currentStatus === 'granted') {
+    return 'granted';
+  }
+
+  // If blocked, cannot request - return blocked
+  if (currentStatus === 'blocked') {
+    return 'blocked';
+  }
+
+  // Request permission (undetermined or denied)
+  return await requestGalleryPermission();
+}
