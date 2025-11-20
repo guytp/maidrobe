@@ -443,7 +443,12 @@
       "errors": {
         "invalidOrigin": "Invalid capture origin. Please try again.",
         "noCamera": "Camera not available on this device.",
-        "noGallery": "Gallery not available on this device."
+        "noGallery": "Gallery not available on this device.",
+        "invalidImage": "Invalid Image",
+        "galleryError": "Gallery Error",
+        "galleryErrorMessage": "Unable to access gallery. Please try again.",
+        "tryAgain": "Try Again",
+        "cancel": "Cancel"
       },
       "accessibility": {
         "screenLabel": "Item capture screen",
