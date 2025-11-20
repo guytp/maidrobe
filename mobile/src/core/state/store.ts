@@ -4,6 +4,7 @@ import {
   OnboardingSlice,
   createOnboardingSlice,
 } from '../../features/onboarding/store/onboardingSlice';
+import { CaptureSlice, createCaptureSlice } from './captureSlice';
 
 /**
  * Root application state interface.
@@ -14,13 +15,14 @@ import {
  * Currently includes:
  * - SessionSlice: User authentication state (user, setUser, clearUser)
  * - OnboardingSlice: Onboarding progress state (currentStep, completedSteps, skippedSteps)
+ * - CaptureSlice: Capture flow payload (payload, setPayload, clearPayload)
  *
  * Future slices can be added using intersection types:
  * ```
- * type RootState = SessionSlice & OnboardingSlice & OtherSlice;
+ * type RootState = SessionSlice & OnboardingSlice & CaptureSlice & OtherSlice;
  * ```
  */
-export type RootState = SessionSlice & OnboardingSlice;
+export type RootState = SessionSlice & OnboardingSlice & CaptureSlice;
 
 /**
  * Typed Zustand store hook for accessing local application state.
@@ -44,4 +46,5 @@ export type RootState = SessionSlice & OnboardingSlice;
 export const useStore = create<RootState>()((...args) => ({
   ...createSessionSlice(...args),
   ...createOnboardingSlice(...args),
+  ...createCaptureSlice(...args),
 }));
