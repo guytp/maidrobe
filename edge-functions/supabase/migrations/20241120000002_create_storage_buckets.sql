@@ -4,8 +4,34 @@
 -- Idempotency: Safe to re-run; uses INSERT ON CONFLICT and DROP POLICY IF EXISTS
 
 -- Create wardrobe items storage bucket
--- Note: Bucket name should be environment-aware in production (wardrobe-items-dev, wardrobe-items-stage, wardrobe-items-prod)
--- For local development and projects with separate Supabase instances per environment, use base name 'wardrobe-items'
+--
+-- ENVIRONMENT STRATEGY: Separate Supabase Projects Per Environment
+--
+-- This project uses separate Supabase projects for each environment (local, dev, staging, production).
+-- Each environment has its own isolated Supabase instance with independent databases, storage, and auth.
+--
+-- Bucket Naming Convention:
+--   - Consistent bucket name 'wardrobe-items' is used across ALL environments
+--   - No environment suffix needed (e.g., NOT wardrobe-items-dev, wardrobe-items-stage, etc.)
+--   - Each Supabase project has its own 'wardrobe-items' bucket
+--
+-- Benefits of This Approach:
+--   - Complete data isolation between environments (no risk of cross-environment access)
+--   - Simpler migration code (no conditional logic or environment detection required)
+--   - Independent scaling, backups, and disaster recovery per environment
+--   - Consistent migration scripts applied identically to each environment
+--   - Aligns with Supabase best practices for production deployments
+--
+-- Deployment Process:
+--   1. Local: Apply migration via 'supabase db reset' or 'supabase db push'
+--   2. Dev/Staging/Production: Apply migration via 'supabase db push --linked' to each project
+--   3. Same migration file is applied to each Supabase project independently
+--   4. No configuration changes needed between environments
+--
+-- Alternative Approach NOT Used:
+--   - Single Supabase project with environment-specific bucket names (wardrobe-items-dev, etc.)
+--   - Rejected due to lack of data isolation and increased complexity
+--
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'wardrobe-items',
@@ -133,12 +159,36 @@ CREATE POLICY "Users can delete their own wardrobe images"
 --   - MIME type restrictions: Only image files can be uploaded
 --   - File size limits: Maximum 50 MiB per file
 --
--- Environment-Specific Bucket Names:
---   - Local/Dev: 'wardrobe-items' (or 'wardrobe-items-dev')
---   - Staging: 'wardrobe-items-stage' (update bucket_id in policies if using separate bucket)
---   - Production: 'wardrobe-items-prod' (update bucket_id in policies if using separate bucket)
---   - Recommended: Use separate Supabase projects per environment with consistent 'wardrobe-items' name
---   - Alternative: Parameterize bucket name in deployment scripts for multi-bucket setup
+-- Environment Configuration:
+--
+-- This migration creates a bucket named 'wardrobe-items' that will exist independently
+-- in each Supabase project (local, dev, staging, production).
+--
+-- Environment Setup:
+--   - Local:      Supabase project 'maidrobe-local' with 'wardrobe-items' bucket
+--   - Dev:        Separate Supabase project with 'wardrobe-items' bucket
+--   - Staging:    Separate Supabase project with 'wardrobe-items' bucket
+--   - Production: Separate Supabase project with 'wardrobe-items' bucket
+--
+-- Each environment is completely isolated:
+--   - No shared data between environments
+--   - Each has independent auth.users tables
+--   - Each has independent storage buckets
+--   - Migrations applied separately to each project
+--
+-- Bucket Access:
+--   - Mobile app connects to environment-specific Supabase URL
+--   - App always references 'wardrobe-items' bucket (no environment logic)
+--   - RLS policies enforce user isolation within each environment
+--   - No code changes needed when deploying to different environments
+--
+-- Migration Deployment:
+--   To apply this migration to a specific environment:
+--   1. Link to the target Supabase project: supabase link --project-ref <project-id>
+--   2. Push migrations: supabase db push --linked
+--   3. Repeat for each environment (dev, staging, production)
+--
+-- This approach ensures maximum security, simplicity, and aligns with Supabase best practices.
 
 -- Add documentation comment
 COMMENT ON TABLE storage.buckets IS 'Storage buckets for Supabase Storage. The wardrobe-items bucket stores user wardrobe item images with strict access control.';

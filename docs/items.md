@@ -275,12 +275,16 @@ Hard delete is NOT exposed to end users directly.
 
 **Bucket Name:** `wardrobe-items`
 
-**Environment-Specific Names:**
-- Local/Dev: `wardrobe-items` or `wardrobe-items-dev`
-- Staging: `wardrobe-items-stage`
-- Production: `wardrobe-items-prod`
+**Environment Strategy:**
 
-**Recommended:** Use separate Supabase projects per environment with consistent `wardrobe-items` name.
+This project uses separate Supabase projects for each environment. Each environment has its own isolated Supabase instance with the same bucket name:
+
+- **Local:** `wardrobe-items` (in maidrobe-local project)
+- **Dev:** `wardrobe-items` (in separate dev project)
+- **Staging:** `wardrobe-items` (in separate staging project)
+- **Production:** `wardrobe-items` (in separate production project)
+
+No environment-specific bucket naming is used. Complete data isolation is achieved through separate Supabase projects, not bucket names.
 
 **Bucket Properties:**
 - **Public:** `false` (not publicly accessible)
