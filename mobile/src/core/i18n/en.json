@@ -432,6 +432,60 @@
           "skipOnboardingHint": "Skip the entire onboarding process and go directly to the app"
         }
       }
+    },
+    "capture": {
+      "title": "Add Item",
+      "choiceTitle": "Choose how to add your item",
+      "takePhoto": "Take photo",
+      "chooseGallery": "Choose from gallery",
+      "cancel": "Cancel",
+      "guidance": "Take a clear photo of the item on a plain background",
+      "errors": {
+        "invalidOrigin": "Invalid capture origin. Please try again.",
+        "noCamera": "Camera not available on this device.",
+        "noGallery": "Gallery not available on this device."
+      },
+      "accessibility": {
+        "screenLabel": "Item capture screen",
+        "screenHint": "Choose how to add your wardrobe item",
+        "takePhotoButton": "Take photo button",
+        "takePhotoHint": "Open camera to take a photo",
+        "galleryButton": "Choose from gallery button",
+        "galleryHint": "Open gallery to select a photo",
+        "cancelButton": "Cancel button",
+        "cancelHint": "Cancel and go back"
+      }
+    },
+    "crop": {
+      "title": "Adjust Photo",
+      "placeholder": "Crop and adjust your photo",
+      "errors": {
+        "noImage": "No image to adjust. Please capture or select an image first.",
+        "invalidPayload": "Invalid image data. Please try again."
+      },
+      "goBack": "Go back",
+      "continue": "Continue",
+      "accessibility": {
+        "screenLabel": "Photo adjustment screen",
+        "screenHint": "Crop and adjust your captured photo",
+        "goBackButton": "Go back button",
+        "goBackHint": "Return to capture screen",
+        "continueButton": "Continue button",
+        "continueHint": "Continue to item details"
+      }
+    },
+    "wardrobe": {
+      "title": "My Wardrobe",
+      "addItem": "Add item",
+      "empty": "No items yet",
+      "emptyHint": "Add your first item to get started with outfit suggestions",
+      "accessibility": {
+        "screenLabel": "My wardrobe screen",
+        "screenHint": "View and manage your wardrobe items",
+        "addItemButton": "Add item button",
+        "addItemHint": "Add a new item to your wardrobe",
+        "emptyState": "Empty wardrobe state"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { OnboardingShell } from './OnboardingShell';
@@ -71,12 +72,16 @@ const SUCCESS_NAVIGATION_DELAY_MS = 2000;
 export function FirstItemScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
   const { currentStep, onNext, onSkipStep, setCustomPrimaryHandler } = useOnboardingContext();
+  const router = useRouter();
 
   // Track if first_item_viewed has been fired to prevent duplicates on re-renders
   const hasTrackedView = useRef(false);
 
   // Track if camera has been opened (for analytics)
   const hasOpenedCamera = useRef(false);
+
+  // Navigation state to prevent duplicate pushes
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Get wardrobe item count for analytics (returns 0 as placeholder until Feature #3)
   const itemCount = useWardrobeItemCount();
@@ -127,51 +132,51 @@ export function FirstItemScreen(): React.JSX.Element {
   }, [currentStep, itemCount]);
 
   /**
-   * Handle opening camera when "Add your first item" button is pressed.
+   * Handle navigation to capture flow when "Add your first item" button is pressed.
    * This is triggered by the primary button in OnboardingFooter.
+   *
+   * Updated in Story #199 Step 2 to navigate to the new capture flow
+   * instead of using the inline camera placeholder.
    */
   const handleStartCamera = useCallback(async () => {
+    // Prevent duplicate navigation
+    if (isNavigating) {
+      return;
+    }
+
+    setIsNavigating(true);
+
     try {
-      // Check camera permission (placeholder always returns 'granted')
-      const permissionStatus = await checkCameraPermission();
-
-      if (permissionStatus === 'granted') {
-        // Open camera view
-        setShowCamera(true);
-
-        // Track camera started (fire once)
-        if (!hasOpenedCamera.current) {
-          trackFirstItemStartedCapture();
-          hasOpenedCamera.current = true;
-        }
-      } else {
-        // Permission denied - track skip with reason
-        trackFirstItemSkipped('permission_denied_then_skip');
-        logError(new Error('Camera permission denied'), 'user', {
-          feature: 'onboarding_first_item',
-          operation: 'checkCameraPermission',
-          metadata: {
-            permissionStatus,
-          },
-        });
-        // Advance to next step
-        onSkipStep();
+      // Track capture started (fire once)
+      if (!hasOpenedCamera.current) {
+        trackFirstItemStartedCapture();
+        hasOpenedCamera.current = true;
       }
+
+      // Navigate to capture flow with origin=onboarding
+      router.push('/capture?origin=onboarding');
+
+      // Reset navigation state after a delay
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 500);
     } catch (error) {
-      // Camera initialization error
-      logError(error as Error, 'user', {
+      // Reset navigation state on error
+      setIsNavigating(false);
+
+      // Track skip with error
+      trackFirstItemSkipped('navigation_error');
+      logError(error, 'user', {
         feature: 'onboarding_first_item',
-        operation: 'startCamera',
+        operation: 'navigateToCapture',
         metadata: {
-          errorType: 'camera_init_failed',
+          errorType: 'navigation_failed',
         },
       });
-      // Track skip with error reason
-      trackFirstItemSkipped('camera_error_then_skip');
       // Advance to next step
       onSkipStep();
     }
-  }, [onSkipStep]);
+  }, [isNavigating, router, onSkipStep]);
 
   /**
    * Handle successful photo capture from camera.
