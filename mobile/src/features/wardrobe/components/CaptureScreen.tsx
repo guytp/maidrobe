@@ -2,19 +2,19 @@
  * Capture screen component for the wardrobe item capture flow.
  *
  * This screen presents the initial choice between taking a photo with the
- * camera or selecting from the gallery. It handles origin-based navigation
- * and proper back handling.
+ * camera or selecting from the gallery. It handles origin-based navigation,
+ * permission management, and proper back handling.
  *
  * Implementation status:
- * - Step 2: Navigation shell, origin param handling, back navigation (current)
- * - Step 3: Permissions handling (future)
+ * - Step 2: Navigation shell, origin param handling, back navigation ✓
+ * - Step 3: Permissions handling (current)
  * - Step 4: Camera integration (future)
  * - Step 5: Gallery integration and image validation (future)
  *
  * @module features/wardrobe/components/CaptureScreen
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -24,6 +24,7 @@ import { Button } from '../../../core/components/Button';
 import { isCaptureOrigin, CaptureOrigin } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { useCapturePermissions } from '../hooks/useCapturePermissions';
 
 /**
  * Capture screen - initial choice between camera and gallery.
@@ -41,6 +42,12 @@ export function CaptureScreen(): React.JSX.Element {
 
   // Validate and extract origin param
   const origin: CaptureOrigin | null = isCaptureOrigin(params.origin) ? params.origin : null;
+
+  // Permissions hook
+  const permissions = useCapturePermissions(origin);
+
+  // Navigation debouncing state
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Track invalid origin on mount
   useEffect(() => {
@@ -97,33 +104,179 @@ export function CaptureScreen(): React.JSX.Element {
   };
 
   /**
-   * Placeholder handler for camera option.
+   * Handles camera button press with permission checks.
    *
-   * Will be implemented in Step 4 with actual camera integration.
+   * Checks camera availability and permission status, shows appropriate dialogs,
+   * and requests permission if needed.
    */
-  const handleTakePhoto = () => {
-    trackCaptureEvent('capture_source_selected', {
-      userId: user?.id,
-      origin: origin || undefined,
-      source: 'camera',
-    });
+  const handleTakePhoto = async () => {
+    if (isNavigating || permissions.isLoading) {
+      return;
+    }
 
-    Alert.alert('Camera', 'Camera integration will be implemented in Step 4.', [{ text: 'OK' }]);
+    // Check if camera is available on device
+    if (!permissions.camera.isAvailable) {
+      Alert.alert(
+        t('screens.capture.permissions.camera.unavailableTitle'),
+        t('screens.capture.permissions.camera.unavailableMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.useGallery'),
+            onPress: () => handleChooseGallery(),
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
+    // Handle based on permission status
+    if (permissions.camera.status === 'granted') {
+      // Permission already granted - proceed to camera
+      setIsNavigating(true);
+      trackCaptureEvent('capture_source_selected', {
+        userId: user?.id,
+        origin: origin || undefined,
+        source: 'camera',
+      });
+
+      // Placeholder for Step 4 - actual camera integration
+      Alert.alert('Camera', 'Camera integration will be implemented in Step 4.', [
+        {
+          text: 'OK',
+          onPress: () => setIsNavigating(false),
+        },
+      ]);
+    } else if (permissions.camera.status === 'blocked') {
+      // Permission permanently denied - show settings dialog
+      Alert.alert(
+        t('screens.capture.permissions.camera.blockedTitle'),
+        t('screens.capture.permissions.camera.blockedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.openSettings'),
+            onPress: async () => {
+              await permissions.camera.openSettings();
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.useGallery'),
+            onPress: () => handleChooseGallery(),
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    } else if (
+      permissions.camera.status === 'denied' ||
+      permissions.camera.status === 'undetermined'
+    ) {
+      // Permission not yet requested or denied once - show explanation and request
+      Alert.alert(
+        t('screens.capture.permissions.camera.deniedTitle'),
+        t('screens.capture.permissions.camera.deniedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.allowAccess'),
+            onPress: async () => {
+              await permissions.camera.request();
+              // After request, if granted, re-trigger camera flow
+              if (permissions.camera.status === 'granted') {
+                handleTakePhoto();
+              }
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    }
   };
 
   /**
-   * Placeholder handler for gallery option.
+   * Handles gallery button press with permission checks.
    *
-   * Will be implemented in Step 5 with actual gallery integration.
+   * Checks gallery permission status, shows appropriate dialogs,
+   * and requests permission if needed.
    */
-  const handleChooseGallery = () => {
-    trackCaptureEvent('capture_source_selected', {
-      userId: user?.id,
-      origin: origin || undefined,
-      source: 'gallery',
-    });
+  const handleChooseGallery = async () => {
+    if (isNavigating || permissions.isLoading) {
+      return;
+    }
 
-    Alert.alert('Gallery', 'Gallery integration will be implemented in Step 5.', [{ text: 'OK' }]);
+    // Handle based on permission status
+    if (permissions.gallery.status === 'granted') {
+      // Permission already granted - proceed to gallery
+      setIsNavigating(true);
+      trackCaptureEvent('capture_source_selected', {
+        userId: user?.id,
+        origin: origin || undefined,
+        source: 'gallery',
+      });
+
+      // Placeholder for Step 5 - actual gallery integration
+      Alert.alert('Gallery', 'Gallery integration will be implemented in Step 5.', [
+        {
+          text: 'OK',
+          onPress: () => setIsNavigating(false),
+        },
+      ]);
+    } else if (permissions.gallery.status === 'blocked') {
+      // Permission permanently denied - show settings dialog
+      Alert.alert(
+        t('screens.capture.permissions.gallery.blockedTitle'),
+        t('screens.capture.permissions.gallery.blockedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.openSettings'),
+            onPress: async () => {
+              await permissions.gallery.openSettings();
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.useCamera'),
+            onPress: () => handleTakePhoto(),
+            style: 'default',
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    } else if (
+      permissions.gallery.status === 'denied' ||
+      permissions.gallery.status === 'undetermined'
+    ) {
+      // Permission not yet requested or denied once - show explanation and request
+      Alert.alert(
+        t('screens.capture.permissions.gallery.deniedTitle'),
+        t('screens.capture.permissions.gallery.deniedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.allowAccess'),
+            onPress: async () => {
+              await permissions.gallery.request();
+              // After request, if granted, re-trigger gallery flow
+              if (permissions.gallery.status === 'granted') {
+                handleChooseGallery();
+              }
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    }
   };
 
   const styles = useMemo(
@@ -189,6 +342,7 @@ export function CaptureScreen(): React.JSX.Element {
           <Button
             onPress={handleTakePhoto}
             variant="primary"
+            disabled={!permissions.camera.isAvailable || permissions.isLoading || isNavigating}
             accessibilityLabel={t('screens.capture.accessibility.takePhotoButton')}
             accessibilityHint={t('screens.capture.accessibility.takePhotoHint')}
           >
@@ -197,6 +351,7 @@ export function CaptureScreen(): React.JSX.Element {
           <Button
             onPress={handleChooseGallery}
             variant="secondary"
+            disabled={permissions.isLoading || isNavigating}
             accessibilityLabel={t('screens.capture.accessibility.galleryButton')}
             accessibilityHint={t('screens.capture.accessibility.galleryHint')}
           >
