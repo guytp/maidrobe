@@ -22,14 +22,51 @@
  */
 
 import { StateCreator } from 'zustand';
-import { CaptureImagePayload } from '../types/capture';
+import { CaptureImagePayload, CaptureOrigin, CaptureSource } from '../types/capture';
 
 /**
  * Capture state interface.
  *
- * Holds the current image payload being passed through the capture flow.
+ * Holds the current state for the capture flow, including origin, source,
+ * navigation status, error messages, and the final image payload.
  */
 interface CaptureState {
+  /**
+   * Origin context - which feature initiated the capture flow.
+   *
+   * Set when entering the capture flow from Wardrobe or Onboarding.
+   * Used to determine back/cancel navigation behavior.
+   * Cleared on flow completion or cancellation.
+   */
+  origin: CaptureOrigin | null;
+
+  /**
+   * Source of the image - camera or gallery.
+   *
+   * Set when user selects camera or gallery option.
+   * Used for telemetry and payload construction.
+   * Cleared on flow completion or cancellation.
+   */
+  source: CaptureSource | null;
+
+  /**
+   * Navigation debouncing flag.
+   *
+   * Set to true when navigation is in progress to prevent
+   * duplicate navigations from rapid taps or double-clicks.
+   * Automatically cleared after navigation completes.
+   */
+  isNavigating: boolean;
+
+  /**
+   * Current error message, or null if no error.
+   *
+   * Set by any capture flow screen when an error occurs.
+   * Cleared when user dismisses error or retries.
+   * Centralized to allow error state to persist across navigation.
+   */
+  errorMessage: string | null;
+
   /**
    * Current capture payload, or null if no capture in progress.
    *
@@ -43,9 +80,85 @@ interface CaptureState {
 /**
  * Capture actions interface.
  *
- * Provides operations for managing the capture payload.
+ * Provides operations for managing the capture flow state.
  */
 interface CaptureActions {
+  /**
+   * Sets the origin context for the capture flow.
+   *
+   * Called when entering the capture flow to track which
+   * feature initiated it (wardrobe or onboarding).
+   *
+   * @param origin - The origin context
+   *
+   * @example
+   * ```ts
+   * const { setOrigin } = useStore();
+   *
+   * // On capture screen mount
+   * setOrigin('wardrobe');
+   * ```
+   */
+  setOrigin: (origin: CaptureOrigin) => void;
+
+  /**
+   * Sets the source for the capture.
+   *
+   * Called when user selects camera or gallery option.
+   *
+   * @param source - The capture source
+   *
+   * @example
+   * ```ts
+   * const { setSource } = useStore();
+   *
+   * // When navigating to camera
+   * setSource('camera');
+   * ```
+   */
+  setSource: (source: CaptureSource) => void;
+
+  /**
+   * Sets the navigation debouncing flag.
+   *
+   * Set to true before navigation to prevent duplicate navigations.
+   * Should be cleared after navigation completes or times out.
+   *
+   * @param isNavigating - Whether navigation is in progress
+   *
+   * @example
+   * ```ts
+   * const { setIsNavigating } = useStore();
+   *
+   * // Before navigation
+   * setIsNavigating(true);
+   * router.push('/camera');
+   * setTimeout(() => setIsNavigating(false), 500);
+   * ```
+   */
+  setIsNavigating: (isNavigating: boolean) => void;
+
+  /**
+   * Sets an error message.
+   *
+   * Called when an error occurs in the capture flow.
+   * Pass null to clear the error.
+   *
+   * @param message - The error message, or null to clear
+   *
+   * @example
+   * ```ts
+   * const { setErrorMessage } = useStore();
+   *
+   * // On error
+   * setErrorMessage('Camera initialization failed');
+   *
+   * // On retry or dismiss
+   * setErrorMessage(null);
+   * ```
+   */
+  setErrorMessage: (message: string | null) => void;
+
   /**
    * Sets the current capture payload.
    *
@@ -90,6 +203,23 @@ interface CaptureActions {
    * ```
    */
   clearPayload: () => void;
+
+  /**
+   * Resets all capture flow state to initial values.
+   *
+   * Called on flow cancellation or completion to ensure
+   * clean state for the next capture session.
+   *
+   * @example
+   * ```ts
+   * const { resetCapture } = useStore();
+   *
+   * // On cancel or after completion
+   * resetCapture();
+   * router.push('/wardrobe');
+   * ```
+   */
+  resetCapture: () => void;
 }
 
 /**
@@ -121,14 +251,44 @@ export type CaptureSlice = CaptureState & CaptureActions;
  */
 export const createCaptureSlice: StateCreator<CaptureSlice, [], [], CaptureSlice> = (set) => ({
   // Initial state
+  origin: null,
+  source: null,
+  isNavigating: false,
+  errorMessage: null,
   payload: null,
 
   // Actions
+  setOrigin: (origin: CaptureOrigin) => {
+    set({ origin });
+  },
+
+  setSource: (source: CaptureSource) => {
+    set({ source });
+  },
+
+  setIsNavigating: (isNavigating: boolean) => {
+    set({ isNavigating });
+  },
+
+  setErrorMessage: (errorMessage: string | null) => {
+    set({ errorMessage });
+  },
+
   setPayload: (payload: CaptureImagePayload) => {
     set({ payload });
   },
 
   clearPayload: () => {
     set({ payload: null });
+  },
+
+  resetCapture: () => {
+    set({
+      origin: null,
+      source: null,
+      isNavigating: false,
+      errorMessage: null,
+      payload: null,
+    });
   },
 });
