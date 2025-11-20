@@ -108,11 +108,7 @@ export function CaptureScreen(): React.JSX.Element {
       source: 'camera',
     });
 
-    Alert.alert(
-      'Camera',
-      'Camera integration will be implemented in Step 4.',
-      [{ text: 'OK' }]
-    );
+    Alert.alert('Camera', 'Camera integration will be implemented in Step 4.', [{ text: 'OK' }]);
   };
 
   /**
@@ -127,11 +123,7 @@ export function CaptureScreen(): React.JSX.Element {
       source: 'gallery',
     });
 
-    Alert.alert(
-      'Gallery',
-      'Gallery integration will be implemented in Step 5.',
-      [{ text: 'OK' }]
-    );
+    Alert.alert('Gallery', 'Gallery integration will be implemented in Step 5.', [{ text: 'OK' }]);
   };
 
   const styles = useMemo(
@@ -190,11 +182,7 @@ export function CaptureScreen(): React.JSX.Element {
         >
           {t('screens.capture.choiceTitle')}
         </Text>
-        <Text
-          style={styles.guidance}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={styles.guidance} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {t('screens.capture.guidance')}
         </Text>
         <View style={styles.buttonContainer}>

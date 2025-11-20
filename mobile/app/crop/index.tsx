@@ -177,11 +177,7 @@ export default function CropRoute(): React.JSX.Element {
           >
             {t('screens.crop.errors.noImage')}
           </Text>
-          <Text
-            style={styles.errorMessage}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.errorMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
             {t('screens.crop.errors.invalidPayload')}
           </Text>
           <Button
@@ -217,11 +213,7 @@ export default function CropRoute(): React.JSX.Element {
         >
           {t('screens.crop.title')}
         </Text>
-        <Text
-          style={styles.placeholderMessage}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
+        <Text style={styles.placeholderMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {t('screens.crop.placeholder')}
         </Text>
         <Text style={styles.debugInfo}>
