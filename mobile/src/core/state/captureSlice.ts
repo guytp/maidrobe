@@ -25,6 +25,18 @@ import { StateCreator } from 'zustand';
 import { CaptureImagePayload, CaptureOrigin, CaptureSource } from '../types/capture';
 
 /**
+ * Safety timeout duration for automatic navigation reset.
+ *
+ * If isNavigating is set to true but not manually reset to false within
+ * this duration, it will be automatically reset. This prevents permanent
+ * navigation blocking if components crash or fail to reset the flag.
+ *
+ * Set to 5 seconds to provide a generous safety margin while ensuring
+ * users are never permanently blocked from navigation.
+ */
+const NAVIGATION_SAFETY_TIMEOUT_MS = 5000;
+
+/**
  * Capture state interface.
  *
  * Holds the current state for the capture flow, including origin, source,
@@ -57,6 +69,16 @@ interface CaptureState {
    * Automatically cleared after navigation completes.
    */
   isNavigating: boolean;
+
+  /**
+   * Safety timeout ID for automatic navigation reset.
+   *
+   * Stores the timeout ID that will automatically reset isNavigating
+   * to false after 5 seconds if not manually cleared. This prevents
+   * permanent navigation blocking if components fail to reset the flag.
+   * Cleared when isNavigating is manually set to false or on reset.
+   */
+  navigationTimeoutId: ReturnType<typeof setTimeout> | null;
 
   /**
    * Current error message, or null if no error.
@@ -119,10 +141,13 @@ interface CaptureActions {
   setSource: (source: CaptureSource) => void;
 
   /**
-   * Sets the navigation debouncing flag.
+   * Sets the navigation debouncing flag with automatic safety reset.
    *
-   * Set to true before navigation to prevent duplicate navigations.
-   * Should be cleared after navigation completes or times out.
+   * When set to true, starts a 5-second safety timeout that automatically
+   * resets the flag to false if not manually cleared. This prevents permanent
+   * navigation blocking if components fail to reset the flag due to errors.
+   *
+   * When set to false, clears both the flag and any pending safety timeout.
    *
    * @param isNavigating - Whether navigation is in progress
    *
@@ -130,10 +155,15 @@ interface CaptureActions {
    * ```ts
    * const { setIsNavigating } = useStore();
    *
-   * // Before navigation
+   * // Before navigation - safety timeout starts automatically
    * setIsNavigating(true);
    * router.push('/camera');
+   *
+   * // After navigation - clears flag and cancels safety timeout
    * setTimeout(() => setIsNavigating(false), 500);
+   *
+   * // If setIsNavigating(false) is never called due to error,
+   * // the safety timeout automatically resets after 5 seconds
    * ```
    */
   setIsNavigating: (isNavigating: boolean) => void;
@@ -254,6 +284,7 @@ export const createCaptureSlice: StateCreator<CaptureSlice, [], [], CaptureSlice
   origin: null,
   source: null,
   isNavigating: false,
+  navigationTimeoutId: null,
   errorMessage: null,
   payload: null,
 
@@ -267,7 +298,25 @@ export const createCaptureSlice: StateCreator<CaptureSlice, [], [], CaptureSlice
   },
 
   setIsNavigating: (isNavigating: boolean) => {
-    set({ isNavigating });
+    set((state) => {
+      // Clear any existing safety timeout to prevent dangling timers
+      if (state.navigationTimeoutId !== null) {
+        clearTimeout(state.navigationTimeoutId);
+      }
+
+      if (isNavigating) {
+        // Start safety timeout that auto-resets flag after 5 seconds
+        // This prevents permanent blocking if components fail to reset
+        const timeoutId = setTimeout(() => {
+          set({ isNavigating: false, navigationTimeoutId: null });
+        }, NAVIGATION_SAFETY_TIMEOUT_MS);
+
+        return { isNavigating: true, navigationTimeoutId: timeoutId };
+      } else {
+        // Normal reset path - clear flag and timeout
+        return { isNavigating: false, navigationTimeoutId: null };
+      }
+    });
   },
 
   setErrorMessage: (errorMessage: string | null) => {
@@ -283,12 +332,20 @@ export const createCaptureSlice: StateCreator<CaptureSlice, [], [], CaptureSlice
   },
 
   resetCapture: () => {
-    set({
-      origin: null,
-      source: null,
-      isNavigating: false,
-      errorMessage: null,
-      payload: null,
+    set((state) => {
+      // Clear any pending navigation timeout to prevent dangling timers
+      if (state.navigationTimeoutId !== null) {
+        clearTimeout(state.navigationTimeoutId);
+      }
+
+      return {
+        origin: null,
+        source: null,
+        isNavigating: false,
+        navigationTimeoutId: null,
+        errorMessage: null,
+        payload: null,
+      };
     });
   },
 });
