@@ -30,7 +30,7 @@ interface CameraPermissionState {
   /** Whether camera hardware is available on device */
   isAvailable: boolean;
   /** Request camera permission */
-  request: () => Promise<void>;
+  request: () => Promise<PermissionStatus>;
   /** Open app settings for permission change */
   openSettings: () => Promise<void>;
 }
@@ -42,7 +42,7 @@ interface GalleryPermissionState {
   /** Current gallery permission status */
   status: PermissionStatus;
   /** Request gallery permission */
-  request: () => Promise<void>;
+  request: () => Promise<PermissionStatus>;
   /** Open app settings for permission change */
   openSettings: () => Promise<void>;
 }
@@ -143,7 +143,7 @@ export function useCapturePermissions(
   /**
    * Requests camera permission and tracks telemetry.
    */
-  const requestCamera = useCallback(async () => {
+  const requestCamera = useCallback(async (): Promise<PermissionStatus> => {
     setIsLoading(true);
 
     try {
@@ -172,14 +172,18 @@ export function useCapturePermissions(
           origin: origin || undefined,
         });
       }
+
+      return newStatus;
     } catch {
       // On error, assume denied
-      setCameraStatus('denied');
+      const deniedStatus: PermissionStatus = 'denied';
+      setCameraStatus(deniedStatus);
       trackCaptureEvent('camera_permission_denied', {
         userId: user?.id,
         origin: origin || undefined,
         errorCode: 'permission_request_failed',
       });
+      return deniedStatus;
     } finally {
       setIsLoading(false);
     }
@@ -188,7 +192,7 @@ export function useCapturePermissions(
   /**
    * Requests gallery permission and tracks telemetry.
    */
-  const requestGallery = useCallback(async () => {
+  const requestGallery = useCallback(async (): Promise<PermissionStatus> => {
     setIsLoading(true);
 
     try {
@@ -217,14 +221,18 @@ export function useCapturePermissions(
           origin: origin || undefined,
         });
       }
+
+      return newStatus;
     } catch {
       // On error, assume denied
-      setGalleryStatus('denied');
+      const deniedStatus: PermissionStatus = 'denied';
+      setGalleryStatus(deniedStatus);
       trackCaptureEvent('gallery_permission_denied', {
         userId: user?.id,
         origin: origin || undefined,
         errorCode: 'permission_request_failed',
       });
+      return deniedStatus;
     } finally {
       setIsLoading(false);
     }
