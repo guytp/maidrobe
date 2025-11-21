@@ -302,7 +302,13 @@ export type CaptureEventType =
   | 'capture_handoff_to_crop'
   | 'camera_error'
   | 'gallery_error'
-  | 'image_validation_failed';
+  | 'image_validation_failed'
+  | 'gallery_opened'
+  | 'gallery_cancelled'
+  | 'gallery_selection_failed'
+  | 'gallery_validation_failed'
+  | 'gallery_image_selected'
+  | 'gallery_permission_error';
 
 /**
  * Metadata for authentication event logging.
@@ -648,6 +654,14 @@ export interface CaptureEventMetadata {
   source?: 'camera' | 'gallery';
   /** Error code or classification if failure */
   errorCode?: string;
+  /** Error message for debugging (never include PII) */
+  errorMessage?: string;
+  /** Image width in pixels */
+  width?: number;
+  /** Image height in pixels */
+  height?: number;
+  /** Image MIME type */
+  type?: string;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }
