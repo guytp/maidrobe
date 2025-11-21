@@ -14,7 +14,7 @@
  * @module features/wardrobe/components/CaptureScreen
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -56,68 +56,6 @@ export function CaptureScreen(): React.JSX.Element {
 
   // Gallery picker hook
   const galleryPicker = useGalleryPicker(origin);
-
-  // Initialize origin in store and track flow opened
-  useEffect(() => {
-    if (!origin) {
-      trackCaptureEvent('capture_flow_opened', {
-        userId: user?.id,
-        errorCode: 'invalid_origin',
-      });
-
-      Alert.alert(
-        t('screens.capture.errors.invalidOrigin'),
-        '',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate back to a safe default (home)
-              router.replace('/home');
-            },
-          },
-        ],
-        { cancelable: false }
-      );
-    } else {
-      // Set origin in store for access throughout capture flow
-      setOrigin(origin);
-
-      // Track successful capture flow opened
-      trackCaptureEvent('capture_flow_opened', {
-        userId: user?.id,
-        origin,
-      });
-    }
-
-    // Cleanup on unmount - reset capture state
-    return () => {
-      resetCapture();
-    };
-  }, [origin, user?.id, router, setOrigin, resetCapture]);
-
-  /**
-   * Handles cancel/back navigation based on origin.
-   *
-   * Returns user to the correct parent screen:
-   * - origin=wardrobe -> /wardrobe
-   * - origin=onboarding -> /onboarding/first-item
-   */
-  const handleCancel = () => {
-    trackCaptureEvent('capture_cancelled', {
-      userId: user?.id,
-      origin: origin || undefined,
-    });
-
-    if (origin === 'wardrobe') {
-      router.push('/wardrobe');
-    } else if (origin === 'onboarding') {
-      router.push('/onboarding/first-item');
-    } else {
-      // Fallback to home if origin is unknown
-      router.push('/home');
-    }
-  };
 
   /**
    * Handles camera button press with permission checks.
@@ -223,15 +161,7 @@ export function CaptureScreen(): React.JSX.Element {
     }
   };
 
-  /**
-   * Handles camera button press.
-   * Used as fallback in gallery selection hook.
-   */
-  const handleTakePhotoCallback = useCallback(() => {
-    void handleTakePhoto();
-  }, [handleTakePhoto]);
-
-  // Gallery selection hook
+  // Gallery selection hook with camera fallback
   const gallerySelection = useGallerySelection({
     origin,
     permissions,
@@ -242,8 +172,70 @@ export function CaptureScreen(): React.JSX.Element {
     setPayload,
     router,
     user,
-    onCameraFallback: handleTakePhotoCallback,
+    onCameraFallback: () => void handleTakePhoto(),
   });
+
+  // Initialize origin in store and track flow opened
+  useEffect(() => {
+    if (!origin) {
+      trackCaptureEvent('capture_flow_opened', {
+        userId: user?.id,
+        errorCode: 'invalid_origin',
+      });
+
+      Alert.alert(
+        t('screens.capture.errors.invalidOrigin'),
+        '',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate back to a safe default (home)
+              router.replace('/home');
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    } else {
+      // Set origin in store for access throughout capture flow
+      setOrigin(origin);
+
+      // Track successful capture flow opened
+      trackCaptureEvent('capture_flow_opened', {
+        userId: user?.id,
+        origin,
+      });
+    }
+
+    // Cleanup on unmount - reset capture state
+    return () => {
+      resetCapture();
+    };
+  }, [origin, user?.id, router, setOrigin, resetCapture]);
+
+  /**
+   * Handles cancel/back navigation based on origin.
+   *
+   * Returns user to the correct parent screen:
+   * - origin=wardrobe -> /wardrobe
+   * - origin=onboarding -> /onboarding/first-item
+   */
+  const handleCancel = () => {
+    trackCaptureEvent('capture_cancelled', {
+      userId: user?.id,
+      origin: origin || undefined,
+    });
+
+    if (origin === 'wardrobe') {
+      router.push('/wardrobe');
+    } else if (origin === 'onboarding') {
+      router.push('/onboarding/first-item');
+    } else {
+      // Fallback to home if origin is unknown
+      router.push('/home');
+    }
+  };
 
   /**
    * Handles gallery button press with permission checks.
