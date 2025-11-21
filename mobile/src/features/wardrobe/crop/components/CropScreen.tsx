@@ -8,7 +8,7 @@
  *
  * Implementation status:
  * - Step 1: Route setup, navigation contract, back handling ✓
- * - Step 2: Visual layout (frame, grid, mask) - TODO
+ * - Step 2: Visual layout (frame, grid, mask) ✓
  * - Step 3: Gesture handling (pinch, pan, zoom) - TODO
  * - Step 4: Image processing (crop, resize, compress) - TODO
  * - Step 5: Integration and error handling - TODO
@@ -23,7 +23,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { BackHandler, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../../core/i18n';
@@ -40,7 +41,81 @@ import { trackCaptureEvent } from '../../../../core/telemetry';
  * icon components in future iterations for better cross-platform consistency.
  */
 const ICON_ERROR = '⚠️';
-const ICON_CROP = '✂️';
+
+/**
+ * Crop frame aspect ratio (width / height).
+ * Fixed at 4:5 portrait ratio for consistent wardrobe item framing.
+ */
+const CROP_ASPECT_RATIO = 4 / 5; // 0.8
+
+/**
+ * Padding around the crop frame to ensure it sits within safe bounds.
+ */
+const FRAME_PADDING_HORIZONTAL = 24; // spacing.lg
+const FRAME_PADDING_VERTICAL = 32; // spacing.xl
+
+/**
+ * Height reserved for control buttons at the bottom of the screen.
+ * Includes button height, padding, and margins.
+ */
+const CONTROLS_HEIGHT = 100;
+
+/**
+ * Mask overlay opacity for dimming areas outside the crop frame.
+ * Adjusted for light and dark modes to maintain visibility.
+ */
+const MASK_OPACITY_LIGHT = 0.5;
+const MASK_OPACITY_DARK = 0.7;
+
+/**
+ * Grid overlay opacity for the rule-of-thirds composition guide.
+ */
+const GRID_OPACITY = 0.5;
+
+/**
+ * Grid line thickness in pixels.
+ */
+const GRID_LINE_WIDTH = 1;
+
+/**
+ * Calculates optimal crop frame dimensions that fit within available space
+ * while maintaining the 4:5 aspect ratio.
+ *
+ * @param screenWidth - Screen width in pixels
+ * @param screenHeight - Screen height in pixels
+ * @param topInset - Safe area top inset
+ * @param bottomInset - Safe area bottom inset
+ * @returns Object containing frame width, height, and position
+ */
+function calculateFrameDimensions(
+  screenWidth: number,
+  screenHeight: number,
+  topInset: number,
+  bottomInset: number
+): { width: number; height: number; top: number; left: number } {
+  // Calculate available space
+  const availableWidth = screenWidth - FRAME_PADDING_HORIZONTAL * 2;
+  const availableHeight =
+    screenHeight - topInset - bottomInset - CONTROLS_HEIGHT - FRAME_PADDING_VERTICAL * 2;
+
+  // Calculate frame dimensions maintaining 4:5 aspect ratio
+  // Try width-constrained first
+  let frameWidth = availableWidth;
+  let frameHeight = frameWidth / CROP_ASPECT_RATIO;
+
+  // If height exceeds available space, constrain by height instead
+  if (frameHeight > availableHeight) {
+    frameHeight = availableHeight;
+    frameWidth = frameHeight * CROP_ASPECT_RATIO;
+  }
+
+  // Calculate centered position
+  const left = (screenWidth - frameWidth) / 2;
+  const contentHeight = screenHeight - topInset - bottomInset - CONTROLS_HEIGHT;
+  const top = topInset + (contentHeight - frameHeight) / 2;
+
+  return { width: frameWidth, height: frameHeight, top, left };
+}
 
 /**
  * Crop & Adjust screen component.
@@ -57,8 +132,18 @@ export function CropScreen(): React.JSX.Element {
   const clearPayload = useStore((state) => state.clearPayload);
   const user = useStore((state) => state.user);
 
+  // Get screen dimensions and safe area insets
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   // Validate payload on mount
   const isValid = isCaptureImagePayload(payload);
+
+  // Calculate crop frame dimensions
+  const frameDimensions = useMemo(
+    () => calculateFrameDimensions(screenWidth, screenHeight, insets.top, insets.bottom),
+    [screenWidth, screenHeight, insets.top, insets.bottom]
+  );
 
   useEffect(() => {
     // Track crop screen opened for valid payloads
@@ -165,7 +250,7 @@ export function CropScreen(): React.JSX.Element {
           flex: 1,
           backgroundColor: colors.background,
         },
-        content: {
+        errorContent: {
           flex: 1,
           padding: spacing.lg,
           justifyContent: 'center',
@@ -189,37 +274,105 @@ export function CropScreen(): React.JSX.Element {
           textAlign: 'center',
           maxWidth: 300,
         },
-        placeholderIcon: {
-          fontSize: 64,
-          marginBottom: spacing.md,
+        imageContainer: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
         },
-        placeholderTitle: {
-          fontSize: 24,
-          fontWeight: '600',
-          color: colors.textPrimary,
-          marginBottom: spacing.sm,
-          textAlign: 'center',
+        image: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
         },
-        placeholderMessage: {
-          fontSize: 16,
-          color: colors.textSecondary,
-          marginBottom: spacing.xl,
-          textAlign: 'center',
-          maxWidth: 300,
+        maskOverlay: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
         },
-        debugInfo: {
-          fontSize: 12,
-          color: colors.textSecondary,
-          marginTop: spacing.md,
-          fontFamily: 'monospace',
+        maskTop: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor:
+            'rgba(0, 0, 0, ' +
+            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
+            ')',
         },
-        buttonContainer: {
+        maskBottom: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor:
+            'rgba(0, 0, 0, ' +
+            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
+            ')',
+        },
+        maskLeft: {
+          position: 'absolute',
+          left: 0,
+          backgroundColor:
+            'rgba(0, 0, 0, ' +
+            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
+            ')',
+        },
+        maskRight: {
+          position: 'absolute',
+          right: 0,
+          backgroundColor:
+            'rgba(0, 0, 0, ' +
+            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
+            ')',
+        },
+        cropFrame: {
+          position: 'absolute',
+          borderWidth: 2,
+          borderColor: 'rgba(255, 255, 255, 0.8)',
+        },
+        gridContainer: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        },
+        gridLine: {
+          position: 'absolute',
+          backgroundColor: `rgba(255, 255, 255, ${GRID_OPACITY})`,
+        },
+        gridLineVertical: {
+          width: GRID_LINE_WIDTH,
+          top: 0,
+          bottom: 0,
+        },
+        gridLineHorizontal: {
+          height: GRID_LINE_WIDTH,
+          left: 0,
+          right: 0,
+        },
+        controlsContainer: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: insets.bottom,
           flexDirection: 'row',
+          justifyContent: 'center',
+          alignItems: 'center',
           gap: spacing.md,
-          marginTop: spacing.lg,
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.lg,
         },
       }),
-    [colors, spacing]
+    [colors, colorScheme, spacing, insets.bottom]
   );
 
   // Show error if payload is invalid
@@ -229,7 +382,7 @@ export function CropScreen(): React.JSX.Element {
         style={styles.container}
         accessibilityLabel={t('screens.crop.accessibility.screenLabel')}
       >
-        <View style={styles.content}>
+        <View style={styles.errorContent}>
           <Text
             style={styles.errorIcon}
             accessibilityLabel={t('screens.crop.accessibility.errorIcon')}
@@ -262,66 +415,147 @@ export function CropScreen(): React.JSX.Element {
     );
   }
 
-  // Show crop interface placeholder (Steps 2-4 will implement full UI)
-  // TODO (Step 2): Replace with actual crop frame, grid, and mask
-  // TODO (Step 3): Add gesture handlers for zoom and pan
-  // TODO (Step 4): Add image processing on confirm
+  // Render crop interface with image, frame, grid, and mask
   return (
     <View
       style={styles.container}
       accessibilityLabel={t('screens.crop.accessibility.screenLabel')}
       accessibilityHint={t('screens.crop.accessibility.screenHint')}
     >
-      <View style={styles.content}>
-        <Text
-          style={styles.placeholderIcon}
-          accessibilityLabel={t('screens.crop.accessibility.cropIcon')}
-          accessibilityRole="image"
-        >
-          {ICON_CROP}
-        </Text>
-        <Text
-          style={styles.placeholderTitle}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-          accessibilityRole="header"
-        >
-          {t('screens.crop.title')}
-        </Text>
-        <Text style={styles.placeholderMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {t('screens.crop.placeholder')}
-        </Text>
-        {__DEV__ && payload && (
-          <Text
-            style={styles.debugInfo}
-            accessibilityLabel={t('screens.crop.accessibility.debugInfo')}
-          >
-            Origin: {payload.origin} | Source: {payload.source}
-            {'\n'}
-            Dimensions: {payload.width}x{payload.height}
-            {'\n'}
-            URI: {payload.uri.substring(0, 50)}...
-          </Text>
-        )}
-        <View style={styles.buttonContainer}>
-          <Button
-            onPress={handleBackRetake}
-            variant="secondary"
-            accessibilityLabel={t('screens.crop.accessibility.retakeButton')}
-            accessibilityHint={t('screens.crop.accessibility.retakeHint')}
-          >
-            {t('screens.crop.retake')}
-          </Button>
-          <Button
-            onPress={handleConfirm}
-            variant="primary"
-            accessibilityLabel={t('screens.crop.accessibility.confirmButton')}
-            accessibilityHint={t('screens.crop.accessibility.confirmHint')}
-          >
-            {t('screens.crop.confirm')}
-          </Button>
+      {/* Image display */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={{ uri: payload.uri }}
+          style={styles.image}
+          resizeMode="cover"
+          accessibilityLabel="Captured wardrobe item image"
+        />
+      </View>
+
+      {/* Mask overlay - dims area outside crop frame */}
+      <View style={styles.maskOverlay} pointerEvents="none">
+        {/* Top mask */}
+        <View
+          style={[
+            styles.maskTop,
+            {
+              height: frameDimensions.top,
+            },
+          ]}
+        />
+        {/* Bottom mask */}
+        <View
+          style={[
+            styles.maskBottom,
+            {
+              top: frameDimensions.top + frameDimensions.height,
+            },
+          ]}
+        />
+        {/* Left mask */}
+        <View
+          style={[
+            styles.maskLeft,
+            {
+              top: frameDimensions.top,
+              width: frameDimensions.left,
+              height: frameDimensions.height,
+            },
+          ]}
+        />
+        {/* Right mask */}
+        <View
+          style={[
+            styles.maskRight,
+            {
+              top: frameDimensions.top,
+              width: screenWidth - frameDimensions.left - frameDimensions.width,
+              height: frameDimensions.height,
+            },
+          ]}
+        />
+      </View>
+
+      {/* Crop frame with border and grid */}
+      <View
+        style={[
+          styles.cropFrame,
+          {
+            top: frameDimensions.top,
+            left: frameDimensions.left,
+            width: frameDimensions.width,
+            height: frameDimensions.height,
+          },
+        ]}
+        pointerEvents="none"
+        accessibilityLabel="Crop frame - 4 by 5 portrait"
+        accessibilityRole="image"
+      >
+        {/* Grid overlay - 3x3 rule of thirds */}
+        <View style={styles.gridContainer}>
+          {/* Vertical line 1 (at 33.33%) */}
+          <View
+            style={[
+              styles.gridLine,
+              styles.gridLineVertical,
+              {
+                left: frameDimensions.width * (1 / 3),
+              },
+            ]}
+          />
+          {/* Vertical line 2 (at 66.67%) */}
+          <View
+            style={[
+              styles.gridLine,
+              styles.gridLineVertical,
+              {
+                left: frameDimensions.width * (2 / 3),
+              },
+            ]}
+          />
+          {/* Horizontal line 1 (at 33.33%) */}
+          <View
+            style={[
+              styles.gridLine,
+              styles.gridLineHorizontal,
+              {
+                top: frameDimensions.height * (1 / 3),
+              },
+            ]}
+          />
+          {/* Horizontal line 2 (at 66.67%) */}
+          <View
+            style={[
+              styles.gridLine,
+              styles.gridLineHorizontal,
+              {
+                top: frameDimensions.height * (2 / 3),
+              },
+            ]}
+          />
         </View>
       </View>
+
+      {/* Controls */}
+      <View style={styles.controlsContainer}>
+        <Button
+          onPress={handleBackRetake}
+          variant="secondary"
+          accessibilityLabel={t('screens.crop.accessibility.retakeButton')}
+          accessibilityHint={t('screens.crop.accessibility.retakeHint')}
+        >
+          {t('screens.crop.retake')}
+        </Button>
+        <Button
+          onPress={handleConfirm}
+          variant="primary"
+          accessibilityLabel={t('screens.crop.accessibility.confirmButton')}
+          accessibilityHint={t('screens.crop.accessibility.confirmHint')}
+        >
+          {t('screens.crop.confirm')}
+        </Button>
+      </View>
+
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>
   );
