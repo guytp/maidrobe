@@ -386,17 +386,17 @@ export function CropScreen(): React.JSX.Element {
    * Orientation is unlocked on unmount to restore normal app behavior.
    */
   useEffect(() => {
-    let isMounted = true;
-
     async function lockOrientation() {
       try {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         if (__DEV__) {
+          // eslint-disable-next-line no-console
           console.log('[CropScreen] Orientation locked to portrait');
         }
       } catch (error) {
         // Orientation lock may fail on some platforms (web, certain devices)
         // This is not critical - log but don't prevent screen from loading
+        // eslint-disable-next-line no-console
         console.warn('[CropScreen] Failed to lock orientation:', error);
       }
     }
@@ -404,9 +404,9 @@ export function CropScreen(): React.JSX.Element {
     lockOrientation();
 
     return () => {
-      isMounted = false;
       // Unlock orientation when leaving screen
       ScreenOrientation.unlockAsync().catch((error) => {
+        // eslint-disable-next-line no-console
         console.warn('[CropScreen] Failed to unlock orientation:', error);
       });
     };
@@ -439,6 +439,7 @@ export function CropScreen(): React.JSX.Element {
    */
   const handleImageLoadError = useCallback(() => {
     if (__DEV__) {
+      // eslint-disable-next-line no-console
       console.error('[CropScreen] Image failed to load:', payload?.uri);
     }
 
@@ -520,8 +521,11 @@ export function CropScreen(): React.JSX.Element {
       });
 
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[CropScreen] Processing started');
+        // eslint-disable-next-line no-console
         console.log('[CropScreen] Payload:', payload);
+        // eslint-disable-next-line no-console
         console.log('[CropScreen] Transform:', currentTransform.current);
       }
 
@@ -536,6 +540,7 @@ export function CropScreen(): React.JSX.Element {
       );
 
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[CropScreen] Crop rectangle:', cropRect);
       }
 
@@ -543,6 +548,7 @@ export function CropScreen(): React.JSX.Element {
       const result = await cropAndProcessImage(payload.uri, cropRect, payload.source);
 
       if (__DEV__) {
+        // eslint-disable-next-line no-console
         console.log('[CropScreen] Processing completed:', result);
       }
 
@@ -789,9 +795,7 @@ export function CropScreen(): React.JSX.Element {
 
   // Show error if payload is invalid or image failed to load
   if (!isValid || imageLoadError) {
-    const errorTitle = imageLoadError
-      ? 'Unable to load image'
-      : t('screens.crop.errors.noImage');
+    const errorTitle = imageLoadError ? 'Unable to load image' : t('screens.crop.errors.noImage');
     const errorMessage = imageLoadError
       ? 'We could not crop this photo. Please try again.'
       : t('screens.crop.errors.invalidPayload');
