@@ -526,7 +526,7 @@
     },
     "crop": {
       "title": "Adjust Photo",
-      "placeholder": "Crop and adjust your photo",
+      "placeholder": "Photo cropping interface will be available in a future update. For now, you can go back to capture a different photo.",
       "errors": {
         "noImage": "No image to adjust. Please capture or select an image first.",
         "invalidPayload": "Invalid image data. Please try again."
@@ -536,6 +536,9 @@
       "accessibility": {
         "screenLabel": "Photo adjustment screen",
         "screenHint": "Crop and adjust your captured photo",
+        "errorIcon": "Warning: No image available",
+        "cropIcon": "Scissors icon representing photo cropping",
+        "debugInfo": "Debug information showing capture origin and source",
         "goBackButton": "Go back button",
         "goBackHint": "Return to capture screen",
         "continueButton": "Continue button",
