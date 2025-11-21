@@ -130,9 +130,10 @@ export function useGalleryPicker(origin: CaptureOrigin | null): UseGalleryPicker
       );
 
       if (!validation.isValid) {
-        trackCaptureEvent('gallery_validation_failed', {
+        trackCaptureEvent('image_validation_failed', {
           userId: user?.id,
           origin: origin || undefined,
+          source: 'gallery',
           errorCode: validation.error,
           errorMessage: validation.errorMessage,
         });
