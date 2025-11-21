@@ -9,7 +9,7 @@
  * Implementation status:
  * - Step 1: Route setup, navigation contract, back handling ✓
  * - Step 2: Visual layout (frame, grid, mask) ✓
- * - Step 3: Gesture handling (pinch, pan, zoom) - TODO
+ * - Step 3: Gesture handling (pinch, pan, zoom) ✓
  * - Step 4: Image processing (crop, resize, compress) - TODO
  * - Step 5: Integration and error handling - TODO
  *
@@ -22,8 +22,16 @@
  * @module features/wardrobe/crop/components/CropScreen
  */
 
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { BackHandler, Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  Animated,
+  BackHandler,
+  PanResponder,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -78,6 +86,12 @@ const GRID_OPACITY = 0.5;
 const GRID_LINE_WIDTH = 1;
 
 /**
+ * Maximum zoom scale factor.
+ * Allows users to zoom in for detail while preventing excessive zoom.
+ */
+const MAX_SCALE = 4.0;
+
+/**
  * Calculates optimal crop frame dimensions that fit within available space
  * while maintaining the 4:5 aspect ratio.
  *
@@ -118,6 +132,59 @@ function calculateFrameDimensions(
 }
 
 /**
+ * Calculates the minimum scale factor needed to ensure the image fully covers the crop frame.
+ *
+ * @param imageWidth - Original image width in pixels
+ * @param imageHeight - Original image height in pixels
+ * @param frameWidth - Crop frame width in pixels
+ * @param frameHeight - Crop frame height in pixels
+ * @returns Minimum scale factor
+ */
+function calculateMinScale(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number
+): number {
+  const scaleToFillWidth = frameWidth / imageWidth;
+  const scaleToFillHeight = frameHeight / imageHeight;
+  return Math.max(scaleToFillWidth, scaleToFillHeight);
+}
+
+/**
+ * Calculates the distance between two touch points.
+ *
+ * @param touch1 - First touch point
+ * @param touch2 - Second touch point
+ * @returns Distance in pixels
+ */
+function getDistance(
+  touch1: { pageX: number; pageY: number },
+  touch2: { pageX: number; pageY: number }
+): number {
+  const dx = touch1.pageX - touch2.pageX;
+  const dy = touch1.pageY - touch2.pageY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Calculates the midpoint between two touch points.
+ *
+ * @param touch1 - First touch point
+ * @param touch2 - Second touch point
+ * @returns Midpoint coordinates
+ */
+function getMidpoint(
+  touch1: { pageX: number; pageY: number },
+  touch2: { pageX: number; pageY: number }
+): { x: number; y: number } {
+  return {
+    x: (touch1.pageX + touch2.pageX) / 2,
+    y: (touch1.pageY + touch2.pageY) / 2,
+  };
+}
+
+/**
  * Crop & Adjust screen component.
  *
  * Displays the captured/selected image with cropping controls and navigation.
@@ -144,6 +211,150 @@ export function CropScreen(): React.JSX.Element {
     () => calculateFrameDimensions(screenWidth, screenHeight, insets.top, insets.bottom),
     [screenWidth, screenHeight, insets.top, insets.bottom]
   );
+
+  // Animated values for image transform
+  const scale = useRef(new Animated.Value(1)).current;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  // Gesture state refs
+  const gestureState = useRef({
+    initialScale: 1,
+    initialTranslateX: 0,
+    initialTranslateY: 0,
+    initialDistance: 0,
+    initialMidpoint: { x: 0, y: 0 },
+  });
+
+  /**
+   * Calculates pan bounds for the current scale to prevent empty space in frame.
+   *
+   * @param currentScale - Current scale factor
+   * @returns Pan bounds (minX, maxX, minY, maxY)
+   */
+  const calculatePanBounds = useCallback(
+    (currentScale: number) => {
+      if (!payload || !isValid) {
+        return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+      }
+
+      const scaledWidth = payload.width * currentScale;
+      const scaledHeight = payload.height * currentScale;
+
+      return {
+        minX: frameDimensions.left + frameDimensions.width - scaledWidth,
+        maxX: frameDimensions.left,
+        minY: frameDimensions.top + frameDimensions.height - scaledHeight,
+        maxY: frameDimensions.top,
+      };
+    },
+    [payload, isValid, frameDimensions]
+  );
+
+  /**
+   * Initialize transform values when frame dimensions or payload changes.
+   */
+  useEffect(() => {
+    if (!payload || !isValid) return;
+
+    // Calculate minimum scale to fill frame
+    const minScale = calculateMinScale(
+      payload.width,
+      payload.height,
+      frameDimensions.width,
+      frameDimensions.height
+    );
+
+    // Set initial scale
+    scale.setValue(minScale);
+    gestureState.current.initialScale = minScale;
+
+    // Center image in frame
+    const scaledWidth = payload.width * minScale;
+    const scaledHeight = payload.height * minScale;
+    const centerX = frameDimensions.left + (frameDimensions.width - scaledWidth) / 2;
+    const centerY = frameDimensions.top + (frameDimensions.height - scaledHeight) / 2;
+
+    translateX.setValue(centerX);
+    translateY.setValue(centerY);
+    gestureState.current.initialTranslateX = centerX;
+    gestureState.current.initialTranslateY = centerY;
+  }, [payload, isValid, frameDimensions, scale, translateX, translateY]);
+
+  /**
+   * PanResponder for handling pinch-to-zoom and pan gestures.
+   */
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: (evt) => {
+        const touches = evt.nativeEvent.touches;
+
+        // Store initial values from current animated values
+        gestureState.current.initialScale = (scale as any)._value;
+        gestureState.current.initialTranslateX = (translateX as any)._value;
+        gestureState.current.initialTranslateY = (translateY as any)._value;
+
+        // If pinch gesture (2+ fingers), store initial distance and midpoint
+        if (touches.length >= 2) {
+          gestureState.current.initialDistance = getDistance(touches[0], touches[1]);
+          gestureState.current.initialMidpoint = getMidpoint(touches[0], touches[1]);
+        }
+      },
+
+      onPanResponderMove: (evt, gestState) => {
+        if (!payload || !isValid) return;
+
+        const touches = evt.nativeEvent.touches;
+        let newScale = gestureState.current.initialScale;
+        let newTranslateX = gestureState.current.initialTranslateX + gestState.dx;
+        let newTranslateY = gestureState.current.initialTranslateY + gestState.dy;
+
+        // Handle pinch-to-zoom (2+ fingers)
+        if (touches.length >= 2) {
+          const currentDistance = getDistance(touches[0], touches[1]);
+          const scaleChange = currentDistance / gestureState.current.initialDistance;
+          newScale = gestureState.current.initialScale * scaleChange;
+
+          // Adjust translation to zoom toward pinch center
+          const currentMidpoint = getMidpoint(touches[0], touches[1]);
+          const midpointDeltaX = currentMidpoint.x - gestureState.current.initialMidpoint.x;
+          const midpointDeltaY = currentMidpoint.y - gestureState.current.initialMidpoint.y;
+          newTranslateX += midpointDeltaX;
+          newTranslateY += midpointDeltaY;
+        }
+
+        // Apply scale constraints
+        const minScale = calculateMinScale(
+          payload.width,
+          payload.height,
+          frameDimensions.width,
+          frameDimensions.height
+        );
+        const clampedScale = Math.max(minScale, Math.min(MAX_SCALE, newScale));
+
+        // Apply pan constraints
+        const bounds = calculatePanBounds(clampedScale);
+        const clampedX = Math.max(bounds.minX, Math.min(bounds.maxX, newTranslateX));
+        const clampedY = Math.max(bounds.minY, Math.min(bounds.maxY, newTranslateY));
+
+        // Update animated values
+        scale.setValue(clampedScale);
+        translateX.setValue(clampedX);
+        translateY.setValue(clampedY);
+      },
+
+      onPanResponderRelease: () => {
+        // Gesture ended - values are already set
+        // Store final values for next gesture
+        gestureState.current.initialScale = (scale as any)._value;
+        gestureState.current.initialTranslateX = (translateX as any)._value;
+        gestureState.current.initialTranslateY = (translateY as any)._value;
+      },
+    })
+  ).current;
 
   useEffect(() => {
     // Track crop screen opened for valid payloads
@@ -208,6 +419,11 @@ export function CropScreen(): React.JSX.Element {
     if (__DEV__) {
       console.log('[CropScreen] Confirm pressed - full implementation in Step 4');
       console.log('[CropScreen] Payload:', payload);
+      console.log('[CropScreen] Transform:', {
+        scale: (scale as any)._value,
+        translateX: (translateX as any)._value,
+        translateY: (translateY as any)._value,
+      });
     }
 
     // TODO (Step 4): Implement crop processing pipeline
@@ -225,7 +441,7 @@ export function CropScreen(): React.JSX.Element {
         source: payload.source,
       });
     }
-  }, [payload, user]);
+  }, [payload, user, scale, translateX, translateY]);
 
   /**
    * Android hardware back button handler.
@@ -285,10 +501,6 @@ export function CropScreen(): React.JSX.Element {
           position: 'absolute',
           top: 0,
           left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100%',
-          height: '100%',
         },
         maskOverlay: {
           position: 'absolute',
@@ -422,12 +634,18 @@ export function CropScreen(): React.JSX.Element {
       accessibilityLabel={t('screens.crop.accessibility.screenLabel')}
       accessibilityHint={t('screens.crop.accessibility.screenHint')}
     >
-      {/* Image display */}
-      <View style={styles.imageContainer}>
-        <Image
+      {/* Image display with gesture handling */}
+      <View style={styles.imageContainer} {...panResponder.panHandlers}>
+        <Animated.Image
           source={{ uri: payload.uri }}
-          style={styles.image}
-          resizeMode="cover"
+          style={[
+            styles.image,
+            {
+              width: payload.width,
+              height: payload.height,
+              transform: [{ scale }, { translateX }, { translateY }],
+            },
+          ]}
           accessibilityLabel="Captured wardrobe item image"
         />
       </View>
