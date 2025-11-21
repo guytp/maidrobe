@@ -113,6 +113,9 @@ export function useGallerySelection(
 ): UseGallerySelectionReturn {
   /**
    * Launch gallery picker and handle result.
+   * Note: retry handlers reference handleGallerySelection which is defined later.
+   * This works because handlers are only called after user interaction, when
+   * handleGallerySelection is already defined.
    */
   const launchGalleryPicker = useCallback(async () => {
     // Set navigation state and source
@@ -159,7 +162,7 @@ export function useGallerySelection(
         [
           {
             text: t('screens.capture.errors.tryAgain'),
-            onPress: () => handleGallerySelection(),
+            onPress: () => void handleGallerySelection(),
           },
           {
             text: t('screens.capture.errors.cancel'),
@@ -176,7 +179,7 @@ export function useGallerySelection(
         [
           {
             text: t('screens.capture.errors.tryAgain'),
-            onPress: () => handleGallerySelection(),
+            onPress: () => void handleGallerySelection(),
           },
           {
             text: t('screens.capture.errors.cancel'),
@@ -185,13 +188,18 @@ export function useGallerySelection(
         ]
       );
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options]);
 
   /**
    * Show blocked permission dialog with settings option.
    */
   const showBlockedPermissionDialog = useCallback(() => {
-    const actions: any[] = [
+    const actions: Array<{
+      text: string;
+      onPress?: () => void;
+      style?: 'default' | 'cancel' | 'destructive';
+    }> = [
       {
         text: t('screens.capture.permissions.actions.openSettings'),
         onPress: async () => {

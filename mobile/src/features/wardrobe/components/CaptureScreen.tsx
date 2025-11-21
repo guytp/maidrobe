@@ -21,7 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
-import { isCaptureOrigin, CaptureOrigin, CaptureImagePayload } from '../../../core/types/capture';
+import { isCaptureOrigin, CaptureOrigin } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
