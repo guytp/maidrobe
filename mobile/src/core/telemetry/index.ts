@@ -304,7 +304,6 @@ export type CaptureEventType =
   | 'gallery_error'
   | 'image_validation_failed'
   | 'gallery_opened'
-  | 'gallery_cancelled'
   | 'gallery_selection_failed'
   | 'gallery_validation_failed'
   | 'gallery_image_selected'

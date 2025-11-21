@@ -92,7 +92,7 @@ export function useGalleryPicker(origin: CaptureOrigin | null): UseGalleryPicker
 
       // Handle cancellation
       if (result.canceled) {
-        trackCaptureEvent('gallery_cancelled', {
+        trackCaptureEvent('gallery_picker_cancelled', {
           userId: user?.id,
           origin: origin || undefined,
         });
