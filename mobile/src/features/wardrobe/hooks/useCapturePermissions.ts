@@ -8,7 +8,8 @@
  * @module features/wardrobe/hooks/useCapturePermissions
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import {
   PermissionStatus,
   isCameraAvailable,
@@ -20,7 +21,6 @@ import {
 } from '../../../core/utils/permissions';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { SETTINGS_RETURN_DELAY_MS } from '../constants';
 
 /**
  * Camera permission state.
@@ -97,6 +97,9 @@ export function useCapturePermissions(
   const [cameraAvailable, setCameraAvailable] = useState<boolean>(true);
   const [galleryStatus, setGalleryStatus] = useState<PermissionStatus>('undetermined');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Track AppState subscription for cleanup
+  const appStateSubscription = useRef<ReturnType<typeof AppState.addEventListener> | null>(null);
 
   /**
    * Checks initial permission statuses on mount.
@@ -241,6 +244,7 @@ export function useCapturePermissions(
 
   /**
    * Opens app settings and tracks telemetry.
+   * Uses AppState to detect when user returns from settings and re-checks permissions.
    */
   const handleOpenSettings = useCallback(async () => {
     trackCaptureEvent('settings_opened', {
@@ -248,20 +252,51 @@ export function useCapturePermissions(
       origin: origin || undefined,
     });
 
+    // Clean up any existing subscription before creating a new one
+    if (appStateSubscription.current) {
+      appStateSubscription.current.remove();
+      appStateSubscription.current = null;
+    }
+
     await openAppSettings();
 
-    // After returning from settings, re-check permissions
-    // User might have changed them
-    setTimeout(async () => {
-      const [newCameraStatus, newGalleryStatus] = await Promise.all([
-        checkCameraPermission(),
-        checkGalleryPermission(),
-      ]);
+    // Subscribe to AppState changes to detect when user returns from settings
+    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+      // When app becomes active again (user returned from settings)
+      if (nextAppState === 'active') {
+        // Re-check both camera and gallery permissions
+        const [newCameraStatus, newGalleryStatus] = await Promise.all([
+          checkCameraPermission(),
+          checkGalleryPermission(),
+        ]);
 
-      setCameraStatus(newCameraStatus);
-      setGalleryStatus(newGalleryStatus);
-    }, SETTINGS_RETURN_DELAY_MS);
+        setCameraStatus(newCameraStatus);
+        setGalleryStatus(newGalleryStatus);
+
+        // Clean up subscription after first re-check
+        if (appStateSubscription.current) {
+          appStateSubscription.current.remove();
+          appStateSubscription.current = null;
+        }
+      }
+    });
+
+    // Store subscription for cleanup
+    appStateSubscription.current = subscription;
   }, [user?.id, origin]);
+
+  /**
+   * Cleanup AppState subscription on unmount.
+   */
+  useEffect(() => {
+    return () => {
+      // Remove AppState listener if it exists
+      if (appStateSubscription.current) {
+        appStateSubscription.current.remove();
+        appStateSubscription.current = null;
+      }
+    };
+  }, []);
 
   return {
     camera: {
