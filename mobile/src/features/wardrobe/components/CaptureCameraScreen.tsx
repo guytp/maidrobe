@@ -173,7 +173,23 @@ export function CaptureCameraScreen(): React.JSX.Element {
         throw new Error('No photo URI returned');
       }
 
-      // Validate the captured image
+      // Explicitly validate dimensions are present and non-zero
+      if (!photo.width || photo.width <= 0 || !photo.height || photo.height <= 0) {
+        // Invalid dimensions - track specific error
+        setIsCapturing(false);
+        setIsNavigating(false);
+        setErrorMessage(t('screens.captureCamera.errors.invalidDimensions'));
+        trackCaptureEvent('image_validation_failed', {
+          userId: user?.id,
+          origin: origin || undefined,
+          source: 'camera',
+          errorCode: 'invalid_dimensions',
+          errorMessage: 'Image dimensions are missing or invalid',
+        });
+        return;
+      }
+
+      // Validate the captured image dimensions and format
       const validation = validateCapturedImage(
         photo.uri,
         photo.width,
@@ -182,12 +198,51 @@ export function CaptureCameraScreen(): React.JSX.Element {
       );
 
       if (!validation.isValid) {
-        throw new Error(validation.errorMessage || 'Image validation failed');
-      }
+        // Validation failed - handle based on error type
+        setIsCapturing(false);
+        setIsNavigating(false);
 
-      // Explicitly validate dimensions are present and non-zero
-      if (!photo.width || photo.width <= 0 || !photo.height || photo.height <= 0) {
-        throw new Error('Invalid image dimensions returned from camera');
+        // Determine specific error code and message
+        let errorCode = 'validation_failed';
+        let errorMessage = t('screens.captureCamera.errors.captureFailed');
+
+        if (validation.error === 'invalid_dimensions') {
+          // Check if it's too large or too small
+          if (
+            (photo.width && photo.width > 8000) ||
+            (photo.height && photo.height > 8000)
+          ) {
+            errorCode = 'image_too_large';
+            errorMessage = t('screens.captureCamera.errors.imageTooLarge');
+          } else if (
+            (photo.width && photo.width < 256) ||
+            (photo.height && photo.height < 256)
+          ) {
+            errorCode = 'image_too_small';
+            errorMessage = t('screens.captureCamera.errors.imageTooSmall');
+          } else {
+            errorCode = 'invalid_dimensions';
+            errorMessage = t('screens.captureCamera.errors.invalidDimensions');
+          }
+        } else if (validation.error === 'invalid_type') {
+          errorCode = 'invalid_format';
+          errorMessage = t('screens.captureCamera.errors.invalidFormat');
+        }
+
+        setErrorMessage(errorMessage);
+
+        // Track validation failure with specific error details
+        trackCaptureEvent('image_validation_failed', {
+          userId: user?.id,
+          origin: origin || undefined,
+          source: 'camera',
+          errorCode,
+          errorMessage: validation.errorMessage,
+          width: photo.width,
+          height: photo.height,
+        });
+
+        return;
       }
 
       // Create payload using stored origin and source (fallback to params/defaults)
@@ -217,15 +272,17 @@ export function CaptureCameraScreen(): React.JSX.Element {
 
       // Clear navigation flag after a delay
       setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
-    } catch {
-      // Handle capture error
+    } catch (error) {
+      // Handle unexpected capture errors
       setIsCapturing(false);
       setIsNavigating(false);
       setErrorMessage(t('screens.captureCamera.errors.captureFailed'));
       trackCaptureEvent('camera_error', {
         userId: user?.id,
         origin: origin || undefined,
+        source: 'camera',
         errorCode: 'capture_failed',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   };

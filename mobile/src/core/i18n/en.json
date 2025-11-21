@@ -502,6 +502,10 @@
       "errors": {
         "initFailed": "Failed to initialize camera. Please try again or use the gallery instead.",
         "captureFailed": "Failed to capture photo. Please try again.",
+        "invalidDimensions": "Image dimensions are invalid. Please try again.",
+        "imageTooLarge": "This image is too large. Please try again with the camera positioned further away.",
+        "imageTooSmall": "This image is too small. Please ensure the photo is clear and close-up.",
+        "invalidFormat": "Image format is not supported. Please try again.",
         "retry": "Retry",
         "switchToGallery": "Use Gallery Instead"
       },
