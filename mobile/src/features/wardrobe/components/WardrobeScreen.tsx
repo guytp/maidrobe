@@ -37,7 +37,7 @@ import { useStore } from '../../../core/state/store';
  * @returns Wardrobe screen component with empty state and add CTA
  */
 export function WardrobeScreen(): React.JSX.Element {
-  const { colors, colorScheme, spacing } = useTheme();
+  const { colors, colorScheme, spacing, fontSize } = useTheme();
   const router = useRouter();
   const user = useStore((state) => state.user);
   const isNavigating = useStore((state) => state.isNavigating);
@@ -85,18 +85,18 @@ export function WardrobeScreen(): React.JSX.Element {
           padding: spacing.lg,
         },
         emptyIcon: {
-          fontSize: 64,
+          fontSize: fontSize['5xl'],
           marginBottom: spacing.md,
         },
         emptyTitle: {
-          fontSize: 24,
+          fontSize: fontSize['2xl'],
           fontWeight: '600',
           color: colors.textPrimary,
           marginBottom: spacing.sm,
           textAlign: 'center',
         },
         emptyHint: {
-          fontSize: 16,
+          fontSize: fontSize.base,
           color: colors.textSecondary,
           marginBottom: spacing.xl,
           textAlign: 'center',
@@ -106,7 +106,7 @@ export function WardrobeScreen(): React.JSX.Element {
           minWidth: 200,
         },
       }),
-    [colors, spacing]
+    [colors, spacing, fontSize]
   );
 
   return (
