@@ -309,7 +309,10 @@ export type CaptureEventType =
   | 'gallery_permission_error'
   | 'crop_screen_opened'
   | 'crop_cancelled'
-  | 'crop_confirm_pressed';
+  | 'crop_confirm_pressed'
+  | 'crop_processing_started'
+  | 'crop_processing_completed'
+  | 'crop_processing_failed';
 
 /**
  * Metadata for authentication event logging.
