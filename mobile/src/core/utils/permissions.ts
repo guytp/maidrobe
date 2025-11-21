@@ -12,6 +12,7 @@ import { Camera } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
+import { logError } from '../telemetry';
 
 /**
  * Normalized permission status.
@@ -75,7 +76,12 @@ export async function checkCameraPermission(): Promise<PermissionStatus> {
   try {
     const response = await Camera.getCameraPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch {
+  } catch (error) {
+    // Log error for debugging while maintaining safe fallback
+    logError(error, 'user', {
+      feature: 'permissions',
+      operation: 'checkCameraPermission',
+    });
     // If permission check fails, treat as undetermined
     return 'undetermined';
   }
@@ -93,7 +99,12 @@ export async function requestCameraPermission(): Promise<PermissionStatus> {
   try {
     const response = await Camera.requestCameraPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch {
+  } catch (error) {
+    // Log error for debugging while maintaining safe fallback
+    logError(error, 'user', {
+      feature: 'permissions',
+      operation: 'requestCameraPermission',
+    });
     // If permission request fails, treat as denied
     return 'denied';
   }
@@ -108,7 +119,12 @@ export async function checkGalleryPermission(): Promise<PermissionStatus> {
   try {
     const response = await ImagePicker.getMediaLibraryPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch {
+  } catch (error) {
+    // Log error for debugging while maintaining safe fallback
+    logError(error, 'user', {
+      feature: 'permissions',
+      operation: 'checkGalleryPermission',
+    });
     // If permission check fails, treat as undetermined
     return 'undetermined';
   }
@@ -126,7 +142,12 @@ export async function requestGalleryPermission(): Promise<PermissionStatus> {
   try {
     const response = await ImagePicker.requestMediaLibraryPermissionsAsync();
     return normalizePermissionStatus(response);
-  } catch {
+  } catch (error) {
+    // Log error for debugging while maintaining safe fallback
+    logError(error, 'user', {
+      feature: 'permissions',
+      operation: 'requestGalleryPermission',
+    });
     // If permission request fails, treat as denied
     return 'denied';
   }
@@ -153,7 +174,13 @@ export async function openAppSettings(): Promise<boolean> {
       return true;
     }
     return false;
-  } catch {
+  } catch (error) {
+    // Log error for debugging while maintaining safe fallback
+    logError(error, 'user', {
+      feature: 'permissions',
+      operation: 'openAppSettings',
+      metadata: { platform: Platform.OS },
+    });
     return false;
   }
 }
