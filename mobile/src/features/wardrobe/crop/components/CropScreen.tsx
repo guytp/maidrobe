@@ -217,6 +217,13 @@ export function CropScreen(): React.JSX.Element {
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
 
+  // Current transform values (track separately to avoid accessing private _value)
+  const currentTransform = useRef({
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+  });
+
   // Gesture state refs
   const gestureState = useRef({
     initialScale: 1,
@@ -267,6 +274,7 @@ export function CropScreen(): React.JSX.Element {
 
     // Set initial scale
     scale.setValue(minScale);
+    currentTransform.current.scale = minScale;
     gestureState.current.initialScale = minScale;
 
     // Center image in frame
@@ -277,6 +285,8 @@ export function CropScreen(): React.JSX.Element {
 
     translateX.setValue(centerX);
     translateY.setValue(centerY);
+    currentTransform.current.translateX = centerX;
+    currentTransform.current.translateY = centerY;
     gestureState.current.initialTranslateX = centerX;
     gestureState.current.initialTranslateY = centerY;
   }, [payload, isValid, frameDimensions, scale, translateX, translateY]);
@@ -292,10 +302,10 @@ export function CropScreen(): React.JSX.Element {
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
 
-        // Store initial values from current animated values
-        gestureState.current.initialScale = (scale as any)._value;
-        gestureState.current.initialTranslateX = (translateX as any)._value;
-        gestureState.current.initialTranslateY = (translateY as any)._value;
+        // Store initial values from current transform
+        gestureState.current.initialScale = currentTransform.current.scale;
+        gestureState.current.initialTranslateX = currentTransform.current.translateX;
+        gestureState.current.initialTranslateY = currentTransform.current.translateY;
 
         // If pinch gesture (2+ fingers), store initial distance and midpoint
         if (touches.length >= 2) {
@@ -340,18 +350,21 @@ export function CropScreen(): React.JSX.Element {
         const clampedX = Math.max(bounds.minX, Math.min(bounds.maxX, newTranslateX));
         const clampedY = Math.max(bounds.minY, Math.min(bounds.maxY, newTranslateY));
 
-        // Update animated values
+        // Update animated values and tracking refs
         scale.setValue(clampedScale);
         translateX.setValue(clampedX);
         translateY.setValue(clampedY);
+        currentTransform.current.scale = clampedScale;
+        currentTransform.current.translateX = clampedX;
+        currentTransform.current.translateY = clampedY;
       },
 
       onPanResponderRelease: () => {
-        // Gesture ended - values are already set
+        // Gesture ended - values are already stored in currentTransform
         // Store final values for next gesture
-        gestureState.current.initialScale = (scale as any)._value;
-        gestureState.current.initialTranslateX = (translateX as any)._value;
-        gestureState.current.initialTranslateY = (translateY as any)._value;
+        gestureState.current.initialScale = currentTransform.current.scale;
+        gestureState.current.initialTranslateX = currentTransform.current.translateX;
+        gestureState.current.initialTranslateY = currentTransform.current.translateY;
       },
     })
   ).current;
@@ -419,11 +432,7 @@ export function CropScreen(): React.JSX.Element {
     if (__DEV__) {
       console.log('[CropScreen] Confirm pressed - full implementation in Step 4');
       console.log('[CropScreen] Payload:', payload);
-      console.log('[CropScreen] Transform:', {
-        scale: (scale as any)._value,
-        translateX: (translateX as any)._value,
-        translateY: (translateY as any)._value,
-      });
+      console.log('[CropScreen] Transform:', currentTransform.current);
     }
 
     // TODO (Step 4): Implement crop processing pipeline
@@ -441,7 +450,7 @@ export function CropScreen(): React.JSX.Element {
         source: payload.source,
       });
     }
-  }, [payload, user, scale, translateX, translateY]);
+  }, [payload, user]);
 
   /**
    * Android hardware back button handler.
