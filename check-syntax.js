@@ -48,11 +48,18 @@ files.forEach(file => {
       errors.push(`${fileName}: Mismatched brackets (${openBrackets} open, ${closeBrackets} close)`);
     }
 
-    // Check for imports without from
-    const importLines = content.split('\n').filter(line => line.trim().startsWith('import '));
-    importLines.forEach((line, idx) => {
-      if (line.includes('import {') && !line.includes('from')) {
-        errors.push(`${fileName}:${idx + 1}: Incomplete import statement`);
+    // Check for imports without from (allowing multiline imports)
+    // Match complete import statements including multiline ones
+    const importStatements = content.match(/import\s+\{[^}]*\}[^;]*/gs) || [];
+    importStatements.forEach(stmt => {
+      const normalized = stmt.replace(/\s+/g, ' ');
+      if (!normalized.includes('from')) {
+        // Only report if it's a destructured import without 'from'
+        // (type-only imports like "import { type X }" are okay)
+        if (!normalized.includes('import type')) {
+          const lineNum = content.substring(0, content.indexOf(stmt)).split('\n').length;
+          errors.push(`${fileName}:${lineNum}: Incomplete import statement`);
+        }
       }
     });
 

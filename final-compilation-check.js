@@ -19,6 +19,7 @@ const files = [
   'mobile/app/capture/index.tsx',
   'mobile/app/capture/camera/index.tsx',
   'mobile/app/crop/index.tsx',
+  'mobile/src/features/wardrobe/crop/components/CropScreen.tsx',
   'mobile/src/features/wardrobe/components/WardrobeScreen.tsx',
   'mobile/src/features/onboarding/components/FirstItemScreen.tsx'
 ];
@@ -207,13 +208,13 @@ if (captureSlice.includes('setOrigin') && captureSlice.includes('setPayload') &&
 
 // Check crop screen integration
 totalChecks++;
-const cropScreen = fs.readFileSync('mobile/app/crop/index.tsx', 'utf8');
-if (cropScreen.includes('isCaptureImagePayload') && cropScreen.includes('clearPayload')) {
+const cropScreenComponent = fs.readFileSync('mobile/src/features/wardrobe/crop/components/CropScreen.tsx', 'utf8');
+if (cropScreenComponent.includes('isCaptureImagePayload') && cropScreenComponent.includes('clearPayload')) {
   console.log('  ✓ Crop screen has payload validation');
   passedChecks++;
 } else {
   console.log('  ✗ Crop screen missing payload validation');
-  errors.push('crop/index.tsx: Missing payload validation');
+  errors.push('CropScreen.tsx: Missing payload validation');
 }
 
 console.log('\n================================================================================');
