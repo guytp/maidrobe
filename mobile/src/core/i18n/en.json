@@ -527,6 +527,8 @@
     "crop": {
       "title": "Adjust Photo",
       "placeholder": "Photo cropping interface will be available in a future update. For now, you can go back to capture a different photo.",
+      "confirm": "Confirm",
+      "retake": "Retake",
       "errors": {
         "noImage": "No image to adjust. Please capture or select an image first.",
         "invalidPayload": "Invalid image data. Please try again."
@@ -542,7 +544,11 @@
         "goBackButton": "Go back button",
         "goBackHint": "Return to capture screen",
         "continueButton": "Continue button",
-        "continueHint": "Continue to item details"
+        "continueHint": "Continue to item details",
+        "confirmButton": "Confirm crop button",
+        "confirmHint": "Confirm crop and proceed to item creation",
+        "retakeButton": "Retake photo button",
+        "retakeHint": "Return to camera or gallery to capture a different photo"
       }
     },
     "wardrobe": {
