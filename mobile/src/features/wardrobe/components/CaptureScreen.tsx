@@ -14,7 +14,7 @@
  * @module features/wardrobe/components/CaptureScreen
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -26,7 +26,7 @@ import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
 import { useGalleryPicker } from '../hooks/useGalleryPicker';
-import { getValidationErrorMessage } from '../../../core/utils/imageValidation';
+import { useGallerySelection } from '../hooks/useGallerySelection';
 
 /**
  * Capture screen - initial choice between camera and gallery.
@@ -224,203 +224,33 @@ export function CaptureScreen(): React.JSX.Element {
   };
 
   /**
+   * Handles camera button press.
+   * Used as fallback in gallery selection hook.
+   */
+  const handleTakePhotoCallback = useCallback(() => {
+    void handleTakePhoto();
+  }, [handleTakePhoto]);
+
+  // Gallery selection hook
+  const gallerySelection = useGallerySelection({
+    origin,
+    permissions,
+    galleryPicker,
+    isNavigating,
+    setIsNavigating,
+    setSource,
+    setPayload,
+    router,
+    user,
+    onCameraFallback: handleTakePhotoCallback,
+  });
+
+  /**
    * Handles gallery button press with permission checks.
    *
-   * Checks gallery permission status, shows appropriate dialogs,
-   * and requests permission if needed. Launches gallery picker and
-   * handles result with validation and payload construction.
+   * Delegates to shared gallery selection hook.
    */
-  const handleChooseGallery = async () => {
-    if (isNavigating || permissions.isLoading || galleryPicker.isLoading) {
-      return;
-    }
-
-    // Handle based on permission status
-    if (permissions.gallery.status === 'granted') {
-      // Permission already granted - proceed to gallery
-      setIsNavigating(true);
-      setSource('gallery');
-      trackCaptureEvent('capture_source_selected', {
-        userId: user?.id,
-        origin: origin || undefined,
-        source: 'gallery',
-      });
-
-      // Launch gallery picker
-      const result = await galleryPicker.pickImage();
-
-      // Handle picker result
-      if (result.success) {
-        // Construct payload with validated image
-        const payload: CaptureImagePayload = {
-          uri: result.uri,
-          width: result.width,
-          height: result.height,
-          origin: origin || 'wardrobe',
-          source: 'gallery',
-          createdAt: new Date().toISOString(),
-        };
-
-        // Store payload and navigate to crop
-        setPayload(payload);
-        router.push('/crop');
-
-        // Reset navigation state after navigation
-        setTimeout(() => setIsNavigating(false), 500);
-      } else if (result.reason === 'cancelled') {
-        // User cancelled picker - just reset navigation state
-        setIsNavigating(false);
-      } else if (result.reason === 'invalid') {
-        // Image validation failed - show error with retry option
-        setIsNavigating(false);
-        Alert.alert(
-          t('screens.capture.errors.invalidImage'),
-          result.error || getValidationErrorMessage('invalid_dimensions'),
-          [
-            {
-              text: t('screens.capture.errors.tryAgain'),
-              onPress: () => handleChooseGallery(),
-            },
-            {
-              text: t('screens.capture.errors.cancel'),
-              style: 'cancel',
-            },
-          ]
-        );
-      } else {
-        // Other errors (permission_denied, error)
-        setIsNavigating(false);
-        Alert.alert(
-          t('screens.capture.errors.galleryError'),
-          result.error || t('screens.capture.errors.galleryErrorMessage'),
-          [
-            {
-              text: t('screens.capture.errors.tryAgain'),
-              onPress: () => handleChooseGallery(),
-            },
-            {
-              text: t('screens.capture.errors.cancel'),
-              style: 'cancel',
-            },
-          ]
-        );
-      }
-    } else if (permissions.gallery.status === 'blocked') {
-      // Permission permanently denied - show settings dialog
-      Alert.alert(
-        t('screens.capture.permissions.gallery.blockedTitle'),
-        t('screens.capture.permissions.gallery.blockedMessage'),
-        [
-          {
-            text: t('screens.capture.permissions.actions.openSettings'),
-            onPress: async () => {
-              await permissions.gallery.openSettings();
-            },
-          },
-          {
-            text: t('screens.capture.permissions.actions.useCamera'),
-            onPress: () => handleTakePhoto(),
-            style: 'default',
-          },
-          {
-            text: t('screens.capture.permissions.actions.cancel'),
-            style: 'cancel',
-          },
-        ]
-      );
-    } else if (
-      permissions.gallery.status === 'denied' ||
-      permissions.gallery.status === 'undetermined'
-    ) {
-      // Permission not yet requested or denied once - show explanation and request
-      Alert.alert(
-        t('screens.capture.permissions.gallery.deniedTitle'),
-        t('screens.capture.permissions.gallery.deniedMessage'),
-        [
-          {
-            text: t('screens.capture.permissions.actions.allowAccess'),
-            onPress: async () => {
-              const newStatus = await permissions.gallery.request();
-              // After request, if granted, launch gallery picker
-              if (newStatus === 'granted') {
-                setIsNavigating(true);
-                setSource('gallery');
-                trackCaptureEvent('capture_source_selected', {
-                  userId: user?.id,
-                  origin: origin || undefined,
-                  source: 'gallery',
-                });
-
-                // Launch gallery picker
-                const result = await galleryPicker.pickImage();
-
-                // Handle picker result
-                if (result.success) {
-                  // Construct payload with validated image
-                  const payload: CaptureImagePayload = {
-                    uri: result.uri,
-                    width: result.width,
-                    height: result.height,
-                    origin: origin || 'wardrobe',
-                    source: 'gallery',
-                    createdAt: new Date().toISOString(),
-                  };
-
-                  // Store payload and navigate to crop
-                  setPayload(payload);
-                  router.push('/crop');
-
-                  // Reset navigation state after navigation
-                  setTimeout(() => setIsNavigating(false), 500);
-                } else if (result.reason === 'cancelled') {
-                  // User cancelled picker - just reset navigation state
-                  setIsNavigating(false);
-                } else if (result.reason === 'invalid') {
-                  // Image validation failed - show error with retry option
-                  setIsNavigating(false);
-                  Alert.alert(
-                    t('screens.capture.errors.invalidImage'),
-                    result.error || getValidationErrorMessage('invalid_dimensions'),
-                    [
-                      {
-                        text: t('screens.capture.errors.tryAgain'),
-                        onPress: () => handleChooseGallery(),
-                      },
-                      {
-                        text: t('screens.capture.errors.cancel'),
-                        style: 'cancel',
-                      },
-                    ]
-                  );
-                } else {
-                  // Other errors (permission_denied, error)
-                  setIsNavigating(false);
-                  Alert.alert(
-                    t('screens.capture.errors.galleryError'),
-                    result.error || t('screens.capture.errors.galleryErrorMessage'),
-                    [
-                      {
-                        text: t('screens.capture.errors.tryAgain'),
-                        onPress: () => handleChooseGallery(),
-                      },
-                      {
-                        text: t('screens.capture.errors.cancel'),
-                        style: 'cancel',
-                      },
-                    ]
-                  );
-                }
-              }
-            },
-          },
-          {
-            text: t('screens.capture.permissions.actions.cancel'),
-            style: 'cancel',
-          },
-        ]
-      );
-    }
-  };
+  const handleChooseGallery = gallerySelection.handleGallerySelection;
 
   const styles = useMemo(
     () =>
