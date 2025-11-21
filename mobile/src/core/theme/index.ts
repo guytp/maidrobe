@@ -8,11 +8,13 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 import {
   darkColors,
+  fontSize,
   lightColors,
   radius,
   spacing,
   type ColorScheme,
   type Colors,
+  type FontSize,
   type Radius,
   type Spacing,
 } from './colors';
@@ -24,6 +26,7 @@ import {
  * - colors: Theme-specific color palette (light/dark)
  * - spacing: Consistent spacing scale (xs to xl)
  * - radius: Border radius scale (sm to lg)
+ * - fontSize: Typography scale (xs to 4xl)
  * - colorScheme: Current theme mode
  * - isReduceMotionEnabled: Accessibility preference for animations
  */
@@ -31,6 +34,7 @@ interface ThemeContextValue {
   colors: Colors;
   spacing: Spacing;
   radius: Radius;
+  fontSize: FontSize;
   colorScheme: ColorScheme;
   isReduceMotionEnabled: boolean;
 }
@@ -53,6 +57,7 @@ interface ThemeProviderProps {
  * - Color tokens (theme-aware: light/dark)
  * - Spacing tokens (consistent across themes)
  * - Radius tokens (consistent across themes)
+ * - Typography tokens (consistent across themes)
  * - Accessibility preferences
  *
  * @param props - Component props
@@ -98,6 +103,7 @@ export function ThemeProvider({
       colors: colorScheme === 'dark' ? darkColors : lightColors,
       spacing,
       radius,
+      fontSize,
       colorScheme,
       isReduceMotionEnabled,
     }),
@@ -110,11 +116,11 @@ export function ThemeProvider({
 /**
  * Hook to access the current theme context with design tokens.
  *
- * @returns Theme context value with colors, spacing, radius, color scheme, and accessibility preferences
+ * @returns Theme context value with colors, spacing, radius, fontSize, color scheme, and accessibility preferences
  * @throws Error if used outside of ThemeProvider
  *
  * @example
- * const { colors, spacing, radius, isReduceMotionEnabled } = useTheme();
+ * const { colors, spacing, radius, fontSize, isReduceMotionEnabled } = useTheme();
  * <View style={{
  *   backgroundColor: colors.background,
  *   padding: spacing.md,

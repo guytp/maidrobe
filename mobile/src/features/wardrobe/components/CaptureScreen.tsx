@@ -37,7 +37,7 @@ import { getValidationErrorMessage } from '../../../core/utils/imageValidation';
  * @returns Capture screen component with camera/gallery choice
  */
 export function CaptureScreen(): React.JSX.Element {
-  const { colors, colorScheme, spacing } = useTheme();
+  const { colors, colorScheme, spacing, fontSize } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ origin?: string }>();
   const user = useStore((state) => state.user);
@@ -435,14 +435,14 @@ export function CaptureScreen(): React.JSX.Element {
           justifyContent: 'center',
         },
         title: {
-          fontSize: 28,
+          fontSize: fontSize['3xl'],
           fontWeight: '700',
           color: colors.textPrimary,
           marginBottom: spacing.sm,
           textAlign: 'center',
         },
         guidance: {
-          fontSize: 16,
+          fontSize: fontSize.base,
           color: colors.textSecondary,
           marginBottom: spacing.xl,
           textAlign: 'center',
@@ -455,7 +455,7 @@ export function CaptureScreen(): React.JSX.Element {
           marginTop: spacing.md,
         },
       }),
-    [colors, spacing]
+    [colors, spacing, fontSize]
   );
 
   // Don't render if origin is invalid (alert is shown)

@@ -27,6 +27,21 @@ export const radius = {
 } as const;
 
 /**
+ * Typography scale tokens for consistent text sizing.
+ * Based on a modular scale for visual hierarchy and readability.
+ */
+export const fontSize = {
+  xs: 12,
+  sm: 14,
+  base: 16,
+  lg: 18,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 28,
+  '4xl': 32,
+} as const;
+
+/**
  * Color palette for light theme.
  * textSecondary uses #595959 for 7.0:1 contrast ratio on white background,
  * exceeding WCAG AA requirements (4.5:1) for stronger accessibility.
@@ -66,3 +81,4 @@ export type ColorScheme = 'light' | 'dark';
 export type Colors = typeof lightColors;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;
+export type FontSize = typeof fontSize;
