@@ -167,19 +167,52 @@ export function computeCropRectangle(
  * @param imageUri - Local URI of original image (file:// scheme)
  * @param cropRect - Crop rectangle in image pixel coordinates
  * @param source - Original capture source (camera or gallery)
+ * @param originalWidth - Original image width in pixels (for downscaling check)
+ * @param originalHeight - Original image height in pixels (for downscaling check)
  * @returns Processed image result with URI and dimensions
  * @throws Error if image processing fails
  */
 export async function cropAndProcessImage(
   imageUri: string,
   cropRect: CropRect,
-  source: CaptureSource
+  source: CaptureSource,
+  originalWidth: number,
+  originalHeight: number
 ): Promise<ProcessedCropResult> {
   try {
+    // Step 0: Pre-downscale if image is very large to prevent OOM
+    const maxDimension = Math.max(originalWidth, originalHeight);
+    let workingUri = imageUri;
+    let workingCropRect = cropRect;
+
+    if (maxDimension > MAX_INPUT_DIMENSION) {
+      // Pre-downscale to prevent out-of-memory errors on low-end devices
+      const downscaleFactor = MAX_INPUT_DIMENSION / maxDimension;
+      const downscaledWidth = Math.round(originalWidth * downscaleFactor);
+      const downscaledHeight = Math.round(originalHeight * downscaleFactor);
+
+      // Downscale the image first
+      const downscaled = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: downscaledWidth, height: downscaledHeight } }],
+        { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      workingUri = downscaled.uri;
+
+      // Adjust crop rectangle for downscaled coordinates
+      workingCropRect = {
+        x: Math.round(cropRect.x * downscaleFactor),
+        y: Math.round(cropRect.y * downscaleFactor),
+        width: Math.round(cropRect.width * downscaleFactor),
+        height: Math.round(cropRect.height * downscaleFactor),
+      };
+    }
+
     // Step 1 & 2: Crop and determine resize dimensions
     // Crop gives us an image at cropRect dimensions
-    const croppedWidth = cropRect.width;
-    const croppedHeight = cropRect.height;
+    const croppedWidth = workingCropRect.width;
+    const croppedHeight = workingCropRect.height;
 
     // Calculate resize dimensions: longest edge -> TARGET_MAX_DIMENSION
     const longestEdge = Math.max(croppedWidth, croppedHeight);
@@ -199,15 +232,15 @@ export async function cropAndProcessImage(
 
     // Apply all transforms in one pass for efficiency
     const result = await ImageManipulator.manipulateAsync(
-      imageUri,
+      workingUri,
       [
         // Crop to rectangle
         {
           crop: {
-            originX: cropRect.x,
-            originY: cropRect.y,
-            width: cropRect.width,
-            height: cropRect.height,
+            originX: workingCropRect.x,
+            originY: workingCropRect.y,
+            width: workingCropRect.width,
+            height: workingCropRect.height,
           },
         },
         // Resize to target dimensions

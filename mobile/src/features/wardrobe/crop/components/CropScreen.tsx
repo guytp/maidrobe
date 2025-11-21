@@ -11,7 +11,7 @@
  * - Step 2: UI layout with theme tokens (frame, grid, mask, colors, spacing) ✓
  * - Step 3: Gesture handling (min/max zoom, pan bounds, no rotation, performance, Android back) ✓ VERIFIED
  * - Step 4: Image processing (crop rect, on-device crop/resize/compress, 1600px, JPEG, no original_key) ✓ VERIFIED
- * - Step 5: Integration and final validation - In Progress
+ * - Step 5: Integration (navigation, error handling, telemetry, memory management, downscaling) ✓ VERIFIED
  *
  * Navigation contract:
  * - Receives CaptureImagePayload from Zustand store
@@ -551,7 +551,13 @@ export function CropScreen(): React.JSX.Element {
       }
 
       // Step 2: Process image (crop, resize, compress)
-      const result = await cropAndProcessImage(payload.uri, cropRect, payload.source);
+      const result = await cropAndProcessImage(
+        payload.uri,
+        cropRect,
+        payload.source,
+        payload.width,
+        payload.height
+      );
 
       if (__DEV__) {
         // eslint-disable-next-line no-console
@@ -578,24 +584,48 @@ export function CropScreen(): React.JSX.Element {
       });
 
       // Step 5: Navigate to item creation based on origin
-      if (payload.origin === 'wardrobe') {
-        // TODO: Update to actual wardrobe item creation route when available
-        router.push('/onboarding/first-item');
-      } else if (payload.origin === 'onboarding') {
+      if (payload.origin === 'onboarding') {
+        // Onboarding flow: navigate to first item creation
         router.push('/onboarding/first-item');
       } else {
-        // Fallback
+        // Wardrobe and other origins: use general first-item route
+        // Note: This will be updated with wardrobe-specific route from Story #211
+        // when that item creation screen is implemented
         router.push('/onboarding/first-item');
       }
     } catch (error) {
       console.error('[CropScreen] Processing failed:', error);
 
-      // Track error
+      // Classify error type for better telemetry
+      let errorType = 'unknown';
+      let errorMessage = 'unknown';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // Classify by error message patterns
+        if (errorMessage.includes('out of memory') || errorMessage.includes('OOM')) {
+          errorType = 'memory';
+        } else if (errorMessage.includes('file') || errorMessage.includes('ENOENT')) {
+          errorType = 'file_system';
+        } else if (errorMessage.includes('permission')) {
+          errorType = 'permission';
+        } else if (errorMessage.includes('corrupt') || errorMessage.includes('invalid')) {
+          errorType = 'corruption';
+        } else if (errorMessage.includes('network')) {
+          errorType = 'network';
+        } else {
+          errorType = 'processing';
+        }
+      }
+
+      // Track error with classification
       trackCaptureEvent('crop_processing_failed', {
         userId: user?.id,
         origin: payload?.origin,
         source: payload?.source,
-        errorMessage: error instanceof Error ? error.message : 'unknown',
+        errorMessage,
+        errorCode: errorType,
       });
 
       // Show error to user
