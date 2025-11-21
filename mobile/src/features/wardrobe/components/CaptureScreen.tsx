@@ -340,10 +340,76 @@ export function CaptureScreen(): React.JSX.Element {
           {
             text: t('screens.capture.permissions.actions.allowAccess'),
             onPress: async () => {
-              await permissions.gallery.request();
-              // After request, if granted, re-trigger gallery flow
-              if (permissions.gallery.status === 'granted') {
-                handleChooseGallery();
+              const newStatus = await permissions.gallery.request();
+              // After request, if granted, launch gallery picker
+              if (newStatus === 'granted') {
+                setIsNavigating(true);
+                setSource('gallery');
+                trackCaptureEvent('capture_source_selected', {
+                  userId: user?.id,
+                  origin: origin || undefined,
+                  source: 'gallery',
+                });
+
+                // Launch gallery picker
+                const result = await galleryPicker.pickImage();
+
+                // Handle picker result
+                if (result.success) {
+                  // Construct payload with validated image
+                  const payload: CaptureImagePayload = {
+                    uri: result.uri,
+                    width: result.width,
+                    height: result.height,
+                    origin: origin || 'wardrobe',
+                    source: 'gallery',
+                    createdAt: new Date().toISOString(),
+                  };
+
+                  // Store payload and navigate to crop
+                  setPayload(payload);
+                  router.push('/crop');
+
+                  // Reset navigation state after navigation
+                  setTimeout(() => setIsNavigating(false), 500);
+                } else if (result.reason === 'cancelled') {
+                  // User cancelled picker - just reset navigation state
+                  setIsNavigating(false);
+                } else if (result.reason === 'invalid') {
+                  // Image validation failed - show error with retry option
+                  setIsNavigating(false);
+                  Alert.alert(
+                    t('screens.capture.errors.invalidImage'),
+                    result.error || getValidationErrorMessage('invalid_dimensions'),
+                    [
+                      {
+                        text: t('screens.capture.errors.tryAgain'),
+                        onPress: () => handleChooseGallery(),
+                      },
+                      {
+                        text: t('screens.capture.errors.cancel'),
+                        style: 'cancel',
+                      },
+                    ]
+                  );
+                } else {
+                  // Other errors (permission_denied, error)
+                  setIsNavigating(false);
+                  Alert.alert(
+                    t('screens.capture.errors.galleryError'),
+                    result.error || t('screens.capture.errors.galleryErrorMessage'),
+                    [
+                      {
+                        text: t('screens.capture.errors.tryAgain'),
+                        onPress: () => handleChooseGallery(),
+                      },
+                      {
+                        text: t('screens.capture.errors.cancel'),
+                        style: 'cancel',
+                      },
+                    ]
+                  );
+                }
               }
             },
           },
