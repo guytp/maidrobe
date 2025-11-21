@@ -502,8 +502,8 @@ export function CropScreen(): React.JSX.Element {
         userId: user?.id,
         origin: payload.origin,
         source: payload.source,
-        finalWidth: result.width,
-        finalHeight: result.height,
+        width: result.width,
+        height: result.height,
       });
 
       // Step 5: Navigate to item creation based on origin
@@ -524,7 +524,7 @@ export function CropScreen(): React.JSX.Element {
         userId: user?.id,
         origin: payload?.origin,
         source: payload?.source,
-        error: error instanceof Error ? error.message : 'unknown',
+        errorMessage: error instanceof Error ? error.message : 'unknown',
       });
 
       // Show error to user
@@ -690,7 +690,7 @@ export function CropScreen(): React.JSX.Element {
           padding: spacing.xl,
         },
         processingText: {
-          color: colors.text,
+          color: colors.textPrimary,
           fontSize: 16,
           marginTop: spacing.md,
           textAlign: 'center',
@@ -921,7 +921,7 @@ export function CropScreen(): React.JSX.Element {
       {isProcessing && (
         <View style={styles.processingOverlay}>
           <View style={styles.processingContent}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color={colors.textPrimary} />
             <Text style={styles.processingText}>{t('processing_image')}</Text>
           </View>
         </View>
