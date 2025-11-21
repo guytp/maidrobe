@@ -1,20 +1,23 @@
 /**
  * Crop route for image adjustment and cropping.
  *
- * This is a placeholder implementation for Story #199 Step 2. The full
- * crop UI will be delivered in Story #205.
+ * INTERIM IMPLEMENTATION (Story #199):
+ * This is a placeholder screen that validates the capture payload and provides
+ * navigation scaffolding. The full crop UI with image editing capabilities
+ * will be implemented in Story #205.
  *
  * Current functionality:
  * - Reads CaptureImagePayload from Zustand store
  * - Validates payload with type guard
  * - Shows error if payload is missing or invalid
- * - Provides safe back navigation
+ * - Provides safe back navigation to origin
+ * - Development-only debug output (gated with __DEV__)
  *
- * Future functionality (Story #205):
- * - Image cropping UI
- * - Rotation and adjustment controls
- * - Image quality optimization
- * - Hand-off to item metadata form
+ * TODO (Story #205):
+ * - Replace placeholder with actual image cropping UI
+ * - Add rotation and adjustment controls
+ * - Implement image quality optimization
+ * - Add hand-off to item metadata form
  *
  * @module app/crop
  */
@@ -29,6 +32,15 @@ import { Button } from '../../src/core/components/Button';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 import { useStore } from '../../src/core/state/store';
 import { isCaptureImagePayload } from '../../src/core/types/capture';
+
+/**
+ * Icon constants for crop screen placeholder.
+ *
+ * Using emoji for temporary placeholder - Story #205 will replace with
+ * proper icon components for better cross-platform consistency.
+ */
+const ICON_ERROR = '⚠️';
+const ICON_CROP = '✂️';
 
 /**
  * Crop screen placeholder component.
@@ -166,8 +178,12 @@ export default function CropRoute(): React.JSX.Element {
         accessibilityLabel={t('screens.crop.accessibility.screenLabel')}
       >
         <View style={styles.content}>
-          <Text style={styles.errorIcon} accessibilityLabel="Error icon">
-            ⚠️
+          <Text
+            style={styles.errorIcon}
+            accessibilityLabel={t('screens.crop.accessibility.errorIcon')}
+            accessibilityRole="image"
+          >
+            {ICON_ERROR}
           </Text>
           <Text
             style={styles.errorTitle}
@@ -194,7 +210,8 @@ export default function CropRoute(): React.JSX.Element {
     );
   }
 
-  // Show placeholder if payload is valid (Story #205 will implement actual crop UI)
+  // Show placeholder if payload is valid
+  // TODO (Story #205): Replace with actual crop UI implementation
   return (
     <View
       style={styles.container}
@@ -202,8 +219,12 @@ export default function CropRoute(): React.JSX.Element {
       accessibilityHint={t('screens.crop.accessibility.screenHint')}
     >
       <View style={styles.content}>
-        <Text style={styles.placeholderIcon} accessibilityLabel="Crop icon">
-          ✂️
+        <Text
+          style={styles.placeholderIcon}
+          accessibilityLabel={t('screens.crop.accessibility.cropIcon')}
+          accessibilityRole="image"
+        >
+          {ICON_CROP}
         </Text>
         <Text
           style={styles.placeholderTitle}
@@ -216,9 +237,14 @@ export default function CropRoute(): React.JSX.Element {
         <Text style={styles.placeholderMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
           {t('screens.crop.placeholder')}
         </Text>
-        <Text style={styles.debugInfo}>
-          Origin: {payload.origin} | Source: {payload.source}
-        </Text>
+        {__DEV__ && (
+          <Text
+            style={styles.debugInfo}
+            accessibilityLabel={t('screens.crop.accessibility.debugInfo')}
+          >
+            Origin: {payload.origin} | Source: {payload.source}
+          </Text>
+        )}
         <Button
           onPress={handleGoBack}
           variant="secondary"
