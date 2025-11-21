@@ -22,7 +22,7 @@
  * @module features/wardrobe/crop/components/CropScreen
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { BackHandler, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -84,7 +84,7 @@ export function CropScreen(): React.JSX.Element {
    * Returns user to the appropriate capture screen or parent screen.
    * Clears the payload to prevent stale state.
    */
-  const handleBackRetake = () => {
+  const handleBackRetake = useCallback(() => {
     // Track cancellation
     if (payload && isCaptureImagePayload(payload)) {
       trackCaptureEvent('crop_cancelled', {
@@ -111,7 +111,7 @@ export function CropScreen(): React.JSX.Element {
       // Fallback to home if we don't know where to go
       router.push('/home');
     }
-  };
+  }, [payload, user, clearPayload, router]);
 
   /**
    * Handles Confirm/Next action (placeholder for Step 4).
@@ -119,7 +119,7 @@ export function CropScreen(): React.JSX.Element {
    * Will process the crop and navigate to item creation in Step 4.
    * Currently shows debug info in development mode.
    */
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     if (__DEV__) {
       console.log('[CropScreen] Confirm pressed - full implementation in Step 4');
       console.log('[CropScreen] Payload:', payload);
@@ -140,7 +140,7 @@ export function CropScreen(): React.JSX.Element {
         source: payload.source,
       });
     }
-  };
+  }, [payload, user]);
 
   /**
    * Android hardware back button handler.
@@ -156,7 +156,7 @@ export function CropScreen(): React.JSX.Element {
 
     // Clean up listener on unmount
     return () => backHandler.remove();
-  }, [payload]); // Re-register when payload changes
+  }, [handleBackRetake]);
 
   const styles = useMemo(
     () =>
