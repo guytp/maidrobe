@@ -27,6 +27,7 @@ import { useStore } from '../../../core/state/store';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
 import { useGalleryPicker } from '../hooks/useGalleryPicker';
 import { useGallerySelection } from '../hooks/useGallerySelection';
+import { NAVIGATION_DEBOUNCE_MS } from '../constants';
 
 /**
  * Capture screen - initial choice between camera and gallery.
@@ -100,7 +101,7 @@ export function CaptureScreen(): React.JSX.Element {
 
       // Navigate to camera screen
       router.push(`/capture/camera?origin=${origin || 'wardrobe'}`);
-      setTimeout(() => setIsNavigating(false), 500);
+      setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
     } else if (permissions.camera.status === 'blocked') {
       // Permission permanently denied - show settings dialog
       Alert.alert(
@@ -148,7 +149,7 @@ export function CaptureScreen(): React.JSX.Element {
 
                 // Navigate to camera screen
                 router.push(`/capture/camera?origin=${origin || 'wardrobe'}`);
-                setTimeout(() => setIsNavigating(false), 500);
+                setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
               }
             },
           },

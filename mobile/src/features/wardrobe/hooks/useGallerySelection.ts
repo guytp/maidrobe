@@ -24,6 +24,7 @@ import {
 } from '../../../core/types/capture';
 import { CapturePermissions } from './useCapturePermissions';
 import { UseGalleryPickerReturn } from './useGalleryPicker';
+import { NAVIGATION_DEBOUNCE_MS } from '../constants';
 
 /**
  * User interface for type safety.
@@ -149,7 +150,7 @@ export function useGallerySelection(
       options.router.push('/crop');
 
       // Reset navigation state after navigation
-      setTimeout(() => options.setIsNavigating(false), 500);
+      setTimeout(() => options.setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
     } else if (result.reason === 'cancelled') {
       // User cancelled picker - just reset navigation state
       options.setIsNavigating(false);
