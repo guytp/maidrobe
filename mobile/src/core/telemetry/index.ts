@@ -349,7 +349,9 @@ export interface AuthEventMetadata {
  * // { userId: '123', email: 'use***@example.com' }
  * ```
  */
-export function sanitizeAuthMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+export function sanitizeAuthMetadata<T extends Record<string, unknown>>(
+  metadata: T
+): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   // List of PII fields to exclude
@@ -439,7 +441,7 @@ export function sanitizeAuthMetadata(metadata: Record<string, unknown>): Record<
 export function logAuthEvent(eventType: AuthEventType, metadata?: AuthEventMetadata): void {
   // Sanitize metadata to remove PII
   const sanitizedMetadata = metadata
-    ? sanitizeAuthMetadata(metadata as Record<string, unknown>)
+    ? sanitizeAuthMetadata(metadata)
     : {};
 
   // Determine log level based on event type
@@ -597,7 +599,7 @@ export function trackOnboardingGateEvent(
   metadata: OnboardingGateMetadata
 ): void {
   // Sanitize metadata to remove PII
-  const sanitizedMetadata = sanitizeAuthMetadata(metadata as unknown as Record<string, unknown>);
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata);
 
   // Structure the event for consistent querying
   const event = {
@@ -724,7 +726,7 @@ export function trackCaptureEvent(
 ): void {
   // Sanitize metadata to remove PII
   const sanitizedMetadata = metadata
-    ? sanitizeAuthMetadata(metadata as Record<string, unknown>)
+    ? sanitizeAuthMetadata(metadata)
     : {};
 
   // Determine if this is an error event
