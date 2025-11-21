@@ -37,6 +37,13 @@ export const JPEG_QUALITY = 0.85;
 export const CROP_ASPECT_RATIO = 4 / 5; // 0.8
 
 /**
+ * Maximum image dimension before pre-downscaling.
+ * Images larger than this will be downscaled before cropping to prevent
+ * out-of-memory errors on low-end devices. Set to 4K resolution as threshold.
+ */
+export const MAX_INPUT_DIMENSION = 4096;
+
+/**
  * Crop rectangle in image pixel coordinates.
  */
 export interface CropRect {
@@ -144,12 +151,18 @@ export function computeCropRectangle(
  * Processes an image through the crop, resize, and compress pipeline.
  *
  * Uses expo-image-manipulator to:
- * 1. Crop to the specified rectangle
- * 2. Resize so longest edge is approximately TARGET_MAX_DIMENSION
- * 3. Compress to JPEG at JPEG_QUALITY
+ * 1. Pre-downscale if image is very large (prevents OOM on low-end devices)
+ * 2. Crop to the specified rectangle
+ * 3. Resize so longest edge is approximately TARGET_MAX_DIMENSION
+ * 4. Compress to JPEG at JPEG_QUALITY
  *
  * The resize step maintains the 4:5 aspect ratio by calculating dimensions
  * based on the longest edge. Both width and height are resized proportionally.
+ *
+ * Large image handling:
+ * If the original image is larger than MAX_INPUT_DIMENSION on any edge,
+ * it is pre-downscaled before cropping. The crop rectangle is adjusted
+ * proportionally to match the downscaled coordinates.
  *
  * @param imageUri - Local URI of original image (file:// scheme)
  * @param cropRect - Crop rectangle in image pixel coordinates
