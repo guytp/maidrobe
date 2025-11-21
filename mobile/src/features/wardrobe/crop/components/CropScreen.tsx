@@ -10,7 +10,7 @@
  * - Step 1: Route setup, navigation contract, back handling ✓
  * - Step 2: Visual layout (frame, grid, mask) ✓
  * - Step 3: Gesture handling (pinch, pan, zoom) ✓
- * - Step 4: Image processing (crop, resize, compress) - TODO
+ * - Step 4: Image processing (crop, resize, compress) ✓
  * - Step 5: Integration and error handling - TODO
  *
  * Navigation contract:
@@ -22,8 +22,9 @@
  * @module features/wardrobe/crop/components/CropScreen
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   BackHandler,
   PanResponder,
@@ -41,6 +42,7 @@ import { Button } from '../../../../core/components/Button';
 import { useStore } from '../../../../core/state/store';
 import { isCaptureImagePayload } from '../../../../core/types/capture';
 import { trackCaptureEvent } from '../../../../core/telemetry';
+import { computeCropRectangle, cropAndProcessImage } from '../utils/imageProcessing';
 
 /**
  * Icon constants for crop screen.
@@ -196,12 +198,17 @@ export function CropScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing } = useTheme();
   const router = useRouter();
   const payload = useStore((state) => state.payload);
+  const setPayload = useStore((state) => state.setPayload);
   const clearPayload = useStore((state) => state.clearPayload);
   const user = useStore((state) => state.user);
 
   // Get screen dimensions and safe area insets
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  // Processing state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
 
   // Validate payload on mount
   const isValid = isCaptureImagePayload(payload);
@@ -392,8 +399,12 @@ export function CropScreen(): React.JSX.Element {
    *
    * Returns user to the appropriate capture screen or parent screen.
    * Clears the payload to prevent stale state.
+   * Disabled during image processing.
    */
   const handleBackRetake = useCallback(() => {
+    // Block navigation during processing
+    if (isProcessing) return;
+
     // Track cancellation
     if (payload && isCaptureImagePayload(payload)) {
       trackCaptureEvent('crop_cancelled', {
@@ -420,53 +431,128 @@ export function CropScreen(): React.JSX.Element {
       // Fallback to home if we don't know where to go
       router.push('/home');
     }
-  }, [payload, user, clearPayload, router]);
+  }, [payload, user, clearPayload, router, isProcessing]);
 
   /**
-   * Handles Confirm/Next action (placeholder for Step 4).
+   * Handles Confirm/Next action with async image processing pipeline.
    *
-   * Will process the crop and navigate to item creation in Step 4.
-   * Currently shows debug info in development mode.
+   * Processes the cropped image through:
+   * 1. Compute crop rectangle from transform state
+   * 2. Apply crop, resize, and compress
+   * 3. Update payload with processed image
+   * 4. Navigate to item creation
+   *
+   * Buttons are disabled during processing to prevent duplicate operations.
+   * Shows error UI if processing fails.
    */
-  const handleConfirm = useCallback(() => {
-    if (__DEV__) {
-      console.log('[CropScreen] Confirm pressed - full implementation in Step 4');
-      console.log('[CropScreen] Payload:', payload);
-      console.log('[CropScreen] Transform:', currentTransform.current);
-    }
+  const handleConfirm = useCallback(async () => {
+    // Guard: prevent processing if already running or invalid payload
+    if (isProcessing || !payload || !isValid) return;
 
-    // TODO (Step 4): Implement crop processing pipeline
-    // 1. Compute crop rectangle from transform state
-    // 2. Apply crop to image
-    // 3. Resize to target dimensions (1600px longest edge)
-    // 4. Compress to JPEG
-    // 5. Navigate to item creation with processed image
+    try {
+      setIsProcessing(true);
+      setProcessingError(null);
 
-    // Track confirm action for telemetry
-    if (payload && isCaptureImagePayload(payload)) {
-      trackCaptureEvent('crop_confirm_pressed', {
+      // Track processing start
+      trackCaptureEvent('crop_processing_started', {
         userId: user?.id,
         origin: payload.origin,
         source: payload.source,
       });
+
+      if (__DEV__) {
+        console.log('[CropScreen] Processing started');
+        console.log('[CropScreen] Payload:', payload);
+        console.log('[CropScreen] Transform:', currentTransform.current);
+      }
+
+      // Step 1: Compute crop rectangle from transform state
+      const cropRect = computeCropRectangle(
+        payload.width,
+        payload.height,
+        currentTransform.current.scale,
+        currentTransform.current.translateX,
+        currentTransform.current.translateY,
+        frameDimensions
+      );
+
+      if (__DEV__) {
+        console.log('[CropScreen] Crop rectangle:', cropRect);
+      }
+
+      // Step 2: Process image (crop, resize, compress)
+      const result = await cropAndProcessImage(payload.uri, cropRect, payload.source);
+
+      if (__DEV__) {
+        console.log('[CropScreen] Processing completed:', result);
+      }
+
+      // Step 3: Update payload with processed image
+      setPayload({
+        uri: result.uri,
+        width: result.width,
+        height: result.height,
+        origin: payload.origin,
+        source: result.source,
+        createdAt: new Date().toISOString(),
+      });
+
+      // Step 4: Track success
+      trackCaptureEvent('crop_processing_completed', {
+        userId: user?.id,
+        origin: payload.origin,
+        source: payload.source,
+        finalWidth: result.width,
+        finalHeight: result.height,
+      });
+
+      // Step 5: Navigate to item creation based on origin
+      if (payload.origin === 'wardrobe') {
+        // TODO: Update to actual wardrobe item creation route when available
+        router.push('/onboarding/first-item');
+      } else if (payload.origin === 'onboarding') {
+        router.push('/onboarding/first-item');
+      } else {
+        // Fallback
+        router.push('/onboarding/first-item');
+      }
+    } catch (error) {
+      console.error('[CropScreen] Processing failed:', error);
+
+      // Track error
+      trackCaptureEvent('crop_processing_failed', {
+        userId: user?.id,
+        origin: payload?.origin,
+        source: payload?.source,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+
+      // Show error to user
+      setProcessingError(t('processing_failed'));
+    } finally {
+      setIsProcessing(false);
     }
-  }, [payload, user]);
+  }, [isProcessing, payload, isValid, user, currentTransform, frameDimensions, setPayload, router]);
 
   /**
    * Android hardware back button handler.
    *
    * Intercepts hardware back press and delegates to Back/Retake behavior.
+   * Blocked during image processing to prevent navigation mid-operation.
    * Returns true to prevent default back navigation.
    */
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isProcessing) {
+        return true; // Block back during processing
+      }
       handleBackRetake();
       return true; // Prevent default back behavior
     });
 
     // Clean up listener on unmount
     return () => backHandler.remove();
-  }, [handleBackRetake]);
+  }, [handleBackRetake, isProcessing]);
 
   const styles = useMemo(
     () =>
@@ -591,6 +677,52 @@ export function CropScreen(): React.JSX.Element {
           gap: spacing.md,
           paddingHorizontal: spacing.lg,
           paddingVertical: spacing.lg,
+        },
+        processingOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+        },
+        processingContent: {
+          alignItems: 'center',
+          padding: spacing.xl,
+        },
+        processingText: {
+          color: colors.text,
+          fontSize: 16,
+          marginTop: spacing.md,
+          textAlign: 'center',
+        },
+        errorOverlay: {
+          position: 'absolute',
+          left: spacing.md,
+          right: spacing.md,
+          bottom: insets.bottom + 100,
+          backgroundColor: colors.error,
+          padding: spacing.md,
+          borderRadius: 8,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+          zIndex: 999,
+        },
+        errorOverlayText: {
+          flex: 1,
+          color: '#FFFFFF',
+          fontSize: 14,
+        },
+        errorRetryButton: {
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          borderRadius: 4,
+        },
+        errorRetryButtonText: {
+          color: '#FFFFFF',
+          fontSize: 14,
+          fontWeight: '600',
         },
       }),
     [colors, colorScheme, spacing, insets.bottom]
@@ -768,6 +900,7 @@ export function CropScreen(): React.JSX.Element {
         <Button
           onPress={handleBackRetake}
           variant="secondary"
+          disabled={isProcessing}
           accessibilityLabel={t('screens.crop.accessibility.retakeButton')}
           accessibilityHint={t('screens.crop.accessibility.retakeHint')}
         >
@@ -776,12 +909,41 @@ export function CropScreen(): React.JSX.Element {
         <Button
           onPress={handleConfirm}
           variant="primary"
+          disabled={isProcessing}
           accessibilityLabel={t('screens.crop.accessibility.confirmButton')}
           accessibilityHint={t('screens.crop.accessibility.confirmHint')}
         >
           {t('screens.crop.confirm')}
         </Button>
       </View>
+
+      {/* Processing overlay */}
+      {isProcessing && (
+        <View style={styles.processingOverlay}>
+          <View style={styles.processingContent}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.processingText}>{t('processing_image')}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Error overlay */}
+      {processingError && !isProcessing && (
+        <View style={styles.errorOverlay}>
+          <Text style={styles.errorOverlayText}>{processingError}</Text>
+          <Text
+            style={styles.errorRetryButton}
+            onPress={() => {
+              setProcessingError(null);
+              handleConfirm();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry processing"
+          >
+            <Text style={styles.errorRetryButtonText}>{t('retry')}</Text>
+          </Text>
+        </View>
+      )}
 
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>

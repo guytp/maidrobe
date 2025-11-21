@@ -564,5 +564,8 @@
         "emptyState": "Empty wardrobe state"
       }
     }
-  }
+  },
+  "processing_image": "Processing image...",
+  "processing_failed": "Failed to process image. Please try again.",
+  "retry": "Retry"
 }
