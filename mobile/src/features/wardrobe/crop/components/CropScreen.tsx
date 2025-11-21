@@ -7,11 +7,11 @@
  * handoff to the item creation flow.
  *
  * Implementation status:
- * - Step 1: Route setup, navigation contract, back handling ✓
+ * - Step 1: Review and gap analysis (portrait lock, error handling, large images) ✓
  * - Step 2: Visual layout (frame, grid, mask) ✓
  * - Step 3: Gesture handling (pinch, pan, zoom) ✓
  * - Step 4: Image processing (crop, resize, compress) ✓
- * - Step 5: Integration and error handling - TODO
+ * - Step 5: Integration and final validation - In Progress
  *
  * Navigation contract:
  * - Receives CaptureImagePayload from Zustand store
@@ -36,6 +36,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { t } from '../../../../core/i18n';
 import { useTheme } from '../../../../core/theme';
 import { Button } from '../../../../core/components/Button';
@@ -209,6 +210,7 @@ export function CropScreen(): React.JSX.Element {
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   // Validate payload on mount
   const isValid = isCaptureImagePayload(payload);
@@ -376,6 +378,40 @@ export function CropScreen(): React.JSX.Element {
     })
   ).current;
 
+  /**
+   * Lock screen orientation to portrait on mount.
+   *
+   * The crop screen must remain in portrait orientation regardless of device
+   * rotation to maintain consistent 4:5 crop frame layout and user experience.
+   * Orientation is unlocked on unmount to restore normal app behavior.
+   */
+  useEffect(() => {
+    let isMounted = true;
+
+    async function lockOrientation() {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        if (__DEV__) {
+          console.log('[CropScreen] Orientation locked to portrait');
+        }
+      } catch (error) {
+        // Orientation lock may fail on some platforms (web, certain devices)
+        // This is not critical - log but don't prevent screen from loading
+        console.warn('[CropScreen] Failed to lock orientation:', error);
+      }
+    }
+
+    lockOrientation();
+
+    return () => {
+      isMounted = false;
+      // Unlock orientation when leaving screen
+      ScreenOrientation.unlockAsync().catch((error) => {
+        console.warn('[CropScreen] Failed to unlock orientation:', error);
+      });
+    };
+  }, []);
+
   useEffect(() => {
     // Track crop screen opened for valid payloads
     if (isValid && payload) {
@@ -393,6 +429,29 @@ export function CropScreen(): React.JSX.Element {
       clearPayload();
     }
   }, [isValid, payload, clearPayload, user?.id]);
+
+  /**
+   * Handles image load errors.
+   *
+   * Called when the Animated.Image component fails to load the image URI.
+   * This can happen if the image file is corrupted, was deleted, or has an
+   * unsupported format. Sets error state to show user-friendly message.
+   */
+  const handleImageLoadError = useCallback(() => {
+    if (__DEV__) {
+      console.error('[CropScreen] Image failed to load:', payload?.uri);
+    }
+
+    setImageLoadError(true);
+
+    // Track image load failure
+    trackCaptureEvent('crop_processing_failed', {
+      userId: user?.id,
+      origin: payload?.origin,
+      source: payload?.source,
+      errorMessage: 'image_load_failed',
+    });
+  }, [payload, user?.id]);
 
   /**
    * Handles Back/Retake navigation based on payload origin.
@@ -728,8 +787,15 @@ export function CropScreen(): React.JSX.Element {
     [colors, colorScheme, spacing, insets.bottom]
   );
 
-  // Show error if payload is invalid
-  if (!isValid) {
+  // Show error if payload is invalid or image failed to load
+  if (!isValid || imageLoadError) {
+    const errorTitle = imageLoadError
+      ? 'Unable to load image'
+      : t('screens.crop.errors.noImage');
+    const errorMessage = imageLoadError
+      ? 'We could not crop this photo. Please try again.'
+      : t('screens.crop.errors.invalidPayload');
+
     return (
       <View
         style={styles.container}
@@ -749,10 +815,10 @@ export function CropScreen(): React.JSX.Element {
             maxFontSizeMultiplier={2}
             accessibilityRole="header"
           >
-            {t('screens.crop.errors.noImage')}
+            {errorTitle}
           </Text>
           <Text style={styles.errorMessage} allowFontScaling={true} maxFontSizeMultiplier={2}>
-            {t('screens.crop.errors.invalidPayload')}
+            {errorMessage}
           </Text>
           <Button
             onPress={handleBackRetake}
@@ -787,6 +853,7 @@ export function CropScreen(): React.JSX.Element {
               transform: [{ scale }, { translateX }, { translateY }],
             },
           ]}
+          onError={handleImageLoadError}
           accessibilityLabel="Captured wardrobe item image"
         />
       </View>
