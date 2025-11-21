@@ -169,11 +169,16 @@ export function CaptureCameraScreen(): React.JSX.Element {
         throw new Error(validation.errorMessage || 'Image validation failed');
       }
 
+      // Explicitly validate dimensions are present and non-zero
+      if (!photo.width || photo.width <= 0 || !photo.height || photo.height <= 0) {
+        throw new Error('Invalid image dimensions returned from camera');
+      }
+
       // Create payload using stored origin and source (fallback to params/defaults)
       const payload: CaptureImagePayload = {
         uri: photo.uri,
-        width: photo.width || 0,
-        height: photo.height || 0,
+        width: photo.width,
+        height: photo.height,
         origin: origin || 'wardrobe',
         source: (captureSource || 'camera') as CaptureSource,
         createdAt: new Date().toISOString(),
