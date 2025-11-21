@@ -306,7 +306,10 @@ export type CaptureEventType =
   | 'gallery_opened'
   | 'gallery_selection_failed'
   | 'gallery_image_selected'
-  | 'gallery_permission_error';
+  | 'gallery_permission_error'
+  | 'crop_screen_opened'
+  | 'crop_cancelled'
+  | 'crop_confirm_pressed';
 
 /**
  * Metadata for authentication event logging.
@@ -440,9 +443,7 @@ export function sanitizeAuthMetadata<T extends Record<string, unknown>>(
  */
 export function logAuthEvent(eventType: AuthEventType, metadata?: AuthEventMetadata): void {
   // Sanitize metadata to remove PII
-  const sanitizedMetadata = metadata
-    ? sanitizeAuthMetadata(metadata)
-    : {};
+  const sanitizedMetadata = metadata ? sanitizeAuthMetadata(metadata) : {};
 
   // Determine log level based on event type
   const isError = eventType.includes('failure') || eventType.includes('forced');
@@ -725,9 +726,7 @@ export function trackCaptureEvent(
   metadata?: CaptureEventMetadata
 ): void {
   // Sanitize metadata to remove PII
-  const sanitizedMetadata = metadata
-    ? sanitizeAuthMetadata(metadata)
-    : {};
+  const sanitizedMetadata = metadata ? sanitizeAuthMetadata(metadata) : {};
 
   // Determine if this is an error event
   const isError =
