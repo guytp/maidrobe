@@ -197,10 +197,20 @@ export function CaptureScreen(): React.JSX.Element {
           {
             text: t('screens.capture.permissions.actions.allowAccess'),
             onPress: async () => {
-              await permissions.camera.request();
-              // After request, if granted, re-trigger camera flow
-              if (permissions.camera.status === 'granted') {
-                handleTakePhoto();
+              const newStatus = await permissions.camera.request();
+              // After request, if granted, proceed to camera
+              if (newStatus === 'granted') {
+                setIsNavigating(true);
+                setSource('camera');
+                trackCaptureEvent('capture_source_selected', {
+                  userId: user?.id,
+                  origin: origin || undefined,
+                  source: 'camera',
+                });
+
+                // Navigate to camera screen
+                router.push(`/capture/camera?origin=${origin || 'wardrobe'}`);
+                setTimeout(() => setIsNavigating(false), 500);
               }
             },
           },
