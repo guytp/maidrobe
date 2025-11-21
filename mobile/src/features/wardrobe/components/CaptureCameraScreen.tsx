@@ -18,7 +18,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, CameraType, FlashMode } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
@@ -27,7 +27,9 @@ import { useTheme } from '../../../core/theme';
 import { isCaptureOrigin, CaptureOrigin, CaptureSource, CaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { validateCapturedImage } from '../../../core/utils/imageValidation';
+import { validateCapturedImage, getValidationErrorMessage } from '../../../core/utils/imageValidation';
+import { useCapturePermissions } from '../hooks/useCapturePermissions';
+import { useGalleryPicker } from '../hooks/useGalleryPicker';
 
 /**
  * Camera capture screen - live preview and photo capture.
@@ -45,6 +47,7 @@ export function CaptureCameraScreen(): React.JSX.Element {
   const captureOrigin = useStore((state) => state.origin);
   const captureSource = useStore((state) => state.source);
   const setPayload = useStore((state) => state.setPayload);
+  const setSource = useStore((state) => state.setSource);
   const errorMessage = useStore((state) => state.errorMessage);
   const setErrorMessage = useStore((state) => state.setErrorMessage);
   const setIsNavigating = useStore((state) => state.setIsNavigating);
@@ -56,6 +59,10 @@ export function CaptureCameraScreen(): React.JSX.Element {
   const origin: CaptureOrigin | null = isCaptureOrigin(params.origin)
     ? params.origin
     : captureOrigin;
+
+  // Hooks
+  const permissions = useCapturePermissions(origin);
+  const galleryPicker = useGalleryPicker(origin);
 
   // State
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -232,6 +239,196 @@ export function CaptureCameraScreen(): React.JSX.Element {
     return t('screens.captureCamera.flashAuto');
   };
 
+  /**
+   * Handles gallery button press with permission checks.
+   */
+  const handleGallery = async () => {
+    if (isCapturing || permissions.isLoading || galleryPicker.isLoading) {
+      return;
+    }
+
+    // Handle based on permission status
+    if (permissions.gallery.status === 'granted') {
+      // Permission already granted - proceed to gallery
+      setIsNavigating(true);
+      setSource('gallery');
+      trackCaptureEvent('capture_source_selected', {
+        userId: user?.id,
+        origin: origin || undefined,
+        source: 'gallery',
+      });
+
+      // Launch gallery picker
+      const result = await galleryPicker.pickImage();
+
+      // Handle picker result
+      if (result.success) {
+        // Construct payload with validated image
+        const payload: CaptureImagePayload = {
+          uri: result.uri,
+          width: result.width,
+          height: result.height,
+          origin: origin || 'wardrobe',
+          source: 'gallery',
+          createdAt: new Date().toISOString(),
+        };
+
+        // Store payload and navigate to crop
+        setPayload(payload);
+        router.push('/crop');
+
+        // Reset navigation state after navigation
+        setTimeout(() => setIsNavigating(false), 500);
+      } else if (result.reason === 'cancelled') {
+        // User cancelled picker - just reset navigation state
+        setIsNavigating(false);
+      } else if (result.reason === 'invalid') {
+        // Image validation failed - show error with retry option
+        setIsNavigating(false);
+        Alert.alert(
+          t('screens.capture.errors.invalidImage'),
+          result.error || getValidationErrorMessage('invalid_dimensions'),
+          [
+            {
+              text: t('screens.capture.errors.tryAgain'),
+              onPress: () => handleGallery(),
+            },
+            {
+              text: t('screens.capture.errors.cancel'),
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        // Other errors (permission_denied, error)
+        setIsNavigating(false);
+        Alert.alert(
+          t('screens.capture.errors.galleryError'),
+          result.error || t('screens.capture.errors.galleryErrorMessage'),
+          [
+            {
+              text: t('screens.capture.errors.tryAgain'),
+              onPress: () => handleGallery(),
+            },
+            {
+              text: t('screens.capture.errors.cancel'),
+              style: 'cancel',
+            },
+          ]
+        );
+      }
+    } else if (permissions.gallery.status === 'blocked') {
+      // Permission permanently denied - show settings dialog
+      Alert.alert(
+        t('screens.capture.permissions.gallery.blockedTitle'),
+        t('screens.capture.permissions.gallery.blockedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.openSettings'),
+            onPress: async () => {
+              await permissions.gallery.openSettings();
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    } else if (
+      permissions.gallery.status === 'denied' ||
+      permissions.gallery.status === 'undetermined'
+    ) {
+      // Permission not yet requested or denied once - show explanation and request
+      Alert.alert(
+        t('screens.capture.permissions.gallery.deniedTitle'),
+        t('screens.capture.permissions.gallery.deniedMessage'),
+        [
+          {
+            text: t('screens.capture.permissions.actions.allowAccess'),
+            onPress: async () => {
+              const newStatus = await permissions.gallery.request();
+              // After request, if granted, launch gallery picker
+              if (newStatus === 'granted') {
+                setIsNavigating(true);
+                setSource('gallery');
+                trackCaptureEvent('capture_source_selected', {
+                  userId: user?.id,
+                  origin: origin || undefined,
+                  source: 'gallery',
+                });
+
+                // Launch gallery picker
+                const result = await galleryPicker.pickImage();
+
+                // Handle picker result
+                if (result.success) {
+                  // Construct payload with validated image
+                  const payload: CaptureImagePayload = {
+                    uri: result.uri,
+                    width: result.width,
+                    height: result.height,
+                    origin: origin || 'wardrobe',
+                    source: 'gallery',
+                    createdAt: new Date().toISOString(),
+                  };
+
+                  // Store payload and navigate to crop
+                  setPayload(payload);
+                  router.push('/crop');
+
+                  // Reset navigation state after navigation
+                  setTimeout(() => setIsNavigating(false), 500);
+                } else if (result.reason === 'cancelled') {
+                  // User cancelled picker - just reset navigation state
+                  setIsNavigating(false);
+                } else if (result.reason === 'invalid') {
+                  // Image validation failed - show error with retry option
+                  setIsNavigating(false);
+                  Alert.alert(
+                    t('screens.capture.errors.invalidImage'),
+                    result.error || getValidationErrorMessage('invalid_dimensions'),
+                    [
+                      {
+                        text: t('screens.capture.errors.tryAgain'),
+                        onPress: () => handleGallery(),
+                      },
+                      {
+                        text: t('screens.capture.errors.cancel'),
+                        style: 'cancel',
+                      },
+                    ]
+                  );
+                } else {
+                  // Other errors (permission_denied, error)
+                  setIsNavigating(false);
+                  Alert.alert(
+                    t('screens.capture.errors.galleryError'),
+                    result.error || t('screens.capture.errors.galleryErrorMessage'),
+                    [
+                      {
+                        text: t('screens.capture.errors.tryAgain'),
+                        onPress: () => handleGallery(),
+                      },
+                      {
+                        text: t('screens.capture.errors.cancel'),
+                        style: 'cancel',
+                      },
+                    ]
+                  );
+                }
+              }
+            },
+          },
+          {
+            text: t('screens.capture.permissions.actions.cancel'),
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  };
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -300,6 +497,24 @@ export function CaptureCameraScreen(): React.JSX.Element {
           paddingBottom: Platform.OS === 'ios' ? 40 : 20,
           paddingHorizontal: spacing.md,
           alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: spacing.lg,
+        },
+        galleryButton: {
+          minWidth: 44,
+          minHeight: 44,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: 22,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        galleryButtonText: {
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: '600',
         },
         shutterButton: {
           width: 70,
@@ -477,6 +692,17 @@ export function CaptureCameraScreen(): React.JSX.Element {
 
         {/* Bottom controls */}
         <View style={styles.bottomControls}>
+          <Pressable
+            style={styles.galleryButton}
+            onPress={handleGallery}
+            disabled={isCapturing || permissions.isLoading || galleryPicker.isLoading}
+            accessibilityLabel={t('screens.captureCamera.accessibility.galleryButton')}
+            accessibilityHint={t('screens.captureCamera.accessibility.galleryHint')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.galleryButtonText}>{t('screens.captureCamera.gallery')}</Text>
+          </Pressable>
+
           <Pressable
             style={[styles.shutterButton, !isCameraReady && styles.shutterButtonDisabled]}
             onPress={handleCapture}
