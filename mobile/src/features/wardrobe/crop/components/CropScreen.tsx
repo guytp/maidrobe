@@ -8,7 +8,7 @@
  *
  * Implementation status:
  * - Step 1: Review and gap analysis (portrait lock, error handling, large images) ✓
- * - Step 2: Visual layout (frame, grid, mask) ✓
+ * - Step 2: UI layout with theme tokens (frame, grid, mask, colors, spacing) ✓
  * - Step 3: Gesture handling (pinch, pan, zoom) ✓
  * - Step 4: Image processing (crop, resize, compress) ✓
  * - Step 5: Integration and final validation - In Progress
@@ -60,12 +60,6 @@ const ICON_ERROR = '⚠️';
 const CROP_ASPECT_RATIO = 4 / 5; // 0.8
 
 /**
- * Padding around the crop frame to ensure it sits within safe bounds.
- */
-const FRAME_PADDING_HORIZONTAL = 24; // spacing.lg
-const FRAME_PADDING_VERTICAL = 32; // spacing.xl
-
-/**
  * Height reserved for control buttons at the bottom of the screen.
  * Includes button height, padding, and margins.
  */
@@ -102,18 +96,22 @@ const MAX_SCALE = 4.0;
  * @param screenHeight - Screen height in pixels
  * @param topInset - Safe area top inset
  * @param bottomInset - Safe area bottom inset
+ * @param horizontalPadding - Horizontal padding from theme spacing (spacing.lg)
+ * @param verticalPadding - Vertical padding from theme spacing (spacing.xl)
  * @returns Object containing frame width, height, and position
  */
 function calculateFrameDimensions(
   screenWidth: number,
   screenHeight: number,
   topInset: number,
-  bottomInset: number
+  bottomInset: number,
+  horizontalPadding: number,
+  verticalPadding: number
 ): { width: number; height: number; top: number; left: number } {
   // Calculate available space
-  const availableWidth = screenWidth - FRAME_PADDING_HORIZONTAL * 2;
+  const availableWidth = screenWidth - horizontalPadding * 2;
   const availableHeight =
-    screenHeight - topInset - bottomInset - CONTROLS_HEIGHT - FRAME_PADDING_VERTICAL * 2;
+    screenHeight - topInset - bottomInset - CONTROLS_HEIGHT - verticalPadding * 2;
 
   // Calculate frame dimensions maintaining 4:5 aspect ratio
   // Try width-constrained first
@@ -217,8 +215,16 @@ export function CropScreen(): React.JSX.Element {
 
   // Calculate crop frame dimensions
   const frameDimensions = useMemo(
-    () => calculateFrameDimensions(screenWidth, screenHeight, insets.top, insets.bottom),
-    [screenWidth, screenHeight, insets.top, insets.bottom]
+    () =>
+      calculateFrameDimensions(
+        screenWidth,
+        screenHeight,
+        insets.top,
+        insets.bottom,
+        spacing.lg,
+        spacing.xl
+      ),
+    [screenWidth, screenHeight, insets.top, insets.bottom, spacing.lg, spacing.xl]
   );
 
   // Animated values for image transform
@@ -708,7 +714,8 @@ export function CropScreen(): React.JSX.Element {
         cropFrame: {
           position: 'absolute',
           borderWidth: 2,
-          borderColor: 'rgba(255, 255, 255, 0.8)',
+          borderColor:
+            colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.9)',
         },
         gridContainer: {
           position: 'absolute',
@@ -719,7 +726,10 @@ export function CropScreen(): React.JSX.Element {
         },
         gridLine: {
           position: 'absolute',
-          backgroundColor: `rgba(255, 255, 255, ${GRID_OPACITY})`,
+          backgroundColor:
+            colorScheme === 'dark'
+              ? `rgba(255, 255, 255, ${GRID_OPACITY})`
+              : `rgba(255, 255, 255, ${GRID_OPACITY * 1.2})`,
         },
         gridLineVertical: {
           width: GRID_LINE_WIDTH,
@@ -745,7 +755,7 @@ export function CropScreen(): React.JSX.Element {
         },
         processingOverlay: {
           ...StyleSheet.absoluteFillObject,
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          backgroundColor: colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.6)',
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 1000,
