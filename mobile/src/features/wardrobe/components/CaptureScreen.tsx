@@ -489,7 +489,7 @@ export function CaptureScreen(): React.JSX.Element {
             accessibilityLabel={t('screens.capture.accessibility.takePhotoButton')}
             accessibilityHint={t('screens.capture.accessibility.takePhotoHint')}
           >
-            {`📷 ${t('screens.capture.takePhoto')}`}
+            {t('screens.capture.takePhoto')}
           </Button>
           <Button
             onPress={handleChooseGallery}
@@ -498,7 +498,7 @@ export function CaptureScreen(): React.JSX.Element {
             accessibilityLabel={t('screens.capture.accessibility.galleryButton')}
             accessibilityHint={t('screens.capture.accessibility.galleryHint')}
           >
-            {`🖼️ ${t('screens.capture.chooseGallery')}`}
+            {t('screens.capture.chooseGallery')}
           </Button>
         </View>
         <View style={styles.cancelButton}>
