@@ -10,7 +10,7 @@
  * - Step 1: Review and gap analysis (portrait lock, error handling, large images) ✓
  * - Step 2: UI layout with theme tokens (frame, grid, mask, colors, spacing) ✓
  * - Step 3: Gesture handling (min/max zoom, pan bounds, no rotation, performance, Android back) ✓ VERIFIED
- * - Step 4: Image processing (crop, resize, compress) ✓
+ * - Step 4: Image processing (crop rect, on-device crop/resize/compress, 1600px, JPEG, no original_key) ✓ VERIFIED
  * - Step 5: Integration and final validation - In Progress
  *
  * Navigation contract:
