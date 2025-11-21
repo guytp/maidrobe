@@ -23,8 +23,9 @@ export interface ImageValidationResult {
 /**
  * Minimum acceptable image dimensions (pixels).
  * Images smaller than this are likely too low quality for wardrobe items.
+ * User story requirement: shortest side must be at least 256 pixels.
  */
-const MIN_DIMENSION = 50;
+const MIN_DIMENSION = 256;
 
 /**
  * Maximum acceptable image dimensions (pixels).
