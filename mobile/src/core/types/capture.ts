@@ -145,6 +145,7 @@ export function isCaptureSource(value: unknown): value is CaptureSource {
  * Type guard to validate a complete CaptureImagePayload.
  *
  * Checks that all required fields are present and have valid values.
+ * Requires width > 0 and height > 0 to ensure valid image dimensions.
  * Does not validate the URI format or timestamp format - just presence.
  *
  * @param value - Value to check
@@ -172,9 +173,9 @@ export function isCaptureImagePayload(value: unknown): value is CaptureImagePayl
     typeof payload.uri === 'string' &&
     payload.uri.length > 0 &&
     typeof payload.width === 'number' &&
-    payload.width >= 0 &&
+    payload.width > 0 &&
     typeof payload.height === 'number' &&
-    payload.height >= 0 &&
+    payload.height > 0 &&
     isCaptureOrigin(payload.origin) &&
     isCaptureSource(payload.source) &&
     typeof payload.createdAt === 'string' &&
