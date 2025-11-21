@@ -28,6 +28,7 @@ import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { NAVIGATION_DEBOUNCE_MS } from '../constants';
 
 /**
  * Wardrobe screen - main view for managing wardrobe items.
@@ -68,7 +69,7 @@ export function WardrobeScreen(): React.JSX.Element {
     // Reset navigation state after a delay to allow navigation to complete
     setTimeout(() => {
       setIsNavigating(false);
-    }, 500);
+    }, NAVIGATION_DEBOUNCE_MS);
   };
 
   const styles = useMemo(

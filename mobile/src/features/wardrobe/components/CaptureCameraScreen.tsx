@@ -31,6 +31,7 @@ import { validateCapturedImage } from '../../../core/utils/imageValidation';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
 import { useGalleryPicker } from '../hooks/useGalleryPicker';
 import { useGallerySelection } from '../hooks/useGallerySelection';
+import { NAVIGATION_DEBOUNCE_MS } from '../constants';
 
 /**
  * Camera capture screen - live preview and photo capture.
@@ -215,7 +216,7 @@ export function CaptureCameraScreen(): React.JSX.Element {
       router.push('/crop');
 
       // Clear navigation flag after a delay
-      setTimeout(() => setIsNavigating(false), 500);
+      setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
     } catch {
       // Handle capture error
       setIsCapturing(false);

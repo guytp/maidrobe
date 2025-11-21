@@ -20,6 +20,7 @@ import {
 } from '../../../core/utils/permissions';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { SETTINGS_RETURN_DELAY_MS } from '../constants';
 
 /**
  * Camera permission state.
@@ -259,7 +260,7 @@ export function useCapturePermissions(
 
       setCameraStatus(newCameraStatus);
       setGalleryStatus(newGalleryStatus);
-    }, 500);
+    }, SETTINGS_RETURN_DELAY_MS);
   }, [user?.id, origin]);
 
   return {
