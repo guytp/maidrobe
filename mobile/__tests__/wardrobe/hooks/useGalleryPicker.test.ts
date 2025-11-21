@@ -405,7 +405,7 @@ describe('useGalleryPicker', () => {
   });
 
   describe('image metadata handling', () => {
-    it('handles missing width/height with default values', async () => {
+    it('rejects image with missing width and height', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: false,
         assets: [
@@ -425,8 +425,201 @@ describe('useGalleryPicker', () => {
         pickResult = await result.current.pickImage();
       });
 
-      expect(pickResult.width).toBe(0);
-      expect(pickResult.height).toBe(0);
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with undefined width', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: undefined,
+            height: 1080,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with undefined height', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: 1920,
+            height: undefined,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with zero width', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: 0,
+            height: 1080,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with zero height', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: 1920,
+            height: 0,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with negative width', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: -1920,
+            height: 1080,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('rejects image with negative height', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: 1920,
+            height: -1080,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      let pickResult: any;
+      await act(async () => {
+        pickResult = await result.current.pickImage();
+      });
+
+      expect(pickResult.success).toBe(false);
+      expect(pickResult.reason).toBe('invalid');
+      expect(pickResult.error).toContain('dimensions');
+    });
+
+    it('tracks validation failed event for missing dimensions', async () => {
+      mockLaunchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            uri: 'file:///image.jpg',
+            width: 0,
+            height: 0,
+            type: 'image/jpeg',
+          },
+        ],
+      } as any);
+
+      mockValidateCapturedImage.mockReturnValue({ isValid: true });
+
+      const { result } = renderHook(() => useGalleryPicker('wardrobe'));
+
+      await act(async () => {
+        await result.current.pickImage();
+      });
+
+      expect(mockTrackCaptureEvent).toHaveBeenCalledWith('image_validation_failed', {
+        userId: 'test-user-id',
+        origin: 'wardrobe',
+        source: 'gallery',
+        errorCode: 'missing_dimensions',
+        errorMessage: 'Image dimensions are missing or invalid',
+      });
     });
 
     it('uses mimeType if type is not available', async () => {

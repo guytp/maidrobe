@@ -146,6 +146,30 @@ export function useGalleryPicker(origin: CaptureOrigin | null): UseGalleryPicker
         };
       }
 
+      // Explicit dimension validation to ensure payload contract compliance
+      // isCaptureImagePayload requires width > 0 and height > 0
+      if (
+        typeof asset.width !== 'number' ||
+        asset.width <= 0 ||
+        typeof asset.height !== 'number' ||
+        asset.height <= 0
+      ) {
+        trackCaptureEvent('image_validation_failed', {
+          userId: user?.id,
+          origin: origin || undefined,
+          source: 'gallery',
+          errorCode: 'missing_dimensions',
+          errorMessage: 'Image dimensions are missing or invalid',
+        });
+
+        setIsLoading(false);
+        return {
+          success: false,
+          reason: 'invalid',
+          error: 'Image dimensions are missing or invalid',
+        };
+      }
+
       // Track successful selection
       trackCaptureEvent('gallery_image_selected', {
         userId: user?.id,
@@ -159,8 +183,8 @@ export function useGalleryPicker(origin: CaptureOrigin | null): UseGalleryPicker
       return {
         success: true,
         uri: asset.uri,
-        width: asset.width || 0,
-        height: asset.height || 0,
+        width: asset.width,
+        height: asset.height,
         type: asset.type || asset.mimeType,
       };
     } catch (error) {
