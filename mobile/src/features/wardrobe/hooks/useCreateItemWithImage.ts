@@ -22,8 +22,10 @@
 
 import { useCallback, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
 import { logSuccess, logError } from '../../../core/telemetry';
+import { supabase } from '../../../services/supabase';
 import { WardrobeItem } from '../../onboarding/types/wardrobeItem';
 import { ItemType } from '../../onboarding/types/itemMetadata';
 import {
@@ -174,6 +176,7 @@ export interface UseCreateItemWithImageActions {
 export function useCreateItemWithImage(): UseCreateItemWithImageState &
   UseCreateItemWithImageActions {
   const user = useStore((state) => state.user);
+  const queryClient = useQueryClient();
 
   // Hook state
   const [isLoading, setIsLoading] = useState(false);
@@ -287,55 +290,66 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         await uploadImageToStorage(preparedImage, storagePath);
 
         // Step 5: Insert item record to database
-        // PLACEHOLDER: Mock database insert
-        // Real implementation:
-        // const { data, error: dbError } = await supabase
-        //   .from('items')
-        //   .upsert({
-        //     id: itemId,
-        //     user_id: user.id,
-        //     photos: [storagePath],
-        //     name: input.name.trim() || null,
-        //     tags: input.tags,
-        //   }, { onConflict: 'id' }) // Upsert for retry idempotency
-        //   .select()
-        //   .single();
-        //
-        // if (dbError) {
-        //   throw new CreateItemWithImageError(
-        //     'Failed to save item',
-        //     'database',
-        //     dbError
-        //   );
-        // }
+        // Using upsert with onConflict: 'id' for retry idempotency
+        // This ensures repeated calls with the same itemId are safe
+        const trimmedName = input.name.trim();
+        const normalizedTags =
+          input.tags.length > 0 ? input.tags.map((tag) => tag.toLowerCase()) : null;
 
-        // Mock database delay
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        const { data: dbData, error: dbError } = await supabase
+          .from('items')
+          .upsert(
+            {
+              id: itemId,
+              user_id: user.id,
+              name: trimmedName || null,
+              tags: normalizedTags,
+              original_key: storagePath,
+              image_processing_status: 'pending',
+              attribute_status: 'pending',
+            },
+            { onConflict: 'id' }
+          )
+          .select()
+          .single();
 
-        // Construct created item
+        if (dbError) {
+          throw new CreateItemWithImageError('Failed to save item', 'database', dbError);
+        }
+
+        // Construct created item from database response
+        // Map database fields to WardrobeItem interface for UI consistency
         const item: WardrobeItem = {
-          id: itemId,
-          userId: user.id,
+          id: dbData.id,
+          userId: dbData.user_id,
           photos: [storagePath],
           type: ItemType.Top, // Default type - will be set by classification pipeline
           colour: [], // Will be set by classification pipeline
-          name: input.name.trim() || null,
-          createdAt: new Date().toISOString(),
+          name: dbData.name || null,
+          createdAt: dbData.created_at || new Date().toISOString(),
         };
 
         // Step 6: Trigger background classification pipeline
-        // PLACEHOLDER: Mock pipeline trigger
-        // Real implementation would be an async non-blocking call:
-        // supabase.functions.invoke('classify-item', {
-        //   body: { itemId },
-        // }).catch((err) => {
-        //   // Log but don't fail the save - pipeline can retry
-        //   logError(err, 'server', {
-        //     feature: 'wardrobe',
-        //     operation: 'trigger_classification_pipeline',
-        //     metadata: { itemId },
-        //   });
-        // });
+        // Fire-and-forget: invoke Edge Function but don't await
+        // Errors are caught and logged but don't fail the save operation
+        // The pipeline has its own retry mechanisms
+        supabase.functions
+          .invoke('classify-item', {
+            body: { itemId },
+          })
+          .catch((pipelineError) => {
+            // Log but don't fail the save - pipeline can retry internally
+            logError(pipelineError, 'server', {
+              feature: 'wardrobe',
+              operation: 'trigger_classification_pipeline',
+              metadata: { itemId, userId: user.id },
+            });
+          });
+
+        // Step 7: Invalidate React Query caches for wardrobe
+        // This ensures the wardrobe grid refetches and shows the new item
+        queryClient.invalidateQueries({ queryKey: ['wardrobe', 'items', user.id] });
+        queryClient.invalidateQueries({ queryKey: ['onboarding', 'hasWardrobeItems', user.id] });
 
         // Calculate latency and emit success telemetry
         const latency = Date.now() - startTime;
@@ -435,7 +449,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         setIsLoading(false);
       }
     },
-    [user, checkConnectivity, getOrCreateItemId]
+    [user, queryClient, checkConnectivity, getOrCreateItemId]
   );
 
   /**
