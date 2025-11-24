@@ -5,6 +5,40 @@
  */
 
 /**
+ * Converts a hex color to rgba format with specified opacity.
+ * Provides a maintainable alternative to hex concatenation for opacity.
+ *
+ * @param hexColor - Hex color string (e.g., '#d32f2f' or '#fff')
+ * @param opacity - Opacity value between 0 and 1 (e.g., 0.08 for 8% opacity)
+ * @returns RGBA color string (e.g., 'rgba(211, 47, 47, 0.08)')
+ *
+ * @example
+ * rgba('#d32f2f', 0.08) // 'rgba(211, 47, 47, 0.08)' - equivalent to '#d32f2f' + '15'
+ * rgba('#d32f2f', 0.06) // 'rgba(211, 47, 47, 0.06)' - equivalent to '#d32f2f' + '10'
+ */
+export function rgba(hexColor: string, opacity: number): string {
+  // Remove # if present
+  const hex = hexColor.replace('#', '');
+
+  // Parse hex color (supports both 3-digit and 6-digit formats)
+  let r: number, g: number, b: number;
+
+  if (hex.length === 3) {
+    // Short format: #RGB -> #RRGGBB
+    r = parseInt(hex[0] + hex[0], 16);
+    g = parseInt(hex[1] + hex[1], 16);
+    b = parseInt(hex[2] + hex[2], 16);
+  } else {
+    // Standard format: #RRGGBB
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  }
+
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+/**
  * Spacing scale tokens for consistent layout spacing.
  * Based on 4px grid system for visual rhythm and consistency.
  */

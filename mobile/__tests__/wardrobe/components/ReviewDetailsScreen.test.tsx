@@ -97,6 +97,20 @@ jest.mock('../../../src/core/theme', () => ({
     radius: { sm: 4, md: 8, lg: 12 },
     fontSize: { xs: 12, sm: 14, base: 16, lg: 18, '2xl': 24 },
   }),
+  rgba: (hexColor: string, opacity: number) => {
+    const hex = hexColor.replace('#', '');
+    let r: number, g: number, b: number;
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
