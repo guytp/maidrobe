@@ -75,9 +75,9 @@ const cropEnabled = cropScreenFlag.enabled && !cropScreenFlag.requiresUpdate;
 
 2. **Back/Retake**
    - Clears payload: `clearPayload()`
-   - Navigates based on origin:
-     - `wardrobe` -> `/wardrobe`
-     - `onboarding` -> `/onboarding/first-item`
+   - Navigates based on source (per User Story #205 FR 1.5):
+     - `camera` -> `/capture/camera?origin={origin}`
+     - `gallery` -> `/capture?origin={origin}`
      - fallback -> `/home`
 
 3. **Android Back Button**

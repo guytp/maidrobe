@@ -479,18 +479,22 @@ export function CropScreen(): React.JSX.Element {
     // Clear the payload
     clearPayload();
 
-    // Navigate based on origin if available
+    // Navigate back to capture screen based on source (camera or gallery)
+    // Per User Story #205 Functional Requirement 1.5:
+    // - If source was camera, return to camera capture UI
+    // - If source was gallery, return to gallery selection UI
     if (payload && isCaptureImagePayload(payload)) {
-      const { origin } = payload;
-      if (origin === 'wardrobe') {
-        router.push('/wardrobe');
-      } else if (origin === 'onboarding') {
-        router.push('/onboarding/first-item');
+      const { origin, source } = payload;
+      if (source === 'camera') {
+        router.push(`/capture/camera?origin=${origin}`);
+      } else if (source === 'gallery') {
+        router.push(`/capture?origin=${origin}`);
       } else {
-        router.push('/home');
+        // Fallback to gallery selection if source is unknown
+        router.push(`/capture?origin=${origin}`);
       }
     } else {
-      // Fallback to home if we don't know where to go
+      // Fallback to home if we don't have valid payload
       router.push('/home');
     }
   }, [payload, user, clearPayload, router, isProcessing]);

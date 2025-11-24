@@ -30,7 +30,7 @@
  *
  * Exit Points:
  *   - Confirm/Next -> /onboarding/first-item (with processed image)
- *   - Back/Retake -> /wardrobe or /onboarding/first-item (based on origin)
+ *   - Back/Retake -> /capture/camera or /capture (based on source, preserving origin)
  *
  * Protected route: requires authenticated user with verified email.
  *
