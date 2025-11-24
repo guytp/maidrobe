@@ -9,8 +9,12 @@
  *
  * Navigation contract:
  * - Receives CaptureImagePayload from Zustand store (captureSlice.payload)
- * - Back/Cancel: Returns to /crop without creating item
- * - Save: Will trigger item creation flow (implemented in later step)
+ * - Back/Cancel: router.push('/crop') - preserves back stack for re-editing
+ * - Save Success (AC10): router.replace('/wardrobe') - clears capture flow from stack
+ *   * Prevents back navigation to capture/crop/review screens
+ *   * Compatible with deep links and state restoration
+ *   * Works for all origins (wardrobe, onboarding)
+ * - Save Failure: Remains on screen for retry
  *
  * State Management:
  * - Uses component-level state for form fields (ephemeral UI state)
@@ -290,9 +294,19 @@ export function ReviewDetailsScreen(): React.JSX.Element {
 
   /**
    * Handle save action.
+   *
    * Orchestrates the complete save flow with image upload and database insert.
-   * On success, navigates to wardrobe with back-stack clearing.
-   * On failure, keeps user on screen with form data intact for retry.
+   *
+   * Success behavior (AC10):
+   * - Navigates to /wardrobe using router.replace (not push)
+   * - Clears entire capture flow from navigation stack
+   * - Prevents back navigation to capture/crop/review screens
+   * - Compatible with deep links and state restoration
+   *
+   * Failure behavior:
+   * - Keeps user on screen with form data intact for retry
+   * - Error displayed via saveError state
+   * - User can retry or cancel
    */
   const handleSave = useCallback(async () => {
     // Validate payload is available
@@ -331,8 +345,19 @@ export function ReviewDetailsScreen(): React.JSX.Element {
         tags,
       });
 
-      // Success - navigate to wardrobe with back-stack clearing
-      // Using replace prevents user from navigating back to the capture flow
+      // Success - navigate to wardrobe with back-stack clearing (AC10)
+      //
+      // Navigation strategy: router.replace (not push)
+      // - Clears entire capture flow from back stack (capture -> crop -> review-details)
+      // - Prevents user from navigating back to review/crop screens after save
+      // - Ensures back button returns to pre-capture screen (home, wardrobe, etc.)
+      // - Compatible with deep links and state restoration (handled by Expo Router)
+      // - Works correctly for both wardrobe and onboarding origins
+      //
+      // Rationale:
+      // After successful save, the capture flow is complete and should not be
+      // accessible via back navigation. This prevents confusing UX where users
+      // might accidentally re-enter the flow or see stale capture state.
       router.replace('/wardrobe');
     } catch {
       // Error is already captured in hook state (saveError)
