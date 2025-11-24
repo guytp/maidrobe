@@ -34,3 +34,28 @@ export const NAVIGATION_DEBOUNCE_MS = 500;
  * - useCapturePermissions: After openAppSettings() returns
  */
 export const SETTINGS_RETURN_DELAY_MS = 500;
+
+/**
+ * Supabase Edge Function names for wardrobe item processing.
+ *
+ * These function names are used when triggering background processing
+ * pipelines for wardrobe items. Centralizing them here ensures consistency
+ * across the codebase and makes it easier to update function names if they
+ * change during deployment or refactoring.
+ *
+ * Used in:
+ * - useCreateItemWithImage: Triggers both pipelines after item creation
+ */
+export const EDGE_FUNCTIONS = {
+  /**
+   * Image processing pipeline (Story #229).
+   * Cleans up the original image and generates optimized thumbnails.
+   */
+  PROCESS_ITEM_IMAGE: 'process-item-image',
+
+  /**
+   * Attribute classification pipeline (Story #235).
+   * Detects item type, colours, patterns, fabric, etc.
+   */
+  CLASSIFY_ITEM: 'classify-item',
+} as const;
