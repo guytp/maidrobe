@@ -835,9 +835,11 @@ export function CropScreen(): React.JSX.Element {
 
   // Show error if payload is invalid or image failed to load
   if (!isValid || imageLoadError) {
-    const errorTitle = imageLoadError ? 'Unable to load image' : t('screens.crop.errors.noImage');
+    const errorTitle = imageLoadError
+      ? t('screens.crop.errors.loadFailed')
+      : t('screens.crop.errors.noImage');
     const errorMessage = imageLoadError
-      ? 'We could not crop this photo. Please try again.'
+      ? t('screens.crop.errors.loadFailedMessage')
       : t('screens.crop.errors.invalidPayload');
 
     return (
