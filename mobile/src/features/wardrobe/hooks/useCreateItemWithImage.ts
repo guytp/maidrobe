@@ -24,7 +24,7 @@ import { useCallback, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { logSuccess, logError } from '../../../core/telemetry';
+import { logSuccess, logError, trackCaptureEvent } from '../../../core/telemetry';
 import { supabase } from '../../../services/supabase';
 import { WardrobeItem } from '../../onboarding/types/wardrobeItem';
 import { ItemType } from '../../onboarding/types/itemMetadata';
@@ -501,14 +501,11 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           },
         });
 
-        // Emit structured failure event
-        logSuccess('wardrobe', 'item_save_failed', {
-          latency,
-          data: {
-            userId: user.id,
-            errorType: typedError.errorType,
-            latencyMs: latency,
-          },
+        // Emit structured failure event using trackCaptureEvent for semantic correctness
+        trackCaptureEvent('item_save_failed', {
+          userId: user.id,
+          errorType: typedError.errorType,
+          latencyMs: latency,
         });
 
         // Update state with error
