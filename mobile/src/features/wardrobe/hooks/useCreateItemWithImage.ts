@@ -16,6 +16,11 @@
  * - Stable itemId: Generated once, cached for retries to enable idempotent writes
  * - Fail fast offline: Check connectivity before starting any work
  * - Auth refresh: Transparent token refresh before writes prevents orphaned uploads
+ *   and ensures RLS policies are evaluated with valid session (AC13)
+ * - Cryptographic UUIDs: Uses crypto.getRandomValues() to generate non-guessable
+ *   item IDs, preventing unauthorized access to private storage paths
+ * - Externalized constants: Edge Function names defined in constants.ts for
+ *   maintainability and refactoring safety across the codebase
  * - Telemetry: Structured events for monitoring save success/failure rates
  * - Error classification: Typed errors for appropriate user messaging
  * - Non-guessable storage path: user/{userId}/items/{itemId}/original.jpg
@@ -213,9 +218,27 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
    * - Bits 64-65: Variant (10)
    * - Bits 66-127: Random data
    *
-   * Security: Uses crypto.getRandomValues() for cryptographically secure
-   * random data generation, ensuring item IDs are non-guessable and meet
-   * security requirements for private storage paths (user/{userId}/items/{itemId}/...).
+   * Security Rationale:
+   * Uses crypto.getRandomValues() instead of Math.random() for cryptographically
+   * secure random number generation. This is critical because:
+   *
+   * - Threat Model: Item IDs are used in storage paths (user/{userId}/items/{itemId}/...)
+   *   which are protected by Supabase RLS policies. If IDs were predictable, an
+   *   attacker could enumerate storage paths and attempt unauthorized access.
+   *
+   * - Math.random() Weakness: JavaScript's Math.random() is NOT cryptographically
+   *   secure. It uses a pseudo-random number generator (PRNG) that can be predicted
+   *   if the attacker observes enough outputs or knows the seed. This makes IDs
+   *   guessable.
+   *
+   * - crypto.getRandomValues(): Provides cryptographically strong random values
+   *   suitable for security-sensitive operations. The random bits in the UUID
+   *   are unpredictable, making item IDs non-guessable even if an attacker
+   *   knows other item IDs or timing information.
+   *
+   * - Defense in Depth: While RLS policies prevent unauthorized database access,
+   *   non-guessable IDs add an additional security layer by making storage paths
+   *   unenumerable, protecting against potential RLS misconfigurations or bugs.
    */
   const getOrCreateItemId = useCallback((): string => {
     if (cachedItemIdRef.current) {
@@ -322,9 +345,45 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         }
 
         // Step 2: Attempt transparent token refresh before any writes (AC13)
-        // This ensures the session is valid before performing any Supabase
-        // storage uploads or database operations, preventing orphaned uploads
-        // if the session has expired.
+        //
+        // Security and Reliability Rationale:
+        // This explicit pre-save token refresh is critical for preventing orphaned
+        // uploads and ensuring data consistency when auth sessions expire during
+        // the item creation flow.
+        //
+        // Problem Without Refresh:
+        // - User starts the save flow with a valid session
+        // - Session expires between image upload and database insert
+        // - Image upload succeeds (storage write uses cached token)
+        // - Database insert fails (RLS policy evaluated with expired token)
+        // - Result: Orphaned image in storage, no database record, user sees error
+        //
+        // Solution With Explicit Refresh:
+        // - Check and refresh session BEFORE any writes (storage or database)
+        // - If refresh fails, route user to login immediately (no partial writes)
+        // - If refresh succeeds, proceed with writes using fresh token
+        // - All subsequent operations (upload + insert) use valid session
+        // - RLS policies evaluate correctly for both storage and database
+        //
+        // Why This Matters:
+        // - Data Consistency: Prevents orphaned files in storage
+        // - User Experience: Clear auth failure before work starts, not mid-flow
+        // - Security: Ensures all RLS policies evaluate with valid, fresh session
+        // - Cost: Avoids wasted bandwidth uploading images that can't be saved
+        //
+        // Error Classification:
+        // Token refresh failures are classified as network/server/user errors
+        // based on error message analysis. This enables:
+        // - Accurate telemetry for monitoring auth reliability
+        // - Appropriate retry strategies (network errors may be transient)
+        // - Better debugging of auth infrastructure issues
+        //
+        // Telemetry:
+        // Both success and failure paths emit structured auth events with:
+        // - Latency tracking for performance monitoring
+        // - Error classification for root cause analysis
+        // - Context metadata (operation: pre_save_refresh) for filtering
+        // - Centralized error logging via logError() for aggregation
         const refreshStartTime = Date.now();
         try {
           const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
@@ -536,6 +595,15 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         // Pipeline 2: AI attribute detection (Story #235)
         // - Detects item type, colours, patterns, fabric, etc.
         // - Updates attribute_status and item metadata when complete
+        //
+        // Edge Function Name Constants:
+        // Function names are defined in EDGE_FUNCTIONS constant (see constants.ts)
+        // instead of hardcoded strings. This provides:
+        // - Single source of truth for all Edge Function references
+        // - Type safety and autocompletion in IDEs
+        // - Safe refactoring (rename propagates across codebase)
+        // - Clear documentation of available functions and their purposes
+        // - Reduced risk of typos causing runtime failures
 
         // Trigger image processing pipeline
         supabase.functions
