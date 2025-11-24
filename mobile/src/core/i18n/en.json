@@ -587,8 +587,16 @@
       "goBack": "Go back",
       "errors": {
         "noImage": "No image to review",
-        "invalidPayload": "Please capture or select an image first."
+        "invalidPayload": "Please capture or select an image first.",
+        "offline": "No internet connection. Please check your connection and try again.",
+        "network": "Network error. Please try again.",
+        "storage": "Failed to upload image. Please try again.",
+        "database": "Failed to save item. Please try again.",
+        "validation": "Please check your information and try again.",
+        "unknown": "Something went wrong. Please try again."
       },
+      "saving": "Saving...",
+      "retry": "Retry",
       "accessibility": {
         "screenLabel": "Review and details screen",
         "screenHint": "Review your item and add optional name and tags",

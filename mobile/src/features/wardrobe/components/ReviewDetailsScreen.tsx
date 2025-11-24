@@ -41,6 +41,7 @@ import { Button } from '../../../core/components/Button';
 import { useStore } from '../../../core/state/store';
 import { isCaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
+import { useCreateItemWithImage, type CreateItemErrorType } from '../hooks/useCreateItemWithImage';
 
 /**
  * Maximum character length for item name.
@@ -74,6 +75,9 @@ export function ReviewDetailsScreen(): React.JSX.Element {
   const payload = useStore((state) => state.payload);
   const user = useStore((state) => state.user);
 
+  // Item creation hook
+  const { save, isLoading, error: saveError, reset: resetSaveError } = useCreateItemWithImage();
+
   // Form state - using component-level state for ephemeral form data
   const [name, setName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -89,6 +93,21 @@ export function ReviewDetailsScreen(): React.JSX.Element {
 
   // Validate payload
   const isValid = isCaptureImagePayload(payload);
+
+  /**
+   * Get user-friendly error message based on error type.
+   */
+  const getErrorMessage = useCallback((errorType: CreateItemErrorType): string => {
+    const errorMessages: Record<CreateItemErrorType, string> = {
+      offline: t('screens.reviewDetails.errors.offline'),
+      network: t('screens.reviewDetails.errors.network'),
+      storage: t('screens.reviewDetails.errors.storage'),
+      database: t('screens.reviewDetails.errors.database'),
+      validation: t('screens.reviewDetails.errors.validation'),
+      unknown: t('screens.reviewDetails.errors.unknown'),
+    };
+    return errorMessages[errorType] || errorMessages.unknown;
+  }, []);
 
   /**
    * Track screen opened event on mount.
@@ -261,9 +280,16 @@ export function ReviewDetailsScreen(): React.JSX.Element {
 
   /**
    * Handle save action.
-   * For now, this is a placeholder - full implementation in Step 3.
+   * Orchestrates the complete save flow with image upload and database insert.
+   * On success, navigates to wardrobe with back-stack clearing.
+   * On failure, keeps user on screen with form data intact for retry.
    */
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
+    // Validate payload is available
+    if (!payload) {
+      return;
+    }
+
     // Get trimmed name for validation and storage
     const trimmedName = name.trim();
 
@@ -273,19 +299,37 @@ export function ReviewDetailsScreen(): React.JSX.Element {
       return;
     }
 
-    // TODO: Step 3 will implement the full save flow with:
-    // - Image preparation and upload
-    // - Item creation in database
-    // - Navigation to wardrobe
-    // For now, just log that save was pressed
+    // Clear any previous save errors before attempting
+    resetSaveError();
+
+    // Track save attempt
     trackCaptureEvent('review_details_save_pressed', {
       userId: user?.id,
-      origin: payload?.origin,
-      source: payload?.source,
+      origin: payload.origin,
+      source: payload.source,
       hasName: trimmedName.length > 0,
       tagCount: tags.length,
     });
-  }, [name, tags, user?.id, payload]);
+
+    try {
+      // Execute the save flow
+      await save({
+        imageUri: payload.uri,
+        imageWidth: payload.width,
+        imageHeight: payload.height,
+        name: trimmedName,
+        tags,
+      });
+
+      // Success - navigate to wardrobe with back-stack clearing
+      // Using replace prevents user from navigating back to the capture flow
+      router.replace('/wardrobe');
+    } catch {
+      // Error is already captured in hook state (saveError)
+      // User stays on screen with form data intact for retry
+      // Error will be displayed in the UI via saveError state
+    }
+  }, [name, tags, user?.id, payload, save, resetSaveError, router]);
 
   /**
    * Navigate to error state if payload is invalid.
@@ -294,10 +338,10 @@ export function ReviewDetailsScreen(): React.JSX.Element {
     router.push('/capture');
   }, [router]);
 
-  // Check if save should be enabled (trimmed name within limit)
-  const canSave = name.trim().length <= MAX_NAME_LENGTH;
+  // Check if save should be enabled (trimmed name within limit and not loading)
+  const canSave = name.trim().length <= MAX_NAME_LENGTH && !isLoading;
 
-  // Check if tags input should be disabled (at limit)
+  // Check if tags input should be disabled (at limit or loading)
   const isTagsAtLimit = tags.length >= MAX_TAGS_COUNT;
 
   const styles = useMemo(
@@ -448,6 +492,19 @@ export function ReviewDetailsScreen(): React.JSX.Element {
         buttonContainer: {
           marginTop: spacing.xl,
           gap: spacing.md,
+        },
+        errorBanner: {
+          backgroundColor: colors.error + '15', // 15 = ~8% opacity in hex
+          borderWidth: 1,
+          borderColor: colors.error,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          marginBottom: spacing.sm,
+        },
+        errorBannerText: {
+          color: colors.error,
+          fontSize: fontSize.sm,
+          textAlign: 'center',
         },
         errorContent: {
           flex: 1,
@@ -688,18 +745,40 @@ export function ReviewDetailsScreen(): React.JSX.Element {
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
+          {/* Error Banner */}
+          {saveError && (
+            <View style={styles.errorBanner} accessibilityRole="alert">
+              <Text
+                style={styles.errorBannerText}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={2}
+              >
+                {getErrorMessage(saveError.errorType)}
+              </Text>
+            </View>
+          )}
+
           <Button
             onPress={handleSave}
             variant="primary"
             disabled={!canSave}
-            accessibilityLabel={t('screens.reviewDetails.accessibility.saveButton')}
+            accessibilityLabel={
+              saveError
+                ? t('screens.reviewDetails.retry')
+                : t('screens.reviewDetails.accessibility.saveButton')
+            }
             accessibilityHint={t('screens.reviewDetails.accessibility.saveButtonHint')}
           >
-            {t('screens.reviewDetails.saveButton')}
+            {isLoading
+              ? t('screens.reviewDetails.saving')
+              : saveError
+                ? t('screens.reviewDetails.retry')
+                : t('screens.reviewDetails.saveButton')}
           </Button>
           <Button
             onPress={handleCancel}
             variant="text"
+            disabled={isLoading}
             accessibilityLabel={t('screens.reviewDetails.accessibility.cancelButton')}
             accessibilityHint={t('screens.reviewDetails.accessibility.cancelButtonHint')}
           >
