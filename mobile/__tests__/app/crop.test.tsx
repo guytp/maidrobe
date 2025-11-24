@@ -6,6 +6,8 @@
  * @module __tests__/app/crop
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any */
+
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import CropRoute from '../../app/crop/index';
