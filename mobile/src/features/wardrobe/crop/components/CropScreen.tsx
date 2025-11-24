@@ -63,12 +63,6 @@ const ICON_ERROR = '⚠️';
 const CROP_ASPECT_RATIO = 4 / 5; // 0.8
 
 /**
- * Height reserved for control buttons at the bottom of the screen.
- * Includes button height, padding, and margins.
- */
-const CONTROLS_HEIGHT = 100;
-
-/**
  * Mask overlay opacity for dimming areas outside the crop frame.
  * Adjusted for light and dark modes to maintain visibility.
  */
@@ -101,6 +95,7 @@ const MAX_SCALE = 4.0;
  * @param bottomInset - Safe area bottom inset
  * @param horizontalPadding - Horizontal padding from theme spacing (spacing.lg)
  * @param verticalPadding - Vertical padding from theme spacing (spacing.xl)
+ * @param controlsHeight - Height of control area from theme sizing
  * @returns Object containing frame width, height, and position
  */
 function calculateFrameDimensions(
@@ -109,12 +104,13 @@ function calculateFrameDimensions(
   topInset: number,
   bottomInset: number,
   horizontalPadding: number,
-  verticalPadding: number
+  verticalPadding: number,
+  controlsHeight: number
 ): { width: number; height: number; top: number; left: number } {
   // Calculate available space
   const availableWidth = screenWidth - horizontalPadding * 2;
   const availableHeight =
-    screenHeight - topInset - bottomInset - CONTROLS_HEIGHT - verticalPadding * 2;
+    screenHeight - topInset - bottomInset - controlsHeight - verticalPadding * 2;
 
   // Calculate frame dimensions maintaining 4:5 aspect ratio
   // Try width-constrained first
@@ -129,7 +125,7 @@ function calculateFrameDimensions(
 
   // Calculate centered position
   const left = (screenWidth - frameWidth) / 2;
-  const contentHeight = screenHeight - topInset - bottomInset - CONTROLS_HEIGHT;
+  const contentHeight = screenHeight - topInset - bottomInset - controlsHeight;
   const top = topInset + (contentHeight - frameHeight) / 2;
 
   return { width: frameWidth, height: frameHeight, top, left };
@@ -197,7 +193,7 @@ function getMidpoint(
  * @returns Crop screen component with image adjustment UI
  */
 export function CropScreen(): React.JSX.Element {
-  const { colors, colorScheme, spacing } = useTheme();
+  const { colors, colorScheme, spacing, sizing } = useTheme();
   const router = useRouter();
   const payload = useStore((state) => state.payload);
   const setPayload = useStore((state) => state.setPayload);
@@ -225,9 +221,10 @@ export function CropScreen(): React.JSX.Element {
         insets.top,
         insets.bottom,
         spacing.lg,
-        spacing.xl
+        spacing.xl,
+        sizing.controlAreaHeight
       ),
-    [screenWidth, screenHeight, insets.top, insets.bottom, spacing.lg, spacing.xl]
+    [screenWidth, screenHeight, insets.top, insets.bottom, spacing.lg, spacing.xl, sizing.controlAreaHeight]
   );
 
   // Animated values for image transform
@@ -804,7 +801,7 @@ export function CropScreen(): React.JSX.Element {
           position: 'absolute',
           left: spacing.md,
           right: spacing.md,
-          bottom: insets.bottom + 100,
+          bottom: insets.bottom + sizing.controlAreaHeight,
           backgroundColor: colors.error,
           padding: spacing.md,
           borderRadius: 8,
@@ -834,7 +831,7 @@ export function CropScreen(): React.JSX.Element {
           fontWeight: '600',
         },
       }),
-    [colors, colorScheme, spacing, insets.bottom]
+    [colors, colorScheme, spacing, sizing, insets.bottom]
   );
 
   // Show error if payload is invalid or image failed to load

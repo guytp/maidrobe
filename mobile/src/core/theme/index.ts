@@ -11,11 +11,13 @@ import {
   fontSize,
   lightColors,
   radius,
+  sizing,
   spacing,
   type ColorScheme,
   type Colors,
   type FontSize,
   type Radius,
+  type Sizing,
   type Spacing,
 } from './colors';
 
@@ -27,6 +29,7 @@ import {
  * - spacing: Consistent spacing scale (xs to xl)
  * - radius: Border radius scale (sm to lg)
  * - fontSize: Typography scale (xs to 4xl)
+ * - sizing: Component dimension tokens (touch targets, control areas)
  * - colorScheme: Current theme mode
  * - isReduceMotionEnabled: Accessibility preference for animations
  */
@@ -35,6 +38,7 @@ interface ThemeContextValue {
   spacing: Spacing;
   radius: Radius;
   fontSize: FontSize;
+  sizing: Sizing;
   colorScheme: ColorScheme;
   isReduceMotionEnabled: boolean;
 }
@@ -104,6 +108,7 @@ export function ThemeProvider({
       spacing,
       radius,
       fontSize,
+      sizing,
       colorScheme,
       isReduceMotionEnabled,
     }),
