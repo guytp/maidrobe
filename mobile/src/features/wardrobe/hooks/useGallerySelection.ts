@@ -16,6 +16,7 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { t } from '../../../core/i18n';
 import { trackCaptureEvent } from '../../../core/telemetry';
+import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { getValidationErrorMessage } from '../../../core/utils/imageValidation';
 import {
   CaptureOrigin,
@@ -145,9 +146,21 @@ export function useGallerySelection(
         createdAt: new Date().toISOString(),
       };
 
-      // Store payload and navigate to crop
+      // Store payload
       options.setPayload(payload);
-      options.router.push('/crop');
+
+      // Check if crop screen feature is enabled
+      const cropScreenFlag = checkFeatureFlagSync('capture.cropScreen');
+      const cropEnabled = cropScreenFlag.enabled && !cropScreenFlag.requiresUpdate;
+
+      // Navigate based on feature flag
+      if (cropEnabled) {
+        // Crop screen enabled: navigate to crop
+        options.router.push('/crop');
+      } else {
+        // Crop screen disabled: skip crop, go directly to item creation
+        options.router.push('/onboarding/first-item');
+      }
 
       // Reset navigation state after navigation
       setTimeout(() => options.setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);

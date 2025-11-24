@@ -26,6 +26,7 @@ import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { isCaptureOrigin, CaptureOrigin, CaptureSource, CaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
+import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { useStore } from '../../../core/state/store';
 import { validateCapturedImage } from '../../../core/utils/imageValidation';
 import { useCapturePermissions } from '../hooks/useCapturePermissions';
@@ -258,6 +259,10 @@ export function CaptureCameraScreen(): React.JSX.Element {
       // Store in Zustand
       setPayload(payload);
 
+      // Check if crop screen feature is enabled
+      const cropScreenFlag = checkFeatureFlagSync('capture.cropScreen');
+      const cropEnabled = cropScreenFlag.enabled && !cropScreenFlag.requiresUpdate;
+
       // Track success
       trackCaptureEvent('capture_handoff_to_crop', {
         userId: user?.id,
@@ -265,10 +270,17 @@ export function CaptureCameraScreen(): React.JSX.Element {
         source: 'camera',
         width: photo.width,
         height: photo.height,
+        metadata: { cropEnabled },
       });
 
-      // Navigate to crop
-      router.push('/crop');
+      // Navigate based on feature flag
+      if (cropEnabled) {
+        // Crop screen enabled: navigate to crop
+        router.push('/crop');
+      } else {
+        // Crop screen disabled: skip crop, go directly to item creation
+        router.push('/onboarding/first-item');
+      }
 
       // Clear navigation flag after a delay
       setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
