@@ -104,6 +104,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
       storage: t('screens.reviewDetails.errors.storage'),
       database: t('screens.reviewDetails.errors.database'),
       validation: t('screens.reviewDetails.errors.validation'),
+      auth: t('screens.reviewDetails.errors.auth'),
       unknown: t('screens.reviewDetails.errors.unknown'),
     };
     return errorMessages[errorType] || errorMessages.unknown;
@@ -609,7 +610,11 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               {t('screens.reviewDetails.nameHelper')}
             </Text>
             <TextInput
-              style={[styles.input, nameError && styles.inputError, isLoading && styles.inputDisabled]}
+              style={[
+                styles.input,
+                nameError && styles.inputError,
+                isLoading && styles.inputDisabled,
+              ]}
               value={name}
               onChangeText={handleNameChange}
               onBlur={handleNameBlur}

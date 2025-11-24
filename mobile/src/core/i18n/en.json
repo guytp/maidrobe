@@ -593,6 +593,7 @@
         "storage": "Failed to upload image. Please try again.",
         "database": "Failed to save item. Please try again.",
         "validation": "Please check your information and try again.",
+        "auth": "Your session has expired. Please log in again.",
         "unknown": "Something went wrong. Please try again."
       },
       "saving": "Saving...",
