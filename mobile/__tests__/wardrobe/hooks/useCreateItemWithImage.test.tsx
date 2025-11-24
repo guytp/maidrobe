@@ -142,19 +142,19 @@ describe('useCreateItemWithImage - Happy Path', () => {
     jest.spyOn(Date, 'now').mockReturnValue(mockTimestamp);
 
     // Setup default successful mocks
-    mockNetInfo.fetch = jest.fn().mockResolvedValue({
+    (mockNetInfo.fetch as jest.Mock) = jest.fn().mockResolvedValue({
       isConnected: true,
       isInternetReachable: true,
     });
 
-    mockSupabase.auth.refreshSession.mockResolvedValue({
+    (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValue({
       data: { session: mockSession },
       error: null,
-    } as unknown as ReturnType<typeof mockSupabase.auth.refreshSession>);
+    });
 
-    mockImageUpload.generateStoragePath.mockReturnValue(mockStoragePath);
-    mockImageUpload.prepareImageForUpload.mockResolvedValue(mockPreparedImage);
-    mockImageUpload.uploadImageToStorage.mockResolvedValue(undefined);
+    (mockImageUpload.generateStoragePath as jest.Mock).mockReturnValue(mockStoragePath);
+    (mockImageUpload.prepareImageForUpload as jest.Mock).mockResolvedValue(mockPreparedImage);
+    (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValue(undefined);
 
     const mockSingle = jest.fn().mockResolvedValue({
       data: mockDbItem,
@@ -169,14 +169,14 @@ describe('useCreateItemWithImage - Happy Path', () => {
       select: mockSelect,
     });
 
-    mockSupabase.from.mockReturnValue({
+    (mockSupabase.from as jest.Mock).mockReturnValue({
       upsert: mockUpsert,
-    } as unknown as ReturnType<typeof mockSupabase.from>);
+    });
 
-    mockSupabase.functions.invoke.mockResolvedValue({
+    (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
       data: null,
       error: null,
-    } as unknown as ReturnType<typeof mockSupabase.functions.invoke>);
+    });
   });
 
   afterEach(() => {
@@ -241,8 +241,10 @@ describe('useCreateItemWithImage - Happy Path', () => {
       expect(mockSupabase.auth.refreshSession).toHaveBeenCalledTimes(1);
 
       // Verify it was called before image preparation
-      const refreshCallOrder = mockSupabase.auth.refreshSession.mock.invocationCallOrder[0];
-      const prepareCallOrder = mockImageUpload.prepareImageForUpload.mock.invocationCallOrder[0];
+      const refreshCallOrder = (mockSupabase.auth.refreshSession as jest.Mock).mock
+        .invocationCallOrder[0];
+      const prepareCallOrder = (mockImageUpload.prepareImageForUpload as jest.Mock).mock
+        .invocationCallOrder[0];
       expect(refreshCallOrder).toBeLessThan(prepareCallOrder);
     });
 
@@ -425,8 +427,8 @@ describe('useCreateItemWithImage - Happy Path', () => {
         await result.current.save(mockInput);
       });
 
-      const invokeCalls = mockSupabase.functions.invoke.mock.calls;
-      const functionNames = invokeCalls.map((call) => call[0]);
+      const invokeCalls = (mockSupabase.functions.invoke as jest.Mock).mock.calls;
+      const functionNames = invokeCalls.map((call: string[]) => call[0]);
 
       expect(functionNames).toContain('process-item-image');
       expect(functionNames).toContain('classify-item');
@@ -436,7 +438,7 @@ describe('useCreateItemWithImage - Happy Path', () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
       // Make pipeline invocations reject
-      mockSupabase.functions.invoke.mockRejectedValue(new Error('Pipeline error'));
+      (mockSupabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Pipeline error'));
 
       await act(async () => {
         await result.current.save(mockInput);
@@ -579,11 +581,13 @@ describe('useCreateItemWithImage - Happy Path', () => {
       });
 
       const callOrder = {
-        connectivity: mockNetInfo.fetch.mock.invocationCallOrder[0],
-        tokenRefresh: mockSupabase.auth.refreshSession.mock.invocationCallOrder[0],
-        imagePrepare: mockImageUpload.prepareImageForUpload.mock.invocationCallOrder[0],
-        imageUpload: mockImageUpload.uploadImageToStorage.mock.invocationCallOrder[0],
-        dbInsert: mockSupabase.from.mock.invocationCallOrder[0],
+        connectivity: (mockNetInfo.fetch as jest.Mock).mock.invocationCallOrder[0],
+        tokenRefresh: (mockSupabase.auth.refreshSession as jest.Mock).mock.invocationCallOrder[0],
+        imagePrepare: (mockImageUpload.prepareImageForUpload as jest.Mock).mock
+          .invocationCallOrder[0],
+        imageUpload: (mockImageUpload.uploadImageToStorage as jest.Mock).mock
+          .invocationCallOrder[0],
+        dbInsert: (mockSupabase.from as jest.Mock).mock.invocationCallOrder[0],
       };
 
       // Verify order
@@ -599,7 +603,7 @@ describe('useCreateItemWithImage - Happy Path', () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
       // Create an error by making connectivity fail
-      mockNetInfo.fetch.mockResolvedValueOnce({
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
         isConnected: false,
         isInternetReachable: false,
       });
