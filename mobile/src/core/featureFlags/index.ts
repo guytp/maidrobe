@@ -91,6 +91,7 @@ export interface FeatureFlagResult {
  * - auth.recaptcha: reCAPTCHA integration
  * - auth.errorLogging: Auth error logging
  * - onboarding.gate: Onboarding gate routing (routes new users to onboarding flow)
+ * - capture.cropScreen: Crop & adjust experience for wardrobe item images
  */
 export type FeatureFlagName =
   | 'auth.login'
@@ -98,7 +99,8 @@ export type FeatureFlagName =
   | 'auth.logout'
   | 'auth.recaptcha'
   | 'auth.errorLogging'
-  | 'onboarding.gate';
+  | 'onboarding.gate'
+  | 'capture.cropScreen';
 
 /**
  * Client version information for compatibility checks.
