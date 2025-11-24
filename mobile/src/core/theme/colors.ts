@@ -70,6 +70,8 @@ export const lightColors = {
   errorText: '#ffffff',
   warning: '#F59E0B',
   success: '#10B981',
+  /** Mask overlay opacity for dimming areas outside crop frames */
+  maskOverlay: 0.5,
 };
 
 /**
@@ -87,6 +89,8 @@ export const darkColors = {
   errorText: '#000000',
   warning: '#FCD34D',
   success: '#34D399',
+  /** Mask overlay opacity for dimming areas outside crop frames (darker for better contrast on dark backgrounds) */
+  maskOverlay: 0.7,
 };
 
 export type ColorScheme = 'light' | 'dark';

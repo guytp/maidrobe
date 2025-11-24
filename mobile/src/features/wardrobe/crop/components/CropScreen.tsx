@@ -63,13 +63,6 @@ const ICON_ERROR = '⚠️';
 const CROP_ASPECT_RATIO = 4 / 5; // 0.8
 
 /**
- * Mask overlay opacity for dimming areas outside the crop frame.
- * Adjusted for light and dark modes to maintain visibility.
- */
-const MASK_OPACITY_LIGHT = 0.5;
-const MASK_OPACITY_DARK = 0.7;
-
-/**
  * Grid overlay opacity for the rule-of-thirds composition guide.
  */
 const GRID_OPACITY = 0.5;
@@ -707,36 +700,24 @@ export function CropScreen(): React.JSX.Element {
           top: 0,
           left: 0,
           right: 0,
-          backgroundColor:
-            'rgba(0, 0, 0, ' +
-            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
-            ')',
+          backgroundColor: `rgba(0, 0, 0, ${colors.maskOverlay})`,
         },
         maskBottom: {
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor:
-            'rgba(0, 0, 0, ' +
-            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
-            ')',
+          backgroundColor: `rgba(0, 0, 0, ${colors.maskOverlay})`,
         },
         maskLeft: {
           position: 'absolute',
           left: 0,
-          backgroundColor:
-            'rgba(0, 0, 0, ' +
-            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
-            ')',
+          backgroundColor: `rgba(0, 0, 0, ${colors.maskOverlay})`,
         },
         maskRight: {
           position: 'absolute',
           right: 0,
-          backgroundColor:
-            'rgba(0, 0, 0, ' +
-            (colorScheme === 'dark' ? MASK_OPACITY_DARK : MASK_OPACITY_LIGHT) +
-            ')',
+          backgroundColor: `rgba(0, 0, 0, ${colors.maskOverlay})`,
         },
         cropFrame: {
           position: 'absolute',
