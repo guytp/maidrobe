@@ -17,6 +17,7 @@
 
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CaptureSource } from '../../../../core/types/capture';
+import { CropError, wrapAsCropError } from './errors';
 
 /**
  * Target maximum dimension for longest edge after processing.
@@ -266,10 +267,7 @@ export async function cropAndProcessImage(
       source,
     };
   } catch (error) {
-    // Enhance error message for debugging
-    const message =
-      error instanceof Error ? error.message : 'Unknown error during image processing';
-
-    throw new Error(`Image processing failed: ${message}`);
+    // Wrap error with proper classification for telemetry
+    throw wrapAsCropError(error, 'Image processing failed');
   }
 }
