@@ -130,6 +130,7 @@ export function useCreateFirstItem() {
           type: request.type,
           colour: [request.colourId],
           name: request.name || null,
+          tags: null,
           createdAt: new Date().toISOString(),
         };
 
