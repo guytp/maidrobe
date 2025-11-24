@@ -3,16 +3,19 @@
  *
  * This hook orchestrates the complete item creation flow:
  * 1. Connectivity check - fail fast if offline
- * 2. Generate stable itemId (cached for retries)
- * 3. Image preparation (resize to max 1600px, JPEG compression, EXIF stripping)
- * 4. Image upload to Supabase Storage (private bucket with RLS)
- * 5. Item record insertion to database (placeholder - Step 5)
- * 6. Background pipeline trigger (placeholder - Step 5)
+ * 2. Token refresh - transparent session validation before any writes (AC13)
+ * 3. Generate stable itemId (cached for retries)
+ * 4. Image preparation (resize to max 1600px, JPEG compression, EXIF stripping)
+ * 5. Image upload to Supabase Storage (private bucket with RLS)
+ * 6. Item record insertion to database
+ * 7. Background pipeline trigger (image processing and AI classification)
+ * 8. React Query cache invalidation
  *
  * Key Design Decisions:
  * - Single-flight semantics: Only one save operation at a time
  * - Stable itemId: Generated once, cached for retries to enable idempotent writes
  * - Fail fast offline: Check connectivity before starting any work
+ * - Auth refresh: Transparent token refresh before writes prevents orphaned uploads
  * - Telemetry: Structured events for monitoring save success/failure rates
  * - Error classification: Typed errors for appropriate user messaging
  * - Non-guessable storage path: user/{userId}/items/{itemId}/original.jpg
@@ -25,10 +28,11 @@
 import 'react-native-get-random-values';
 
 import { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { logSuccess, logError, trackCaptureEvent } from '../../../core/telemetry';
+import { logSuccess, logError, trackCaptureEvent, logAuthEvent } from '../../../core/telemetry';
 import { supabase } from '../../../services/supabase';
 import { WardrobeItem } from '../../onboarding/types/wardrobeItem';
 import { ItemType } from '../../onboarding/types/itemMetadata';
@@ -49,6 +53,7 @@ import { EDGE_FUNCTIONS } from '../constants';
  * - storage: Failed to upload image to Supabase Storage
  * - database: Failed to insert item record
  * - validation: Invalid input data
+ * - auth: Authentication/session expired
  * - unknown: Unexpected error
  */
 export type CreateItemErrorType =
@@ -57,6 +62,7 @@ export type CreateItemErrorType =
   | 'storage'
   | 'database'
   | 'validation'
+  | 'auth'
   | 'unknown';
 
 /**
@@ -182,6 +188,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
   UseCreateItemWithImageActions {
   const user = useStore((state) => state.user);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Hook state
   const [isLoading, setIsLoading] = useState(false);
@@ -314,6 +321,75 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           );
         }
 
+        // Step 2: Attempt transparent token refresh before any writes (AC13)
+        // This ensures the session is valid before performing any Supabase
+        // storage uploads or database operations, preventing orphaned uploads
+        // if the session has expired.
+        try {
+          const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
+
+          if (refreshError || !sessionData.session) {
+            // Refresh failed - session is invalid or expired
+            const authError = new CreateItemWithImageError(
+              'Your session has expired. Please log in again.',
+              'auth',
+              refreshError || new Error('No session returned from refresh')
+            );
+
+            // Log auth event for failed refresh during save
+            logAuthEvent('token-refresh-failure', {
+              userId: user.id,
+              errorCode: refreshError?.message || 'session_expired',
+              outcome: 'failure',
+              metadata: {
+                context: 'item_save',
+                operation: 'pre_save_refresh',
+              },
+            });
+
+            // Route user to login flow
+            router.replace('/auth/login');
+
+            throw authError;
+          }
+
+          // Refresh succeeded - log success
+          logAuthEvent('token-refresh-success', {
+            userId: user.id,
+            outcome: 'success',
+            metadata: {
+              context: 'item_save',
+              operation: 'pre_save_refresh',
+            },
+          });
+        } catch (refreshError) {
+          // Handle refresh attempt failure (network error, etc.)
+          if (refreshError instanceof CreateItemWithImageError) {
+            // Already wrapped, re-throw
+            throw refreshError;
+          }
+
+          // Wrap unexpected refresh error
+          const authError = new CreateItemWithImageError(
+            'Unable to verify your session. Please log in again.',
+            'auth',
+            refreshError
+          );
+
+          logAuthEvent('token-refresh-failure', {
+            userId: user.id,
+            errorCode: 'refresh_attempt_failed',
+            outcome: 'failure',
+            metadata: {
+              context: 'item_save',
+              operation: 'pre_save_refresh',
+            },
+          });
+
+          router.replace('/auth/login');
+          throw authError;
+        }
+
         // Emit save started telemetry
         logSuccess('wardrobe', 'item_save_started', {
           data: {
@@ -323,11 +399,11 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           },
         });
 
-        // Step 2: Get or create stable itemId
+        // Step 3: Get or create stable itemId
         const itemId = getOrCreateItemId();
         const storagePath = generateStoragePath(user.id, itemId);
 
-        // Step 3: Process image (resize, compress, strip EXIF)
+        // Step 4: Process image (resize, compress, strip EXIF)
         // - Resize to max 1600px on longest edge (no upscaling if smaller)
         // - Compress to JPEG at 0.85 quality (~1.5MB typical)
         // - EXIF metadata stripped automatically by expo-image-manipulator
@@ -337,13 +413,13 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           input.imageHeight
         );
 
-        // Step 4: Upload image to Supabase Storage
+        // Step 5: Upload image to Supabase Storage
         // - Uses authenticated client with RLS
         // - Upsert enabled for retry idempotency
         // - UploadError thrown with structured error type on failure
         await uploadImageToStorage(preparedImage, storagePath);
 
-        // Step 5: Insert item record to database
+        // Step 6: Insert item record to database
         // Using upsert with onConflict: 'id' for retry idempotency
         // This ensures repeated calls with the same itemId are safe
         const trimmedName = input.name.trim();
@@ -384,7 +460,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           createdAt: dbData.created_at || new Date().toISOString(),
         };
 
-        // Step 6: Trigger background processing pipelines (AC9)
+        // Step 7: Trigger background processing pipelines (AC9)
         // Both pipelines are fire-and-forget: invoke Edge Functions but don't await.
         // Errors are caught and logged but don't fail the save operation.
         // Each pipeline has its own retry mechanisms and the item remains visible
@@ -427,7 +503,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
             });
           });
 
-        // Step 7: Invalidate React Query caches for wardrobe
+        // Step 8: Invalidate React Query caches for wardrobe
         // This ensures the wardrobe grid refetches and shows the new item
         queryClient.invalidateQueries({ queryKey: ['wardrobe', 'items', user.id] });
         queryClient.invalidateQueries({ queryKey: ['onboarding', 'hasWardrobeItems', user.id] });
@@ -527,7 +603,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         setIsLoading(false);
       }
     },
-    [user, queryClient, checkConnectivity, getOrCreateItemId]
+    [user, queryClient, router, checkConnectivity, getOrCreateItemId]
   );
 
   /**
