@@ -49,6 +49,15 @@ import { useCreateItemWithImage, type CreateItemErrorType } from '../hooks/useCr
 const MAX_NAME_LENGTH = 80;
 
 /**
+ * Buffer to allow typing beyond MAX_NAME_LENGTH for validation feedback.
+ * Allows users to continue typing past the limit to see the error message,
+ * providing immediate inline validation feedback rather than a hard stop.
+ * Without this buffer, the input would silently prevent typing at the limit,
+ * making it unclear why additional characters cannot be entered.
+ */
+const NAME_OVERFLOW_BUFFER = 10;
+
+/**
  * Maximum character length for a single tag.
  */
 const MAX_TAG_LENGTH = 30;
@@ -620,7 +629,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               onBlur={handleNameBlur}
               placeholder={t('screens.reviewDetails.namePlaceholder')}
               placeholderTextColor={colors.textSecondary}
-              maxLength={MAX_NAME_LENGTH + 10} // Allow slightly over to show error
+              maxLength={MAX_NAME_LENGTH + NAME_OVERFLOW_BUFFER}
               returnKeyType="done"
               editable={!isLoading}
               accessibilityLabel={t('screens.reviewDetails.accessibility.nameInput')}
