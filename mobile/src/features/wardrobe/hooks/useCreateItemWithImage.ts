@@ -4,10 +4,10 @@
  * This hook orchestrates the complete item creation flow:
  * 1. Connectivity check - fail fast if offline
  * 2. Generate stable itemId (cached for retries)
- * 3. Image preparation (EXIF stripping, compression)
- * 4. Image upload to Supabase Storage
- * 5. Item record insertion to database
- * 6. Background pipeline trigger (async, non-blocking)
+ * 3. Image preparation (resize to max 1600px, JPEG compression, EXIF stripping)
+ * 4. Image upload to Supabase Storage (private bucket with RLS)
+ * 5. Item record insertion to database (placeholder - Step 5)
+ * 6. Background pipeline trigger (placeholder - Step 5)
  *
  * Key Design Decisions:
  * - Single-flight semantics: Only one save operation at a time
@@ -15,11 +15,7 @@
  * - Fail fast offline: Check connectivity before starting any work
  * - Telemetry: Structured events for monitoring save success/failure rates
  * - Error classification: Typed errors for appropriate user messaging
- *
- * PLACEHOLDER IMPLEMENTATION:
- * This hook provides mock implementations for image upload and database
- * operations. When the backend is ready, replace the mock operations with
- * real Supabase Storage and database calls as indicated in the comments.
+ * - Non-guessable storage path: user/{userId}/items/{itemId}/original.jpg
  *
  * @module features/wardrobe/hooks/useCreateItemWithImage
  */
@@ -28,9 +24,14 @@ import { useCallback, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useStore } from '../../../core/state/store';
 import { logSuccess, logError } from '../../../core/telemetry';
-import { processItemImage, imageUriToBlob } from '../../onboarding/utils/imageProcessing';
-import { WARDROBE_STORAGE_CONFIG, WardrobeItem } from '../../onboarding/types/wardrobeItem';
+import { WardrobeItem } from '../../onboarding/types/wardrobeItem';
 import { ItemType } from '../../onboarding/types/itemMetadata';
+import {
+  prepareImageForUpload,
+  uploadImageToStorage,
+  generateStoragePath,
+  UploadError,
+} from '../utils/imageUpload';
 
 /**
  * Error types for item creation failures.
@@ -74,6 +75,10 @@ export class CreateItemWithImageError extends Error {
 export interface CreateItemInput {
   /** Local image URI from capture/crop flow */
   imageUri: string;
+  /** Image width in pixels (from crop output) */
+  imageWidth: number;
+  /** Image height in pixels (from crop output) */
+  imageHeight: number;
   /** Optional item name (max 80 chars) */
   name: string;
   /** Array of tags (max 20 tags, 30 chars each) */
@@ -146,6 +151,8 @@ export interface UseCreateItemWithImageActions {
  *     try {
  *       const result = await save({
  *         imageUri: payload.uri,
+ *         imageWidth: payload.width,
+ *         imageHeight: payload.height,
  *         name: 'My Item',
  *         tags: ['casual', 'summer'],
  *       });
@@ -261,37 +268,23 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
 
         // Step 2: Get or create stable itemId
         const itemId = getOrCreateItemId();
-        const timestamp = Date.now();
-        const storagePath = WARDROBE_STORAGE_CONFIG.pathTemplate(user.id, itemId, timestamp);
+        const storagePath = generateStoragePath(user.id, itemId);
 
-        // Step 3: Process image (EXIF stripping, compression)
-        // PLACEHOLDER: Uses mock implementation
-        const processedImage = await processItemImage(input.imageUri);
+        // Step 3: Process image (resize, compress, strip EXIF)
+        // - Resize to max 1600px on longest edge (no upscaling if smaller)
+        // - Compress to JPEG at 0.85 quality (~1.5MB typical)
+        // - EXIF metadata stripped automatically by expo-image-manipulator
+        const preparedImage = await prepareImageForUpload(
+          input.imageUri,
+          input.imageWidth,
+          input.imageHeight
+        );
 
         // Step 4: Upload image to Supabase Storage
-        // PLACEHOLDER: Mock upload
-        // Real implementation:
-        // const blob = await imageUriToBlob(processedImage.uri);
-        // const { error: uploadError } = await supabase.storage
-        //   .from(WARDROBE_STORAGE_CONFIG.bucketName)
-        //   .upload(storagePath, blob, {
-        //     contentType: 'image/jpeg',
-        //     upsert: true, // Enable upsert for retry idempotency
-        //   });
-        //
-        // if (uploadError) {
-        //   throw new CreateItemWithImageError(
-        //     'Failed to upload image',
-        //     'storage',
-        //     uploadError
-        //   );
-        // }
-
-        // Mock upload - convert to blob to simulate processing
-        await imageUriToBlob(processedImage.uri);
-
-        // Mock upload delay
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // - Uses authenticated client with RLS
+        // - Upsert enabled for retry idempotency
+        // - UploadError thrown with structured error type on failure
+        await uploadImageToStorage(preparedImage, storagePath);
 
         // Step 5: Insert item record to database
         // PLACEHOLDER: Mock database insert
@@ -371,6 +364,18 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
 
         if (err instanceof CreateItemWithImageError) {
           typedError = err;
+        } else if (err instanceof UploadError) {
+          // Map UploadError types to CreateItemErrorType
+          const errorTypeMap: Record<string, CreateItemErrorType> = {
+            processing: 'storage',
+            file_read: 'storage',
+            network: 'network',
+            storage: 'storage',
+            permission: 'storage',
+            unknown: 'unknown',
+          };
+          const errorType = errorTypeMap[err.errorType] || 'unknown';
+          typedError = new CreateItemWithImageError(err.message, errorType, err);
         } else if (err instanceof Error) {
           // Classify error based on message patterns
           let errorType: CreateItemErrorType = 'unknown';

@@ -73,13 +73,14 @@ export interface CreateItemResponse {
 /**
  * Storage bucket configuration for wardrobe items.
  *
- * PLACEHOLDER: Defines expected bucket name and path convention.
- * Will be replaced with Feature #3 configuration.
+ * Path format: user/{userId}/items/{itemId}/original.jpg
+ * - Non-guessable: incorporates userId and stable itemId (UUIDv7)
+ * - Private bucket with RLS policies
+ * - 'original.jpg' suffix for the primary item image
  */
 export const WARDROBE_STORAGE_CONFIG = {
   /** Supabase Storage bucket name */
   bucketName: 'wardrobe-items',
-  /** Path template: {userId}/items/{itemId}/{timestamp}.jpg */
-  pathTemplate: (userId: string, itemId: string, timestamp: number) =>
-    `${userId}/items/${itemId}/${timestamp}.jpg`,
+  /** Path template: user/{userId}/items/{itemId}/original.jpg */
+  pathTemplate: (userId: string, itemId: string) => `user/${userId}/items/${itemId}/original.jpg`,
 } as const;
