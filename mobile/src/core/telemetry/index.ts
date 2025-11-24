@@ -312,7 +312,10 @@ export type CaptureEventType =
   | 'crop_confirm_pressed'
   | 'crop_processing_started'
   | 'crop_processing_completed'
-  | 'crop_processing_failed';
+  | 'crop_processing_failed'
+  | 'review_details_screen_opened'
+  | 'review_details_cancelled'
+  | 'review_details_save_pressed';
 
 /**
  * Metadata for authentication event logging.
@@ -666,6 +669,10 @@ export interface CaptureEventMetadata {
   height?: number;
   /** Image MIME type */
   type?: string;
+  /** Whether item has a name (for review details analytics) */
+  hasName?: boolean;
+  /** Number of tags added (for review details analytics) */
+  tagCount?: number;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }

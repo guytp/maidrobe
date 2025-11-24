@@ -217,7 +217,15 @@ export function CropScreen(): React.JSX.Element {
         spacing.xl,
         sizing.controlAreaHeight
       ),
-    [screenWidth, screenHeight, insets.top, insets.bottom, spacing.lg, spacing.xl, sizing.controlAreaHeight]
+    [
+      screenWidth,
+      screenHeight,
+      insets.top,
+      insets.bottom,
+      spacing.lg,
+      spacing.xl,
+      sizing.controlAreaHeight,
+    ]
   );
 
   // Animated values for image transform
@@ -592,10 +600,8 @@ export function CropScreen(): React.JSX.Element {
         // Onboarding flow: navigate to first item creation
         router.push('/onboarding/first-item');
       } else {
-        // Wardrobe and other origins: use general first-item route
-        // Note: This will be updated with wardrobe-specific route from Story #211
-        // when that item creation screen is implemented
-        router.push('/onboarding/first-item');
+        // Wardrobe flow: navigate to Review & Details screen (Story #211)
+        router.push('/review-details');
       }
     } catch (error) {
       // Format error with full cause chain for comprehensive logging

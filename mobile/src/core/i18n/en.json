@@ -567,6 +567,44 @@
         "addItemHint": "Add a new item to your wardrobe",
         "emptyState": "Empty wardrobe state"
       }
+    },
+    "reviewDetails": {
+      "title": "Review & Details",
+      "nameLabel": "Name (Optional)",
+      "namePlaceholder": "Blue linen shirt",
+      "nameHelper": "Give your item a name to help you find it later",
+      "tagsLabel": "Tags (Optional)",
+      "tagsPlaceholder": "Add tags...",
+      "tagsHelper": "Press Enter or Space to add a tag",
+      "tagAlreadyAdded": "Tag already added",
+      "tagLimitReached": "Maximum 20 tags allowed",
+      "tagTooLong": "Tag must be 30 characters or less",
+      "nameTooLong": "Name must be 80 characters or less",
+      "saveButton": "Save item",
+      "cancelButton": "Cancel",
+      "goBack": "Go back",
+      "errors": {
+        "noImage": "No image to review",
+        "invalidPayload": "Please capture or select an image first."
+      },
+      "accessibility": {
+        "screenLabel": "Review and details screen",
+        "screenHint": "Review your item and add optional name and tags",
+        "imagePreview": "Preview of captured item",
+        "nameInput": "Item name input",
+        "nameInputHint": "Optional name up to 80 characters",
+        "tagsInput": "Tags input",
+        "tagsInputHint": "Add tags by pressing enter or space",
+        "tagChip": "Tag",
+        "removeTag": "Remove tag",
+        "saveButton": "Save item button",
+        "saveButtonHint": "Save this item to your wardrobe",
+        "cancelButton": "Cancel button",
+        "cancelButtonHint": "Go back to crop screen without saving",
+        "goBackButton": "Go back button",
+        "goBackHint": "Return to capture screen",
+        "errorIcon": "Error icon"
+      }
     }
   },
   "processing_image": "Processing image...",
