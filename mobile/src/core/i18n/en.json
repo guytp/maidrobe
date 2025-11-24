@@ -531,7 +531,9 @@
       "retake": "Retake",
       "errors": {
         "noImage": "No image to adjust. Please capture or select an image first.",
-        "invalidPayload": "Invalid image data. Please try again."
+        "invalidPayload": "Invalid image data. Please try again.",
+        "loadFailed": "Unable to load image",
+        "loadFailedMessage": "We could not crop this photo. Please try again."
       },
       "goBack": "Go back",
       "continue": "Continue",
