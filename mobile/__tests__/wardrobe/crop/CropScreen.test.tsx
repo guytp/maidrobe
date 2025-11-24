@@ -249,18 +249,18 @@ describe('CropScreen', () => {
   });
 
   describe('retake button', () => {
-    it('navigates to wardrobe when origin is wardrobe', () => {
+    it('navigates to camera capture when source is camera', () => {
       const { getByText } = render(<CropScreen />);
 
       fireEvent.press(getByText('Retake'));
 
-      expect(mockRouter.push).toHaveBeenCalledWith('/wardrobe');
+      expect(mockRouter.push).toHaveBeenCalledWith('/capture/camera?origin=wardrobe');
     });
 
-    it('navigates to onboarding when origin is onboarding', () => {
+    it('navigates to gallery selection when source is gallery', () => {
       mockUseStore.mockImplementation((selector: (state: unknown) => unknown) =>
         selector({
-          payload: { ...validPayload, origin: 'onboarding' },
+          payload: { ...validPayload, source: 'gallery' },
           setPayload: mockSetPayload,
           clearPayload: mockClearPayload,
           user: { id: 'test-user-id' },
@@ -271,7 +271,41 @@ describe('CropScreen', () => {
 
       fireEvent.press(getByText('Retake'));
 
-      expect(mockRouter.push).toHaveBeenCalledWith('/onboarding/first-item');
+      expect(mockRouter.push).toHaveBeenCalledWith('/capture?origin=wardrobe');
+    });
+
+    it('preserves origin when navigating back to camera', () => {
+      mockUseStore.mockImplementation((selector: (state: unknown) => unknown) =>
+        selector({
+          payload: { ...validPayload, origin: 'onboarding', source: 'camera' },
+          setPayload: mockSetPayload,
+          clearPayload: mockClearPayload,
+          user: { id: 'test-user-id' },
+        })
+      );
+
+      const { getByText } = render(<CropScreen />);
+
+      fireEvent.press(getByText('Retake'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith('/capture/camera?origin=onboarding');
+    });
+
+    it('preserves origin when navigating back to gallery', () => {
+      mockUseStore.mockImplementation((selector: (state: unknown) => unknown) =>
+        selector({
+          payload: { ...validPayload, origin: 'onboarding', source: 'gallery' },
+          setPayload: mockSetPayload,
+          clearPayload: mockClearPayload,
+          user: { id: 'test-user-id' },
+        })
+      );
+
+      const { getByText } = render(<CropScreen />);
+
+      fireEvent.press(getByText('Retake'));
+
+      expect(mockRouter.push).toHaveBeenCalledWith('/capture?origin=onboarding');
     });
 
     it('tracks crop_cancelled event', () => {
