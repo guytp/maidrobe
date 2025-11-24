@@ -12,10 +12,15 @@
  * - Back/Cancel: Returns to /crop without creating item
  * - Save: Will trigger item creation flow (implemented in later step)
  *
+ * State Management:
+ * - Uses component-level state for form fields (ephemeral UI state)
+ * - Name and tags are not persisted until save
+ * - Validation is performed inline with user feedback
+ *
  * @module features/wardrobe/components/ReviewDetailsScreen
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -69,10 +74,14 @@ export function ReviewDetailsScreen(): React.JSX.Element {
   const payload = useStore((state) => state.payload);
   const user = useStore((state) => state.user);
 
-  // Form state
+  // Form state - using component-level state for ephemeral form data
   const [name, setName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+
+  // Ref to access current tags in callbacks without stale closure issues
+  const tagsRef = useRef<string[]>([]);
+  tagsRef.current = tags;
 
   // Validation feedback state
   const [nameError, setNameError] = useState<string | null>(null);
@@ -95,11 +104,14 @@ export function ReviewDetailsScreen(): React.JSX.Element {
   }, [isValid, payload, user?.id]);
 
   /**
-   * Handle name input change with validation.
+   * Trim name and validate on change.
+   * Trims leading/trailing whitespace and enforces 80-character limit.
    */
   const handleNameChange = useCallback((text: string) => {
     setName(text);
-    if (text.length > MAX_NAME_LENGTH) {
+    // Validate against trimmed length for accurate character count
+    const trimmedLength = text.trim().length;
+    if (trimmedLength > MAX_NAME_LENGTH) {
       setNameError(t('screens.reviewDetails.nameTooLong'));
     } else {
       setNameError(null);
@@ -107,107 +119,120 @@ export function ReviewDetailsScreen(): React.JSX.Element {
   }, []);
 
   /**
-   * Handle tag input change.
+   * Handle name field blur - trim whitespace and update display.
+   * This ensures the displayed value matches what will be stored.
    */
-  const handleTagInputChange = useCallback(
-    (text: string) => {
-      // Clear feedback when user starts typing
-      if (tagFeedback) {
-        setTagFeedback(null);
+  const handleNameBlur = useCallback(() => {
+    const trimmed = name.trim();
+    if (trimmed !== name) {
+      setName(trimmed);
+    }
+    // Revalidate after trim
+    if (trimmed.length > MAX_NAME_LENGTH) {
+      setNameError(t('screens.reviewDetails.nameTooLong'));
+    } else {
+      setNameError(null);
+    }
+  }, [name]);
+
+  /**
+   * Handle tag input change.
+   * Clears feedback when user starts typing.
+   */
+  const handleTagInputChange = useCallback((text: string) => {
+    // Clear feedback when user starts typing
+    setTagFeedback(null);
+    setTagInput(text);
+  }, []);
+
+  /**
+   * Attempt to add a tag with the given text.
+   * Handles trimming, lowercasing, deduplication, and length/count limits.
+   *
+   * @param text - The tag text to add
+   * @returns true if tag was added, false otherwise
+   */
+  const tryAddTag = useCallback(
+    (text: string): boolean => {
+      const trimmed = text.trim();
+
+      // Ignore empty input
+      if (!trimmed) {
+        return false;
       }
-      setTagInput(text);
+
+      // Check tag length limit
+      if (trimmed.length > MAX_TAG_LENGTH) {
+        setTagFeedback(t('screens.reviewDetails.tagTooLong'));
+        return false;
+      }
+
+      // Use ref to get current tags (avoids stale closure)
+      const currentTags = tagsRef.current;
+
+      // Check tag count limit
+      if (currentTags.length >= MAX_TAGS_COUNT) {
+        setTagFeedback(t('screens.reviewDetails.tagLimitReached'));
+        return false;
+      }
+
+      // Normalize to lowercase for storage and deduplication
+      const normalized = trimmed.toLowerCase();
+
+      // Check for duplicates (case-insensitive)
+      if (currentTags.includes(normalized)) {
+        setTagFeedback(t('screens.reviewDetails.tagAlreadyAdded'));
+        return false;
+      }
+
+      // Add the tag
+      setTags((prev) => [...prev, normalized]);
+      setTagFeedback(null);
+      return true;
     },
-    [tagFeedback]
+    [tagsRef]
   );
 
   /**
-   * Normalize and add a tag from the current input.
-   * Handles trimming, lowercasing, deduplication, and length/count limits.
+   * Handle explicit add tag action (Enter/Return or Add button).
    */
-  const addTag = useCallback(() => {
-    const trimmed = tagInput.trim();
-
-    // Ignore empty input
-    if (!trimmed) {
+  const handleAddTag = useCallback(() => {
+    const success = tryAddTag(tagInput);
+    if (success) {
       setTagInput('');
-      return;
     }
-
-    // Check tag length
-    if (trimmed.length > MAX_TAG_LENGTH) {
-      setTagFeedback(t('screens.reviewDetails.tagTooLong'));
-      return;
-    }
-
-    // Check tag count limit
-    if (tags.length >= MAX_TAGS_COUNT) {
-      setTagFeedback(t('screens.reviewDetails.tagLimitReached'));
-      setTagInput('');
-      return;
-    }
-
-    // Normalize to lowercase for storage and deduplication
-    const normalized = trimmed.toLowerCase();
-
-    // Check for duplicates (case-insensitive)
-    if (tags.includes(normalized)) {
-      setTagFeedback(t('screens.reviewDetails.tagAlreadyAdded'));
-      setTagInput('');
-      return;
-    }
-
-    // Add the tag
-    setTags((prev) => [...prev, normalized]);
-    setTagInput('');
-    setTagFeedback(null);
-  }, [tagInput, tags]);
+  }, [tagInput, tryAddTag]);
 
   /**
-   * Handle tag input key press for Enter/Return.
+   * Handle tag input submission (Enter/Return key).
    */
   const handleTagInputSubmit = useCallback(() => {
-    addTag();
-  }, [addTag]);
+    handleAddTag();
+  }, [handleAddTag]);
 
   /**
-   * Handle tag input text change to detect space for tag confirmation.
+   * Handle tag input text change with space detection.
+   * Detects trailing space as tag delimiter and adds tag automatically.
    */
   const handleTagInputChangeWithSpace = useCallback(
     (text: string) => {
       // Check if the last character is a space (tag delimiter)
       if (text.endsWith(' ') && text.trim().length > 0) {
-        // Set the input without the trailing space, then add the tag
-        setTagInput(text.slice(0, -1));
-        // Use setTimeout to ensure state is updated before addTag runs
-        setTimeout(() => {
-          const trimmed = text.slice(0, -1).trim();
-          if (trimmed) {
-            // Inline the add logic to use the correct value
-            if (trimmed.length > MAX_TAG_LENGTH) {
-              setTagFeedback(t('screens.reviewDetails.tagTooLong'));
-              return;
-            }
-            if (tags.length >= MAX_TAGS_COUNT) {
-              setTagFeedback(t('screens.reviewDetails.tagLimitReached'));
-              setTagInput('');
-              return;
-            }
-            const normalized = trimmed.toLowerCase();
-            if (tags.includes(normalized)) {
-              setTagFeedback(t('screens.reviewDetails.tagAlreadyAdded'));
-              setTagInput('');
-              return;
-            }
-            setTags((prev) => [...prev, normalized]);
+        const tagText = text.slice(0, -1).trim();
+        if (tagText) {
+          const success = tryAddTag(tagText);
+          if (success) {
             setTagInput('');
-            setTagFeedback(null);
+            return;
           }
-        }, 0);
+        }
+        // If tag wasn't added (duplicate, too long, etc.), keep input without trailing space
+        setTagInput(text.slice(0, -1));
       } else {
         handleTagInputChange(text);
       }
     },
-    [handleTagInputChange, tags]
+    [handleTagInputChange, tryAddTag]
   );
 
   /**
@@ -239,8 +264,11 @@ export function ReviewDetailsScreen(): React.JSX.Element {
    * For now, this is a placeholder - full implementation in Step 3.
    */
   const handleSave = useCallback(() => {
+    // Get trimmed name for validation and storage
+    const trimmedName = name.trim();
+
     // Validate name length before proceeding
-    if (name.length > MAX_NAME_LENGTH) {
+    if (trimmedName.length > MAX_NAME_LENGTH) {
       setNameError(t('screens.reviewDetails.nameTooLong'));
       return;
     }
@@ -254,7 +282,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
       userId: user?.id,
       origin: payload?.origin,
       source: payload?.source,
-      hasName: name.trim().length > 0,
+      hasName: trimmedName.length > 0,
       tagCount: tags.length,
     });
   }, [name, tags, user?.id, payload]);
@@ -266,8 +294,11 @@ export function ReviewDetailsScreen(): React.JSX.Element {
     router.push('/capture');
   }, [router]);
 
-  // Check if save should be enabled (name within limit)
-  const canSave = name.length <= MAX_NAME_LENGTH;
+  // Check if save should be enabled (trimmed name within limit)
+  const canSave = name.trim().length <= MAX_NAME_LENGTH;
+
+  // Check if tags input should be disabled (at limit)
+  const isTagsAtLimit = tags.length >= MAX_TAGS_COUNT;
 
   const styles = useMemo(
     () =>
@@ -322,6 +353,10 @@ export function ReviewDetailsScreen(): React.JSX.Element {
         inputError: {
           borderColor: colors.error,
         },
+        inputDisabled: {
+          backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#f5f5f5',
+          color: colors.textSecondary,
+        },
         characterCounter: {
           fontSize: fontSize.xs,
           color: colors.textSecondary,
@@ -341,6 +376,40 @@ export function ReviewDetailsScreen(): React.JSX.Element {
           fontSize: fontSize.sm,
           marginTop: spacing.xs,
           fontStyle: 'italic',
+        },
+        tagInputRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.sm,
+        },
+        tagInputWrapper: {
+          flex: 1,
+        },
+        addTagButton: {
+          minHeight: 44,
+          minWidth: 44,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          backgroundColor: colors.textPrimary,
+          borderRadius: radius.md,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        addTagButtonDisabled: {
+          opacity: 0.5,
+        },
+        addTagButtonText: {
+          color: colors.background,
+          fontSize: fontSize.sm,
+          fontWeight: '600',
+        },
+        tagCountIndicator: {
+          fontSize: fontSize.xs,
+          color: colors.textSecondary,
+          marginTop: spacing.xs,
+        },
+        tagCountAtLimit: {
+          color: colors.warning,
         },
         tagsContainer: {
           flexDirection: 'row',
@@ -486,6 +555,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               style={[styles.input, nameError && styles.inputError]}
               value={name}
               onChangeText={handleNameChange}
+              onBlur={handleNameBlur}
               placeholder={t('screens.reviewDetails.namePlaceholder')}
               placeholderTextColor={colors.textSecondary}
               maxLength={MAX_NAME_LENGTH + 10} // Allow slightly over to show error
@@ -497,12 +567,12 @@ export function ReviewDetailsScreen(): React.JSX.Element {
             <Text
               style={[
                 styles.characterCounter,
-                name.length > MAX_NAME_LENGTH && styles.characterCounterError,
+                name.trim().length > MAX_NAME_LENGTH && styles.characterCounterError,
               ]}
               allowFontScaling={true}
               maxFontSizeMultiplier={2}
             >
-              {name.length}/{MAX_NAME_LENGTH}
+              {name.trim().length}/{MAX_NAME_LENGTH}
             </Text>
             {nameError && (
               <Text
@@ -524,19 +594,59 @@ export function ReviewDetailsScreen(): React.JSX.Element {
             <Text style={styles.helper} allowFontScaling={true} maxFontSizeMultiplier={2}>
               {t('screens.reviewDetails.tagsHelper')}
             </Text>
-            <TextInput
-              style={styles.input}
-              value={tagInput}
-              onChangeText={handleTagInputChangeWithSpace}
-              onSubmitEditing={handleTagInputSubmit}
-              placeholder={t('screens.reviewDetails.tagsPlaceholder')}
-              placeholderTextColor={colors.textSecondary}
-              returnKeyType="done"
-              blurOnSubmit={false}
-              accessibilityLabel={t('screens.reviewDetails.accessibility.tagsInput')}
-              accessibilityHint={t('screens.reviewDetails.accessibility.tagsInputHint')}
+
+            {/* Tag input row with Add button */}
+            <View style={styles.tagInputRow}>
+              <View style={styles.tagInputWrapper}>
+                <TextInput
+                  style={[styles.input, isTagsAtLimit && styles.inputDisabled]}
+                  value={tagInput}
+                  onChangeText={handleTagInputChangeWithSpace}
+                  onSubmitEditing={handleTagInputSubmit}
+                  placeholder={
+                    isTagsAtLimit
+                      ? t('screens.reviewDetails.tagLimitReached')
+                      : t('screens.reviewDetails.tagsPlaceholder')
+                  }
+                  placeholderTextColor={colors.textSecondary}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                  editable={!isTagsAtLimit}
+                  accessibilityLabel={t('screens.reviewDetails.accessibility.tagsInput')}
+                  accessibilityHint={t('screens.reviewDetails.accessibility.tagsInputHint')}
+                  allowFontScaling={true}
+                />
+              </View>
+              <Pressable
+                style={[
+                  styles.addTagButton,
+                  (isTagsAtLimit || !tagInput.trim()) && styles.addTagButtonDisabled,
+                ]}
+                onPress={handleAddTag}
+                disabled={isTagsAtLimit || !tagInput.trim()}
+                accessibilityLabel={t('screens.reviewDetails.accessibility.addTagButton')}
+                accessibilityHint={t('screens.reviewDetails.accessibility.addTagButtonHint')}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isTagsAtLimit || !tagInput.trim() }}
+              >
+                <Text style={styles.addTagButtonText}>
+                  {t('screens.reviewDetails.addTagButton')}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Tag count indicator */}
+            <Text
+              style={[styles.tagCountIndicator, isTagsAtLimit && styles.tagCountAtLimit]}
               allowFontScaling={true}
-            />
+              maxFontSizeMultiplier={2}
+            >
+              {t('screens.reviewDetails.tagCount')
+                .replace('{count}', tags.length.toString())
+                .replace('{max}', MAX_TAGS_COUNT.toString())}
+            </Text>
+
+            {/* Tag feedback message */}
             {tagFeedback && (
               <Text
                 style={styles.feedbackText}
