@@ -368,7 +368,7 @@ describe('imageUpload utilities', () => {
           await prepareImageForUpload(defaultUri, 2400, 2800);
 
           const call = mockManipulateAsync.mock.calls[0];
-          const resizeAction = call[1][0] as { resize: { width: number; height: number } };
+          const resizeAction = call?.[1]?.[0] as { resize: { width: number; height: number } };
 
           expect(Number.isInteger(resizeAction.resize.width)).toBe(true);
           expect(Number.isInteger(resizeAction.resize.height)).toBe(true);
@@ -625,7 +625,7 @@ describe('imageUpload utilities', () => {
           () =>
             ({
               size: undefined,
-            }) as File
+            }) as unknown as File
         );
 
         const result = await prepareImageForUpload(defaultUri, 800, 600);
@@ -793,7 +793,7 @@ describe('imageUpload utilities', () => {
         await prepareImageForUpload(defaultUri, 5000, 1000);
 
         const call = mockManipulateAsync.mock.calls[0];
-        const resizeAction = call[1][0] as { resize: { width: number; height: number } };
+        const resizeAction = call?.[1]?.[0] as { resize: { width: number; height: number } };
 
         // Verify aspect ratio maintained: 1600 / 320 = 5
         expect(resizeAction.resize.width / resizeAction.resize.height).toBeCloseTo(5, 1);
