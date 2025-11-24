@@ -550,7 +550,9 @@
         "confirmButton": "Confirm crop button",
         "confirmHint": "Confirm crop and proceed to item creation",
         "retakeButton": "Retake photo button",
-        "retakeHint": "Return to camera or gallery to capture a different photo"
+        "retakeHint": "Return to camera or gallery to capture a different photo",
+        "retryButton": "Retry processing",
+        "retryHint": "Retry the image processing operation"
       }
     },
     "wardrobe": {
