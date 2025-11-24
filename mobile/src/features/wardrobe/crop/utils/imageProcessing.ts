@@ -17,7 +17,7 @@
 
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CaptureSource } from '../../../../core/types/capture';
-import { CropError, wrapAsCropError } from './errors';
+import { wrapAsCropError } from './errors';
 
 /**
  * Target maximum dimension for longest edge after processing.
