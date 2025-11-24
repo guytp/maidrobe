@@ -376,10 +376,36 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           createdAt: dbData.created_at || new Date().toISOString(),
         };
 
-        // Step 6: Trigger background classification pipeline
-        // Fire-and-forget: invoke Edge Function but don't await
-        // Errors are caught and logged but don't fail the save operation
-        // The pipeline has its own retry mechanisms
+        // Step 6: Trigger background processing pipelines (AC9)
+        // Both pipelines are fire-and-forget: invoke Edge Functions but don't await.
+        // Errors are caught and logged but don't fail the save operation.
+        // Each pipeline has its own retry mechanisms and the item remains visible
+        // in the Wardrobe library even if these pipelines fail or are delayed.
+        //
+        // Pipeline 1: Image cleanup and thumbnail generation (Story #229)
+        // - Cleans up the original image
+        // - Generates optimized thumbnails for the wardrobe grid
+        // - Updates image_processing_status when complete
+        //
+        // Pipeline 2: AI attribute detection (Story #235)
+        // - Detects item type, colours, patterns, fabric, etc.
+        // - Updates attribute_status and item metadata when complete
+
+        // Trigger image processing pipeline
+        supabase.functions
+          .invoke('process-item-image', {
+            body: { itemId },
+          })
+          .catch((pipelineError) => {
+            // Log but don't fail the save - pipeline can retry internally
+            logError(pipelineError, 'server', {
+              feature: 'wardrobe',
+              operation: 'trigger_image_processing_pipeline',
+              metadata: { itemId, userId: user.id },
+            });
+          });
+
+        // Trigger attribute classification pipeline
         supabase.functions
           .invoke('classify-item', {
             body: { itemId },
