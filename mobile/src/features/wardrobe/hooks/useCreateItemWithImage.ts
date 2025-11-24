@@ -1,0 +1,454 @@
+/**
+ * Item creation orchestration hook for wardrobe feature.
+ *
+ * This hook orchestrates the complete item creation flow:
+ * 1. Connectivity check - fail fast if offline
+ * 2. Generate stable itemId (cached for retries)
+ * 3. Image preparation (EXIF stripping, compression)
+ * 4. Image upload to Supabase Storage
+ * 5. Item record insertion to database
+ * 6. Background pipeline trigger (async, non-blocking)
+ *
+ * Key Design Decisions:
+ * - Single-flight semantics: Only one save operation at a time
+ * - Stable itemId: Generated once, cached for retries to enable idempotent writes
+ * - Fail fast offline: Check connectivity before starting any work
+ * - Telemetry: Structured events for monitoring save success/failure rates
+ * - Error classification: Typed errors for appropriate user messaging
+ *
+ * PLACEHOLDER IMPLEMENTATION:
+ * This hook provides mock implementations for image upload and database
+ * operations. When the backend is ready, replace the mock operations with
+ * real Supabase Storage and database calls as indicated in the comments.
+ *
+ * @module features/wardrobe/hooks/useCreateItemWithImage
+ */
+
+import { useCallback, useRef, useState } from 'react';
+import NetInfo from '@react-native-community/netinfo';
+import { useStore } from '../../../core/state/store';
+import { logSuccess, logError } from '../../../core/telemetry';
+import { processItemImage, imageUriToBlob } from '../../onboarding/utils/imageProcessing';
+import { WARDROBE_STORAGE_CONFIG, WardrobeItem } from '../../onboarding/types/wardrobeItem';
+import { ItemType } from '../../onboarding/types/itemMetadata';
+
+/**
+ * Error types for item creation failures.
+ *
+ * Used for error classification and appropriate user messaging:
+ * - offline: Device has no network connectivity
+ * - network: Network error during operation (timeout, connection reset)
+ * - storage: Failed to upload image to Supabase Storage
+ * - database: Failed to insert item record
+ * - validation: Invalid input data
+ * - unknown: Unexpected error
+ */
+export type CreateItemErrorType =
+  | 'offline'
+  | 'network'
+  | 'storage'
+  | 'database'
+  | 'validation'
+  | 'unknown';
+
+/**
+ * Custom error class for item creation failures.
+ *
+ * Provides typed error classification for appropriate user messaging
+ * and telemetry categorization.
+ */
+export class CreateItemWithImageError extends Error {
+  constructor(
+    message: string,
+    public readonly errorType: CreateItemErrorType,
+    public readonly originalError?: unknown
+  ) {
+    super(message);
+    this.name = 'CreateItemWithImageError';
+  }
+}
+
+/**
+ * Input data for item creation.
+ */
+export interface CreateItemInput {
+  /** Local image URI from capture/crop flow */
+  imageUri: string;
+  /** Optional item name (max 80 chars) */
+  name: string;
+  /** Array of tags (max 20 tags, 30 chars each) */
+  tags: string[];
+}
+
+/**
+ * Result of successful item creation.
+ */
+export interface CreateItemResult {
+  /** Created wardrobe item */
+  item: WardrobeItem;
+}
+
+/**
+ * State returned by the useCreateItemWithImage hook.
+ */
+export interface UseCreateItemWithImageState {
+  /** Whether a save operation is in progress */
+  isLoading: boolean;
+  /** Current error, if any */
+  error: CreateItemWithImageError | null;
+  /** The created item after successful save */
+  result: CreateItemResult | null;
+}
+
+/**
+ * Actions returned by the useCreateItemWithImage hook.
+ */
+export interface UseCreateItemWithImageActions {
+  /**
+   * Save the item with image upload.
+   *
+   * Orchestrates the complete save flow with single-flight semantics.
+   * Returns the created item on success, throws on failure.
+   *
+   * @param input - Item data including image URI, name, and tags
+   * @returns Created item result
+   * @throws CreateItemWithImageError on failure
+   */
+  save: (input: CreateItemInput) => Promise<CreateItemResult>;
+
+  /**
+   * Reset the hook state.
+   *
+   * Clears error and result state, allowing a fresh save attempt.
+   * Does NOT clear the cached itemId - that persists for retry idempotency.
+   */
+  reset: () => void;
+}
+
+/**
+ * Hook for orchestrating item creation with image upload.
+ *
+ * Provides single-flight save semantics with:
+ * - Connectivity checking before save
+ * - Stable itemId generation (cached for retries)
+ * - Structured telemetry events
+ * - Error classification for appropriate user messaging
+ *
+ * @returns State and actions for item creation
+ *
+ * @example
+ * ```tsx
+ * function ReviewDetailsScreen() {
+ *   const { save, isLoading, error, reset } = useCreateItemWithImage();
+ *   const payload = useStore((state) => state.payload);
+ *
+ *   const handleSave = async () => {
+ *     try {
+ *       const result = await save({
+ *         imageUri: payload.uri,
+ *         name: 'My Item',
+ *         tags: ['casual', 'summer'],
+ *       });
+ *       // Navigate to wardrobe on success
+ *       router.push('/wardrobe');
+ *     } catch (error) {
+ *       // Error is available in hook state for display
+ *     }
+ *   };
+ *
+ *   return (
+ *     <Button onPress={handleSave} disabled={isLoading}>
+ *       {isLoading ? 'Saving...' : 'Save'}
+ *     </Button>
+ *   );
+ * }
+ * ```
+ */
+export function useCreateItemWithImage(): UseCreateItemWithImageState &
+  UseCreateItemWithImageActions {
+  const user = useStore((state) => state.user);
+
+  // Hook state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<CreateItemWithImageError | null>(null);
+  const [result, setResult] = useState<CreateItemResult | null>(null);
+
+  // Refs for single-flight semantics and stable itemId
+  const isSavingRef = useRef(false);
+  const cachedItemIdRef = useRef<string | null>(null);
+
+  /**
+   * Generate a stable UUIDv7 for the item.
+   *
+   * The ID is generated once and cached for retry idempotency.
+   * This enables idempotent writes - if upload succeeds but DB insert
+   * fails, retry will use the same ID and storage path.
+   *
+   * Note: This mock implementation uses the v7 version identifier but
+   * does not include actual timestamp ordering. Real implementation
+   * should use a proper UUIDv7 library.
+   */
+  const getOrCreateItemId = useCallback((): string => {
+    if (cachedItemIdRef.current) {
+      return cachedItemIdRef.current;
+    }
+
+    // Generate UUIDv7-like ID
+    // Real implementation would use: import { v7 as uuidv7 } from 'uuid';
+    const id = 'xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+
+    cachedItemIdRef.current = id;
+    return id;
+  }, []);
+
+  /**
+   * Check network connectivity.
+   *
+   * @returns true if online, false if offline
+   */
+  const checkConnectivity = useCallback(async (): Promise<boolean> => {
+    const state = await NetInfo.fetch();
+    return state.isConnected === true && state.isInternetReachable !== false;
+  }, []);
+
+  /**
+   * Save the item with image upload.
+   */
+  const save = useCallback(
+    async (input: CreateItemInput): Promise<CreateItemResult> => {
+      // Single-flight check - prevent concurrent saves
+      if (isSavingRef.current) {
+        throw new CreateItemWithImageError('Save already in progress', 'validation');
+      }
+
+      const startTime = Date.now();
+
+      // Validate user is authenticated
+      if (!user?.id) {
+        const err = new CreateItemWithImageError('User not authenticated', 'validation');
+        setError(err);
+        throw err;
+      }
+
+      // Start save operation
+      isSavingRef.current = true;
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+
+      try {
+        // Step 1: Check connectivity - fail fast if offline
+        const isOnline = await checkConnectivity();
+        if (!isOnline) {
+          throw new CreateItemWithImageError(
+            'No internet connection. Please check your connection and try again.',
+            'offline'
+          );
+        }
+
+        // Emit save started telemetry
+        logSuccess('wardrobe', 'item_save_started', {
+          data: {
+            userId: user.id,
+            hasName: input.name.trim().length > 0,
+            tagCount: input.tags.length,
+          },
+        });
+
+        // Step 2: Get or create stable itemId
+        const itemId = getOrCreateItemId();
+        const timestamp = Date.now();
+        const storagePath = WARDROBE_STORAGE_CONFIG.pathTemplate(user.id, itemId, timestamp);
+
+        // Step 3: Process image (EXIF stripping, compression)
+        // PLACEHOLDER: Uses mock implementation
+        const processedImage = await processItemImage(input.imageUri);
+
+        // Step 4: Upload image to Supabase Storage
+        // PLACEHOLDER: Mock upload
+        // Real implementation:
+        // const blob = await imageUriToBlob(processedImage.uri);
+        // const { error: uploadError } = await supabase.storage
+        //   .from(WARDROBE_STORAGE_CONFIG.bucketName)
+        //   .upload(storagePath, blob, {
+        //     contentType: 'image/jpeg',
+        //     upsert: true, // Enable upsert for retry idempotency
+        //   });
+        //
+        // if (uploadError) {
+        //   throw new CreateItemWithImageError(
+        //     'Failed to upload image',
+        //     'storage',
+        //     uploadError
+        //   );
+        // }
+
+        // Mock upload - convert to blob to simulate processing
+        await imageUriToBlob(processedImage.uri);
+
+        // Mock upload delay
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Step 5: Insert item record to database
+        // PLACEHOLDER: Mock database insert
+        // Real implementation:
+        // const { data, error: dbError } = await supabase
+        //   .from('items')
+        //   .upsert({
+        //     id: itemId,
+        //     user_id: user.id,
+        //     photos: [storagePath],
+        //     name: input.name.trim() || null,
+        //     tags: input.tags,
+        //   }, { onConflict: 'id' }) // Upsert for retry idempotency
+        //   .select()
+        //   .single();
+        //
+        // if (dbError) {
+        //   throw new CreateItemWithImageError(
+        //     'Failed to save item',
+        //     'database',
+        //     dbError
+        //   );
+        // }
+
+        // Mock database delay
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Construct created item
+        const item: WardrobeItem = {
+          id: itemId,
+          userId: user.id,
+          photos: [storagePath],
+          type: ItemType.Top, // Default type - will be set by classification pipeline
+          colour: [], // Will be set by classification pipeline
+          name: input.name.trim() || null,
+          createdAt: new Date().toISOString(),
+        };
+
+        // Step 6: Trigger background classification pipeline
+        // PLACEHOLDER: Mock pipeline trigger
+        // Real implementation would be an async non-blocking call:
+        // supabase.functions.invoke('classify-item', {
+        //   body: { itemId },
+        // }).catch((err) => {
+        //   // Log but don't fail the save - pipeline can retry
+        //   logError(err, 'server', {
+        //     feature: 'wardrobe',
+        //     operation: 'trigger_classification_pipeline',
+        //     metadata: { itemId },
+        //   });
+        // });
+
+        // Calculate latency and emit success telemetry
+        const latency = Date.now() - startTime;
+        logSuccess('wardrobe', 'item_save_succeeded', {
+          latency,
+          data: {
+            itemId,
+            userId: user.id,
+            hasName: input.name.trim().length > 0,
+            tagCount: input.tags.length,
+            latencyMs: latency,
+          },
+        });
+
+        // Update state with result
+        const createResult: CreateItemResult = { item };
+        setResult(createResult);
+
+        // Clear cached itemId on success (next save gets fresh ID)
+        cachedItemIdRef.current = null;
+
+        return createResult;
+      } catch (err) {
+        // Classify and wrap error if not already typed
+        let typedError: CreateItemWithImageError;
+
+        if (err instanceof CreateItemWithImageError) {
+          typedError = err;
+        } else if (err instanceof Error) {
+          // Classify error based on message patterns
+          let errorType: CreateItemErrorType = 'unknown';
+          let errorMessage = 'Failed to save item';
+
+          if (
+            err.message.includes('network') ||
+            err.message.includes('fetch') ||
+            err.message.includes('timeout') ||
+            err.message.includes('connection')
+          ) {
+            errorType = 'network';
+            errorMessage = 'Network error. Please try again.';
+          } else if (err.message.includes('storage') || err.message.includes('upload')) {
+            errorType = 'storage';
+            errorMessage = 'Failed to upload image. Please try again.';
+          } else if (err.message.includes('database') || err.message.includes('insert')) {
+            errorType = 'database';
+            errorMessage = 'Failed to save item. Please try again.';
+          }
+
+          typedError = new CreateItemWithImageError(errorMessage, errorType, err);
+        } else {
+          typedError = new CreateItemWithImageError('An unexpected error occurred', 'unknown', err);
+        }
+
+        // Calculate latency and emit failure telemetry
+        const latency = Date.now() - startTime;
+        logError(typedError, typedError.errorType === 'offline' ? 'network' : 'server', {
+          feature: 'wardrobe',
+          operation: 'item_save',
+          metadata: {
+            errorType: typedError.errorType,
+            userId: user.id,
+            latencyMs: latency,
+          },
+        });
+
+        // Emit structured failure event
+        logSuccess('wardrobe', 'item_save_failed', {
+          latency,
+          data: {
+            userId: user.id,
+            errorType: typedError.errorType,
+            latencyMs: latency,
+          },
+        });
+
+        // Update state with error
+        setError(typedError);
+
+        // Re-throw for caller handling
+        throw typedError;
+      } finally {
+        // Always reset loading state and single-flight flag
+        isSavingRef.current = false;
+        setIsLoading(false);
+      }
+    },
+    [user, checkConnectivity, getOrCreateItemId]
+  );
+
+  /**
+   * Reset hook state for fresh save attempt.
+   */
+  const reset = useCallback(() => {
+    setError(null);
+    setResult(null);
+    // Note: We do NOT clear cachedItemIdRef here.
+    // The cached ID persists for retry idempotency.
+    // It's only cleared on successful save.
+  }, []);
+
+  return {
+    isLoading,
+    error,
+    result,
+    save,
+    reset,
+  };
+}
