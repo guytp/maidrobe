@@ -20,6 +20,28 @@ import { logError } from '../../../core/telemetry';
 import { WARDROBE_STORAGE_CONFIG } from '../../onboarding/types/wardrobeItem';
 
 /**
+ * File API Compatibility
+ * ----------------------
+ * This module uses the File class from expo-file-system, which implements
+ * the Blob interface providing methods like arrayBuffer() and properties
+ * like size.
+ *
+ * Minimum Requirements:
+ * - expo-file-system: 17.0.0+
+ * - Expo SDK: 53+
+ *
+ * Current Project:
+ * - expo-file-system: 19.0.19
+ * - Expo SDK: 55 (canary)
+ *
+ * The File API is used for:
+ * 1. Reading file size after image processing
+ * 2. Converting image files to ArrayBuffer for upload
+ *
+ * @see https://docs.expo.dev/versions/latest/sdk/filesystem/
+ */
+
+/**
  * Maximum dimension for longest edge after processing.
  * Images are resized so the longest edge does not exceed this value.
  * No upscaling is performed if the image is already smaller.
@@ -162,7 +184,8 @@ export async function prepareImageForUpload(
       format: ImageManipulator.SaveFormat.JPEG,
     });
 
-    // Get file size for telemetry and validation using new File API
+    // Get file size for telemetry and validation using File API
+    // Requires expo-file-system 17.0.0+ (Expo SDK 53+)
     const file = new File(result.uri);
     const fileSize = file.size ?? 0;
 
@@ -203,15 +226,19 @@ export async function prepareImageForUpload(
 /**
  * Reads a local image file and converts it to an ArrayBuffer for upload.
  *
- * Uses the new expo-file-system File API which implements Blob interface.
+ * Uses the expo-file-system File API which implements the Blob interface,
+ * providing the arrayBuffer() method for reading file contents.
+ *
+ * Requires expo-file-system 17.0.0+ (Expo SDK 53+).
  *
  * @param imageUri - Local URI to image file (file:// scheme)
  * @returns ArrayBuffer containing image data
  * @throws UploadError if file read fails
+ * @see File API compatibility notes at top of module
  */
 async function readImageAsArrayBuffer(imageUri: string): Promise<ArrayBuffer> {
   try {
-    // Use new File API which implements Blob interface
+    // File API implements Blob interface (arrayBuffer, size, etc.)
     const file = new File(imageUri);
     const arrayBuffer = await file.arrayBuffer();
     return arrayBuffer;
