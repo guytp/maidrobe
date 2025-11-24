@@ -38,6 +38,7 @@ import {
   generateStoragePath,
   UploadError,
 } from '../utils/imageUpload';
+import { EDGE_FUNCTIONS } from '../constants';
 
 /**
  * Error types for item creation failures.
@@ -400,7 +401,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
 
         // Trigger image processing pipeline
         supabase.functions
-          .invoke('process-item-image', {
+          .invoke(EDGE_FUNCTIONS.PROCESS_ITEM_IMAGE, {
             body: { itemId },
           })
           .catch((pipelineError) => {
@@ -414,7 +415,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
 
         // Trigger attribute classification pipeline
         supabase.functions
-          .invoke('classify-item', {
+          .invoke(EDGE_FUNCTIONS.CLASSIFY_ITEM, {
             body: { itemId },
           })
           .catch((pipelineError) => {
