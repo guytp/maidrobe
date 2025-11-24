@@ -1611,4 +1611,556 @@ describe('useCreateItemWithImage - Happy Path', () => {
       );
     });
   });
+
+  describe('Authentication Scenarios (AC13)', () => {
+    describe('Successful Refresh', () => {
+      it('should save successfully when session expired but refresh succeeds', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        const newSession = {
+          access_token: 'new-token-after-refresh',
+          refresh_token: 'new-refresh-token',
+          user: mockUser,
+        };
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: newSession },
+          error: null,
+        });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        // Verify refresh was called
+        expect(mockSupabase.auth.refreshSession).toHaveBeenCalledTimes(1);
+
+        // Verify save completed successfully
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.error).toBe(null);
+        expect(result.current.result).not.toBe(null);
+        expect(result.current.result?.item.id).toBe(mockItemId);
+
+        // Verify all save operations occurred
+        expect(mockImageUpload.prepareImageForUpload).toHaveBeenCalled();
+        expect(mockImageUpload.uploadImageToStorage).toHaveBeenCalled();
+        expect(mockSupabase.from).toHaveBeenCalledWith('items');
+
+        // Verify navigation to wardrobe (no login redirect)
+        expect(mockRouterReplace).not.toHaveBeenCalledWith('/auth/login');
+      });
+
+      it('should emit correct telemetry for successful refresh and save', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        const newSession = {
+          access_token: 'new-token',
+          refresh_token: 'new-refresh',
+          user: mockUser,
+        };
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: newSession },
+          error: null,
+        });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        // Verify auth success telemetry
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith('token-refresh-success', {
+          userId: mockUser.id,
+          outcome: 'success',
+          latency: expect.any(Number),
+          metadata: {
+            context: 'item_save',
+            operation: 'pre_save_refresh',
+          },
+        });
+
+        // Verify save success telemetry (no auth errors)
+        expect(mockTelemetry.logSuccess).toHaveBeenCalledWith('wardrobe', 'item_save_succeeded', {
+          latency: expect.any(Number),
+          data: {
+            itemId: expect.any(String),
+            userId: mockUser.id,
+            hasName: true,
+            tagCount: 2,
+            latencyMs: expect.any(Number),
+          },
+        });
+
+        // Verify no error telemetry
+        expect(mockTelemetry.logError).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Failed Refresh with Login Redirect (AC13)', () => {
+      it('should redirect to login when refresh fails with auth error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Invalid refresh token', status: 401 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown auth error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('auth');
+            expect((err as CreateItemWithImageError).message).toBe(
+              'Your session has expired. Please log in again.'
+            );
+          }
+        });
+
+        // Verify AC13: redirect to login
+        expect(mockRouterReplace).toHaveBeenCalledWith('/auth/login');
+        expect(mockRouterReplace).toHaveBeenCalledTimes(1);
+
+        // Verify no writes occurred
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+        expect(mockImageUpload.uploadImageToStorage).not.toHaveBeenCalled();
+        expect(mockSupabase.from).not.toHaveBeenCalled();
+      });
+
+      it('should redirect to login when refresh returns null session', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: null,
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown auth error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('auth');
+          }
+        });
+
+        // Verify AC13: redirect to login
+        expect(mockRouterReplace).toHaveBeenCalledWith('/auth/login');
+
+        // Verify no writes occurred
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+        expect(mockImageUpload.uploadImageToStorage).not.toHaveBeenCalled();
+      });
+
+      it('should redirect to login when refresh throws exception', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockRejectedValueOnce(
+          new Error('Session refresh failed')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown auth error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('auth');
+          }
+        });
+
+        // Verify AC13: redirect to login
+        expect(mockRouterReplace).toHaveBeenCalledWith('/auth/login');
+
+        // Verify no writes occurred
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+      });
+
+      it('should emit logAuthEvent when refresh fails', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Refresh token expired', status: 401 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify auth failure telemetry
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            userId: mockUser.id,
+            outcome: 'failure',
+            latency: expect.any(Number),
+            metadata: expect.objectContaining({
+              context: 'item_save',
+              operation: 'pre_save_refresh',
+              errorClassification: 'user',
+            }),
+          })
+        );
+      });
+
+      it('should not attempt any writes after refresh failure', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Session expired' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify no downstream operations
+        expect(mockImageUpload.generateStoragePath).not.toHaveBeenCalled();
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+        expect(mockImageUpload.uploadImageToStorage).not.toHaveBeenCalled();
+        expect(mockSupabase.from).not.toHaveBeenCalled();
+        expect(mockSupabase.functions.invoke).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Error Classification for Auth', () => {
+      it('should classify auth errors correctly for failed refresh', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Invalid token', status: 401 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify error is logged twice: once in auth handler, once in main catch
+        expect(mockTelemetry.logError).toHaveBeenCalledTimes(2);
+
+        // First call: auth refresh handler with 'user' classification
+        expect(mockTelemetry.logError).toHaveBeenNthCalledWith(
+          1,
+          expect.any(CreateItemWithImageError),
+          'user',
+          expect.objectContaining({
+            feature: 'wardrobe',
+            operation: 'token_refresh_pre_save',
+          })
+        );
+
+        // Second call: main error handler with 'server' classification
+        expect(mockTelemetry.logError).toHaveBeenNthCalledWith(
+          2,
+          expect.any(CreateItemWithImageError),
+          'server',
+          expect.objectContaining({
+            feature: 'wardrobe',
+            operation: 'item_save',
+            metadata: expect.objectContaining({
+              errorType: 'auth',
+            }),
+          })
+        );
+      });
+
+      it('should classify network errors correctly for refresh network issues', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'network connection failed' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify error classification in telemetry
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorClassification: 'network',
+            }),
+          })
+        );
+      });
+
+      it('should emit appropriate telemetry for auth vs network errors', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        // Test auth error
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Session expired', status: 401 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify auth error telemetry includes proper classification
+        // errorClassification is 'user' for auth errors (not network/server)
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            outcome: 'failure',
+            metadata: expect.objectContaining({
+              errorClassification: 'user',
+            }),
+          })
+        );
+
+        // Verify trackCaptureEvent called with auth error type
+        expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith('item_save_failed', {
+          userId: mockUser.id,
+          errorType: 'auth',
+          latencyMs: expect.any(Number),
+        });
+      });
+
+      it('should not redirect to login for network errors during refresh', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        // Network error during refresh (not an auth issue)
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'fetch failed: network timeout' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify redirect still occurs (auth refresh failed)
+        expect(mockRouterReplace).toHaveBeenCalledWith('/auth/login');
+
+        // But error classification should be network
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorClassification: 'network',
+            }),
+          })
+        );
+      });
+
+      it('should classify server errors correctly for refresh server issues', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Internal server error 500', status: 500 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify error classification in telemetry
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorClassification: 'server',
+            }),
+          })
+        );
+      });
+    });
+
+    describe('Auth State Management', () => {
+      it('should set error state when refresh fails', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Session expired' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify error state
+        expect(result.current.error).not.toBe(null);
+        expect(result.current.error?.errorType).toBe('auth');
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.result).toBe(null);
+      });
+
+      it('should clear cached itemId after auth failure', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        // First attempt fails at auth
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Session expired' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // No itemId should have been generated (fails before that step)
+        expect(mockImageUpload.generateStoragePath).not.toHaveBeenCalled();
+
+        // Clear mocks
+        jest.clearAllMocks();
+
+        // Second attempt succeeds
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: mockSession },
+          error: null,
+        });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        // Should generate new itemId
+        expect(mockImageUpload.generateStoragePath).toHaveBeenCalledTimes(1);
+        expect(result.current.result).not.toBe(null);
+      });
+    });
+
+    describe('Telemetry for Auth Scenarios', () => {
+      it('should emit complete telemetry for successful refresh path', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        // Verify all telemetry events
+        expect(mockTelemetry.logSuccess).toHaveBeenCalledWith('wardrobe', 'item_save_started', {
+          data: {
+            userId: mockUser.id,
+            hasName: true,
+            tagCount: 2,
+          },
+        });
+
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith('token-refresh-success', {
+          userId: mockUser.id,
+          outcome: 'success',
+          latency: expect.any(Number),
+          metadata: {
+            context: 'item_save',
+            operation: 'pre_save_refresh',
+          },
+        });
+
+        expect(mockTelemetry.logSuccess).toHaveBeenCalledWith('wardrobe', 'item_save_succeeded', {
+          latency: expect.any(Number),
+          data: {
+            itemId: expect.any(String),
+            userId: mockUser.id,
+            hasName: true,
+            tagCount: 2,
+            latencyMs: expect.any(Number),
+          },
+        });
+      });
+
+      it('should emit complete telemetry for failed refresh path', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Refresh failed', status: 401 },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        // Verify auth failure telemetry
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            userId: mockUser.id,
+            outcome: 'failure',
+          })
+        );
+
+        // Verify error telemetry is called twice
+        expect(mockTelemetry.logError).toHaveBeenCalledTimes(2);
+
+        // Second call should be from main error handler
+        expect(mockTelemetry.logError).toHaveBeenNthCalledWith(
+          2,
+          expect.any(CreateItemWithImageError),
+          'server',
+          expect.objectContaining({
+            feature: 'wardrobe',
+            operation: 'item_save',
+            metadata: expect.objectContaining({
+              errorType: 'auth',
+            }),
+          })
+        );
+
+        // Verify failure event
+        expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith('item_save_failed', {
+          userId: mockUser.id,
+          errorType: 'auth',
+          latencyMs: expect.any(Number),
+        });
+
+        // Verify no success telemetry
+        const successCalls = (mockTelemetry.logSuccess as jest.Mock).mock.calls.filter(
+          (call: [string, string]) => call[1] === 'item_save_succeeded'
+        );
+        expect(successCalls.length).toBe(0);
+      });
+    });
+  });
 });
