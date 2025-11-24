@@ -656,7 +656,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
             <View style={styles.tagInputRow}>
               <View style={styles.tagInputWrapper}>
                 <TextInput
-                  style={[styles.input, isTagsAtLimit && styles.inputDisabled]}
+                  style={[styles.input, (isTagsAtLimit || isLoading) && styles.inputDisabled]}
                   value={tagInput}
                   onChangeText={handleTagInputChangeWithSpace}
                   onSubmitEditing={handleTagInputSubmit}
@@ -668,7 +668,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
                   placeholderTextColor={colors.textSecondary}
                   returnKeyType="done"
                   blurOnSubmit={false}
-                  editable={!isTagsAtLimit}
+                  editable={!isTagsAtLimit && !isLoading}
                   accessibilityLabel={t('screens.reviewDetails.accessibility.tagsInput')}
                   accessibilityHint={t('screens.reviewDetails.accessibility.tagsInputHint')}
                   allowFontScaling={true}
