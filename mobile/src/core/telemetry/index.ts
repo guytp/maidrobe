@@ -315,7 +315,10 @@ export type CaptureEventType =
   | 'crop_processing_failed'
   | 'review_details_screen_opened'
   | 'review_details_cancelled'
-  | 'review_details_save_pressed';
+  | 'review_details_save_pressed'
+  | 'item_save_started'
+  | 'item_save_succeeded'
+  | 'item_save_failed';
 
 /**
  * Metadata for authentication event logging.
@@ -673,6 +676,12 @@ export interface CaptureEventMetadata {
   hasName?: boolean;
   /** Number of tags added (for review details analytics) */
   tagCount?: number;
+  /** Error type for item save failures */
+  errorType?: string;
+  /** Latency in milliseconds */
+  latencyMs?: number;
+  /** Item ID for created items */
+  itemId?: string;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }
