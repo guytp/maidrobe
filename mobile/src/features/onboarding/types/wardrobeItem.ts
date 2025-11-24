@@ -40,6 +40,8 @@ export interface WardrobeItem {
   colour: string[];
   /** Optional user-provided name/label */
   name: string | null;
+  /** Optional user-provided tags (lowercased, max 20 tags, 30 chars each) */
+  tags: string[] | null;
   /** Item creation timestamp */
   createdAt: string;
 }
