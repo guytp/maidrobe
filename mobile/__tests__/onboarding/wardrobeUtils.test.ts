@@ -196,57 +196,52 @@ describe('wardrobeUtils', () => {
     });
 
     describe('Path Template Function', () => {
-      it('should accept userId, itemId, timestamp parameters', () => {
+      it('should accept userId and itemId parameters', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1234567890;
 
         // Should not throw when called with correct parameters
         expect(() => {
-          WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+          WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
         }).not.toThrow();
       });
 
       it('should return formatted path string', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1234567890;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(typeof result).toBe('string');
         expect(result.length).toBeGreaterThan(0);
       });
 
-      it('should follow correct pattern {userId}/items/{itemId}/{timestamp}.jpg', () => {
+      it('should follow correct pattern user/{userId}/items/{itemId}/original.jpg', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1234567890;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
-        expect(result).toBe('user-123/items/item-456/1234567890.jpg');
+        expect(result).toBe('user/user-123/items/item-456/original.jpg');
       });
 
       it('should construct valid storage paths', () => {
         const userId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
         const itemId = 'f9e8d7c6-b5a4-3210-9876-543210fedcba';
-        const timestamp = Date.now();
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain(userId);
         expect(result).toContain(itemId);
-        expect(result).toContain(timestamp.toString());
         expect(result).toMatch(/\.jpg$/);
       });
     });
 
     describe('Path Construction', () => {
       it('should create unique paths for different inputs', () => {
-        const path1 = WARDROBE_STORAGE_CONFIG.pathTemplate('user1', 'item1', 1000);
-        const path2 = WARDROBE_STORAGE_CONFIG.pathTemplate('user2', 'item2', 2000);
-        const path3 = WARDROBE_STORAGE_CONFIG.pathTemplate('user1', 'item2', 1000);
+        const path1 = WARDROBE_STORAGE_CONFIG.pathTemplate('user1', 'item1');
+        const path2 = WARDROBE_STORAGE_CONFIG.pathTemplate('user2', 'item2');
+        const path3 = WARDROBE_STORAGE_CONFIG.pathTemplate('user1', 'item2');
 
         expect(path1).not.toBe(path2);
         expect(path1).not.toBe(path3);
@@ -256,11 +251,10 @@ describe('wardrobeUtils', () => {
       it('should be deterministic (same inputs = same output)', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1234567890;
 
-        const result1 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
-        const result2 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
-        const result3 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result1 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
+        const result2 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
+        const result3 = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result1).toBe(result2);
         expect(result2).toBe(result3);
@@ -269,42 +263,38 @@ describe('wardrobeUtils', () => {
       it('should handle UUID format userIds', () => {
         const userId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
         const itemId = 'item-123';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain(userId);
-        expect(result).toMatch(/^a1b2c3d4-e5f6-7890-abcd-ef1234567890\//);
+        expect(result).toMatch(/user\/a1b2c3d4-e5f6-7890-abcd-ef1234567890\//);
       });
 
       it('should handle UUID format itemIds', () => {
         const userId = 'user-123';
         const itemId = 'f9e8d7c6-b5a4-3210-9876-543210fedcba';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain(itemId);
         expect(result).toContain('/f9e8d7c6-b5a4-3210-9876-543210fedcba/');
       });
 
-      it('should handle timestamp numbers', () => {
+      it('should use original.jpg as filename', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1699999999999; // Large timestamp
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
-        expect(result).toContain('1699999999999');
-        expect(result).toBe('user-123/items/item-456/1699999999999.jpg');
+        expect(result).toContain('original.jpg');
+        expect(result).toBe('user/user-123/items/item-456/original.jpg');
       });
 
       it('should include .jpg extension', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toMatch(/\.jpg$/);
         expect(result.endsWith('.jpg')).toBe(true);
@@ -312,22 +302,20 @@ describe('wardrobeUtils', () => {
     });
 
     describe('Path Format Validation', () => {
-      it('should start with userId', () => {
+      it('should start with "user/" prefix', () => {
         const userId = 'test-user-id';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
-        expect(result.startsWith(userId)).toBe(true);
+        expect(result.startsWith('user/')).toBe(true);
       });
 
       it('should include "/items/" segment', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain('/items/');
       });
@@ -335,29 +323,26 @@ describe('wardrobeUtils', () => {
       it('should include itemId after /items/', () => {
         const userId = 'user-123';
         const itemId = 'test-item-id';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain('/items/test-item-id/');
       });
 
-      it('should include timestamp before .jpg', () => {
+      it('should end with "/original.jpg"', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 9876543210;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
-        expect(result).toContain('/9876543210.jpg');
+        expect(result).toContain('/original.jpg');
       });
 
       it('should end with ".jpg"', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result.endsWith('.jpg')).toBe(true);
       });
@@ -365,23 +350,22 @@ describe('wardrobeUtils', () => {
       it('should have correct segment order', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
         const segments = result.split('/');
 
-        expect(segments[0]).toBe('user-123');
-        expect(segments[1]).toBe('items');
-        expect(segments[2]).toBe('item-456');
-        expect(segments[3]).toBe('1000.jpg');
+        expect(segments[0]).toBe('user');
+        expect(segments[1]).toBe('user-123');
+        expect(segments[2]).toBe('items');
+        expect(segments[3]).toBe('item-456');
+        expect(segments[4]).toBe('original.jpg');
       });
 
       it('should not have leading or trailing slashes', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result.startsWith('/')).toBe(false);
         expect(result.endsWith('/')).toBe(false);
@@ -390,9 +374,8 @@ describe('wardrobeUtils', () => {
       it('should use forward slashes as separators', () => {
         const userId = 'user-123';
         const itemId = 'item-456';
-        const timestamp = 1000;
 
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
         expect(result).toContain('/');
         expect(result).not.toContain('\\');
@@ -401,32 +384,19 @@ describe('wardrobeUtils', () => {
 
     describe('Edge Cases', () => {
       it('should handle empty string userId', () => {
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('', 'item-456', 1000);
-        expect(result).toBe('/items/item-456/1000.jpg');
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('', 'item-456');
+        expect(result).toBe('user//items/item-456/original.jpg');
       });
 
       it('should handle empty string itemId', () => {
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user-123', '', 1000);
-        expect(result).toBe('user-123/items//1000.jpg');
-      });
-
-      it('should handle zero timestamp', () => {
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user-123', 'item-456', 0);
-        expect(result).toBe('user-123/items/item-456/0.jpg');
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user-123', '');
+        expect(result).toBe('user/user-123/items//original.jpg');
       });
 
       it('should handle special characters in IDs', () => {
         // Though UUIDs should not have these, test robustness
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user_123', 'item-456', 1000);
-        expect(result).toBe('user_123/items/item-456/1000.jpg');
-      });
-
-      it('should handle very large timestamp values', () => {
-        const timestamp = Number.MAX_SAFE_INTEGER;
-        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user-123', 'item-456', timestamp);
-
-        expect(result).toContain(timestamp.toString());
-        expect(result.endsWith('.jpg')).toBe(true);
+        const result = WARDROBE_STORAGE_CONFIG.pathTemplate('user_123', 'item-456');
+        expect(result).toBe('user/user_123/items/item-456/original.jpg');
       });
     });
   });
@@ -448,15 +418,9 @@ describe('wardrobeUtils', () => {
     it('should provide consistent config for storage operations', () => {
       // Simulate creating multiple storage paths for different items
       const userId = 'user-123';
-      const items = [
-        { id: 'item-1', timestamp: 1000 },
-        { id: 'item-2', timestamp: 2000 },
-        { id: 'item-3', timestamp: 3000 },
-      ];
+      const items = [{ id: 'item-1' }, { id: 'item-2' }, { id: 'item-3' }];
 
-      const paths = items.map((item) =>
-        WARDROBE_STORAGE_CONFIG.pathTemplate(userId, item.id, item.timestamp)
-      );
+      const paths = items.map((item) => WARDROBE_STORAGE_CONFIG.pathTemplate(userId, item.id));
 
       // All paths should be unique
       const uniquePaths = new Set(paths);
@@ -467,7 +431,7 @@ describe('wardrobeUtils', () => {
 
       // All paths should follow same format
       paths.forEach((path) => {
-        expect(path).toMatch(/^user-123\/items\/item-\d+\/\d+\.jpg$/);
+        expect(path).toMatch(/^user\/user-123\/items\/item-\d+\/original\.jpg$/);
       });
     });
 
@@ -475,13 +439,12 @@ describe('wardrobeUtils', () => {
       // Simulate real UUIDs from database
       const userId = '550e8400-e29b-41d4-a716-446655440000';
       const itemId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-      const timestamp = Date.now();
 
-      const path = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId, timestamp);
+      const path = WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 
       expect(path).toContain(userId);
       expect(path).toContain(itemId);
-      expect(path).toMatch(/^[a-f0-9-]+\/items\/[a-f0-9-]+\/\d+\.jpg$/);
+      expect(path).toMatch(/^user\/[a-f0-9-]+\/items\/[a-f0-9-]+\/original\.jpg$/);
     });
   });
 
@@ -502,9 +465,9 @@ describe('wardrobeUtils', () => {
       // Static configuration
       expect(WARDROBE_STORAGE_CONFIG.bucketName).toBe('wardrobe-items');
 
-      // Path template follows pattern: {userId}/items/{itemId}/{timestamp}.jpg
-      const examplePath = WARDROBE_STORAGE_CONFIG.pathTemplate('userId', 'itemId', 123456789);
-      expect(examplePath).toBe('userId/items/itemId/123456789.jpg');
+      // Path template follows pattern: user/{userId}/items/{itemId}/original.jpg
+      const examplePath = WARDROBE_STORAGE_CONFIG.pathTemplate('userId', 'itemId');
+      expect(examplePath).toBe('user/userId/items/itemId/original.jpg');
     });
 
     it('should verify placeholder limitations are understood', () => {
@@ -520,7 +483,7 @@ describe('wardrobeUtils', () => {
       // - Static configuration
       // - No input validation
       // - Assumes .jpg format only
-      const path = WARDROBE_STORAGE_CONFIG.pathTemplate('user', 'item', 1000);
+      const path = WARDROBE_STORAGE_CONFIG.pathTemplate('user', 'item');
       expect(path.endsWith('.jpg')).toBe(true);
     });
   });
