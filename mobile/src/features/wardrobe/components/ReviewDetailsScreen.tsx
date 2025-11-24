@@ -609,7 +609,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               {t('screens.reviewDetails.nameHelper')}
             </Text>
             <TextInput
-              style={[styles.input, nameError && styles.inputError]}
+              style={[styles.input, nameError && styles.inputError, isLoading && styles.inputDisabled]}
               value={name}
               onChangeText={handleNameChange}
               onBlur={handleNameBlur}
@@ -617,6 +617,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               placeholderTextColor={colors.textSecondary}
               maxLength={MAX_NAME_LENGTH + 10} // Allow slightly over to show error
               returnKeyType="done"
+              editable={!isLoading}
               accessibilityLabel={t('screens.reviewDetails.accessibility.nameInput')}
               accessibilityHint={t('screens.reviewDetails.accessibility.nameInputHint')}
               allowFontScaling={true}
