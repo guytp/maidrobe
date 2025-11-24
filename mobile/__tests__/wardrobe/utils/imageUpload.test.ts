@@ -1,11 +1,15 @@
 /**
  * Unit tests for image upload utilities.
  *
- * Tests the image preparation pipeline for wardrobe item uploads:
+ * Tests the image preparation and upload pipeline for wardrobe item uploads:
  * - prepareImageForUpload: resizing, compression, and EXIF stripping
+ * - uploadImageToStorage: Supabase Storage upload with error handling
+ * - generateStoragePath: storage path generation
  * - Resizing logic: proportional downscaling with no upscaling
  * - Compression: JPEG format at 0.85 quality
  * - Privacy: EXIF metadata (GPS, camera, timestamps) automatically stripped
+ * - Error classification: network, permission, storage errors
+ * - Retry idempotency: upsert semantics for reliable uploads
  *
  * @module __tests__/wardrobe/utils/imageUpload
  */
@@ -14,11 +18,16 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { File } from 'expo-file-system';
 import {
   prepareImageForUpload,
+  uploadImageToStorage,
+  generateStoragePath,
   MAX_UPLOAD_DIMENSION,
   JPEG_UPLOAD_QUALITY,
   WARDROBE_BUCKET_NAME,
   UploadError,
+  type PreparedImage,
 } from '../../../src/features/wardrobe/utils/imageUpload';
+import { supabase } from '../../../src/services/supabase';
+import { logError } from '../../../src/core/telemetry';
 
 // Mock expo-image-manipulator
 jest.mock('expo-image-manipulator', () => ({
@@ -34,11 +43,28 @@ jest.mock('expo-file-system', () => ({
   File: jest.fn(),
 }));
 
+// Mock supabase
+jest.mock('../../../src/services/supabase', () => ({
+  supabase: {
+    storage: {
+      from: jest.fn(),
+    },
+  },
+}));
+
+// Mock telemetry
+jest.mock('../../../src/core/telemetry', () => ({
+  logError: jest.fn(),
+}));
+
 const mockManipulateAsync = ImageManipulator.manipulateAsync as jest.MockedFunction<
   typeof ImageManipulator.manipulateAsync
 >;
 
 const MockFile = File as jest.MockedClass<typeof File>;
+
+const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+const mockLogError = logError as jest.MockedFunction<typeof logError>;
 
 describe('imageUpload utilities', () => {
   beforeEach(() => {
@@ -771,6 +797,634 @@ describe('imageUpload utilities', () => {
 
         // Verify aspect ratio maintained: 1600 / 320 = 5
         expect(resizeAction.resize.width / resizeAction.resize.height).toBeCloseTo(5, 1);
+      });
+    });
+  });
+
+  describe('generateStoragePath', () => {
+    it('returns correct path format', () => {
+      const userId = 'user-123';
+      const itemId = 'item-456';
+
+      const path = generateStoragePath(userId, itemId);
+
+      expect(path).toBe('user/user-123/items/item-456/original.jpg');
+    });
+
+    it('handles various userId formats', () => {
+      const path = generateStoragePath('abc-def-ghi', 'item-789');
+
+      expect(path).toContain('user/abc-def-ghi/items/item-789/original.jpg');
+    });
+
+    it('handles UUID formats for itemId', () => {
+      const userId = 'user-123';
+      const itemId = '01234567-89ab-cdef-0123-456789abcdef';
+
+      const path = generateStoragePath(userId, itemId);
+
+      expect(path).toBe(`user/${userId}/items/${itemId}/original.jpg`);
+    });
+
+    it('uses consistent path template structure', () => {
+      const path1 = generateStoragePath('user1', 'item1');
+      const path2 = generateStoragePath('user2', 'item2');
+
+      expect(path1).toMatch(/^user\/.+\/items\/.+\/original\.jpg$/);
+      expect(path2).toMatch(/^user\/.+\/items\/.+\/original\.jpg$/);
+    });
+  });
+
+  describe('uploadImageToStorage', () => {
+    let mockUpload: jest.Mock;
+    let mockFrom: jest.Mock;
+
+    const defaultPreparedImage: PreparedImage = {
+      uri: 'file:///processed.jpg',
+      width: 1280,
+      height: 1600,
+      fileSize: 1500000,
+    };
+
+    const defaultStoragePath = 'user/abc-123/items/def-456/original.jpg';
+
+    beforeEach(() => {
+      // Setup mock chain for supabase.storage.from().upload()
+      mockUpload = jest.fn();
+      mockFrom = jest.fn().mockReturnValue({
+        upload: mockUpload,
+      });
+
+      mockSupabase.storage.from = mockFrom;
+
+      // Setup File mock for arrayBuffer
+      MockFile.mockImplementation(
+        () =>
+          ({
+            size: 1500000,
+            arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(1500000)),
+          }) as unknown as File
+      );
+    });
+
+    describe('Successful Upload', () => {
+      it('uploads to correct bucket (wardrobe-items)', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(mockFrom).toHaveBeenCalledWith(WARDROBE_BUCKET_NAME);
+        expect(mockFrom).toHaveBeenCalledWith('wardrobe-items');
+      });
+
+      it('sets correct contentType (image/jpeg)', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(mockUpload).toHaveBeenCalledWith(
+          defaultStoragePath,
+          expect.any(ArrayBuffer),
+          expect.objectContaining({
+            contentType: 'image/jpeg',
+          })
+        );
+      });
+
+      it('enables upsert for retry idempotency', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(mockUpload).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.any(ArrayBuffer),
+          expect.objectContaining({
+            upsert: true,
+          })
+        );
+      });
+
+      it('returns storagePath on success', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        const result = await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(result).toBe(defaultStoragePath);
+      });
+
+      it('reads image as ArrayBuffer from file', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(MockFile).toHaveBeenCalledWith(defaultPreparedImage.uri);
+      });
+
+      it('does not log errors on success', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(mockLogError).not.toHaveBeenCalled();
+      });
+
+      it('uploads with correct storagePath parameter', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+        const customPath = 'user/xyz/items/abc/original.jpg';
+
+        await uploadImageToStorage(defaultPreparedImage, customPath);
+
+        expect(mockUpload).toHaveBeenCalledWith(
+          customPath,
+          expect.any(ArrayBuffer),
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('Error Classification - Network Errors', () => {
+      it('classifies network keyword errors as network type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Network request failed' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect(error).toBeInstanceOf(UploadError);
+          expect((error as UploadError).errorType).toBe('network');
+          expect((error as UploadError).message).toBe('Network error during upload');
+        }
+      });
+
+      it('classifies fetch errors as network type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Fetch timeout occurred' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('network');
+        }
+      });
+
+      it('classifies timeout errors as network type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Request timeout' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('network');
+        }
+      });
+
+      it('classifies connection errors as network type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Connection refused' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('network');
+        }
+      });
+
+      it('classifies ECONNREFUSED errors as network type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'ECONNREFUSED' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('network');
+        }
+      });
+    });
+
+    describe('Error Classification - Permission Errors', () => {
+      it('classifies 401 status code as permission type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { statusCode: 401, message: 'Unauthorized' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect(error).toBeInstanceOf(UploadError);
+          expect((error as UploadError).errorType).toBe('permission');
+          expect((error as UploadError).message).toBe('Permission denied uploading image');
+        }
+      });
+
+      it('classifies 403 status code as permission type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { statusCode: 403, message: 'Forbidden' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('permission');
+        }
+      });
+
+      it('classifies unauthorized keyword as permission type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Unauthorized access' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('permission');
+        }
+      });
+
+      it('classifies forbidden keyword as permission type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Forbidden resource' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('permission');
+        }
+      });
+
+      it('classifies permission keyword as permission type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Permission denied' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('permission');
+        }
+      });
+    });
+
+    describe('Error Classification - Storage Errors', () => {
+      it('classifies bucket errors as storage type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Bucket not found' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect(error).toBeInstanceOf(UploadError);
+          expect((error as UploadError).errorType).toBe('storage');
+          expect((error as UploadError).message).toBe('Failed to upload image to storage');
+        }
+      });
+
+      it('classifies storage keyword errors as storage type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage service unavailable' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('storage');
+        }
+      });
+
+      it('classifies quota errors as storage type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage quota exceeded' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('storage');
+        }
+      });
+
+      it('classifies size errors as storage type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'File size limit exceeded' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('storage');
+        }
+      });
+
+      it('defaults unknown errors to storage type', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Unknown error occurred' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('storage');
+        }
+      });
+    });
+
+    describe('Telemetry Logging', () => {
+      it('logs errors with correct classification for network errors', async () => {
+        const networkError = { message: 'Network request failed' };
+        mockUpload.mockResolvedValueOnce({ error: networkError });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          networkError,
+          'network',
+          expect.objectContaining({
+            feature: 'wardrobe',
+            operation: 'image_upload',
+          })
+        );
+      });
+
+      it('logs errors with server classification for permission errors', async () => {
+        const permissionError = { statusCode: 401, message: 'Unauthorized' };
+        mockUpload.mockResolvedValueOnce({ error: permissionError });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(permissionError, 'server', expect.any(Object));
+      });
+
+      it('includes errorType in metadata', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.any(String),
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorType: 'storage',
+            }),
+          })
+        );
+      });
+
+      it('includes storagePath in metadata', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.any(String),
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              storagePath: defaultStoragePath,
+            }),
+          })
+        );
+      });
+
+      it('includes fileSize in metadata', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.any(String),
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              fileSize: 1500000,
+            }),
+          })
+        );
+      });
+
+      it('logs feature as wardrobe', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.any(String),
+          expect.objectContaining({
+            feature: 'wardrobe',
+          })
+        );
+      });
+
+      it('logs operation as image_upload', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Storage error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch {
+          // Expected to throw
+        }
+
+        expect(mockLogError).toHaveBeenCalledWith(
+          expect.any(Object),
+          expect.any(String),
+          expect.objectContaining({
+            operation: 'image_upload',
+          })
+        );
+      });
+    });
+
+    describe('File Read Errors', () => {
+      it('re-throws UploadError from file read failure', async () => {
+        MockFile.mockImplementation(
+          () =>
+            ({
+              arrayBuffer: jest.fn().mockRejectedValue(new Error('file not found')),
+            }) as unknown as File
+        );
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect(error).toBeInstanceOf(UploadError);
+          expect((error as UploadError).errorType).toBe('file_read');
+        }
+      });
+
+      it('preserves file_read error type from readImageAsArrayBuffer', async () => {
+        MockFile.mockImplementation(
+          () =>
+            ({
+              arrayBuffer: jest.fn().mockRejectedValue(new Error('permission denied')),
+            }) as unknown as File
+        );
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown UploadError');
+        } catch (error) {
+          expect((error as UploadError).errorType).toBe('file_read');
+        }
+      });
+    });
+
+    describe('Retry Idempotency', () => {
+      it('uses upsert true for idempotent uploads', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        const uploadCall = mockUpload.mock.calls[0];
+        expect(uploadCall[2]).toEqual(
+          expect.objectContaining({
+            upsert: true,
+          })
+        );
+      });
+
+      it('allows retrying with same storagePath', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        const result1 = await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        const result2 = await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        expect(result1).toBe(defaultStoragePath);
+        expect(result2).toBe(defaultStoragePath);
+        expect(mockUpload).toHaveBeenCalledTimes(2);
+      });
+
+      it('documents idempotent semantics via upsert flag', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        // upsert: true enables overwriting existing files
+        // Same storagePath on retry overwrites previous upload
+        // Idempotent behavior for network failures
+        expect(mockUpload).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.any(ArrayBuffer),
+          expect.objectContaining({
+            upsert: true,
+          })
+        );
+      });
+    });
+
+    describe('Integration with useCreateItemWithImage', () => {
+      it('returns storagePath for database record creation', async () => {
+        mockUpload.mockResolvedValueOnce({ error: null });
+
+        const path = await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+
+        // Hook uses this path to store in database
+        expect(path).toBe(defaultStoragePath);
+        expect(typeof path).toBe('string');
+      });
+
+      it('throws typed UploadError consumable by hook', async () => {
+        mockUpload.mockResolvedValueOnce({
+          error: { message: 'Network error' },
+        });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+          fail('Should have thrown');
+        } catch (error) {
+          // Hook catches UploadError and maps to user message
+          expect(error).toBeInstanceOf(UploadError);
+          expect((error as UploadError).errorType).toBeDefined();
+          expect((error as UploadError).message).toBeDefined();
+        }
+      });
+
+      it('provides error types for user-facing messages', async () => {
+        const errorScenarios = [
+          { error: { message: 'network' }, expectedType: 'network' },
+          { error: { statusCode: 401 }, expectedType: 'permission' },
+          { error: { message: 'storage' }, expectedType: 'storage' },
+        ];
+
+        for (const scenario of errorScenarios) {
+          mockUpload.mockResolvedValueOnce(scenario);
+
+          try {
+            await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+            fail('Should have thrown');
+          } catch (error) {
+            expect((error as UploadError).errorType).toBe(scenario.expectedType);
+          }
+        }
+      });
+
+      it('preserves original error for debugging', async () => {
+        const originalError = { message: 'Original storage error', code: 'STORAGE_001' };
+        mockUpload.mockResolvedValueOnce({ error: originalError });
+
+        try {
+          await uploadImageToStorage(defaultPreparedImage, defaultStoragePath);
+        } catch (error) {
+          expect((error as UploadError).originalError).toBe(originalError);
+        }
       });
     });
   });
