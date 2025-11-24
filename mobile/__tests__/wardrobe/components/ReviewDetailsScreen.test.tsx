@@ -46,9 +46,18 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.reviewDetails.tagAlreadyAdded': 'Tag already added',
       'screens.reviewDetails.saveButton': 'Save',
       'screens.reviewDetails.saving': 'Saving...',
+      'screens.reviewDetails.retry': 'Retry',
       'screens.reviewDetails.cancelButton': 'Cancel',
       'screens.reviewDetails.addTagButton': 'Add',
       'screens.reviewDetails.tagCount': '{count}/{max} tags',
+      'screens.reviewDetails.errors.offline':
+        'No internet connection. Please check your connection and try again.',
+      'screens.reviewDetails.errors.network': 'Network error. Please try again.',
+      'screens.reviewDetails.errors.storage': 'Failed to upload image. Please try again.',
+      'screens.reviewDetails.errors.database': 'Failed to save item. Please try again.',
+      'screens.reviewDetails.errors.validation': 'Please check your information and try again.',
+      'screens.reviewDetails.errors.auth': 'Your session has expired. Please log in again.',
+      'screens.reviewDetails.errors.unknown': 'Something went wrong. Please try again.',
       'screens.reviewDetails.accessibility.screenLabel': 'Review and add details',
       'screens.reviewDetails.accessibility.screenHint':
         'Review image and add optional name and tags',
@@ -1379,6 +1388,521 @@ describe('ReviewDetailsScreen', () => {
           expect(mockSave).toHaveBeenCalledWith(
             expect.objectContaining({
               tags: ['summer', 'casual', 'work'],
+            })
+          );
+        });
+      });
+    });
+  });
+
+  describe('Save Flow and Error Handling', () => {
+    describe('Successful Save', () => {
+      it('should invoke save with correct data', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(nameInput, 'Test Item');
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              name: 'Test Item',
+              tags: ['summer'],
+              imageUri: mockPayload.uri,
+            })
+          );
+        });
+      });
+
+      it('should show loading state during save', async () => {
+        let resolveSave: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolveSave = resolve;
+        });
+
+        mockSave.mockReturnValueOnce(savePromise);
+
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        // Mock loading state
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+
+        // Re-render with loading state
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Saving...')).toBeTruthy();
+
+        // Resolve the save
+        resolveSave!({ item: { id: 'test-id' } });
+      });
+
+      it('should navigate after successful save', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalled();
+        });
+      });
+    });
+
+    describe('Loading States', () => {
+      beforeEach(() => {
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+      });
+
+      it('should show Saving text on button during load', () => {
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Saving...')).toBeTruthy();
+      });
+
+      it('should disable name input during load', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        expect(nameInput.props.editable).toBe(false);
+      });
+
+      it('should disable tag input during load', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        expect(tagInput.props.editable).toBe(false);
+      });
+    });
+
+    describe('Error Display', () => {
+      it('should display network error message', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+      });
+
+      it('should display auth error message', () => {
+        const mockError = {
+          errorType: 'auth' as const,
+          message: 'Your session has expired. Please log in again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Your session has expired. Please log in again.')).toBeTruthy();
+      });
+
+      it('should display database error message', () => {
+        const mockError = {
+          errorType: 'database' as const,
+          message: 'Failed to save item. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Failed to save item. Please try again.')).toBeTruthy();
+      });
+
+      it('should display validation error message', () => {
+        const mockError = {
+          errorType: 'validation' as const,
+          message: 'Please check your information and try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Please check your information and try again.')).toBeTruthy();
+      });
+
+      it('should show error with alert role for accessibility', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        // Error message should be displayed
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+
+        // Error container should have alert role
+        const errorAlert = UNSAFE_getByProps({ accessibilityRole: 'alert' });
+        expect(errorAlert).toBeTruthy();
+      });
+    });
+
+    describe('Retry After Error', () => {
+      it('should allow retry after error', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        // Error should be displayed
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+
+        // Button should show "Retry" when there's an error
+        const retryButton = screen.getByText('Retry');
+        expect(retryButton).toBeTruthy();
+
+        // Mock successful retry
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave.mockResolvedValueOnce({ item: { id: 'test-id' } }),
+          isLoading: false,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        // Click retry
+        fireEvent.press(retryButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      it('should clear error on successful retry', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        // First render with error
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+
+        // Mock successful state after retry
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave.mockResolvedValueOnce({ item: { id: 'test-id' } }),
+          isLoading: false,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        expect(screen.queryByText('Network error. Please try again.')).toBeNull();
+      });
+
+      it('should show loading during retry', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        // Mock loading state during retry
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Saving...')).toBeTruthy();
+      });
+
+      it('should handle multiple retry attempts', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        // First attempt - error
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        const retryButton = screen.getByText('Retry');
+        fireEvent.press(retryButton);
+
+        // Second attempt - error again
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        fireEvent.press(retryButton);
+
+        // Third attempt - success
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave.mockResolvedValueOnce({ item: { id: 'test-id' } }),
+          isLoading: false,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        fireEvent.press(retryButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledTimes(3);
+        });
+      });
+
+      it('should re-invoke save with same data on retry', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        // Start with error state
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'Test Item');
+
+        const retryButton = screen.getByText('Retry');
+        fireEvent.press(retryButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              name: 'Test Item',
+            })
+          );
+        });
+
+        // Mock successful retry
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave.mockResolvedValueOnce({ item: { id: 'test-id' } }),
+          isLoading: false,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledTimes(2);
+          expect(mockSave).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              name: 'Test Item',
+            })
+          );
+        });
+      });
+
+      it('should not navigate on save error', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(mockRouter.push).not.toHaveBeenCalled();
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Error State Management', () => {
+      it('should persist error until retry', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+
+        // Re-render without changing state
+        rerender(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
+      });
+
+      it('should allow editing inputs when error is shown', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        expect(nameInput.props.editable).not.toBe(false);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        expect(tagInput.props.editable).not.toBe(false);
+      });
+
+      it('should keep retry button enabled when error is shown', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        const retryButton = screen.getByText('Retry');
+        expect(retryButton).toBeTruthy();
+      });
+    });
+
+    describe('Save with Validation Errors', () => {
+      it('should not save when name exceeds limit', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        expect(mockSave).not.toHaveBeenCalled();
+      });
+
+      it('should allow save with empty name and tags', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              name: '',
+              tags: [],
             })
           );
         });
