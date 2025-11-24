@@ -194,22 +194,68 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
    * This enables idempotent writes - if upload succeeds but DB insert
    * fails, retry will use the same ID and storage path.
    *
-   * Note: This mock implementation uses the v7 version identifier but
-   * does not include actual timestamp ordering. Real implementation
-   * should use a proper UUIDv7 library.
+   * UUIDv7 format (RFC 9562):
+   * - Bits 0-47: Unix timestamp in milliseconds (time-ordered)
+   * - Bits 48-51: Version (7)
+   * - Bits 52-63: Random data
+   * - Bits 64-65: Variant (10)
+   * - Bits 66-127: Random data
    */
   const getOrCreateItemId = useCallback((): string => {
     if (cachedItemIdRef.current) {
       return cachedItemIdRef.current;
     }
 
-    // Generate UUIDv7-like ID
-    // Real implementation would use: import { v7 as uuidv7 } from 'uuid';
-    const id = 'xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    });
+    // Generate UUIDv7 per RFC 9562
+    const timestamp = Date.now();
+
+    // Generate 10 bytes of random data for the random portions
+    const randomBytes = new Uint8Array(10);
+    for (let i = 0; i < 10; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
+
+    // Build the 16-byte UUID
+    // Bytes 0-5: timestamp (48 bits, big-endian)
+    // Byte 6: version (4 bits) + rand_a high (4 bits)
+    // Byte 7: rand_a low (8 bits)
+    // Byte 8: variant (2 bits) + rand_b high (6 bits)
+    // Bytes 9-15: rand_b (56 bits)
+
+    const bytes = new Uint8Array(16);
+
+    // Timestamp (48 bits, big-endian)
+    bytes[0] = (timestamp / 0x10000000000) & 0xff;
+    bytes[1] = (timestamp / 0x100000000) & 0xff;
+    bytes[2] = (timestamp / 0x1000000) & 0xff;
+    bytes[3] = (timestamp / 0x10000) & 0xff;
+    bytes[4] = (timestamp / 0x100) & 0xff;
+    bytes[5] = timestamp & 0xff;
+
+    // Version 7 (4 bits) + random (4 bits)
+    bytes[6] = 0x70 | (randomBytes[0] & 0x0f);
+
+    // Random (8 bits)
+    bytes[7] = randomBytes[1];
+
+    // Variant (2 bits = 10) + random (6 bits)
+    bytes[8] = 0x80 | (randomBytes[2] & 0x3f);
+
+    // Random (56 bits)
+    bytes[9] = randomBytes[3];
+    bytes[10] = randomBytes[4];
+    bytes[11] = randomBytes[5];
+    bytes[12] = randomBytes[6];
+    bytes[13] = randomBytes[7];
+    bytes[14] = randomBytes[8];
+    bytes[15] = randomBytes[9];
+
+    // Convert to hex string with hyphens
+    const hex = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 
     cachedItemIdRef.current = id;
     return id;
