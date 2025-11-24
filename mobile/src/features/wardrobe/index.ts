@@ -9,5 +9,6 @@
 
 export { WardrobeScreen } from './components/WardrobeScreen';
 export { CaptureScreen } from './components/CaptureScreen';
+export { ReviewDetailsScreen } from './components/ReviewDetailsScreen';
 export { CropScreen } from './crop';
 export { NAVIGATION_DEBOUNCE_MS, SETTINGS_RETURN_DELAY_MS } from './constants';
