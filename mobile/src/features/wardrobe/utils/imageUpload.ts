@@ -38,6 +38,12 @@ import { WARDROBE_STORAGE_CONFIG } from '../../onboarding/types/wardrobeItem';
  * 1. Reading file size after image processing
  * 2. Converting image files to ArrayBuffer for upload
  *
+ * Runtime Guards:
+ * - isFileAPIAvailable() checks if File API exists at runtime
+ * - ensureFileAPIAvailable() throws classified error if unavailable
+ * - File size reading: gracefully degrades to 0 if API unavailable (non-blocking)
+ * - ArrayBuffer reading: throws unsupported_platform error if unavailable (blocking)
+ *
  * @see https://docs.expo.dev/versions/latest/sdk/filesystem/
  */
 
@@ -68,6 +74,7 @@ export type UploadErrorType =
   | 'network'
   | 'storage'
   | 'permission'
+  | 'unsupported_platform'
   | 'unknown';
 
 /**
@@ -84,6 +91,41 @@ export class UploadError extends Error {
   ) {
     super(message);
     this.name = 'UploadError';
+  }
+}
+
+/**
+ * Checks if the File API from expo-file-system is available.
+ *
+ * The File class requires expo-file-system 17.0.0+ (Expo SDK 53+).
+ * This guard prevents runtime errors on older SDK versions or
+ * platforms where the API is not available.
+ *
+ * @returns true if File API is available, false otherwise
+ */
+function isFileAPIAvailable(): boolean {
+  try {
+    // Check if File is defined and is a constructor
+    return typeof File !== 'undefined' && typeof File === 'function';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ensures the File API is available, throwing a classified error if not.
+ *
+ * Provides a clear, actionable error message indicating the SDK version
+ * requirement when the API is unavailable.
+ *
+ * @throws UploadError with 'unsupported_platform' type if API unavailable
+ */
+function ensureFileAPIAvailable(): void {
+  if (!isFileAPIAvailable()) {
+    throw new UploadError(
+      'File API not available. Requires expo-file-system 17.0.0+ (Expo SDK 53+)',
+      'unsupported_platform'
+    );
   }
 }
 
@@ -186,8 +228,27 @@ export async function prepareImageForUpload(
 
     // Get file size for telemetry and validation using File API
     // Requires expo-file-system 17.0.0+ (Expo SDK 53+)
-    const file = new File(result.uri);
-    const fileSize = file.size ?? 0;
+    // Gracefully degrades to 0 if API unavailable (non-critical)
+    let fileSize = 0;
+    try {
+      ensureFileAPIAvailable();
+      const file = new File(result.uri);
+      fileSize = file.size ?? 0;
+    } catch (error) {
+      // If File API unavailable, log warning and continue with fileSize = 0
+      // This is non-critical - upload can proceed without file size metadata
+      if (error instanceof UploadError && error.errorType === 'unsupported_platform') {
+        logError(error, 'user', {
+          feature: 'wardrobe',
+          operation: 'image_preparation',
+          metadata: { phase: 'file_size_check' },
+        });
+        // Continue with fileSize = 0 (non-blocking)
+      } else {
+        // Re-throw unexpected errors
+        throw error;
+      }
+    }
 
     return {
       uri: result.uri,
@@ -238,11 +299,20 @@ export async function prepareImageForUpload(
  */
 async function readImageAsArrayBuffer(imageUri: string): Promise<ArrayBuffer> {
   try {
+    // Check File API availability before use (critical operation)
+    ensureFileAPIAvailable();
+
     // File API implements Blob interface (arrayBuffer, size, etc.)
     const file = new File(imageUri);
     const arrayBuffer = await file.arrayBuffer();
     return arrayBuffer;
   } catch (error) {
+    // Preserve unsupported_platform errors with proper classification
+    if (error instanceof UploadError && error.errorType === 'unsupported_platform') {
+      throw error;
+    }
+
+    // Classify other errors
     let message = 'Failed to read image file';
 
     if (error instanceof Error) {
