@@ -43,7 +43,7 @@ import { useTheme } from '../../../../core/theme';
 import { Button } from '../../../../core/components/Button';
 import { useStore } from '../../../../core/state/store';
 import { isCaptureImagePayload } from '../../../../core/types/capture';
-import { trackCaptureEvent } from '../../../../core/telemetry';
+import { trackCaptureEvent, logError } from '../../../../core/telemetry';
 import { computeCropRectangle, cropAndProcessImage } from '../utils/imageProcessing';
 
 /**
@@ -403,8 +403,10 @@ export function CropScreen(): React.JSX.Element {
       } catch (error) {
         // Orientation lock may fail on some platforms (web, certain devices)
         // This is not critical - log but don't prevent screen from loading
-        // eslint-disable-next-line no-console
-        console.warn('[CropScreen] Failed to lock orientation:', error);
+        logError(error, 'user', {
+          feature: 'crop',
+          operation: 'orientation_lock',
+        });
       }
     }
 
@@ -413,8 +415,10 @@ export function CropScreen(): React.JSX.Element {
     return () => {
       // Unlock orientation when leaving screen
       ScreenOrientation.unlockAsync().catch((error) => {
-        // eslint-disable-next-line no-console
-        console.warn('[CropScreen] Failed to unlock orientation:', error);
+        logError(error, 'user', {
+          feature: 'crop',
+          operation: 'orientation_unlock',
+        });
       });
     };
   }, []);
@@ -445,12 +449,14 @@ export function CropScreen(): React.JSX.Element {
    * unsupported format. Sets error state to show user-friendly message.
    */
   const handleImageLoadError = useCallback(() => {
-    if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error('[CropScreen] Image failed to load:', payload?.uri);
-    }
-
     setImageLoadError(true);
+
+    // Log error through telemetry system
+    logError(new Error('Image failed to load'), 'user', {
+      feature: 'crop',
+      operation: 'image_load',
+      metadata: { uri: payload?.uri },
+    });
 
     // Track image load failure
     trackCaptureEvent('crop_processing_failed', {
@@ -595,8 +601,6 @@ export function CropScreen(): React.JSX.Element {
         router.push('/onboarding/first-item');
       }
     } catch (error) {
-      console.error('[CropScreen] Processing failed:', error);
-
       // Classify error type for better telemetry
       let errorType = 'unknown';
       let errorMessage = 'unknown';
@@ -619,6 +623,13 @@ export function CropScreen(): React.JSX.Element {
           errorType = 'processing';
         }
       }
+
+      // Log error through telemetry system
+      logError(error, 'user', {
+        feature: 'crop',
+        operation: 'image_processing',
+        metadata: { errorType },
+      });
 
       // Track error with classification
       trackCaptureEvent('crop_processing_failed', {
