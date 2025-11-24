@@ -28,6 +28,7 @@ import {
   Animated,
   BackHandler,
   PanResponder,
+  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -823,6 +824,10 @@ export function CropScreen(): React.JSX.Element {
           paddingVertical: spacing.xs,
           backgroundColor: 'rgba(255, 255, 255, 0.2)',
           borderRadius: 4,
+          minHeight: 44,
+          minWidth: 44,
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         errorRetryButtonText: {
           color: '#FFFFFF',
@@ -1045,17 +1050,18 @@ export function CropScreen(): React.JSX.Element {
       {processingError && !isProcessing && (
         <View style={styles.errorOverlay}>
           <Text style={styles.errorOverlayText}>{processingError}</Text>
-          <Text
+          <Pressable
             style={styles.errorRetryButton}
             onPress={() => {
               setProcessingError(null);
               handleConfirm();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Retry processing"
+            accessibilityLabel={t('screens.crop.accessibility.retryButton')}
+            accessibilityHint={t('screens.crop.accessibility.retryHint')}
           >
             <Text style={styles.errorRetryButtonText}>{t('retry')}</Text>
-          </Text>
+          </Pressable>
         </View>
       )}
 
