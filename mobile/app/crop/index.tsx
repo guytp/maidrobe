@@ -7,10 +7,34 @@
  * The crop screen is used after image capture or gallery selection
  * to allow users to adjust and frame their wardrobe item photos.
  *
- * Route parameters: None (uses Zustand store for payload)
+ * NAVIGATION CONTRACT:
+ * --------------------
+ * Route Path: /crop
+ * Data Passing: Zustand store (captureSlice.payload)
+ *
+ * Required Payload (CaptureImagePayload):
+ *   - uri: string        - Local file URI (file:/// scheme)
+ *   - width: number      - Image width in pixels (> 0)
+ *   - height: number     - Image height in pixels (> 0)
+ *   - origin: string     - 'wardrobe' | 'onboarding'
+ *   - source: string     - 'camera' | 'gallery'
+ *   - createdAt: string  - ISO 8601 timestamp
+ *
+ * Feature Flag: capture.cropScreen
+ *   - When enabled: Screen renders normally
+ *   - When disabled: Redirects to /onboarding/first-item
+ *
+ * Entry Points:
+ *   - CaptureCameraScreen (after camera capture)
+ *   - useGallerySelection hook (after gallery pick)
+ *
+ * Exit Points:
+ *   - Confirm/Next -> /onboarding/first-item (with processed image)
+ *   - Back/Retake -> /wardrobe or /onboarding/first-item (based on origin)
  *
  * Protected route: requires authenticated user with verified email.
- * Feature-flagged: requires capture.cropScreen flag to be enabled.
+ *
+ * See: src/features/wardrobe/crop/NAVIGATION_CONTRACT.md for full details.
  *
  * @module app/crop
  */
