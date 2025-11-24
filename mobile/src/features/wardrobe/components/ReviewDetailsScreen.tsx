@@ -732,7 +732,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
                       onPress={() => removeTag(index)}
                       accessibilityLabel={`${t('screens.reviewDetails.accessibility.removeTag')}: ${tag}`}
                       accessibilityRole="button"
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
                       <Text style={styles.tagRemoveText}>x</Text>
                     </Pressable>
