@@ -20,6 +20,10 @@
  * @module features/wardrobe/hooks/useCreateItemWithImage
  */
 
+// Polyfill for crypto.getRandomValues() in React Native
+// Required for cryptographically secure random number generation
+import 'react-native-get-random-values';
+
 import { useCallback, useRef, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -200,6 +204,10 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
    * - Bits 52-63: Random data
    * - Bits 64-65: Variant (10)
    * - Bits 66-127: Random data
+   *
+   * Security: Uses crypto.getRandomValues() for cryptographically secure
+   * random data generation, ensuring item IDs are non-guessable and meet
+   * security requirements for private storage paths (user/{userId}/items/{itemId}/...).
    */
   const getOrCreateItemId = useCallback((): string => {
     if (cachedItemIdRef.current) {
@@ -209,11 +217,10 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
     // Generate UUIDv7 per RFC 9562
     const timestamp = Date.now();
 
-    // Generate 10 bytes of random data for the random portions
+    // Generate 10 bytes of cryptographically secure random data
+    // Using crypto.getRandomValues ensures non-guessable IDs for security
     const randomBytes = new Uint8Array(10);
-    for (let i = 0; i < 10; i++) {
-      randomBytes[i] = Math.floor(Math.random() * 256);
-    }
+    crypto.getRandomValues(randomBytes);
 
     // Build the 16-byte UUID
     // Bytes 0-5: timestamp (48 bits, big-endian)
