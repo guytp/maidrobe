@@ -38,6 +38,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import * as FileSystem from 'expo-file-system';
 import { t } from '../../../../core/i18n';
 import { useTheme } from '../../../../core/theme';
 import { Button } from '../../../../core/components/Button';
@@ -579,7 +580,20 @@ export function CropScreen(): React.JSX.Element {
         height: result.height,
       });
 
-      // Step 5: Navigate to item creation based on origin
+      // Step 5: Clean up original temporary file (non-blocking)
+      // Only delete if the processed image is at a different location
+      const originalUri = payload.uri;
+      if (originalUri !== result.uri) {
+        FileSystem.deleteAsync(originalUri, { idempotent: true }).catch((cleanupError) => {
+          // Log but don't fail - cleanup is best effort
+          logError(cleanupError, 'user', {
+            feature: 'crop',
+            operation: 'temp_file_cleanup',
+          });
+        });
+      }
+
+      // Step 6: Navigate to item creation based on origin
       if (payload.origin === 'onboarding') {
         // Onboarding flow: navigate to first item creation
         router.push('/onboarding/first-item');
