@@ -41,6 +41,9 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.reviewDetails.tagsLabel': 'Tags (optional)',
       'screens.reviewDetails.tagsHelper': 'Add tags to organize your wardrobe',
       'screens.reviewDetails.tagsPlaceholder': 'e.g., casual, summer',
+      'screens.reviewDetails.tagTooLong': 'Tag must be 30 characters or less',
+      'screens.reviewDetails.tagLimitReached': 'Maximum 20 tags reached',
+      'screens.reviewDetails.tagAlreadyAdded': 'Tag already added',
       'screens.reviewDetails.saveButton': 'Save',
       'screens.reviewDetails.saving': 'Saving...',
       'screens.reviewDetails.cancelButton': 'Cancel',
@@ -652,6 +655,734 @@ describe('ReviewDetailsScreen', () => {
       // Add one more to hit 81 - should show error
       fireEvent.changeText(input, 'A'.repeat(81));
       expect(screen.getByText('Name must be 80 characters or less')).toBeTruthy();
+    });
+  });
+
+  describe('Tag Input and Validation', () => {
+    describe('Tag Length Validation (30 char limit)', () => {
+      it('should accept tags under 30 characters', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer-casual');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('summer-casual')).toBeTruthy();
+        expect(screen.queryByText('Tag must be 30 characters or less')).toBeNull();
+      });
+
+      it('should accept tags exactly 30 characters', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+        const tag30Chars = 'A'.repeat(30);
+
+        fireEvent.changeText(tagInput, tag30Chars);
+        fireEvent.press(addButton);
+
+        expect(screen.getByText(tag30Chars.toLowerCase())).toBeTruthy();
+        expect(screen.queryByText('Tag must be 30 characters or less')).toBeNull();
+      });
+
+      it('should reject tags over 30 characters', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+        const tag31Chars = 'A'.repeat(31);
+
+        fireEvent.changeText(tagInput, tag31Chars);
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('Tag must be 30 characters or less')).toBeTruthy();
+        expect(screen.queryByText(tag31Chars.toLowerCase())).toBeNull();
+      });
+
+      it('should show feedback for very long tags', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+        const tag50Chars = 'A'.repeat(50);
+
+        fireEvent.changeText(tagInput, tag50Chars);
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('Tag must be 30 characters or less')).toBeTruthy();
+      });
+
+      it('should clear feedback when valid tag added', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // First try invalid tag
+        fireEvent.changeText(tagInput, 'A'.repeat(35));
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag must be 30 characters or less')).toBeTruthy();
+
+        // Then add valid tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.queryByText('Tag must be 30 characters or less')).toBeNull();
+      });
+    });
+
+    describe('Tag Count Limit (20 tags maximum)', () => {
+      it('should accept adding tags up to 20', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(screen.getByText('20/20 tags')).toBeTruthy();
+        expect(screen.queryByText('Maximum 20 tags reached')).toBeNull();
+      });
+
+      it('should block adding 21st tag', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        // At 20 tags, the tag21 should not be addable
+        expect(screen.queryByText('tag21')).toBeNull();
+        expect(screen.getByText('20/20 tags')).toBeTruthy();
+      });
+
+      it('should show tag count indicator', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Initially 0 tags
+        expect(screen.getByText('0/20 tags')).toBeTruthy();
+
+        // Add 5 tags
+        for (let i = 1; i <= 5; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(screen.getByText('5/20 tags')).toBeTruthy();
+      });
+
+      it('should disable tag input when at 20 tags', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(tagInput.props.editable).toBe(false);
+      });
+
+      it('should enable tag input after removing tag from limit', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(tagInput.props.editable).toBe(false);
+
+        // Remove one tag by clicking its remove button
+        const removeButtons = screen.getAllByText('x');
+        fireEvent.press(removeButtons[0]);
+
+        expect(tagInput.props.editable).toBe(true);
+        expect(screen.getByText('19/20 tags')).toBeTruthy();
+      });
+
+      it('should update placeholder when at limit', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(screen.getByPlaceholderText('Maximum 20 tags reached')).toBeTruthy();
+      });
+    });
+
+    describe('Tag Deduplication', () => {
+      it('should block duplicate tags with exact match', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add first tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('summer')).toBeTruthy();
+
+        // Try to add same tag again
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+      });
+
+      it('should detect duplicates case-insensitively', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add lowercase tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        // Try uppercase version
+        fireEvent.changeText(tagInput, 'SUMMER');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+
+        // Try mixed case
+        fireEvent.changeText(tagInput, 'SuMmEr');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+      });
+
+      it('should allow adding tag after duplicate removed', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('summer')).toBeTruthy();
+
+        // Try duplicate
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+
+        // Remove the tag
+        const removeButton = screen.getAllByText('x')[0];
+        fireEvent.press(removeButton);
+        expect(screen.queryByText('summer')).toBeNull();
+
+        // Now should be able to add it again
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(screen.queryByText('Tag already added')).toBeNull();
+      });
+
+      it('should clear duplicate feedback when typing', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        // Try duplicate
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+
+        // Start typing different tag
+        fireEvent.changeText(tagInput, 'casual');
+        expect(screen.queryByText('Tag already added')).toBeNull();
+      });
+    });
+
+    describe('Tag Normalization (lowercase)', () => {
+      it('should convert tags to lowercase on add', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add uppercase tag
+        fireEvent.changeText(tagInput, 'SUMMER');
+        fireEvent.press(addButton);
+
+        // Should display as lowercase
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(screen.queryByText('SUMMER')).toBeNull();
+      });
+
+      it('should normalize mixed case tags', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add mixed case tag
+        fireEvent.changeText(tagInput, 'SuMmEr-CaSuAl');
+        fireEvent.press(addButton);
+
+        // Should display as lowercase
+        expect(screen.getByText('summer-casual')).toBeTruthy();
+      });
+
+      it('should store multiple tags in lowercase', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        const tags = ['Summer', 'CASUAL', 'WoRk-WeAr'];
+
+        tags.forEach((tag) => {
+          fireEvent.changeText(tagInput, tag);
+          fireEvent.press(addButton);
+        });
+
+        // All should be lowercase
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(screen.getByText('casual')).toBeTruthy();
+        expect(screen.getByText('work-wear')).toBeTruthy();
+      });
+
+      it('should submit tags in lowercase', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add mixed case tags
+        fireEvent.changeText(tagInput, 'SUMMER');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'CaSuAl');
+        fireEvent.press(addButton);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: ['summer', 'casual'],
+            })
+          );
+        });
+      });
+    });
+
+    describe('Tag UI Rendering', () => {
+      it('should display tags as chips', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('summer')).toBeTruthy();
+      });
+
+      it('should display multiple tag chips', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        const tags = ['summer', 'casual', 'work'];
+        tags.forEach((tag) => {
+          fireEvent.changeText(tagInput, tag);
+          fireEvent.press(addButton);
+        });
+
+        tags.forEach((tag) => {
+          expect(screen.getByText(tag)).toBeTruthy();
+        });
+      });
+
+      it('should show remove button (x) on each tag chip', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'casual');
+        fireEvent.press(addButton);
+
+        const removeButtons = screen.getAllByText('x');
+        expect(removeButtons.length).toBe(2);
+      });
+
+      it('should remove correct tag when remove button clicked', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'casual');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'work');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(screen.getByText('casual')).toBeTruthy();
+        expect(screen.getByText('work')).toBeTruthy();
+
+        // Remove second tag (casual)
+        const removeButtons = screen.getAllByText('x');
+        fireEvent.press(removeButtons[1]);
+
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(screen.queryByText('casual')).toBeNull();
+        expect(screen.getByText('work')).toBeTruthy();
+      });
+
+      it('should update tag count when tags removed', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 3 tags
+        for (let i = 1; i <= 3; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        expect(screen.getByText('3/20 tags')).toBeTruthy();
+
+        // Remove one tag
+        const removeButtons = screen.getAllByText('x');
+        fireEvent.press(removeButtons[0]);
+
+        expect(screen.getByText('2/20 tags')).toBeTruthy();
+      });
+    });
+
+    describe('Tag Input Interactions', () => {
+      it('should add tag with Add button', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('summer')).toBeTruthy();
+      });
+
+      it('should add tag with Enter key', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent(tagInput, 'submitEditing');
+
+        expect(screen.getByText('summer')).toBeTruthy();
+      });
+
+      it('should add tag with space delimiter', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+
+        // Type tag with trailing space
+        fireEvent.changeText(tagInput, 'summer ');
+
+        expect(screen.getByText('summer')).toBeTruthy();
+      });
+
+      it('should clear input after successful add', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        expect(tagInput.props.value).toBe('');
+      });
+
+      it('should keep input if add fails validation', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        const longTag = 'A'.repeat(35);
+        fireEvent.changeText(tagInput, longTag);
+        fireEvent.press(addButton);
+
+        expect(tagInput.props.value).toBe(longTag);
+      });
+
+      it('should ignore empty input on Add', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, '');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('0/20 tags')).toBeTruthy();
+      });
+
+      it('should ignore whitespace-only input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, '   ');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('0/20 tags')).toBeTruthy();
+      });
+
+      it('should trim leading and trailing whitespace from tags', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, '  summer  ');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('summer')).toBeTruthy();
+        expect(tagInput.props.value).toBe('');
+      });
+    });
+
+    describe('Tag Feedback Messages', () => {
+      it('should show feedback for tag too long', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'A'.repeat(35));
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('Tag must be 30 characters or less')).toBeTruthy();
+      });
+
+      it('should show feedback for duplicate tag', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+      });
+
+      it('should show tag limit in placeholder when at limit', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 1; i <= 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        // Placeholder should indicate limit reached
+        expect(screen.getByPlaceholderText('Maximum 20 tags reached')).toBeTruthy();
+      });
+
+      it('should clear feedback when user types in input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Show feedback with long tag
+        fireEvent.changeText(tagInput, 'A'.repeat(35));
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag must be 30 characters or less')).toBeTruthy();
+
+        // Start typing - feedback should clear
+        fireEvent.changeText(tagInput, 'summer');
+        expect(screen.queryByText('Tag must be 30 characters or less')).toBeNull();
+      });
+
+      it('should clear feedback when valid tag added', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add tag
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        // Try duplicate - shows feedback
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+        expect(screen.getByText('Tag already added')).toBeTruthy();
+
+        // Add different tag - feedback should clear
+        fireEvent.changeText(tagInput, 'casual');
+        fireEvent.press(addButton);
+        expect(screen.queryByText('Tag already added')).toBeNull();
+      });
+    });
+
+    describe('Form Submission with Tags', () => {
+      it('should submit with no tags (optional field)', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: [],
+            })
+          );
+        });
+      });
+
+      it('should submit with single tag', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'summer');
+        fireEvent.press(addButton);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: ['summer'],
+            })
+          );
+        });
+      });
+
+      it('should submit with multiple tags', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        const tags = ['summer', 'casual', 'work'];
+        tags.forEach((tag) => {
+          fireEvent.changeText(tagInput, tag);
+          fireEvent.press(addButton);
+        });
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: ['summer', 'casual', 'work'],
+            })
+          );
+        });
+      });
+
+      it('should submit with 20 tags (maximum)', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        const expectedTags: string[] = [];
+        for (let i = 1; i <= 20; i++) {
+          const tag = `tag${i}`;
+          expectedTags.push(tag);
+          fireEvent.changeText(tagInput, tag);
+          fireEvent.press(addButton);
+        }
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: expectedTags,
+            })
+          );
+        });
+      });
+
+      it('should submit all tags in lowercase', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        fireEvent.changeText(tagInput, 'SUMMER');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'CaSuAl');
+        fireEvent.press(addButton);
+        fireEvent.changeText(tagInput, 'WoRk');
+        fireEvent.press(addButton);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+              tags: ['summer', 'casual', 'work'],
+            })
+          );
+        });
+      });
     });
   });
 });
