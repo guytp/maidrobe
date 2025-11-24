@@ -45,6 +45,7 @@ import { useStore } from '../../../../core/state/store';
 import { isCaptureImagePayload } from '../../../../core/types/capture';
 import { trackCaptureEvent, logError, logSuccess } from '../../../../core/telemetry';
 import { computeCropRectangle, cropAndProcessImage } from '../utils/imageProcessing';
+import { CropError, classifyError } from '../utils/errors';
 
 /**
  * Icon constants for crop screen.
@@ -589,34 +590,19 @@ export function CropScreen(): React.JSX.Element {
         router.push('/onboarding/first-item');
       }
     } catch (error) {
-      // Classify error type for better telemetry
-      let errorType = 'unknown';
-      let errorMessage = 'unknown';
+      // Use typed error classification instead of string matching
+      const errorCode = error instanceof CropError ? error.code : classifyError(error);
+      const errorMessage = error instanceof Error ? error.message : 'unknown';
+      const originalCause = error instanceof CropError ? error.cause : undefined;
 
-      if (error instanceof Error) {
-        errorMessage = error.message;
-
-        // Classify by error message patterns
-        if (errorMessage.includes('out of memory') || errorMessage.includes('OOM')) {
-          errorType = 'memory';
-        } else if (errorMessage.includes('file') || errorMessage.includes('ENOENT')) {
-          errorType = 'file_system';
-        } else if (errorMessage.includes('permission')) {
-          errorType = 'permission';
-        } else if (errorMessage.includes('corrupt') || errorMessage.includes('invalid')) {
-          errorType = 'corruption';
-        } else if (errorMessage.includes('network')) {
-          errorType = 'network';
-        } else {
-          errorType = 'processing';
-        }
-      }
-
-      // Log error through telemetry system
+      // Log error through telemetry system with cause preserved
       logError(error, 'user', {
         feature: 'crop',
         operation: 'image_processing',
-        metadata: { errorType },
+        metadata: {
+          errorCode,
+          hasCause: !!originalCause,
+        },
       });
 
       // Track error with classification
@@ -625,7 +611,7 @@ export function CropScreen(): React.JSX.Element {
         origin: payload?.origin,
         source: payload?.source,
         errorMessage,
-        errorCode: errorType,
+        errorCode,
       });
 
       // Show error to user
