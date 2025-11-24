@@ -1378,7 +1378,7 @@ describe('useCreateItemWithImage - Happy Path', () => {
 
       // Get all storage paths used
       const storagePaths = (mockImageUpload.generateStoragePath as jest.Mock).mock.results.map(
-        (r: { value: string }) => r.value
+        (r: jest.MockResult<string>) => r.value
       );
 
       // All should be identical
