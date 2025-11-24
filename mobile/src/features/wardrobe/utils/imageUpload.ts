@@ -17,6 +17,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { File } from 'expo-file-system';
 import { supabase } from '../../../services/supabase';
 import { logError } from '../../../core/telemetry';
+import { WARDROBE_STORAGE_CONFIG } from '../../onboarding/types/wardrobeItem';
 
 /**
  * Maximum dimension for longest edge after processing.
@@ -83,12 +84,15 @@ export interface PreparedImage {
  *
  * Path format: user/{userId}/items/{itemId}/original.jpg
  *
+ * Uses WARDROBE_STORAGE_CONFIG.pathTemplate as the single source of truth
+ * to ensure consistency with other parts of the codebase.
+ *
  * @param userId - The authenticated user's ID
  * @param itemId - The stable item ID (UUIDv7)
  * @returns Storage path string
  */
 export function generateStoragePath(userId: string, itemId: string): string {
-  return `user/${userId}/items/${itemId}/original.jpg`;
+  return WARDROBE_STORAGE_CONFIG.pathTemplate(userId, itemId);
 }
 
 /**
