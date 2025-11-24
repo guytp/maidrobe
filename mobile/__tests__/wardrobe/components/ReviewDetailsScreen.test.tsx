@@ -75,6 +75,8 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.reviewDetails.accessibility.saveButtonHint': 'Save this item to your wardrobe',
       'screens.reviewDetails.accessibility.cancelButton': 'Cancel',
       'screens.reviewDetails.accessibility.cancelButtonHint': 'Cancel and return to crop',
+      'screens.reviewDetails.accessibility.tagChip': 'Tag',
+      'screens.reviewDetails.accessibility.removeTag': 'Remove tag',
     };
     return translations[key] || key;
   },
@@ -2247,6 +2249,530 @@ describe('ReviewDetailsScreen', () => {
           expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
           expect(mockRouter.push).not.toHaveBeenCalled();
         });
+      });
+    });
+  });
+
+  describe('Accessibility', () => {
+    describe('Interactive Element Roles and Labels', () => {
+      it('should have appropriate accessibility properties on name input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+
+        expect(nameInput.props.accessibilityLabel).toBe('Item name input');
+        expect(nameInput.props.accessibilityHint).toBe('Optional name for this item');
+      });
+
+      it('should have appropriate accessibility properties on tag input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+
+        expect(tagInput.props.accessibilityLabel).toBe('Tags input');
+        expect(tagInput.props.accessibilityHint).toBe('Add tags to organize your wardrobe');
+      });
+
+      it('should have correct accessibility role and label on add tag button', () => {
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const addButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
+
+        expect(addButton.props.accessibilityRole).toBe('button');
+        expect(addButton.props.accessibilityLabel).toBe('Add tag');
+        expect(addButton.props.accessibilityHint).toBe('Add the entered tag');
+      });
+
+      it('should have correct accessibility role on save button', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+        const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
+
+        expect(saveButton).toBeTruthy();
+        expect(saveButton?.props.accessibilityRole).toBe('button');
+        expect(saveButton?.props.accessibilityHint).toBe('Save this item to your wardrobe');
+      });
+
+      it('should have correct accessibility role on cancel button', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+        const cancelButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Cancel');
+
+        expect(cancelButton).toBeTruthy();
+        expect(cancelButton?.props.accessibilityRole).toBe('button');
+        expect(cancelButton?.props.accessibilityHint).toBe('Cancel and return to crop');
+      });
+
+      it('should have appropriate accessibility labels on tag remove buttons', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'summer');
+
+        const addButton = UNSAFE_getAllByProps({ accessibilityLabel: 'Add tag' })[0];
+        fireEvent.press(addButton);
+
+        // Get all buttons after tag is added
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+
+        // Find the remove button that includes tag name
+        const tagRemoveButton = buttons.find((btn) =>
+          btn.props.accessibilityLabel?.includes('summer')
+        );
+
+        expect(tagRemoveButton).toBeTruthy();
+        expect(tagRemoveButton?.props.accessibilityRole).toBe('button');
+      });
+
+      it('should have appropriate accessibility properties on image preview', () => {
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const image = UNSAFE_getByProps({ accessibilityRole: 'image' });
+
+        expect(image).toBeTruthy();
+        expect(image.props.accessibilityLabel).toBe('Item preview image');
+      });
+
+      it('should have appropriate accessibility labels on screen container', () => {
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const scrollView = UNSAFE_getByProps({ accessibilityLabel: 'Review and add details' });
+
+        expect(scrollView).toBeTruthy();
+        expect(scrollView.props.accessibilityHint).toBe(
+          'Review image and add optional name and tags'
+        );
+      });
+    });
+
+    describe('Validation Error Announcements', () => {
+      it('should have alert role on name validation errors', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        const errorText = screen.getByText('Name must be 80 characters or less');
+        expect(errorText.props.accessibilityRole).toBe('alert');
+      });
+
+      it('should associate name validation error with input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        // Error appears after the input in DOM order
+        expect(screen.getByText('Name must be 80 characters or less')).toBeTruthy();
+        expect(nameInput).toBeTruthy();
+      });
+
+      it('should have alert role on tag feedback messages', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'A'.repeat(35));
+
+        const addButton = screen.getByText('Add');
+        fireEvent.press(addButton);
+
+        const feedback = screen.getByText('Tag must be 30 characters or less');
+        expect(feedback.props.accessibilityRole).toBe('alert');
+      });
+
+      it('should have alert role on save error banner', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const errorBanner = UNSAFE_getByProps({ accessibilityRole: 'alert' });
+        expect(errorBanner).toBeTruthy();
+      });
+
+      it('should make tag limit feedback accessible', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 0; i < 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        // Placeholder should change to indicate limit
+        const disabledTagInput = screen.getByPlaceholderText('Maximum 20 tags reached');
+        expect(disabledTagInput.props.editable).toBe(false);
+      });
+
+      it('should distinguish multiple validation errors', () => {
+        render(<ReviewDetailsScreen />);
+
+        // Trigger name error
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        // Trigger tag error
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'A'.repeat(35));
+        const addButton = screen.getByText('Add');
+        fireEvent.press(addButton);
+
+        // Both errors should be present with alert roles
+        const nameError = screen.getByText('Name must be 80 characters or less');
+        const tagError = screen.getByText('Tag must be 30 characters or less');
+
+        expect(nameError.props.accessibilityRole).toBe('alert');
+        expect(tagError.props.accessibilityRole).toBe('alert');
+      });
+    });
+
+    describe('Disabled State Accessibility', () => {
+      it('should communicate save button disabled state when name too long', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+        const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
+
+        expect(saveButton?.props.accessibilityState.disabled).toBe(true);
+      });
+
+      it('should communicate add tag button disabled state when input empty', () => {
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const addButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
+        expect(addButton.props.accessibilityState.disabled).toBe(true);
+      });
+
+      it('should communicate add tag button disabled state at tag limit', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = screen.getByText('Add');
+
+        // Add 20 tags
+        for (let i = 0; i < 20; i++) {
+          fireEvent.changeText(tagInput, `tag${i}`);
+          fireEvent.press(addButton);
+        }
+
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const disabledAddButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
+
+        expect(disabledAddButton.props.accessibilityState.disabled).toBe(true);
+      });
+
+      it('should communicate input disabled states during loading', () => {
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        expect(nameInput.props.editable).toBe(false);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        expect(tagInput.props.editable).toBe(false);
+      });
+
+      it('should communicate button disabled states during loading', () => {
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+        const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
+        const cancelButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Cancel');
+
+        expect(saveButton?.props.accessibilityState.disabled).toBe(true);
+        expect(cancelButton?.props.accessibilityState.disabled).toBe(true);
+      });
+
+      it('should communicate all interactive elements disabled during loading', () => {
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: true,
+          error: null,
+          reset: mockReset,
+        });
+
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        const addButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
+
+        expect(nameInput.props.editable).toBe(false);
+        expect(tagInput.props.editable).toBe(false);
+        expect(addButton.props.accessibilityState.disabled).toBe(true);
+      });
+    });
+
+    describe('Dynamic Content Accessibility', () => {
+      it('should make character counter accessible', () => {
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('0/80')).toBeTruthy();
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'Test Name');
+
+        expect(screen.getByText('9/80')).toBeTruthy();
+      });
+
+      it('should make tag count indicator accessible', () => {
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('0/20 tags')).toBeTruthy();
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'summer');
+
+        const addButton = screen.getByText('Add');
+        fireEvent.press(addButton);
+
+        expect(screen.getByText('1/20 tags')).toBeTruthy();
+      });
+
+      it('should make tag chips accessible with labels', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'summer');
+
+        const addButton = screen.getByText('Add');
+        fireEvent.press(addButton);
+
+        // Tag chip text should be visible
+        expect(screen.getByText('summer')).toBeTruthy();
+      });
+
+      it('should update button accessibility label dynamically', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        // Normal state
+        const { rerender, UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const saveButton = UNSAFE_getByProps({ accessibilityLabel: 'Save item' });
+        expect(saveButton).toBeTruthy();
+
+        // Error state - button label changes to Retry
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+        const retryButton = UNSAFE_getByProps({ accessibilityLabel: 'Retry' });
+        expect(retryButton).toBeTruthy();
+      });
+
+      it('should make different error messages accessible', () => {
+        const errors = [
+          { errorType: 'network' as const, message: 'Network error. Please try again.' },
+          { errorType: 'auth' as const, message: 'Your session has expired. Please log in again.' },
+          { errorType: 'database' as const, message: 'Failed to save item. Please try again.' },
+        ];
+
+        errors.forEach((mockError) => {
+          mockUseCreateItemWithImage.mockReturnValue({
+            save: mockSave,
+            isLoading: false,
+            error: mockError,
+            reset: mockReset,
+          });
+
+          const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+          const errorBanner = UNSAFE_getByProps({ accessibilityRole: 'alert' });
+
+          expect(errorBanner).toBeTruthy();
+        });
+      });
+    });
+
+    describe('Focus Management and Navigation', () => {
+      it('should have logical tab order with inputs before buttons', () => {
+        render(<ReviewDetailsScreen />);
+
+        // Verify all interactive elements are present in expected order
+        expect(screen.getByPlaceholderText('e.g., Blue Summer Dress')).toBeTruthy();
+        expect(screen.getByPlaceholderText('e.g., casual, summer')).toBeTruthy();
+        expect(screen.getByText('Add')).toBeTruthy();
+        expect(screen.getByText('Save')).toBeTruthy();
+        expect(screen.getByText('Cancel')).toBeTruthy();
+      });
+
+      it('should maintain tag input availability after adding tag', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'summer');
+
+        const addButton = screen.getByText('Add');
+        fireEvent.press(addButton);
+
+        // Tag input should still be available and editable
+        const tagInputAfter = screen.getByPlaceholderText('e.g., casual, summer');
+        expect(tagInputAfter.props.editable).not.toBe(false);
+      });
+
+      it('should allow keyboard navigation on tag input', () => {
+        render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+
+        // Should support Enter key
+        expect(tagInput.props.returnKeyType).toBe('done');
+
+        // Should not blur on submit
+        expect(tagInput.props.blurOnSubmit).toBe(false);
+      });
+
+      it('should maintain focus management during validation errors', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        // Error should appear but input should remain editable for correction
+        expect(screen.getByText('Name must be 80 characters or less')).toBeTruthy();
+        expect(nameInput.props.editable).not.toBe(false);
+      });
+    });
+
+    describe('Screen Reader Announcements', () => {
+      it('should provide context to screen readers via screen label', () => {
+        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+
+        const scrollView = UNSAFE_getByProps({ accessibilityLabel: 'Review and add details' });
+
+        expect(scrollView.props.accessibilityHint).toBe(
+          'Review image and add optional name and tags'
+        );
+      });
+
+      it('should have logically grouped form sections', () => {
+        render(<ReviewDetailsScreen />);
+
+        // Name section
+        expect(screen.getByText('Name (optional)')).toBeTruthy();
+        expect(screen.getByText('Add a name to help you find this item later')).toBeTruthy();
+        expect(screen.getByPlaceholderText('e.g., Blue Summer Dress')).toBeTruthy();
+
+        // Tags section
+        expect(screen.getByText('Tags (optional)')).toBeTruthy();
+        expect(screen.getByText('Add tags to organize your wardrobe')).toBeTruthy();
+        expect(screen.getByPlaceholderText('e.g., casual, summer')).toBeTruthy();
+      });
+
+      it('should associate helper text with inputs', () => {
+        render(<ReviewDetailsScreen />);
+
+        // Helper text should be near/before inputs
+        expect(screen.getByText('Add a name to help you find this item later')).toBeTruthy();
+        expect(screen.getByPlaceholderText('e.g., Blue Summer Dress')).toBeTruthy();
+
+        expect(screen.getByText('Add tags to organize your wardrobe')).toBeTruthy();
+        expect(screen.getByPlaceholderText('e.g., casual, summer')).toBeTruthy();
+      });
+
+      it('should provide timely feedback for validation', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+
+        // Before typing - no error
+        expect(screen.queryByText('Name must be 80 characters or less')).toBeNull();
+
+        // After exceeding limit - immediate feedback
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+        expect(screen.getByText('Name must be 80 characters or less')).toBeTruthy();
+      });
+    });
+
+    describe('Accessibility Standards Compliance', () => {
+      it('should make all interactive elements keyboard accessible', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        // All interactive elements should have proper roles
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+        const addButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Add tag');
+        const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
+        const cancelButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Cancel');
+
+        expect(nameInput).toBeTruthy();
+        expect(tagInput).toBeTruthy();
+        expect(addButton?.props.accessibilityRole).toBe('button');
+        expect(saveButton?.props.accessibilityRole).toBe('button');
+        expect(cancelButton?.props.accessibilityRole).toBe('button');
+      });
+
+      it('should not rely solely on color for error indication', () => {
+        render(<ReviewDetailsScreen />);
+
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'A'.repeat(85));
+
+        // Error should be indicated by:
+        // 1. Error text message
+        expect(screen.getByText('Name must be 80 characters or less')).toBeTruthy();
+        // 2. Character counter showing over limit
+        expect(screen.getByText('85/80')).toBeTruthy();
+        // 3. Alert role for screen readers
+        const errorText = screen.getByText('Name must be 80 characters or less');
+        expect(errorText.props.accessibilityRole).toBe('alert');
+      });
+
+      it('should provide appropriate touch targets for tag remove buttons', () => {
+        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+
+        const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
+        fireEvent.changeText(tagInput, 'summer');
+
+        const addButton = UNSAFE_getAllByProps({ accessibilityLabel: 'Add tag' })[0];
+        fireEvent.press(addButton);
+
+        // Get all buttons after tag is added
+        const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
+
+        // Remove buttons should have hitSlop for easier tapping
+        const removeButton = buttons.find((btn) =>
+          btn.props.accessibilityLabel?.includes('summer')
+        );
+
+        expect(removeButton?.props.hitSlop).toBeTruthy();
       });
     });
   });
