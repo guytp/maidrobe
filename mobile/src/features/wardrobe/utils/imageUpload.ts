@@ -242,8 +242,8 @@ async function readImageAsArrayBuffer(imageUri: string): Promise<ArrayBuffer> {
  * @param error - Error from Supabase storage operation
  * @returns Appropriate UploadErrorType
  */
-function classifyStorageError(error: unknown): UploadErrorType {
-  if (!(error instanceof Error) && typeof error !== 'object') {
+export function classifyStorageError(error: unknown): UploadErrorType {
+  if (!(error instanceof Error) && (typeof error !== 'object' || error === null)) {
     return 'unknown';
   }
 

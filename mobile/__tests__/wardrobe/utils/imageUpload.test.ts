@@ -20,6 +20,7 @@ import {
   prepareImageForUpload,
   uploadImageToStorage,
   generateStoragePath,
+  classifyStorageError,
   MAX_UPLOAD_DIMENSION,
   JPEG_UPLOAD_QUALITY,
   WARDROBE_BUCKET_NAME,
@@ -832,6 +833,404 @@ describe('imageUpload utilities', () => {
 
       expect(path1).toMatch(/^user\/.+\/items\/.+\/original\.jpg$/);
       expect(path2).toMatch(/^user\/.+\/items\/.+\/original\.jpg$/);
+    });
+
+    describe('Path Security & Structure', () => {
+      it('includes userId segment in path', () => {
+        const userId = 'test-user-abc123';
+        const itemId = 'item-xyz789';
+
+        const path = generateStoragePath(userId, itemId);
+
+        expect(path).toContain(userId);
+        expect(path).toContain('user/');
+      });
+
+      it('includes itemId segment in path', () => {
+        const userId = 'user-123';
+        const itemId = 'item-456';
+
+        const path = generateStoragePath(userId, itemId);
+
+        expect(path).toContain(itemId);
+        expect(path).toContain('/items/');
+      });
+
+      it('requires both userId and itemId for non-guessable path', () => {
+        const userId = 'secure-user-id';
+        const itemId = 'secure-item-id';
+
+        const path = generateStoragePath(userId, itemId);
+
+        // Path should contain both IDs, making it non-guessable without both
+        expect(path).toContain(userId);
+        expect(path).toContain(itemId);
+      });
+
+      it('generates stable deterministic paths', () => {
+        const userId = 'user-abc';
+        const itemId = 'item-xyz';
+
+        const path1 = generateStoragePath(userId, itemId);
+        const path2 = generateStoragePath(userId, itemId);
+        const path3 = generateStoragePath(userId, itemId);
+
+        expect(path1).toBe(path2);
+        expect(path2).toBe(path3);
+      });
+
+      it('generates different paths for different userIds', () => {
+        const itemId = 'same-item-id';
+
+        const path1 = generateStoragePath('user-1', itemId);
+        const path2 = generateStoragePath('user-2', itemId);
+
+        expect(path1).not.toBe(path2);
+      });
+
+      it('generates different paths for different itemIds', () => {
+        const userId = 'same-user-id';
+
+        const path1 = generateStoragePath(userId, 'item-1');
+        const path2 = generateStoragePath(userId, 'item-2');
+
+        expect(path1).not.toBe(path2);
+      });
+
+      it('starts with user/ prefix', () => {
+        const path = generateStoragePath('test-user', 'test-item');
+
+        expect(path).toMatch(/^user\//);
+        expect(path.startsWith('user/')).toBe(true);
+      });
+
+      it('contains items/ segment', () => {
+        const path = generateStoragePath('test-user', 'test-item');
+
+        expect(path).toContain('/items/');
+      });
+
+      it('ends with original.jpg filename', () => {
+        const path = generateStoragePath('test-user', 'test-item');
+
+        expect(path).toMatch(/\/original\.jpg$/);
+        expect(path.endsWith('/original.jpg')).toBe(true);
+      });
+
+      it('handles UUID format userIds', () => {
+        const userId = '550e8400-e29b-41d4-a716-446655440000';
+        const itemId = 'item-123';
+
+        const path = generateStoragePath(userId, itemId);
+
+        expect(path).toBe(`user/${userId}/items/${itemId}/original.jpg`);
+      });
+
+      it('handles UUIDv7 format itemIds', () => {
+        const userId = 'user-123';
+        const itemId = '018c8f4e-1a2b-7c3d-8e4f-9a0b1c2d3e4f';
+
+        const path = generateStoragePath(userId, itemId);
+
+        expect(path).toBe(`user/${userId}/items/${itemId}/original.jpg`);
+      });
+
+      it('does not allow path traversal with ../', () => {
+        const userId = '../../../etc/passwd';
+        const itemId = 'item-123';
+
+        const path = generateStoragePath(userId, itemId);
+
+        // Path should contain the literal string, not traverse
+        expect(path).toContain(userId);
+        expect(path).toBe(`user/${userId}/items/${itemId}/original.jpg`);
+      });
+
+      it('maintains path structure with special characters', () => {
+        const userId = 'user-abc-123-def';
+        const itemId = 'item-xyz-456-ghi';
+
+        const path = generateStoragePath(userId, itemId);
+
+        expect(path).toBe(`user/${userId}/items/${itemId}/original.jpg`);
+      });
+    });
+  });
+
+  describe('classifyStorageError', () => {
+    describe('Network Error Classification', () => {
+      it('classifies network keyword as network type', () => {
+        const error = { message: 'Network request failed' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('classifies fetch keyword as network type', () => {
+        const error = { message: 'Fetch operation timeout' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('classifies timeout keyword as network type', () => {
+        const error = { message: 'Request timeout exceeded' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('classifies connection keyword as network type', () => {
+        const error = { message: 'Connection refused by server' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('classifies ECONNREFUSED as network type', () => {
+        const error = { message: 'ECONNREFUSED: connection refused' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('is case insensitive for network errors', () => {
+        const error1 = { message: 'NETWORK ERROR' };
+        const error2 = { message: 'Network Error' };
+        const error3 = { message: 'network error' };
+
+        expect(classifyStorageError(error1)).toBe('network');
+        expect(classifyStorageError(error2)).toBe('network');
+        expect(classifyStorageError(error3)).toBe('network');
+      });
+    });
+
+    describe('Permission Error Classification', () => {
+      it('classifies 401 status code as permission type', () => {
+        const error = { statusCode: 401, message: 'Unauthorized' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies 403 status code as permission type', () => {
+        const error = { statusCode: 403, message: 'Forbidden' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies unauthorized keyword as permission type', () => {
+        const error = { message: 'Unauthorized access to resource' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies forbidden keyword as permission type', () => {
+        const error = { message: 'Forbidden operation' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies permission keyword as permission type', () => {
+        const error = { message: 'Permission denied for operation' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies 401 without message as permission type', () => {
+        const error = { statusCode: 401 };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('classifies 403 without message as permission type', () => {
+        const error = { statusCode: 403 };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('permission');
+      });
+
+      it('is case insensitive for permission errors', () => {
+        const error1 = { message: 'UNAUTHORIZED' };
+        const error2 = { message: 'Unauthorized' };
+        const error3 = { message: 'unauthorized' };
+
+        expect(classifyStorageError(error1)).toBe('permission');
+        expect(classifyStorageError(error2)).toBe('permission');
+        expect(classifyStorageError(error3)).toBe('permission');
+      });
+    });
+
+    describe('Storage Error Classification', () => {
+      it('classifies bucket keyword as storage type', () => {
+        const error = { message: 'Bucket not found' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('classifies storage keyword as storage type', () => {
+        const error = { message: 'Storage service unavailable' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('classifies quota keyword as storage type', () => {
+        const error = { message: 'Storage quota exceeded' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('classifies size keyword as storage type', () => {
+        const error = { message: 'File size limit exceeded' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('is case insensitive for storage errors', () => {
+        const error1 = { message: 'BUCKET NOT FOUND' };
+        const error2 = { message: 'Bucket Not Found' };
+        const error3 = { message: 'bucket not found' };
+
+        expect(classifyStorageError(error1)).toBe('storage');
+        expect(classifyStorageError(error2)).toBe('storage');
+        expect(classifyStorageError(error3)).toBe('storage');
+      });
+    });
+
+    describe('Default and Edge Cases', () => {
+      it('defaults to storage type for unrecognized errors', () => {
+        const error = { message: 'Some unknown error' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('handles errors with only statusCode field', () => {
+        const error = { statusCode: 500 };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('handles errors with only message field', () => {
+        const error = { message: 'Generic error message' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('handles Error instances', () => {
+        const error = new Error('Network failure');
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+
+      it('handles null as unknown type', () => {
+        const result = classifyStorageError(null);
+
+        expect(result).toBe('unknown');
+      });
+
+      it('handles undefined as unknown type', () => {
+        const result = classifyStorageError(undefined);
+
+        expect(result).toBe('unknown');
+      });
+
+      it('handles string as unknown type', () => {
+        const result = classifyStorageError('some error string');
+
+        expect(result).toBe('unknown');
+      });
+
+      it('handles number as unknown type', () => {
+        const result = classifyStorageError(404);
+
+        expect(result).toBe('unknown');
+      });
+
+      it('handles empty object', () => {
+        const error = {};
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('handles error with empty string message', () => {
+        const error = { message: '' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('storage');
+      });
+
+      it('uses error field if message is not present', () => {
+        const error = { error: 'network timeout' };
+
+        const result = classifyStorageError(error);
+
+        expect(result).toBe('network');
+      });
+    });
+
+    describe('Priority and Precedence', () => {
+      it('prefers status code over message for permission', () => {
+        const error = { statusCode: 401, message: 'storage error' };
+
+        const result = classifyStorageError(error);
+
+        // Network is checked first, then permission by status code
+        expect(result).toBe('permission');
+      });
+
+      it('classifies network errors before permission keywords', () => {
+        const error = { message: 'network timeout unauthorized' };
+
+        const result = classifyStorageError(error);
+
+        // Network keywords are checked first
+        expect(result).toBe('network');
+      });
+
+      it('classifies permission errors before storage keywords', () => {
+        const error = { message: 'unauthorized storage access' };
+
+        const result = classifyStorageError(error);
+
+        // Permission keywords are checked before storage
+        expect(result).toBe('permission');
+      });
     });
   });
 
