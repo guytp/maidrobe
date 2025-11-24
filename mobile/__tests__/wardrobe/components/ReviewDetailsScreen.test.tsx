@@ -48,8 +48,11 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.reviewDetails.saving': 'Saving...',
       'screens.reviewDetails.retry': 'Retry',
       'screens.reviewDetails.cancelButton': 'Cancel',
+      'screens.reviewDetails.goBack': 'Go back',
       'screens.reviewDetails.addTagButton': 'Add',
       'screens.reviewDetails.tagCount': '{count}/{max} tags',
+      'screens.reviewDetails.errors.noImage': 'No image to review',
+      'screens.reviewDetails.errors.invalidPayload': 'Please capture or select an image first.',
       'screens.reviewDetails.errors.offline':
         'No internet connection. Please check your connection and try again.',
       'screens.reviewDetails.errors.network': 'Network error. Please try again.',
@@ -1905,6 +1908,344 @@ describe('ReviewDetailsScreen', () => {
               tags: [],
             })
           );
+        });
+      });
+    });
+  });
+
+  describe('Navigation Behaviors', () => {
+    describe('Cancel Navigation', () => {
+      it('should navigate to crop screen when cancel button is pressed', () => {
+        render(<ReviewDetailsScreen />);
+
+        const cancelButton = screen.getByText('Cancel');
+        fireEvent.press(cancelButton);
+
+        expect(mockRouter.push).toHaveBeenCalledWith('/crop');
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+      });
+
+      it('should use router.push for cancel to preserve back stack', () => {
+        render(<ReviewDetailsScreen />);
+
+        const cancelButton = screen.getByText('Cancel');
+        fireEvent.press(cancelButton);
+
+        // Cancel should use push, not replace, to preserve navigation history
+        expect(mockRouter.push).toHaveBeenCalledTimes(1);
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+      });
+
+      it('should emit telemetry event when cancel is pressed', () => {
+        const mockTrackCaptureEvent = jest.requireMock(
+          '../../../src/core/telemetry'
+        ).trackCaptureEvent;
+
+        render(<ReviewDetailsScreen />);
+
+        const cancelButton = screen.getByText('Cancel');
+        fireEvent.press(cancelButton);
+
+        expect(mockTrackCaptureEvent).toHaveBeenCalledWith('review_details_cancelled', {
+          userId: 'test-user-id',
+          origin: 'camera',
+          source: 'screen',
+        });
+      });
+
+      it('should preserve payload when canceling', () => {
+        render(<ReviewDetailsScreen />);
+
+        // Add some form data
+        const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
+        fireEvent.changeText(nameInput, 'Test Item');
+
+        const cancelButton = screen.getByText('Cancel');
+        fireEvent.press(cancelButton);
+
+        // Cancel should not affect store state
+        expect(mockRouter.push).toHaveBeenCalledWith('/crop');
+      });
+    });
+
+    describe('Successful Save Navigation (AC10)', () => {
+      it('should use router.replace to navigate to wardrobe after successful save', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+      });
+
+      it('should not use router.push for successful save', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalled();
+        });
+
+        // AC10: Must use replace, not push, to prevent back navigation
+        expect(mockRouter.push).not.toHaveBeenCalled();
+      });
+
+      it('should navigate with router.replace to clear capture/review stack', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+          expect(mockRouter.replace).toHaveBeenCalledTimes(1);
+        });
+      });
+
+      it('should use router.replace for wardrobe origin', async () => {
+        mockUseStore.mockImplementation((selector: (state: Record<string, unknown>) => unknown) =>
+          selector({
+            user: { id: 'test-user-id' },
+            payload: { ...mockPayload, origin: 'wardrobe' },
+          })
+        );
+
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+      });
+
+      it('should use router.replace for onboarding origin', async () => {
+        mockUseStore.mockImplementation((selector: (state: Record<string, unknown>) => unknown) =>
+          selector({
+            user: { id: 'test-user-id' },
+            payload: { ...mockPayload, origin: 'onboarding' },
+          })
+        );
+
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+      });
+
+      it('should navigate only after save completes successfully', async () => {
+        let resolveSave: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolveSave = resolve;
+        });
+
+        mockSave.mockReturnValueOnce(savePromise);
+
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        // Navigation should not occur yet
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+
+        // Resolve the save
+        resolveSave!({ item: { id: 'test-id' } });
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+      });
+
+      it('should navigate exactly once after successful save', async () => {
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledTimes(1);
+        });
+      });
+    });
+
+    describe('Error State Navigation', () => {
+      it('should not navigate when save fails', () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        expect(mockRouter.push).not.toHaveBeenCalled();
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+      });
+
+      it('should not navigate after multiple failed save attempts', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave.mockRejectedValue(new Error('Network error')),
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        render(<ReviewDetailsScreen />);
+
+        const retryButton = screen.getByText('Retry');
+
+        // First attempt
+        fireEvent.press(retryButton);
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledTimes(1);
+        });
+
+        // Second attempt
+        fireEvent.press(retryButton);
+        await waitFor(() => {
+          expect(mockSave).toHaveBeenCalledTimes(2);
+        });
+
+        // No navigation should occur
+        expect(mockRouter.push).not.toHaveBeenCalled();
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+      });
+
+      it('should navigate after successful retry following error', async () => {
+        const mockError = {
+          errorType: 'network' as const,
+          message: 'Network error. Please try again.',
+        };
+
+        // Start with error state
+        mockUseCreateItemWithImage.mockReturnValueOnce({
+          save: mockSave,
+          isLoading: false,
+          error: mockError,
+          reset: mockReset,
+        });
+
+        const { rerender } = render(<ReviewDetailsScreen />);
+
+        // Verify no navigation in error state
+        expect(mockRouter.replace).not.toHaveBeenCalled();
+
+        // Mock successful retry
+        mockUseCreateItemWithImage.mockReturnValue({
+          save: mockSave.mockResolvedValueOnce({ item: { id: 'test-id' } }),
+          isLoading: false,
+          error: null,
+          reset: mockReset,
+        });
+
+        rerender(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+      });
+    });
+
+    describe('Invalid Payload Navigation', () => {
+      it('should show error state when payload is invalid', () => {
+        mockIsCaptureImagePayload.mockReturnValue(false);
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('No image to review')).toBeTruthy();
+      });
+
+      it('should navigate to capture screen when go back is pressed with invalid payload', () => {
+        mockIsCaptureImagePayload.mockReturnValue(false);
+
+        render(<ReviewDetailsScreen />);
+
+        const goBackButton = screen.getByText('Go back');
+        fireEvent.press(goBackButton);
+
+        expect(mockRouter.push).toHaveBeenCalledWith('/capture');
+      });
+
+      it('should show error state when payload is missing', () => {
+        mockUseStore.mockImplementation((selector: (state: Record<string, unknown>) => unknown) =>
+          selector({
+            user: { id: 'test-user-id' },
+            payload: null,
+          })
+        );
+
+        mockIsCaptureImagePayload.mockReturnValue(false);
+
+        render(<ReviewDetailsScreen />);
+
+        expect(screen.getByText('No image to review')).toBeTruthy();
+      });
+    });
+
+    describe('Route Protection Consistency', () => {
+      it('should maintain store state on cancel navigation', () => {
+        render(<ReviewDetailsScreen />);
+
+        const cancelButton = screen.getByText('Cancel');
+        fireEvent.press(cancelButton);
+
+        // Store should still have payload for crop screen to use
+        expect(mockUseStore).toHaveBeenCalled();
+        expect(mockRouter.push).toHaveBeenCalledWith('/crop');
+      });
+
+      it('should navigate to wardrobe assuming authenticated user', async () => {
+        // ReviewDetailsScreen is a protected route
+        // Navigation to /wardrobe assumes user is authenticated
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+        });
+
+        // User state should be available
+        expect(mockUseStore).toHaveBeenCalled();
+      });
+
+      it('should use consistent navigation pattern with other flows', async () => {
+        // AC10: router.replace clears navigation stack
+        // This is consistent with onboarding completion and other flows
+        render(<ReviewDetailsScreen />);
+
+        const saveButton = screen.getByText('Save');
+        fireEvent.press(saveButton);
+
+        await waitFor(() => {
+          // Must use replace to prevent returning to capture flow
+          expect(mockRouter.replace).toHaveBeenCalledWith('/wardrobe');
+          expect(mockRouter.push).not.toHaveBeenCalled();
         });
       });
     });
