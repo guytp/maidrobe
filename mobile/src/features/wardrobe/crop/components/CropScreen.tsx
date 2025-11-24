@@ -46,7 +46,7 @@ import { useStore } from '../../../../core/state/store';
 import { isCaptureImagePayload } from '../../../../core/types/capture';
 import { trackCaptureEvent, logError, logSuccess } from '../../../../core/telemetry';
 import { computeCropRectangle, cropAndProcessImage } from '../utils/imageProcessing';
-import { CropError, classifyError } from '../utils/errors';
+import { CropError, classifyError, formatErrorForLogging } from '../utils/errors';
 
 /**
  * Icon constants for crop screen.
@@ -594,18 +594,20 @@ export function CropScreen(): React.JSX.Element {
         router.push('/onboarding/first-item');
       }
     } catch (error) {
-      // Use typed error classification instead of string matching
+      // Format error with full cause chain for comprehensive logging
+      const errorLogData = formatErrorForLogging(error);
       const errorCode = error instanceof CropError ? error.code : classifyError(error);
-      const errorMessage = error instanceof Error ? error.message : 'unknown';
-      const originalCause = error instanceof CropError ? error.cause : undefined;
 
-      // Log error through telemetry system with cause preserved
+      // Log error through telemetry system with full cause chain preserved
       logError(error, 'user', {
         feature: 'crop',
         operation: 'image_processing',
         metadata: {
           errorCode,
-          hasCause: !!originalCause,
+          errorName: errorLogData.name,
+          causeChainLength: errorLogData.causeChain.length,
+          causeMessage: errorLogData.causeChain[0]?.message,
+          causeStack: errorLogData.causeChain[0]?.stack,
         },
       });
 
@@ -614,7 +616,7 @@ export function CropScreen(): React.JSX.Element {
         userId: user?.id,
         origin: payload?.origin,
         source: payload?.source,
-        errorMessage,
+        errorMessage: errorLogData.message,
         errorCode,
       });
 
