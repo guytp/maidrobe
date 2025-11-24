@@ -11,6 +11,7 @@ import {
   fontSize,
   lightColors,
   radius,
+  rgba,
   sizing,
   spacing,
   type ColorScheme,
@@ -139,3 +140,6 @@ export function useTheme(): ThemeContextValue {
   }
   return context;
 }
+
+// Re-export rgba utility for convenient access
+export { rgba };

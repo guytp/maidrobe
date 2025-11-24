@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
-import { useTheme } from '../../../core/theme';
+import { rgba, useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components';
 import { ItemType, ItemMetadata } from '../types/itemMetadata';
 import { TypeSelector } from './TypeSelector';
@@ -245,7 +245,7 @@ export function ItemMetadataForm({
         errorContainer: {
           marginTop: spacing.lg,
           padding: spacing.md,
-          backgroundColor: colors.error + '10',
+          backgroundColor: rgba(colors.error, 0.06),
           borderRadius: radius.md,
           borderWidth: 1,
           borderColor: colors.error,

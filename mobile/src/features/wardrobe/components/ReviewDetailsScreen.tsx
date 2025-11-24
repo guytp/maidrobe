@@ -36,7 +36,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
-import { useTheme } from '../../../core/theme';
+import { rgba, useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
 import { useStore } from '../../../core/state/store';
 import { isCaptureImagePayload } from '../../../core/types/capture';
@@ -495,7 +495,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
           gap: spacing.md,
         },
         errorBanner: {
-          backgroundColor: colors.error + '15', // 15 = ~8% opacity in hex
+          backgroundColor: rgba(colors.error, 0.08),
           borderWidth: 1,
           borderColor: colors.error,
           borderRadius: radius.md,
