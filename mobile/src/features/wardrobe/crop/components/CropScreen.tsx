@@ -43,7 +43,7 @@ import { useTheme } from '../../../../core/theme';
 import { Button } from '../../../../core/components/Button';
 import { useStore } from '../../../../core/state/store';
 import { isCaptureImagePayload } from '../../../../core/types/capture';
-import { trackCaptureEvent, logError } from '../../../../core/telemetry';
+import { trackCaptureEvent, logError, logSuccess } from '../../../../core/telemetry';
 import { computeCropRectangle, cropAndProcessImage } from '../utils/imageProcessing';
 
 /**
@@ -396,10 +396,7 @@ export function CropScreen(): React.JSX.Element {
     async function lockOrientation() {
       try {
         await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-        if (__DEV__) {
-          // eslint-disable-next-line no-console
-          console.log('[CropScreen] Orientation locked to portrait');
-        }
+        logSuccess('crop', 'orientation_lock');
       } catch (error) {
         // Orientation lock may fail on some platforms (web, certain devices)
         // This is not critical - log but don't prevent screen from loading
@@ -533,15 +530,6 @@ export function CropScreen(): React.JSX.Element {
         source: payload.source,
       });
 
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[CropScreen] Processing started');
-        // eslint-disable-next-line no-console
-        console.log('[CropScreen] Payload:', payload);
-        // eslint-disable-next-line no-console
-        console.log('[CropScreen] Transform:', currentTransform.current);
-      }
-
       // Step 1: Compute crop rectangle from transform state
       const cropRect = computeCropRectangle(
         payload.width,
@@ -552,11 +540,6 @@ export function CropScreen(): React.JSX.Element {
         frameDimensions
       );
 
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[CropScreen] Crop rectangle:', cropRect);
-      }
-
       // Step 2: Process image (crop, resize, compress)
       const result = await cropAndProcessImage(
         payload.uri,
@@ -566,10 +549,15 @@ export function CropScreen(): React.JSX.Element {
         payload.height
       );
 
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.log('[CropScreen] Processing completed:', result);
-      }
+      // Log successful image processing
+      logSuccess('crop', 'image_processing', {
+        data: {
+          inputWidth: payload.width,
+          inputHeight: payload.height,
+          outputWidth: result.width,
+          outputHeight: result.height,
+        },
+      });
 
       // Step 3: Update payload with processed image
       setPayload({
