@@ -1023,6 +1023,7 @@ export function CropScreen(): React.JSX.Element {
           onPress={handleConfirm}
           variant="primary"
           disabled={isProcessing}
+          loading={isProcessing}
           accessibilityLabel={t('screens.crop.accessibility.confirmButton')}
           accessibilityHint={t('screens.crop.accessibility.confirmHint')}
         >
