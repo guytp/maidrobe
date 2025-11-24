@@ -43,6 +43,17 @@ export const fontSize = {
 } as const;
 
 /**
+ * Sizing tokens for consistent component dimensions.
+ * Includes accessibility-compliant touch targets and control areas.
+ */
+export const sizing = {
+  /** Minimum touch target size per WCAG AA guidelines (44x44px) */
+  touchTarget: 44,
+  /** Standard control area height (touch target + vertical padding) */
+  controlAreaHeight: 92,
+} as const;
+
+/**
  * Color palette for light theme.
  * textSecondary uses #595959 for 7.0:1 contrast ratio on white background,
  * exceeding WCAG AA requirements (4.5:1) for stronger accessibility.
@@ -83,3 +94,4 @@ export type Colors = typeof lightColors;
 export type Spacing = typeof spacing;
 export type Radius = typeof radius;
 export type FontSize = typeof fontSize;
+export type Sizing = typeof sizing;
