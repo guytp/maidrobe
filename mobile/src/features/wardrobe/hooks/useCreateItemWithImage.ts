@@ -325,11 +325,32 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         // This ensures the session is valid before performing any Supabase
         // storage uploads or database operations, preventing orphaned uploads
         // if the session has expired.
+        const refreshStartTime = Date.now();
         try {
           const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
+          const refreshLatency = Date.now() - refreshStartTime;
 
           if (refreshError || !sessionData.session) {
             // Refresh failed - session is invalid or expired
+            // Classify error type: auth/session vs network vs server
+            const isNetworkError =
+              refreshError?.message?.toLowerCase().includes('network') ||
+              refreshError?.message?.toLowerCase().includes('fetch') ||
+              refreshError?.message?.toLowerCase().includes('timeout') ||
+              refreshError?.message?.toLowerCase().includes('connection');
+
+            const isServerError =
+              refreshError?.message?.toLowerCase().includes('500') ||
+              refreshError?.message?.toLowerCase().includes('503') ||
+              refreshError?.message?.toLowerCase().includes('502') ||
+              refreshError?.message?.toLowerCase().includes('unavailable');
+
+            const errorClassification = isNetworkError
+              ? 'network'
+              : isServerError
+                ? 'server'
+                : 'user';
+
             const authError = new CreateItemWithImageError(
               'Your session has expired. Please log in again.',
               'auth',
@@ -341,9 +362,22 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
               userId: user.id,
               errorCode: refreshError?.message || 'session_expired',
               outcome: 'failure',
+              latency: refreshLatency,
               metadata: {
                 context: 'item_save',
                 operation: 'pre_save_refresh',
+                errorClassification,
+              },
+            });
+
+            // Log error for centralized error tracking
+            logError(authError, errorClassification, {
+              feature: 'wardrobe',
+              operation: 'token_refresh_pre_save',
+              metadata: {
+                userId: user.id,
+                context: 'item_save',
+                latencyMs: refreshLatency,
               },
             });
 
@@ -357,6 +391,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           logAuthEvent('token-refresh-success', {
             userId: user.id,
             outcome: 'success',
+            latency: refreshLatency,
             metadata: {
               context: 'item_save',
               operation: 'pre_save_refresh',
@@ -365,9 +400,22 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         } catch (refreshError) {
           // Handle refresh attempt failure (network error, etc.)
           if (refreshError instanceof CreateItemWithImageError) {
-            // Already wrapped, re-throw
+            // Already wrapped and logged, re-throw
             throw refreshError;
           }
+
+          const refreshLatency = Date.now() - refreshStartTime;
+
+          // Classify unexpected error type
+          const errorMessage =
+            refreshError instanceof Error ? refreshError.message : String(refreshError);
+          const isNetworkError =
+            errorMessage.toLowerCase().includes('network') ||
+            errorMessage.toLowerCase().includes('fetch') ||
+            errorMessage.toLowerCase().includes('timeout') ||
+            errorMessage.toLowerCase().includes('connection');
+
+          const errorClassification = isNetworkError ? 'network' : 'server';
 
           // Wrap unexpected refresh error
           const authError = new CreateItemWithImageError(
@@ -380,9 +428,23 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
             userId: user.id,
             errorCode: 'refresh_attempt_failed',
             outcome: 'failure',
+            latency: refreshLatency,
             metadata: {
               context: 'item_save',
               operation: 'pre_save_refresh',
+              errorClassification,
+            },
+          });
+
+          // Log error for centralized error tracking
+          logError(authError, errorClassification, {
+            feature: 'wardrobe',
+            operation: 'token_refresh_pre_save',
+            metadata: {
+              userId: user.id,
+              context: 'item_save',
+              latencyMs: refreshLatency,
+              errorType: 'unexpected',
             },
           });
 
