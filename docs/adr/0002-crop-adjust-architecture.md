@@ -241,6 +241,96 @@ Key implementation features:
 - Error boundaries with retry functionality
 - Telemetry integration for processing events
 
+## Dependency Impact
+
+The Crop & Adjust feature relies on three Expo SDK modules. These were already present in the project's `package.json` before this feature (used by other parts of the app), so they do not represent new dependencies. However, this section documents their impact and justification for future reference.
+
+### Dependencies Used
+
+| Module | Version | Purpose in Crop & Adjust |
+|--------|---------|--------------------------|
+| expo-file-system | ^19.0.19 | Temporary file cleanup after processing |
+| expo-image-manipulator | ^14.0.7 | Core image processing (crop, resize, compress) |
+| expo-screen-orientation | ^9.0.7 | Portrait lock during cropping |
+
+### Bundle Size Impact
+
+**Qualitative Assessment: Low to Moderate**
+
+These modules contribute to the app binary in two ways:
+
+1. **Native Code (compiled into iOS/Android binaries)**
+   - expo-file-system: ~200KB per platform (iOS/Android)
+   - expo-image-manipulator: ~75KB per platform
+   - expo-screen-orientation: ~65KB per platform
+   - Total native overhead: ~340KB per platform
+
+2. **JavaScript Bundle (loaded at runtime)**
+   - Combined JS footprint: ~460KB uncompressed
+   - After minification and tree-shaking: ~100-150KB estimated
+   - Gzipped for OTA updates: ~30-50KB estimated
+
+**Context:** A typical Expo app binary is 20-40MB. These three modules add less than 1% to the overall binary size. The JavaScript bundle impact is similarly minimal relative to a typical React Native app bundle (2-5MB).
+
+### Justification
+
+Each module is critical for the Crop & Adjust experience:
+
+**expo-image-manipulator (Critical)**
+- Provides the only Expo-compatible way to crop, resize, and compress images on-device
+- Required for the 4:5 aspect ratio enforcement
+- Required for the pre-downscaling strategy that prevents OOM crashes
+- Required for JPEG compression to keep output files reasonable (~200-400KB)
+- No viable alternative exists within the Expo ecosystem
+
+**expo-file-system (Critical)**
+- Required for cleanup of temporary image files after processing
+- Prevents storage bloat from accumulating cropped images
+- Used via `FileSystem.deleteAsync()` for non-blocking cleanup
+- Already a transitive dependency of expo-image-manipulator
+
+**expo-screen-orientation (Important but not Critical)**
+- Locks screen to portrait during cropping for consistent UX
+- Prevents disorienting layout changes if user rotates device mid-crop
+- Graceful degradation: if orientation lock fails, the feature still works
+- Smallest of the three modules (~65KB native code)
+
+### Mitigation Strategies
+
+If bundle size becomes problematic in the future, consider these strategies:
+
+1. **Lazy Loading (JavaScript)**
+   - The crop screen is not on the critical path (not needed at app launch)
+   - Could use React.lazy() to defer loading crop-related JS until needed
+   - Estimated savings: ~30-50KB from initial bundle
+
+2. **Feature Flag Removal**
+   - If crop feature is permanently disabled, the JS imports can be removed
+   - Native modules would still be included (Expo limitation) but JS tree-shaking would help
+
+3. **Move to EAS Build with Custom Dev Client**
+   - Expo's prebuild system allows excluding unused native modules
+   - If expo-screen-orientation is deemed unnecessary, it could be removed from native builds
+   - Requires switching from Expo Go to custom dev client
+
+4. **Server-Side Processing (Architecture Change)**
+   - Would eliminate need for expo-image-manipulator on client
+   - Trade-off: adds latency, server costs, and removes offline capability
+   - Not recommended unless bundle size is truly critical
+
+5. **Native Module Replacement**
+   - Replace expo-image-manipulator with react-native-image-editor (smaller but deprecated)
+   - Not recommended due to maintenance concerns
+
+### Monitoring Recommendations
+
+To track bundle size over time:
+
+- Run `npx expo-doctor` periodically to check for bloat
+- Use `npx react-native-bundle-visualizer` after builds
+- Set up CI alerts if bundle exceeds threshold (e.g., 5MB JS bundle)
+- Monitor OTA update sizes in EAS dashboard
+
 ## References
 
 - **expo-image-manipulator Documentation**: https://docs.expo.dev/versions/latest/sdk/imagemanipulator/
