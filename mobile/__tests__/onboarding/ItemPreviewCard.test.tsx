@@ -18,6 +18,7 @@ describe('ItemPreviewCard', () => {
     type: ItemType.Top,
     colour: ['black'],
     name: 'My Favorite Shirt',
+    tags: null,
     createdAt: '2025-01-15T10:30:00Z',
   };
 
@@ -542,6 +543,7 @@ describe('ItemPreviewCard', () => {
         type: ItemType.Other,
         colour: ['grey'],
         name: null,
+        tags: null,
         createdAt: '2025-01-15T10:30:00Z',
       };
 

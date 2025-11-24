@@ -326,6 +326,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           type: ItemType.Top, // Default type - will be set by classification pipeline
           colour: [], // Will be set by classification pipeline
           name: dbData.name || null,
+          tags: dbData.tags || null,
           createdAt: dbData.created_at || new Date().toISOString(),
         };
 
