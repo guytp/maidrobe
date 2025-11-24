@@ -25,6 +25,9 @@ import { EDGE_FUNCTIONS } from '../../../src/features/wardrobe/constants';
 import NetInfo from '@react-native-community/netinfo';
 import { ItemType } from '../../../src/features/onboarding/types/itemMetadata';
 
+// Import UploadError before mocking
+import { UploadError } from '../../../src/features/wardrobe/utils/imageUpload';
+
 // Mock dependencies
 jest.mock('../../../src/services/supabase', () => ({
   supabase: {
@@ -47,11 +50,15 @@ jest.mock('../../../src/core/telemetry', () => ({
   logAuthEvent: jest.fn(),
 }));
 
-jest.mock('../../../src/features/wardrobe/utils/imageUpload', () => ({
-  prepareImageForUpload: jest.fn(),
-  uploadImageToStorage: jest.fn(),
-  generateStoragePath: jest.fn(),
-}));
+jest.mock('../../../src/features/wardrobe/utils/imageUpload', () => {
+  const actual = jest.requireActual('../../../src/features/wardrobe/utils/imageUpload');
+  return {
+    ...actual,
+    prepareImageForUpload: jest.fn(),
+    uploadImageToStorage: jest.fn(),
+    generateStoragePath: jest.fn(),
+  };
+});
 
 jest.mock('../../../src/core/state/store', () => ({
   useStore: jest.fn((selector) =>
@@ -61,11 +68,16 @@ jest.mock('../../../src/core/state/store', () => ({
   ),
 }));
 
+// Create a shared router mock that persists across renders
+const mockRouterReplace = jest.fn();
+const mockRouterPush = jest.fn();
+const mockRouterBack = jest.fn();
+
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(() => ({
-    push: jest.fn(),
-    replace: jest.fn(),
-    back: jest.fn(),
+    push: mockRouterPush,
+    replace: mockRouterReplace,
+    back: mockRouterBack,
   })),
 }));
 
@@ -695,6 +707,908 @@ describe('useCreateItemWithImage - Happy Path', () => {
 
       // Should have called getRandomValues twice (once per save)
       expect(secondCallCount).toBeGreaterThan(firstCallCount);
+    });
+  });
+
+  describe('Error Scenarios', () => {
+    describe('connectivity errors', () => {
+      it('throws offline error when device has no connection', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        // Mock offline state
+        (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+          isConnected: false,
+          isInternetReachable: false,
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown offline error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('offline');
+            expect((err as CreateItemWithImageError).message).toBe(
+              'No internet connection. Please check your connection and try again.'
+            );
+          }
+        });
+
+        // Verify no downstream operations occurred
+        expect(mockSupabase.auth.refreshSession).not.toHaveBeenCalled();
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+      });
+
+      it('sets error state when offline', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+          isConnected: false,
+          isInternetReachable: false,
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        expect(result.current.error).not.toBe(null);
+        expect(result.current.error?.errorType).toBe('offline');
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.result).toBe(null);
+      });
+
+      it('emits failure telemetry for offline errors', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+          isConnected: false,
+          isInternetReachable: false,
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        expect(mockTelemetry.logError).toHaveBeenCalledWith(
+          expect.any(CreateItemWithImageError),
+          'network',
+          expect.objectContaining({
+            feature: 'wardrobe',
+            operation: 'item_save',
+          })
+        );
+
+        expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith('item_save_failed', {
+          userId: mockUser.id,
+          errorType: 'offline',
+          latencyMs: expect.any(Number),
+        });
+      });
+    });
+
+    describe('authentication errors', () => {
+      it('handles token refresh failure with error response', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Invalid refresh token' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown auth error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('auth');
+          }
+        });
+
+        expect(mockRouterReplace).toHaveBeenCalledWith('/auth/login');
+        expect(mockImageUpload.prepareImageForUpload).not.toHaveBeenCalled();
+      });
+
+      it('classifies token refresh network errors correctly', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'network connection failed' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorClassification: 'network',
+            }),
+          })
+        );
+      });
+
+      it('classifies token refresh server errors correctly', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+          data: { session: null },
+          error: { message: 'Server error 500' },
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.objectContaining({
+            metadata: expect.objectContaining({
+              errorClassification: 'server',
+            }),
+          })
+        );
+      });
+
+      it('handles token refresh exception', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.auth.refreshSession as jest.Mock).mockRejectedValueOnce(
+          new Error('Connection timeout')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown auth error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('auth');
+          }
+        });
+
+        expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+          'token-refresh-failure',
+          expect.anything()
+        );
+        expect(mockTelemetry.logError).toHaveBeenCalled();
+      });
+    });
+
+    describe('image preparation errors', () => {
+      it('handles image processing error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Failed to process image', 'processing')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('storage');
+          }
+        });
+
+        expect(mockImageUpload.uploadImageToStorage).not.toHaveBeenCalled();
+      });
+
+      it('handles file read error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Failed to read file', 'file_read')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch (err) {
+            expect((err as CreateItemWithImageError).errorType).toBe('storage');
+          }
+        });
+      });
+    });
+
+    describe('image upload errors', () => {
+      it('handles network error during upload', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Network error', 'network')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('network');
+          }
+        });
+
+        expect(mockSupabase.from).not.toHaveBeenCalled();
+      });
+
+      it('handles storage permission error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Permission denied', 'permission')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch (err) {
+            expect((err as CreateItemWithImageError).errorType).toBe('storage');
+          }
+        });
+      });
+
+      it('handles storage server error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Storage service unavailable', 'storage')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch (err) {
+            expect((err as CreateItemWithImageError).errorType).toBe('storage');
+            expect((err as CreateItemWithImageError).message).toContain(
+              'Storage service unavailable'
+            );
+          }
+        });
+      });
+    });
+
+    describe('database errors', () => {
+      it('handles database insert error', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        const mockSingle = jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Database constraint violation' },
+        });
+
+        (mockSupabase.from as jest.Mock).mockReturnValue({
+          upsert: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: mockSingle,
+            }),
+          }),
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+            fail('Should have thrown error');
+          } catch (err) {
+            expect(err).toBeInstanceOf(CreateItemWithImageError);
+            expect((err as CreateItemWithImageError).errorType).toBe('database');
+            expect((err as CreateItemWithImageError).message).toBe('Failed to save item');
+          }
+        });
+
+        // Image upload should have occurred
+        expect(mockImageUpload.uploadImageToStorage).toHaveBeenCalled();
+
+        // No cache invalidation should occur
+        const invalidateQueriesSpy = jest.spyOn(queryClient, 'invalidateQueries');
+        expect(invalidateQueriesSpy).not.toHaveBeenCalled();
+      });
+
+      it('classifies database network errors correctly', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        const mockSingle = jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'network timeout during insert' },
+        });
+
+        (mockSupabase.from as jest.Mock).mockReturnValue({
+          upsert: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: mockSingle,
+            }),
+          }),
+        });
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch (err) {
+            expect((err as CreateItemWithImageError).errorType).toBe('database');
+          }
+        });
+      });
+    });
+
+    describe('background pipeline errors', () => {
+      it('completes save successfully even if image processing pipeline fails', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.functions.invoke as jest.Mock).mockImplementation((functionName: string) => {
+          if (functionName === EDGE_FUNCTIONS.PROCESS_ITEM_IMAGE) {
+            return Promise.reject(new Error('Pipeline error'));
+          }
+          return Promise.resolve({ data: null, error: null });
+        });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        expect(result.current.result).not.toBe(null);
+        expect(result.current.error).toBe(null);
+        expect(mockTelemetry.logError).toHaveBeenCalledWith(
+          expect.any(Error),
+          'server',
+          expect.objectContaining({
+            operation: 'trigger_image_processing_pipeline',
+          })
+        );
+      });
+
+      it('completes save successfully even if classification pipeline fails', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.functions.invoke as jest.Mock).mockImplementation((functionName: string) => {
+          if (functionName === EDGE_FUNCTIONS.CLASSIFY_ITEM) {
+            return Promise.reject(new Error('Classification failed'));
+          }
+          return Promise.resolve({ data: null, error: null });
+        });
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        expect(result.current.result).not.toBe(null);
+        expect(mockTelemetry.logError).toHaveBeenCalledWith(
+          expect.any(Error),
+          'server',
+          expect.objectContaining({
+            operation: 'trigger_classification_pipeline',
+          })
+        );
+      });
+
+      it('completes save successfully even if both pipelines fail', async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+        (mockSupabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Pipeline error'));
+
+        await act(async () => {
+          await result.current.save(mockInput);
+        });
+
+        expect(result.current.result).not.toBe(null);
+        expect(result.current.error).toBe(null);
+
+        // logError should be called twice (once per pipeline)
+        expect(mockTelemetry.logError).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('throws validation error when user is not authenticated', async () => {
+      const mockStore = jest.requireMock('../../../src/core/state/store');
+      const originalImplementation = mockStore.useStore.getMockImplementation();
+
+      mockStore.useStore.mockImplementation(
+        (selector: (state: { user: { id: string } | null }) => unknown) => selector({ user: null })
+      );
+
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+          fail('Should have thrown validation error');
+        } catch (err) {
+          expect(err).toBeInstanceOf(CreateItemWithImageError);
+          expect((err as CreateItemWithImageError).errorType).toBe('validation');
+          expect((err as CreateItemWithImageError).message).toBe('User not authenticated');
+        }
+      });
+
+      // Reset mock
+      mockStore.useStore.mockImplementation(originalImplementation);
+    });
+
+    it('handles unexpected error types', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce('string error');
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch (err) {
+          expect(err).toBeInstanceOf(CreateItemWithImageError);
+          expect((err as CreateItemWithImageError).errorType).toBe('unknown');
+          expect((err as CreateItemWithImageError).message).toBe('An unexpected error occurred');
+        }
+      });
+    });
+
+    it('handles generic Error with network keywords', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
+        new Error('fetch failed due to network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch (err) {
+          expect((err as CreateItemWithImageError).errorType).toBe('network');
+          expect((err as CreateItemWithImageError).message).toBe(
+            'Network error. Please try again.'
+          );
+        }
+      });
+    });
+
+    it('handles generic Error with storage keywords', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
+        new Error('storage quota exceeded')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch (err) {
+          expect((err as CreateItemWithImageError).errorType).toBe('storage');
+          expect((err as CreateItemWithImageError).message).toBe(
+            'Failed to upload image. Please try again.'
+          );
+        }
+      });
+    });
+
+    it('handles generic Error with database keywords', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      const mockSingle = jest.fn().mockRejectedValue(new Error('database insert failed'));
+
+      (mockSupabase.from as jest.Mock).mockReturnValue({
+        upsert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: mockSingle,
+          }),
+        }),
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch (err) {
+          expect((err as CreateItemWithImageError).errorType).toBe('database');
+          expect((err as CreateItemWithImageError).message).toBe(
+            'Failed to save item. Please try again.'
+          );
+        }
+      });
+    });
+  });
+
+  describe('Idempotency', () => {
+    it('preserves itemId across retry after upload failure', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // First attempt fails at upload
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+        new UploadError('Network error', 'network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected to fail
+        }
+      });
+
+      const firstCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
+      const firstStoragePath = (mockImageUpload.generateStoragePath as jest.Mock).mock.calls[0];
+
+      // Second attempt succeeds
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      const secondCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
+      const secondStoragePath = (mockImageUpload.generateStoragePath as jest.Mock).mock.calls[1];
+
+      // Should not have generated new random bytes (itemId is cached)
+      expect(secondCallCount).toBe(firstCallCount);
+      expect(secondStoragePath).toEqual(firstStoragePath);
+    });
+
+    it('preserves itemId across retry after database failure', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // First attempt fails at database
+      const mockSingleFail = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'Database error' },
+      });
+
+      (mockSupabase.from as jest.Mock).mockReturnValueOnce({
+        upsert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: mockSingleFail,
+          }),
+        }),
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected to fail
+        }
+      });
+
+      const firstUploadPath = (mockImageUpload.uploadImageToStorage as jest.Mock).mock.calls[0][1];
+
+      // Second attempt succeeds
+      const mockSingleSuccess = jest.fn().mockResolvedValue({
+        data: mockDbItem,
+        error: null,
+      });
+
+      (mockSupabase.from as jest.Mock).mockReturnValueOnce({
+        upsert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: mockSingleSuccess,
+          }),
+        }),
+      });
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      const secondUploadPath = (mockImageUpload.uploadImageToStorage as jest.Mock).mock.calls[1][1];
+
+      // Should use same storage path (same itemId)
+      expect(secondUploadPath).toBe(firstUploadPath);
+    });
+
+    it('uses upsert with onConflict to prevent duplicates', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      const fromMock = mockSupabase.from('items') as unknown as { upsert: jest.Mock };
+      expect(fromMock.upsert).toHaveBeenCalledWith(expect.any(Object), { onConflict: 'id' });
+    });
+
+    it('reset does not clear cached itemId', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // First save fails
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+        new UploadError('Network error', 'network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      const firstCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
+
+      // Call reset
+      act(() => {
+        result.current.reset();
+      });
+
+      // Retry save
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      const secondCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
+
+      // Should not have generated new UUID (cached ID persists through reset)
+      expect(secondCallCount).toBe(firstCallCount);
+    });
+
+    it('handles multiple rapid retry attempts with same itemId', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // Multiple failures
+      for (let i = 0; i < 3; i++) {
+        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+          new UploadError('Network error', 'network')
+        );
+
+        await act(async () => {
+          try {
+            await result.current.save(mockInput);
+          } catch {
+            // Expected
+          }
+        });
+      }
+
+      // Get all storage paths used
+      const storagePaths = (mockImageUpload.generateStoragePath as jest.Mock).mock.results.map(
+        (r: { value: string }) => r.value
+      );
+
+      // All should be identical
+      expect(storagePaths[0]).toBe(storagePaths[1]);
+      expect(storagePaths[1]).toBe(storagePaths[2]);
+    });
+
+    it('generates new itemId after offline error', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // First save fails offline (before itemId generation)
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: false,
+        isInternetReachable: false,
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      // itemId should not have been generated
+      expect(mockImageUpload.generateStoragePath).not.toHaveBeenCalled();
+
+      // Second save succeeds
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: true,
+        isInternetReachable: true,
+      });
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      // Should generate new itemId
+      expect(global.crypto.getRandomValues).toHaveBeenCalled();
+    });
+  });
+
+  describe('State Management', () => {
+    it('maintains error state after failed save', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: false,
+        isInternetReachable: false,
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(result.current.error).not.toBe(null);
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.result).toBe(null);
+    });
+
+    it('clears error state on next save attempt', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      // First save fails
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: false,
+        isInternetReachable: false,
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(result.current.error).not.toBe(null);
+
+      // Second save starts
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: true,
+        isInternetReachable: true,
+      });
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      // Error should be cleared
+      expect(result.current.error).toBe(null);
+    });
+
+    it('resets loading state after error', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+        new UploadError('Network error', 'network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      // Loading should be false after error
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('resets single-flight flag after error', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+        new UploadError('Network error', 'network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      // Should allow new save (single-flight flag reset)
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+
+      await act(async () => {
+        await result.current.save(mockInput);
+      });
+
+      expect(result.current.result).not.toBe(null);
+    });
+  });
+
+  describe('Telemetry', () => {
+    it('includes correct metadata in failure telemetry', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
+        new UploadError('Upload failed', 'network')
+      );
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(mockTelemetry.logError).toHaveBeenCalledWith(
+        expect.any(CreateItemWithImageError),
+        'server',
+        expect.objectContaining({
+          feature: 'wardrobe',
+          operation: 'item_save',
+          metadata: expect.objectContaining({
+            errorType: 'network',
+            userId: mockUser.id,
+            latencyMs: expect.any(Number),
+          }),
+        })
+      );
+
+      expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith('item_save_failed', {
+        userId: mockUser.id,
+        errorType: 'network',
+        latencyMs: expect.any(Number),
+      });
+    });
+
+    it('does not emit success telemetry on failure', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockNetInfo.fetch as jest.Mock).mockResolvedValueOnce({
+        isConnected: false,
+        isInternetReachable: false,
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      // Should not have called success telemetry
+      const successCalls = (mockTelemetry.logSuccess as jest.Mock).mock.calls.filter(
+        (call: [string, string]) => call[1] === 'item_save_succeeded'
+      );
+      expect(successCalls.length).toBe(0);
+    });
+
+    it('emits auth-specific telemetry for token refresh failures', async () => {
+      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+
+      (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValueOnce({
+        data: { session: null },
+        error: { message: 'Session expired' },
+      });
+
+      await act(async () => {
+        try {
+          await result.current.save(mockInput);
+        } catch {
+          // Expected
+        }
+      });
+
+      expect(mockTelemetry.logAuthEvent).toHaveBeenCalledWith(
+        'token-refresh-failure',
+        expect.objectContaining({
+          userId: mockUser.id,
+          outcome: 'failure',
+          latency: expect.any(Number),
+          metadata: expect.objectContaining({
+            context: 'item_save',
+            operation: 'pre_save_refresh',
+          }),
+        })
+      );
     });
   });
 });
