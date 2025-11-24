@@ -677,14 +677,14 @@ export function ReviewDetailsScreen(): React.JSX.Element {
               <Pressable
                 style={[
                   styles.addTagButton,
-                  (isTagsAtLimit || !tagInput.trim()) && styles.addTagButtonDisabled,
+                  (isTagsAtLimit || !tagInput.trim() || isLoading) && styles.addTagButtonDisabled,
                 ]}
                 onPress={handleAddTag}
-                disabled={isTagsAtLimit || !tagInput.trim()}
+                disabled={isTagsAtLimit || !tagInput.trim() || isLoading}
                 accessibilityLabel={t('screens.reviewDetails.accessibility.addTagButton')}
                 accessibilityHint={t('screens.reviewDetails.accessibility.addTagButtonHint')}
                 accessibilityRole="button"
-                accessibilityState={{ disabled: isTagsAtLimit || !tagInput.trim() }}
+                accessibilityState={{ disabled: isTagsAtLimit || !tagInput.trim() || isLoading }}
               >
                 <Text style={styles.addTagButtonText}>
                   {t('screens.reviewDetails.addTagButton')}
