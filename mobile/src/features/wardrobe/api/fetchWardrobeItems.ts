@@ -10,7 +10,7 @@
  * - Minimal projection for performance
  * - Case-insensitive search on name and tags
  * - Offset-based pagination
- * - Deterministic sorting (created_at DESC, id DESC)
+ * - Deterministic sorting (created_at DESC, id ASC)
  *
  * @module features/wardrobe/api/fetchWardrobeItems
  */
@@ -184,8 +184,9 @@ export async function fetchWardrobeItems(
       query = query.or(`name.ilike.${searchPattern},tags::text.ilike.${searchPattern}`);
     }
 
-    // Apply sorting: created_at DESC (newest first), id DESC (deterministic tiebreaker)
-    query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
+    // Apply sorting: created_at DESC (newest first), id ASC (deterministic tiebreaker)
+    // Using id ASC ensures stable ordering when multiple items share the same created_at timestamp
+    query = query.order('created_at', { ascending: false }).order('id', { ascending: true });
 
     // Apply pagination using range
     // range is inclusive, so range(0, 19) returns 20 items
