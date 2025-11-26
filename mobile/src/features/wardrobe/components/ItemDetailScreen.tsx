@@ -2,10 +2,10 @@
  * Item Detail screen component for viewing and editing wardrobe items.
  *
  * This screen displays a single wardrobe item with:
- * - Large image preview (with fallback chain)
- * - Editable name field
- * - Editable tags chip list
- * - Read-only AI attributes summary
+ * - Large image preview (with fallback chain: clean_key → original_key → thumb_key → placeholder)
+ * - Editable name field with validation
+ * - Editable tags chip list with add/remove capabilities
+ * - Read-only AI attributes summary (when available)
  * - Save and Delete actions
  *
  * Handles three main states:
@@ -13,9 +13,15 @@
  * 2. Loaded - Shows item details with edit capabilities
  * 3. Error - Shows error message and navigates back to grid
  *
+ * Form State:
+ * - Tracks dirty state by comparing current values to original item values
+ * - Shows unsaved changes confirmation dialog when navigating away with dirty form
+ * - Save button is disabled when form is not dirty or has validation errors
+ *
  * Navigation contract:
  * - Entry: /wardrobe/[id] with itemId route param
  * - Error: Auto-navigates back to /wardrobe after displaying error
+ * - Dirty navigation: Shows Save/Discard/Cancel confirmation
  * - Success (after save/delete): Handled in future steps
  *
  * @module features/wardrobe/components/ItemDetailScreen
@@ -23,6 +29,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -34,7 +41,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
@@ -79,13 +86,32 @@ export interface ItemDetailScreenProps {
 }
 
 /**
+ * Compares two string arrays for equality (order-sensitive).
+ *
+ * Used for dirty state comparison of tags.
+ *
+ * @param a - First array
+ * @param b - Second array
+ * @returns True if arrays have the same elements in the same order
+ */
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((val, idx) => val === b[idx]);
+}
+
+/**
  * Formats AI attributes into a human-readable summary string.
  *
  * Creates a concise summary from available AI attributes following patterns:
- * - With colour, type, and season(s): "blue shirt · all-season"
- * - With type only: "shirt"
- * - With colour only: "blue item"
- * - With season(s) only: "all-season item"
+ * - Primary: colour + type (e.g., "blue shirt")
+ * - Secondary: pattern, fabric, fit (if interesting/non-default)
+ * - Tertiary: season information
+ *
+ * Examples:
+ * - "blue cotton shirt · slim fit · all-season"
+ * - "striped wool sweater · spring / autumn"
+ * - "floral dress · summer"
+ * - "black item" (colour only)
  *
  * @param item - Item detail with AI attributes
  * @returns Formatted summary string or null if no usable attributes
@@ -93,32 +119,73 @@ export interface ItemDetailScreenProps {
 function formatAISummary(item: ItemDetail): string | null {
   const parts: string[] = [];
 
-  // Build the main description (colour + type)
+  // Build the main description (colour + fabric + type)
   const hasColour = item.colour && item.colour.length > 0;
   const hasType = item.type;
+  const hasFabric = item.fabric && item.fabric.trim().length > 0;
 
-  if (hasColour && hasType) {
-    // "blue shirt"
-    parts.push(`${item.colour![0]} ${item.type}`);
-  } else if (hasType) {
-    // "shirt"
-    parts.push(item.type!);
-  } else if (hasColour) {
-    // "blue item"
-    parts.push(`${item.colour![0]} item`);
+  // Primary description building
+  let primaryDescription = '';
+
+  if (hasColour) {
+    primaryDescription = item.colour![0].toLowerCase();
+  }
+
+  // Add fabric if available (e.g., "blue cotton" or just "cotton")
+  if (hasFabric) {
+    const fabric = item.fabric!.toLowerCase();
+    primaryDescription = primaryDescription
+      ? `${primaryDescription} ${fabric}`
+      : fabric;
+  }
+
+  // Add type (e.g., "blue cotton shirt" or "shirt")
+  if (hasType) {
+    primaryDescription = primaryDescription
+      ? `${primaryDescription} ${item.type!.toLowerCase()}`
+      : item.type!.toLowerCase();
+  } else if (primaryDescription) {
+    // If we have colour/fabric but no type, append "item"
+    primaryDescription = `${primaryDescription} item`;
+  }
+
+  if (primaryDescription) {
+    parts.push(primaryDescription);
+  }
+
+  // Add pattern if available and meaningful (skip "solid" as it's default/uninteresting)
+  const hasPattern = item.pattern && item.pattern.trim().length > 0;
+  if (hasPattern) {
+    const pattern = item.pattern!.toLowerCase();
+    if (pattern !== 'solid' && pattern !== 'plain') {
+      parts.push(pattern);
+    }
+  }
+
+  // Add fit if available
+  const hasFit = item.fit && item.fit.trim().length > 0;
+  if (hasFit) {
+    parts.push(`${item.fit!.toLowerCase()} fit`);
   }
 
   // Add season if available
   const hasSeason = item.season && item.season.length > 0;
   if (hasSeason) {
-    const seasonText =
-      item.season!.length === 4 ? 'all-season' : item.season!.join(' / ').toLowerCase();
+    const seasonCount = item.season!.length;
+    let seasonText: string;
+
+    if (seasonCount === 4) {
+      seasonText = 'all-season';
+    } else if (seasonCount === 1) {
+      seasonText = item.season![0].toLowerCase();
+    } else {
+      seasonText = item.season!.map(s => s.toLowerCase()).join(' / ');
+    }
 
     if (parts.length > 0) {
-      // "blue shirt · all-season"
       parts.push(seasonText);
     } else {
-      // "all-season item"
+      // If season is the only attribute, make it readable
       parts.push(`${seasonText} item`);
     }
   }
@@ -353,6 +420,7 @@ function ErrorState({
 export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.Element {
   const { colors, colorScheme, spacing, radius, fontSize } = useTheme();
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
   // Fetch item data
@@ -371,6 +439,10 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   const [nameError, setNameError] = useState<string | null>(null);
   const [tagFeedback, setTagFeedback] = useState<string | null>(null);
 
+  // Refs to track original values for dirty state comparison
+  const originalNameRef = useRef<string>('');
+  const originalTagsRef = useRef<string[]>([]);
+
   // Ref to access current tags in callbacks without stale closure issues
   const tagsRef = useRef<string[]>([]);
   tagsRef.current = tags;
@@ -378,11 +450,39 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // Initialize form state when item data loads
   useEffect(() => {
     if (item && !isFormInitialized) {
-      setName(item.name ?? '');
-      setTags(item.tags ?? []);
+      const initialName = item.name ?? '';
+      const initialTags = item.tags ?? [];
+
+      // Set form state
+      setName(initialName);
+      setTags(initialTags);
+
+      // Store original values for dirty comparison
+      originalNameRef.current = initialName;
+      originalTagsRef.current = [...initialTags];
+
       setIsFormInitialized(true);
     }
   }, [item, isFormInitialized]);
+
+  // Compute dirty state - true if name or tags differ from original values
+  const isDirty = useMemo(() => {
+    if (!isFormInitialized) return false;
+
+    const nameChanged = name !== originalNameRef.current;
+    const tagsChanged = !arraysEqual(tags, originalTagsRef.current);
+
+    return nameChanged || tagsChanged;
+  }, [name, tags, isFormInitialized]);
+
+  // Check if form is valid (no validation errors and within limits)
+  const isFormValid = useMemo(() => {
+    const trimmedNameLength = name.trim().length;
+    return trimmedNameLength <= MAX_NAME_LENGTH;
+  }, [name]);
+
+  // Determine if save button should be enabled
+  const canSave = isDirty && isFormValid;
 
   // Get image URL with fallback chain
   const imageUrl = useMemo(() => {
@@ -403,6 +503,73 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   const handleGoBack = useCallback(() => {
     router.back();
   }, [router]);
+
+  // Placeholder save handler (functionality in later steps)
+  // Defined early so it can be used by the navigation guard
+  const handleSave = useCallback(() => {
+    // TODO: Will be implemented in Step 4
+    // This is a placeholder that will be expanded to:
+    // 1. Validate form
+    // 2. Call mutation to update item
+    // 3. On success: update originalRefs, show success feedback
+    // 4. On error: show error message
+  }, []);
+
+  // Ref to track if we should skip the navigation guard (for intentional navigation)
+  const skipNavigationGuardRef = useRef(false);
+
+  // Unsaved changes navigation guard
+  // Shows confirmation dialog when user tries to navigate away with unsaved changes
+  useEffect(() => {
+    // Only add listener if form is dirty
+    if (!isDirty) return;
+
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // Allow navigation if guard is explicitly skipped (e.g., after save)
+      if (skipNavigationGuardRef.current) {
+        skipNavigationGuardRef.current = false;
+        return;
+      }
+
+      // Prevent default navigation behavior
+      e.preventDefault();
+
+      // Show confirmation dialog
+      Alert.alert(
+        t('screens.itemDetail.unsavedChanges.title'),
+        t('screens.itemDetail.unsavedChanges.message'),
+        [
+          {
+            text: t('screens.itemDetail.unsavedChanges.cancel'),
+            style: 'cancel',
+            onPress: () => {
+              // Do nothing, stay on screen
+            },
+          },
+          {
+            text: t('screens.itemDetail.unsavedChanges.discard'),
+            style: 'destructive',
+            onPress: () => {
+              // Skip guard and allow navigation
+              skipNavigationGuardRef.current = true;
+              navigation.dispatch(e.data.action);
+            },
+          },
+          {
+            text: t('screens.itemDetail.unsavedChanges.save'),
+            onPress: () => {
+              // TODO: Save will be implemented in Step 4
+              // For now, just stay on screen (save handler is a no-op)
+              handleSave();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    });
+
+    return unsubscribe;
+  }, [isDirty, navigation, handleSave]);
 
   // Name change handler with validation
   const handleNameChange = useCallback((text: string) => {
@@ -508,11 +675,6 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // Image error handler
   const handleImageError = useCallback(() => {
     setImageError(true);
-  }, []);
-
-  // Placeholder save handler (functionality in later steps)
-  const handleSave = useCallback(() => {
-    // TODO: Will be implemented in Step 4
   }, []);
 
   // Placeholder delete handler (functionality in later steps)
@@ -949,8 +1111,13 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           <Button
             onPress={handleSave}
             variant="primary"
+            disabled={!canSave}
             accessibilityLabel={t('screens.itemDetail.accessibility.saveButton')}
-            accessibilityHint={t('screens.itemDetail.accessibility.saveButtonHint')}
+            accessibilityHint={
+              canSave
+                ? t('screens.itemDetail.accessibility.saveButtonHint')
+                : t('screens.itemDetail.accessibility.saveButtonDisabledHint')
+            }
           >
             {t('screens.itemDetail.save')}
           </Button>
