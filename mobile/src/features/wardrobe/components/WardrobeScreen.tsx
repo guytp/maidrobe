@@ -134,10 +134,10 @@ export function WardrobeScreen(): React.JSX.Element {
           maxFontSizeMultiplier={2}
           accessibilityRole="header"
         >
-          {t('screens.wardrobe.empty')}
+          {t('screens.wardrobe.empty.title')}
         </Text>
         <Text style={styles.emptyHint} allowFontScaling={true} maxFontSizeMultiplier={2}>
-          {t('screens.wardrobe.emptyHint')}
+          {t('screens.wardrobe.empty.subtitle')}
         </Text>
         <View style={styles.addButton}>
           <Button
