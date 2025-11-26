@@ -9,6 +9,7 @@
 
 // Components
 export { WardrobeScreen } from './components/WardrobeScreen';
+export { WardrobeItemCard, type WardrobeItemCardProps } from './components/WardrobeItemCard';
 export { CaptureScreen } from './components/CaptureScreen';
 export { ReviewDetailsScreen } from './components/ReviewDetailsScreen';
 export { CropScreen } from './crop';
@@ -42,3 +43,6 @@ export {
   type UseWardrobeItemsParams,
   type UseWardrobeItemsResult,
 } from './api';
+
+// Utilities
+export { getItemImageUrl, getItemStorageKey, getStoragePublicUrl } from './utils';
