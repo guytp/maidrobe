@@ -27,6 +27,7 @@ import {
  *
  * Creates consistent cache keys that include userId per code guidelines.
  * Search queries are included as an object for easy cache management.
+ * Single item queries use a dedicated 'detail' segment for cache isolation.
  */
 export const wardrobeItemsQueryKey = {
   /**
@@ -44,6 +45,19 @@ export const wardrobeItemsQueryKey = {
    */
   search: (userId: string, searchQuery: string | undefined) =>
     [...wardrobeItemsQueryKey.user(userId), { search: searchQuery ?? '' }] as const,
+
+  /**
+   * Key for a specific item's detail view.
+   *
+   * Uses a 'detail' segment to isolate from grid queries while maintaining
+   * the hierarchical structure for cache invalidation.
+   *
+   * @param userId - User ID for RLS compliance
+   * @param itemId - Specific item ID to fetch
+   * @returns Query key array: ['wardrobe', 'items', userId, 'detail', itemId]
+   */
+  detail: (userId: string, itemId: string) =>
+    [...wardrobeItemsQueryKey.user(userId), 'detail', itemId] as const,
 };
 
 /**

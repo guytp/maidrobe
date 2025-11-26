@@ -8,10 +8,18 @@
  * @module features/wardrobe/api
  */
 
-// Data fetching
+// Data fetching - list operations
 export { fetchWardrobeItems, FetchWardrobeItemsError } from './fetchWardrobeItems';
 
-// React Query hooks
+// Data fetching - single item operations
+export {
+  fetchWardrobeItem,
+  FetchWardrobeItemError,
+  type FetchWardrobeItemErrorCode,
+  type FetchWardrobeItemParams,
+} from './fetchWardrobeItem';
+
+// React Query hooks - list operations
 export {
   useWardrobeItems,
   useInvalidateWardrobeItems,
@@ -20,3 +28,10 @@ export {
   type UseWardrobeItemsParams,
   type UseWardrobeItemsResult,
 } from './useWardrobeItems';
+
+// React Query hooks - single item operations
+export {
+  useWardrobeItem,
+  type UseWardrobeItemParams,
+  type UseWardrobeItemResult,
+} from './useWardrobeItem';
