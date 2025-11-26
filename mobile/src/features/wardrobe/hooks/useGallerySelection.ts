@@ -18,11 +18,7 @@ import { t } from '../../../core/i18n';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { getValidationErrorMessage } from '../../../core/utils/imageValidation';
-import {
-  CaptureOrigin,
-  CaptureSource,
-  CaptureImagePayload,
-} from '../../../core/types/capture';
+import { CaptureOrigin, CaptureSource, CaptureImagePayload } from '../../../core/types/capture';
 import { CapturePermissions } from './useCapturePermissions';
 import { UseGalleryPickerReturn } from './useGalleryPicker';
 import { NAVIGATION_DEBOUNCE_MS } from '../constants';
@@ -297,12 +293,7 @@ export function useGallerySelection(
       // Permission not yet requested or denied once - show explanation and request
       showRequestPermissionDialog();
     }
-  }, [
-    options,
-    launchGalleryPicker,
-    showBlockedPermissionDialog,
-    showRequestPermissionDialog,
-  ]);
+  }, [options, launchGalleryPicker, showBlockedPermissionDialog, showRequestPermissionDialog]);
 
   return {
     handleGallerySelection,

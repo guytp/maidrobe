@@ -18,13 +18,26 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  Platform,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, CameraType, FlashMode } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
-import { isCaptureOrigin, CaptureOrigin, CaptureSource, CaptureImagePayload } from '../../../core/types/capture';
+import {
+  isCaptureOrigin,
+  CaptureOrigin,
+  CaptureSource,
+  CaptureImagePayload,
+} from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { useStore } from '../../../core/state/store';
@@ -209,16 +222,10 @@ export function CaptureCameraScreen(): React.JSX.Element {
 
         if (validation.error === 'invalid_dimensions') {
           // Check if it's too large or too small
-          if (
-            (photo.width && photo.width > 8000) ||
-            (photo.height && photo.height > 8000)
-          ) {
+          if ((photo.width && photo.width > 8000) || (photo.height && photo.height > 8000)) {
             errorCode = 'image_too_large';
             errorMessage = t('screens.captureCamera.errors.imageTooLarge');
-          } else if (
-            (photo.width && photo.width < 256) ||
-            (photo.height && photo.height < 256)
-          ) {
+          } else if ((photo.width && photo.width < 256) || (photo.height && photo.height < 256)) {
             errorCode = 'image_too_small';
             errorMessage = t('screens.captureCamera.errors.imageTooSmall');
           } else {
