@@ -327,7 +327,9 @@ export type CaptureEventType =
   | 'wardrobe_item_tapped'
   | 'wardrobe_pagination_triggered'
   | 'wardrobe_pagination_failed'
-  | 'wardrobe_time_to_first_item';
+  | 'wardrobe_time_to_first_item'
+  | 'wardrobe_item_updated'
+  | 'wardrobe_item_update_failed';
 
 /**
  * Metadata for authentication event logging.

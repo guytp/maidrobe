@@ -35,3 +35,18 @@ export {
   type UseWardrobeItemParams,
   type UseWardrobeItemResult,
 } from './useWardrobeItem';
+
+// Data mutation - single item operations
+export {
+  updateWardrobeItem,
+  UpdateWardrobeItemError,
+  type UpdateWardrobeItemErrorCode,
+  type UpdateWardrobeItemParams,
+} from './updateWardrobeItem';
+
+// React Query hooks - mutation operations
+export {
+  useUpdateWardrobeItem,
+  type UseUpdateWardrobeItemMutationParams,
+  type UseUpdateWardrobeItemResult,
+} from './useUpdateWardrobeItem';

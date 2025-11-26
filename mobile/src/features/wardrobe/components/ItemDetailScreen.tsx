@@ -46,7 +46,7 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
-import { useWardrobeItem } from '../api';
+import { useWardrobeItem, useUpdateWardrobeItem } from '../api';
 import { getDetailImageUrl } from '../utils/getItemImageUrl';
 import type { ItemDetail } from '../types';
 
@@ -426,6 +426,15 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // Fetch item data
   const { item, isLoading, isError, error } = useWardrobeItem({ itemId });
 
+  // Update mutation
+  const {
+    updateItem,
+    isPending: isSaving,
+    isError: isSaveError,
+    error: saveError,
+    reset: resetSaveError,
+  } = useUpdateWardrobeItem();
+
   // Form state - initialized from item data when loaded
   const [name, setName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -475,14 +484,19 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     return nameChanged || tagsChanged;
   }, [name, tags, isFormInitialized]);
 
-  // Check if form is valid (no validation errors and within limits)
+  // Validate form - returns true if all validation rules pass
+  // Validation rules per user story:
+  // - Name: required (non-empty after trim), ≤100 chars
+  // - Tags: ≤20 entries, each ≤30 chars (already enforced on add)
   const isFormValid = useMemo(() => {
-    const trimmedNameLength = name.trim().length;
-    return trimmedNameLength <= MAX_NAME_LENGTH;
+    const trimmedName = name.trim();
+    // Name is required and must be within length limit
+    return trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH;
   }, [name]);
 
   // Determine if save button should be enabled
-  const canSave = isDirty && isFormValid;
+  // Save is enabled when: form is dirty, form is valid, and not currently saving
+  const canSave = isDirty && isFormValid && !isSaving;
 
   // Get image URL with fallback chain
   const imageUrl = useMemo(() => {
@@ -504,16 +518,103 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     router.back();
   }, [router]);
 
-  // Placeholder save handler (functionality in later steps)
-  // Defined early so it can be used by the navigation guard
+  /**
+   * Validates the form and returns field-level errors.
+   * Returns null if validation passes, otherwise returns error messages.
+   */
+  const validateForm = useCallback((): { nameError: string | null } => {
+    const trimmedName = name.trim();
+
+    // Check required name
+    if (trimmedName.length === 0) {
+      return { nameError: t('screens.itemDetail.nameRequired') };
+    }
+
+    // Check name length
+    if (trimmedName.length > MAX_NAME_LENGTH) {
+      return { nameError: t('screens.itemDetail.nameTooLong') };
+    }
+
+    // Tags validation is already enforced on add (max count, max length, uniqueness)
+    // No additional validation needed here
+
+    return { nameError: null };
+  }, [name]);
+
+  /**
+   * Save handler - validates form and triggers mutation.
+   * On success, updates originalRefs to clear dirty state.
+   * On failure, keeps user's edits and shows error.
+   */
   const handleSave = useCallback(() => {
-    // TODO: Will be implemented in Step 4
-    // This is a placeholder that will be expanded to:
-    // 1. Validate form
-    // 2. Call mutation to update item
-    // 3. On success: update originalRefs, show success feedback
-    // 4. On error: show error message
-  }, []);
+    // Clear any previous save error
+    resetSaveError();
+
+    // Run validation
+    const validation = validateForm();
+
+    // If validation fails, show field-level error and don't call backend
+    if (validation.nameError) {
+      setNameError(validation.nameError);
+      return;
+    }
+
+    // Clear any existing name error
+    setNameError(null);
+
+    // Prepare the data to save
+    const trimmedName = name.trim();
+    const tagsToSave = [...tags]; // Already lowercase from tryAddTag
+
+    // Call the mutation
+    updateItem({
+      itemId,
+      name: trimmedName,
+      tags: tagsToSave,
+    });
+  }, [name, tags, itemId, validateForm, updateItem, resetSaveError]);
+
+  // Handle successful save - update original refs to clear dirty state
+  useEffect(() => {
+    // Check if mutation succeeded by comparing with saved data
+    // The mutation hook handles cache updates, we just need to update our local refs
+    if (!isSaving && !isSaveError && isFormInitialized) {
+      // If the form is no longer dirty after a save operation, the mutation succeeded
+      // We detect this by checking if item data matches our current form state
+      if (item) {
+        const itemName = item.name ?? '';
+        const itemTags = item.tags ?? [];
+        const formName = name.trim();
+
+        // If server data matches form data, update our original refs
+        // This happens when the mutation succeeds and cache is updated
+        if (itemName === formName && arraysEqual(itemTags, tags)) {
+          originalNameRef.current = formName;
+          originalTagsRef.current = [...tags];
+        }
+      }
+    }
+  }, [item, name, tags, isSaving, isSaveError, isFormInitialized]);
+
+  // Show save error alert when mutation fails
+  useEffect(() => {
+    if (isSaveError && saveError) {
+      // Show user-friendly error message
+      // Keep user's edits in form (don't reset anything)
+      Alert.alert(
+        t('screens.itemDetail.errors.saveFailed'),
+        t('screens.itemDetail.errors.network'),
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Just dismiss, keep the error state so user can retry
+            },
+          },
+        ]
+      );
+    }
+  }, [isSaveError, saveError]);
 
   // Ref to track if we should skip the navigation guard (for intentional navigation)
   const skipNavigationGuardRef = useRef(false);
@@ -1112,6 +1213,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
             onPress={handleSave}
             variant="primary"
             disabled={!canSave}
+            loading={isSaving}
             accessibilityLabel={t('screens.itemDetail.accessibility.saveButton')}
             accessibilityHint={
               canSave
@@ -1119,7 +1221,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
                 : t('screens.itemDetail.accessibility.saveButtonDisabledHint')
             }
           >
-            {t('screens.itemDetail.save')}
+            {isSaving ? t('screens.itemDetail.saving') : t('screens.itemDetail.save')}
           </Button>
 
           <Pressable
