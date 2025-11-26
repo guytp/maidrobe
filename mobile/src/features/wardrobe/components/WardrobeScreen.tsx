@@ -10,11 +10,14 @@
  * - Infinite scroll pagination
  * - Loading and error states with retry
  * - Item cards with image fallback chain
+ * - State persistence across navigation (search query, scroll position)
+ * - Navigation to item detail route
+ * - Telemetry for screen views and interactions
  *
  * @module features/wardrobe/components/WardrobeScreen
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -24,6 +27,8 @@ import {
   useWindowDimensions,
   View,
   type ListRenderItemInfo,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -55,6 +60,12 @@ const FAB_SIZE = 56;
  * FAB margin from screen edges.
  */
 const FAB_MARGIN = 16;
+
+/**
+ * Throttle interval for scroll position updates (ms).
+ * Prevents excessive state updates during scrolling.
+ */
+const SCROLL_THROTTLE_MS = 100;
 
 /**
  * Calculates the number of grid columns based on available width.
@@ -106,6 +117,9 @@ function calculateCardWidth(availableWidth: number, numColumns: number): number 
  * - Loading indicator during initial load
  * - Error state with retry button
  * - Pagination loading indicator at bottom
+ * - State persistence: search query and scroll position preserved across navigation
+ * - Navigation to item detail on card press
+ * - Telemetry for screen views and interactions
  *
  * @returns Wardrobe screen component
  */
@@ -114,15 +128,25 @@ export function WardrobeScreen(): React.JSX.Element {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const flatListRef = useRef<FlatList<WardrobeGridItem>>(null);
+  const hasTrackedScreenView = useRef(false);
+  const lastScrollUpdate = useRef(0);
+
+  // Global state
   const user = useStore((state) => state.user);
   const isNavigating = useStore((state) => state.isNavigating);
   const setIsNavigating = useStore((state) => state.setIsNavigating);
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+  // Wardrobe UI state (persisted across navigation)
+  const wardrobeSearchQuery = useStore((state) => state.wardrobeSearchQuery);
+  const wardrobeScrollOffset = useStore((state) => state.wardrobeScrollOffset);
+  const setWardrobeSearchQuery = useStore((state) => state.setWardrobeSearchQuery);
+  const setWardrobeScrollOffset = useStore((state) => state.setWardrobeScrollOffset);
 
-  // Track if user has ever had a search query (for telemetry)
+  // Use persisted search query
+  const debouncedSearchQuery = useDebounce(wardrobeSearchQuery, SEARCH_DEBOUNCE_MS);
+
+  // Track if user has an active search query
   const hasActiveSearch = debouncedSearchQuery.trim().length > 0;
 
   // Fetch wardrobe items with infinite scroll and search
@@ -147,6 +171,36 @@ export function WardrobeScreen(): React.JSX.Element {
   const isEmptyWardrobe = !isLoading && !isError && items.length === 0 && !hasActiveSearch;
   const isNoResults = !isLoading && !isError && items.length === 0 && hasActiveSearch;
   const hasItems = items.length > 0;
+
+  /**
+   * Track screen view on mount (once per session).
+   */
+  useEffect(() => {
+    if (!hasTrackedScreenView.current && user?.id) {
+      hasTrackedScreenView.current = true;
+      trackCaptureEvent('wardrobe_screen_viewed', {
+        userId: user.id,
+        origin: 'wardrobe',
+      });
+    }
+  }, [user?.id]);
+
+  /**
+   * Restore scroll position when items are loaded.
+   */
+  useEffect(() => {
+    if (items.length > 0 && wardrobeScrollOffset > 0 && flatListRef.current) {
+      // Small delay to ensure FlatList has rendered
+      const timeoutId = setTimeout(() => {
+        flatListRef.current?.scrollToOffset({
+          offset: wardrobeScrollOffset,
+          animated: false,
+        });
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [items.length, wardrobeScrollOffset]);
 
   /**
    * Handles navigation to capture flow with origin=wardrobe.
@@ -187,39 +241,56 @@ export function WardrobeScreen(): React.JSX.Element {
 
       setIsNavigating(true);
 
-      // Track item tap (item.id tracked via origin context for now)
+      // Track item tap
       trackCaptureEvent('wardrobe_item_tapped', {
         userId: user?.id,
         origin: 'wardrobe',
       });
 
-      // Navigate to item detail (to be implemented in future story)
-      // For now, we just log and reset navigation state
-      // router.push(`/wardrobe/${item.id}`);
+      // Navigate to item detail route
+      router.push(`/wardrobe/${item.id}`);
 
+      // Reset navigation state after a delay to allow navigation to complete
       setTimeout(() => {
         setIsNavigating(false);
       }, NAVIGATION_DEBOUNCE_MS);
     },
-    [isNavigating, setIsNavigating, user?.id]
+    [isNavigating, setIsNavigating, user?.id, router]
   );
 
   /**
    * Handles search input text change.
+   * Persists search query to Zustand store.
    */
   const handleSearchChange = useCallback(
     (text: string) => {
-      setSearchQuery(text);
+      setWardrobeSearchQuery(text);
     },
-    []
+    [setWardrobeSearchQuery]
   );
 
   /**
    * Handles clearing the search input.
    */
   const handleClearSearch = useCallback(() => {
-    setSearchQuery('');
-  }, []);
+    setWardrobeSearchQuery('');
+  }, [setWardrobeSearchQuery]);
+
+  /**
+   * Handles scroll events to persist scroll position.
+   * Throttled to prevent excessive state updates.
+   */
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const now = Date.now();
+      if (now - lastScrollUpdate.current >= SCROLL_THROTTLE_MS) {
+        lastScrollUpdate.current = now;
+        const offset = event.nativeEvent.contentOffset.y;
+        setWardrobeScrollOffset(offset);
+      }
+    },
+    [setWardrobeScrollOffset]
+  );
 
   /**
    * Handles end of list reached - triggers next page fetch.
@@ -392,12 +463,12 @@ export function WardrobeScreen(): React.JSX.Element {
   const renderSearchHeader = useCallback(
     () => (
       <SearchHeader
-        value={searchQuery}
+        value={wardrobeSearchQuery}
         onChangeText={handleSearchChange}
         onClear={handleClearSearch}
       />
     ),
-    [searchQuery, handleSearchChange, handleClearSearch]
+    [wardrobeSearchQuery, handleSearchChange, handleClearSearch]
   );
 
   /**
@@ -597,6 +668,7 @@ export function WardrobeScreen(): React.JSX.Element {
       accessibilityHint={t('screens.wardrobe.accessibility.screenHint')}
     >
       <FlatList
+        ref={flatListRef}
         data={items}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
@@ -606,6 +678,8 @@ export function WardrobeScreen(): React.JSX.Element {
         contentContainerStyle={styles.gridContentContainer}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         ListHeaderComponent={renderSearchHeader}
         ListFooterComponent={renderFooter}
         stickyHeaderIndices={[0]}
