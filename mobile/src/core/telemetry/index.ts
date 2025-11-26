@@ -331,7 +331,12 @@ export type CaptureEventType =
   | 'wardrobe_item_updated'
   | 'wardrobe_item_update_failed'
   | 'wardrobe_item_deleted'
-  | 'wardrobe_item_delete_failed';
+  | 'wardrobe_item_delete_failed'
+  | 'item_detail_viewed'
+  | 'item_edited'
+  | 'item_edit_failed'
+  | 'item_deleted'
+  | 'item_delete_failed';
 
 /**
  * Metadata for authentication event logging.
@@ -703,6 +708,16 @@ export interface CaptureEventMetadata {
   page?: number;
   /** Whether search is active (for wardrobe analytics) */
   hasSearchQuery?: boolean;
+  /** Whether item has AI attributes (for item detail analytics) */
+  hasAIAttributes?: boolean;
+  /** Whether item has tags (for item detail analytics) */
+  hasTags?: boolean;
+  /** Whether name was changed in edit (for item edit analytics) */
+  nameChanged?: boolean;
+  /** Whether tags were changed in edit (for item edit analytics) */
+  tagsChanged?: boolean;
+  /** Error category for failures (network, auth, server, validation, unknown) */
+  errorCategory?: string;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }
