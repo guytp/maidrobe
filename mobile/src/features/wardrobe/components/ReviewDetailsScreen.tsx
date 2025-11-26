@@ -46,6 +46,7 @@ import { useStore } from '../../../core/state/store';
 import { isCaptureImagePayload } from '../../../core/types/capture';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useCreateItemWithImage, type CreateItemErrorType } from '../hooks/useCreateItemWithImage';
+import { useInvalidateWardrobeItems } from '../api';
 
 /**
  * Maximum character length for item name.
@@ -90,6 +91,9 @@ export function ReviewDetailsScreen(): React.JSX.Element {
 
   // Item creation hook
   const { save, isLoading, error: saveError, reset: resetSaveError } = useCreateItemWithImage();
+
+  // Cache invalidation hook for refreshing wardrobe list after save
+  const invalidateWardrobeItems = useInvalidateWardrobeItems();
 
   // Form state - using component-level state for ephemeral form data
   const [name, setName] = useState('');
@@ -345,7 +349,11 @@ export function ReviewDetailsScreen(): React.JSX.Element {
         tags,
       });
 
-      // Success - navigate to wardrobe with back-stack clearing (AC10)
+      // Success - invalidate wardrobe cache so new item appears immediately
+      // This ensures the wardrobe list refetches and shows the newly created item
+      invalidateWardrobeItems();
+
+      // Navigate to wardrobe with back-stack clearing (AC10)
       //
       // Navigation strategy: router.replace (not push)
       // - Clears entire capture flow from back stack (capture -> crop -> review-details)
@@ -364,7 +372,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
       // User stays on screen with form data intact for retry
       // Error will be displayed in the UI via saveError state
     }
-  }, [name, tags, user?.id, payload, save, resetSaveError, router]);
+  }, [name, tags, user?.id, payload, save, resetSaveError, invalidateWardrobeItems, router]);
 
   /**
    * Navigate to error state if payload is invalid.
