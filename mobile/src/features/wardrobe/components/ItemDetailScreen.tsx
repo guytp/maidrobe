@@ -47,6 +47,8 @@ import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
 import { Toast } from '../../../core/components/Toast';
+import { trackCaptureEvent, logError, type ErrorClassification } from '../../../core/telemetry';
+import { useStore } from '../../../core/state/store';
 import { useWardrobeItem, useUpdateWardrobeItem, useDeleteWardrobeItem } from '../api';
 import { getDetailImageUrl } from '../utils/getItemImageUrl';
 import type { ItemDetail } from '../types';
@@ -423,9 +425,13 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const user = useStore((state) => state.user);
 
   // Fetch item data
   const { item, isLoading, isError, error } = useWardrobeItem({ itemId });
+
+  // Track if item_detail_viewed has been emitted (only emit once per mount)
+  const hasEmittedViewEvent = useRef(false);
 
   // Update mutation
   const {
@@ -487,6 +493,38 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
       setIsFormInitialized(true);
     }
   }, [item, isFormInitialized]);
+
+  // Emit item_detail_viewed telemetry when item loads successfully
+  useEffect(() => {
+    if (item && isFormInitialized && !hasEmittedViewEvent.current) {
+      hasEmittedViewEvent.current = true;
+
+      trackCaptureEvent('item_detail_viewed', {
+        userId: user?.id,
+        itemId,
+        hasAIAttributes: item.attribute_status === 'succeeded',
+        hasTags: (item.tags?.length ?? 0) > 0,
+      });
+    }
+  }, [item, isFormInitialized, itemId, user?.id]);
+
+  // Log load errors to observability stack
+  useEffect(() => {
+    if (isError && error) {
+      const classification: ErrorClassification =
+        error.code === 'network' ? 'network' : 'server';
+
+      logError(error, classification, {
+        feature: 'wardrobe',
+        operation: 'viewItemDetail',
+        metadata: {
+          itemId,
+          userId: user?.id,
+          errorCode: error.code,
+        },
+      });
+    }
+  }, [isError, error, itemId, user?.id]);
 
   // Compute dirty state - true if name or tags differ from original values
   const isDirty = useMemo(() => {
@@ -580,11 +618,13 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     const trimmedName = name.trim();
     const tagsToSave = [...tags]; // Already lowercase from tryAddTag
 
-    // Call the mutation
+    // Call the mutation with original values for telemetry
     updateItem({
       itemId,
       name: trimmedName,
       tags: tagsToSave,
+      originalName: originalNameRef.current,
+      originalTags: originalTagsRef.current,
     });
   }, [name, tags, itemId, validateForm, updateItem, resetSaveError]);
 

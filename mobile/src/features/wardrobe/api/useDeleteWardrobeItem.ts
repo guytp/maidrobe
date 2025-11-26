@@ -156,7 +156,16 @@ export function useDeleteWardrobeItem(): UseDeleteWardrobeItemResult {
 
         // Track successful deletion
         const latency = Date.now() - startTime;
+
+        // Legacy event for backward compatibility
         trackCaptureEvent('wardrobe_item_deleted', {
+          userId,
+          itemId: params.itemId,
+          latencyMs: latency,
+        });
+
+        // New event per user story spec
+        trackCaptureEvent('item_deleted', {
           userId,
           itemId: params.itemId,
           latencyMs: latency,
@@ -164,11 +173,19 @@ export function useDeleteWardrobeItem(): UseDeleteWardrobeItemResult {
       } catch (error) {
         // Track failed deletion
         if (error instanceof DeleteWardrobeItemError) {
+          // Legacy event for backward compatibility
           trackCaptureEvent('wardrobe_item_delete_failed', {
             userId,
             itemId: params.itemId,
             errorCode: error.code,
             errorMessage: error.message,
+          });
+
+          // New event per user story spec
+          trackCaptureEvent('item_delete_failed', {
+            userId,
+            itemId: params.itemId,
+            errorCategory: error.code,
           });
         }
         throw error;

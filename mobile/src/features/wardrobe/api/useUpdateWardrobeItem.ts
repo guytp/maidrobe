@@ -32,6 +32,12 @@ export interface UseUpdateWardrobeItemMutationParams {
 
   /** New tags for the item (max 20 tags, each max 30 chars, lowercased) */
   tags: string[];
+
+  /** Original name before editing (for telemetry - tracking what changed) */
+  originalName?: string;
+
+  /** Original tags before editing (for telemetry - tracking what changed) */
+  originalTags?: string[];
 }
 
 /**
@@ -164,6 +170,16 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
 
         // Track successful update
         const latency = Date.now() - startTime;
+
+        // Determine what changed for telemetry
+        const nameChanged = params.originalName !== undefined
+          ? params.name !== params.originalName
+          : true; // If original not provided, assume changed
+        const tagsChanged = params.originalTags !== undefined
+          ? JSON.stringify(params.tags) !== JSON.stringify(params.originalTags)
+          : true; // If original not provided, assume changed
+
+        // Legacy event for backward compatibility
         trackCaptureEvent('wardrobe_item_updated', {
           userId,
           itemId: params.itemId,
@@ -172,15 +188,32 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
           latencyMs: latency,
         });
 
+        // New event per user story spec
+        trackCaptureEvent('item_edited', {
+          userId,
+          itemId: params.itemId,
+          nameChanged,
+          tagsChanged,
+          latencyMs: latency,
+        });
+
         return result;
       } catch (error) {
         // Track failed update
         if (error instanceof UpdateWardrobeItemError) {
+          // Legacy event for backward compatibility
           trackCaptureEvent('wardrobe_item_update_failed', {
             userId,
             itemId: params.itemId,
             errorCode: error.code,
             errorMessage: error.message,
+          });
+
+          // New event per user story spec
+          trackCaptureEvent('item_edit_failed', {
+            userId,
+            itemId: params.itemId,
+            errorCategory: error.code,
           });
         }
         throw error;
