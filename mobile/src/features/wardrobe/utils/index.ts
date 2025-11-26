@@ -14,3 +14,9 @@ export {
   WARDROBE_BUCKET_NAME,
 } from './imageUpload';
 export type { UploadErrorType, PreparedImage } from './imageUpload';
+
+export {
+  getItemImageUrl,
+  getItemStorageKey,
+  getStoragePublicUrl,
+} from './getItemImageUrl';
