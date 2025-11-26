@@ -10,6 +10,7 @@
 // Components
 export { WardrobeScreen } from './components/WardrobeScreen';
 export { WardrobeItemCard, type WardrobeItemCardProps } from './components/WardrobeItemCard';
+export { SearchHeader, type SearchHeaderProps } from './components/SearchHeader';
 export { CaptureScreen } from './components/CaptureScreen';
 export { ReviewDetailsScreen } from './components/ReviewDetailsScreen';
 export { CropScreen } from './crop';
@@ -46,3 +47,6 @@ export {
 
 // Utilities
 export { getItemImageUrl, getItemStorageKey, getStoragePublicUrl } from './utils';
+
+// Hooks
+export { useDebounce } from './hooks';
