@@ -102,11 +102,7 @@ export function classifyError(error: unknown): CropErrorCode {
   }
 
   // Corruption/invalid data errors
-  if (
-    message.includes('corrupt') ||
-    message.includes('invalid') ||
-    message.includes('malformed')
-  ) {
+  if (message.includes('corrupt') || message.includes('invalid') || message.includes('malformed')) {
     return 'corruption';
   }
 

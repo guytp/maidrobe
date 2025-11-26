@@ -261,25 +261,28 @@ export function useCapturePermissions(
     await openAppSettings();
 
     // Subscribe to AppState changes to detect when user returns from settings
-    const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
-      // When app becomes active again (user returned from settings)
-      if (nextAppState === 'active') {
-        // Re-check both camera and gallery permissions
-        const [newCameraStatus, newGalleryStatus] = await Promise.all([
-          checkCameraPermission(),
-          checkGalleryPermission(),
-        ]);
+    const subscription = AppState.addEventListener(
+      'change',
+      async (nextAppState: AppStateStatus) => {
+        // When app becomes active again (user returned from settings)
+        if (nextAppState === 'active') {
+          // Re-check both camera and gallery permissions
+          const [newCameraStatus, newGalleryStatus] = await Promise.all([
+            checkCameraPermission(),
+            checkGalleryPermission(),
+          ]);
 
-        setCameraStatus(newCameraStatus);
-        setGalleryStatus(newGalleryStatus);
+          setCameraStatus(newCameraStatus);
+          setGalleryStatus(newGalleryStatus);
 
-        // Clean up subscription after first re-check
-        if (appStateSubscription.current) {
-          appStateSubscription.current.remove();
-          appStateSubscription.current = null;
+          // Clean up subscription after first re-check
+          if (appStateSubscription.current) {
+            appStateSubscription.current.remove();
+            appStateSubscription.current = null;
+          }
         }
       }
-    });
+    );
 
     // Store subscription for cleanup
     appStateSubscription.current = subscription;
