@@ -50,3 +50,18 @@ export {
   type UseUpdateWardrobeItemMutationParams,
   type UseUpdateWardrobeItemResult,
 } from './useUpdateWardrobeItem';
+
+// Data mutation - delete operations
+export {
+  deleteWardrobeItem,
+  DeleteWardrobeItemError,
+  type DeleteWardrobeItemErrorCode,
+  type DeleteWardrobeItemParams,
+} from './deleteWardrobeItem';
+
+// React Query hooks - delete operations
+export {
+  useDeleteWardrobeItem,
+  type UseDeleteWardrobeItemMutationParams,
+  type UseDeleteWardrobeItemResult,
+} from './useDeleteWardrobeItem';

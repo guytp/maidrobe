@@ -629,6 +629,13 @@
         "discard": "Discard",
         "cancel": "Cancel"
       },
+      "deleteConfirmation": {
+        "title": "Delete item?",
+        "message": "This item will be permanently deleted. This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "deleteSuccess": "Item deleted",
       "errors": {
         "loadFailed": "We could not load this item.",
         "notFound": "This item no longer exists.",
