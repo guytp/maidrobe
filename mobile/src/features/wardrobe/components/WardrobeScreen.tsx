@@ -3,7 +3,10 @@
  *
  * This is the main wardrobe view implementing Story #217 requirements:
  * - Responsive 2-3 column grid using FlatList
- * - Empty state with "Add item" CTA
+ * - Search input with 300ms debounce
+ * - Empty state with "Add your first item" CTA
+ * - No results state for empty search results
+ * - FAB for adding items when wardrobe has items
  * - Infinite scroll pagination
  * - Loading and error states with retry
  * - Item cards with image fallback chain
@@ -11,10 +14,11 @@
  * @module features/wardrobe/components/WardrobeScreen
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -23,21 +27,34 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useWardrobeItems } from '../api';
+import { useDebounce } from '../hooks';
 import { WardrobeItemCard } from './WardrobeItemCard';
+import { SearchHeader } from './SearchHeader';
 import { NAVIGATION_DEBOUNCE_MS } from '../constants';
-import { MIN_CARD_WIDTH, GRID_GAP } from '../types';
+import { MIN_CARD_WIDTH, GRID_GAP, SEARCH_DEBOUNCE_MS } from '../types';
 import type { WardrobeGridItem } from '../types';
 
 /**
  * Content horizontal padding (matches spacing.md from theme).
  */
 const CONTENT_PADDING = 16;
+
+/**
+ * FAB size for add item button.
+ */
+const FAB_SIZE = 56;
+
+/**
+ * FAB margin from screen edges.
+ */
+const FAB_MARGIN = 16;
 
 /**
  * Calculates the number of grid columns based on available width.
@@ -80,9 +97,12 @@ function calculateCardWidth(availableWidth: number, numColumns: number): number 
  * Protected route: requires authenticated user (enforced by route wrapper).
  *
  * Features:
+ * - Search input with 300ms debounce at top
  * - Responsive grid layout (2-3 columns based on screen width)
  * - Infinite scroll pagination with automatic page loading
- * - Empty state with add item CTA
+ * - Empty wardrobe state with "Add your first item" CTA
+ * - No results state when search yields no matches
+ * - FAB button when items exist for quick add
  * - Loading indicator during initial load
  * - Error state with retry button
  * - Pagination loading indicator at bottom
@@ -92,12 +112,20 @@ function calculateCardWidth(availableWidth: number, numColumns: number): number 
 export function WardrobeScreen(): React.JSX.Element {
   const { colors, colorScheme, spacing, fontSize } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useStore((state) => state.user);
   const isNavigating = useStore((state) => state.isNavigating);
   const setIsNavigating = useStore((state) => state.setIsNavigating);
 
-  // Fetch wardrobe items with infinite scroll
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, SEARCH_DEBOUNCE_MS);
+
+  // Track if user has ever had a search query (for telemetry)
+  const hasActiveSearch = debouncedSearchQuery.trim().length > 0;
+
+  // Fetch wardrobe items with infinite scroll and search
   const {
     items,
     isLoading,
@@ -106,7 +134,7 @@ export function WardrobeScreen(): React.JSX.Element {
     isFetchingNextPage,
     fetchNextPage,
     refetch,
-  } = useWardrobeItems();
+  } = useWardrobeItems({ searchQuery: debouncedSearchQuery });
 
   // Calculate grid dimensions
   const numColumns = useMemo(() => calculateNumColumns(screenWidth), [screenWidth]);
@@ -114,6 +142,11 @@ export function WardrobeScreen(): React.JSX.Element {
     () => calculateCardWidth(screenWidth, numColumns),
     [screenWidth, numColumns]
   );
+
+  // Determine UI states
+  const isEmptyWardrobe = !isLoading && !isError && items.length === 0 && !hasActiveSearch;
+  const isNoResults = !isLoading && !isError && items.length === 0 && hasActiveSearch;
+  const hasItems = items.length > 0;
 
   /**
    * Handles navigation to capture flow with origin=wardrobe.
@@ -154,10 +187,10 @@ export function WardrobeScreen(): React.JSX.Element {
 
       setIsNavigating(true);
 
-      // Track item tap
+      // Track item tap (item.id tracked via origin context for now)
       trackCaptureEvent('wardrobe_item_tapped', {
         userId: user?.id,
-        itemId: item.id,
+        origin: 'wardrobe',
       });
 
       // Navigate to item detail (to be implemented in future story)
@@ -170,6 +203,23 @@ export function WardrobeScreen(): React.JSX.Element {
     },
     [isNavigating, setIsNavigating, user?.id]
   );
+
+  /**
+   * Handles search input text change.
+   */
+  const handleSearchChange = useCallback(
+    (text: string) => {
+      setSearchQuery(text);
+    },
+    []
+  );
+
+  /**
+   * Handles clearing the search input.
+   */
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
 
   /**
    * Handles end of list reached - triggers next page fetch.
@@ -215,6 +265,7 @@ export function WardrobeScreen(): React.JSX.Element {
           flex: 1,
           backgroundColor: colors.background,
         },
+        // Loading styles
         loadingContainer: {
           flex: 1,
           alignItems: 'center',
@@ -226,6 +277,7 @@ export function WardrobeScreen(): React.JSX.Element {
           fontSize: fontSize.base,
           color: colors.textSecondary,
         },
+        // Error styles
         errorContainer: {
           flex: 1,
           alignItems: 'center',
@@ -243,6 +295,7 @@ export function WardrobeScreen(): React.JSX.Element {
           marginBottom: spacing.lg,
           maxWidth: 300,
         },
+        // Empty state styles
         emptyContainer: {
           flex: 1,
           alignItems: 'center',
@@ -270,9 +323,28 @@ export function WardrobeScreen(): React.JSX.Element {
         addButton: {
           minWidth: 200,
         },
+        // No results styles
+        noResultsContainer: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: spacing.lg,
+        },
+        noResultsIcon: {
+          fontSize: fontSize['5xl'],
+          marginBottom: spacing.md,
+        },
+        noResultsText: {
+          fontSize: fontSize.base,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          maxWidth: 300,
+        },
+        // Grid styles
         gridContentContainer: {
           padding: CONTENT_PADDING,
-          paddingBottom: spacing.xl,
+          paddingTop: 0, // Search header provides top padding
+          paddingBottom: FAB_SIZE + FAB_MARGIN * 2 + spacing.xl, // Space for FAB
         },
         columnWrapper: {
           gap: GRID_GAP,
@@ -282,8 +354,50 @@ export function WardrobeScreen(): React.JSX.Element {
           paddingVertical: spacing.lg,
           alignItems: 'center',
         },
+        // FAB styles
+        fab: {
+          position: 'absolute',
+          right: FAB_MARGIN,
+          bottom: FAB_MARGIN + insets.bottom,
+          width: FAB_SIZE,
+          height: FAB_SIZE,
+          borderRadius: FAB_SIZE / 2,
+          backgroundColor: colors.textPrimary,
+          justifyContent: 'center',
+          alignItems: 'center',
+          // Shadow for iOS
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 4,
+          // Elevation for Android
+          elevation: 4,
+        },
+        fabPressed: {
+          opacity: 0.8,
+          transform: [{ scale: 0.95 }],
+        },
+        fabIcon: {
+          fontSize: fontSize['2xl'],
+          color: colors.background,
+          fontWeight: '300',
+        },
       }),
-    [colors, spacing, fontSize]
+    [colors, spacing, fontSize, insets.bottom]
+  );
+
+  /**
+   * Renders the search header component.
+   */
+  const renderSearchHeader = useCallback(
+    () => (
+      <SearchHeader
+        value={searchQuery}
+        onChangeText={handleSearchChange}
+        onClear={handleClearSearch}
+      />
+    ),
+    [searchQuery, handleSearchChange, handleClearSearch]
   );
 
   /**
@@ -308,9 +422,28 @@ export function WardrobeScreen(): React.JSX.Element {
   }, [isFetchingNextPage, styles, colors, spacing]);
 
   /**
-   * Renders empty state when no items exist.
+   * Renders FAB for adding items.
    */
-  const renderEmptyState = useCallback(
+  const renderFab = useCallback(
+    () => (
+      <Pressable
+        style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
+        onPress={handleAddItem}
+        disabled={isNavigating}
+        accessibilityLabel={t('screens.wardrobe.accessibility.addItemButton')}
+        accessibilityHint={t('screens.wardrobe.accessibility.addItemHint')}
+        accessibilityRole="button"
+      >
+        <Text style={styles.fabIcon}>+</Text>
+      </Pressable>
+    ),
+    [styles, handleAddItem, isNavigating]
+  );
+
+  /**
+   * Renders empty wardrobe state (no items, no search).
+   */
+  const renderEmptyWardrobe = useCallback(
     () => (
       <View
         style={styles.emptyContainer}
@@ -351,8 +484,30 @@ export function WardrobeScreen(): React.JSX.Element {
     [styles, handleAddItem, isNavigating]
   );
 
-  // Initial loading state
-  if (isLoading) {
+  /**
+   * Renders no results state (search with no matches).
+   */
+  const renderNoResults = useCallback(
+    () => (
+      <View style={styles.noResultsContainer}>
+        <Text
+          style={styles.noResultsIcon}
+          role="img"
+          aria-label="No results"
+          accessibilityLabel="No results icon"
+        >
+          🔍
+        </Text>
+        <Text style={styles.noResultsText} allowFontScaling maxFontSizeMultiplier={2}>
+          {t('screens.wardrobe.search.noResults').replace('{query}', debouncedSearchQuery)}
+        </Text>
+      </View>
+    ),
+    [styles, debouncedSearchQuery]
+  );
+
+  // Initial loading state (no search header shown during initial load)
+  if (isLoading && !hasActiveSearch) {
     return (
       <View
         style={styles.container}
@@ -376,6 +531,7 @@ export function WardrobeScreen(): React.JSX.Element {
         style={styles.container}
         accessibilityLabel={t('screens.wardrobe.accessibility.screenLabel')}
       >
+        {renderSearchHeader()}
         <View style={styles.errorContainer} accessibilityRole="alert">
           <Text
             style={styles.errorIcon}
@@ -404,15 +560,30 @@ export function WardrobeScreen(): React.JSX.Element {
     );
   }
 
-  // Empty state (no items)
-  if (items.length === 0) {
+  // Empty wardrobe state (no items, no search query)
+  if (isEmptyWardrobe) {
     return (
       <View
         style={styles.container}
         accessibilityLabel={t('screens.wardrobe.accessibility.screenLabel')}
         accessibilityHint={t('screens.wardrobe.accessibility.screenHint')}
       >
-        {renderEmptyState()}
+        {renderEmptyWardrobe()}
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    );
+  }
+
+  // No results state (search with no matches)
+  if (isNoResults) {
+    return (
+      <View
+        style={styles.container}
+        accessibilityLabel={t('screens.wardrobe.accessibility.screenLabel')}
+        accessibilityHint={t('screens.wardrobe.accessibility.screenHint')}
+      >
+        {renderSearchHeader()}
+        {renderNoResults()}
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </View>
     );
@@ -435,7 +606,9 @@ export function WardrobeScreen(): React.JSX.Element {
         contentContainerStyle={styles.gridContentContainer}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        ListHeaderComponent={renderSearchHeader}
         ListFooterComponent={renderFooter}
+        stickyHeaderIndices={[0]}
         showsVerticalScrollIndicator={false}
         // Performance optimizations
         removeClippedSubviews
@@ -445,6 +618,7 @@ export function WardrobeScreen(): React.JSX.Element {
         // Accessibility
         accessibilityRole="list"
       />
+      {hasItems && renderFab()}
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>
   );
