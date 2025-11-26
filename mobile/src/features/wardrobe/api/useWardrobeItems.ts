@@ -16,7 +16,11 @@ import { useCallback, useMemo } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
 import { fetchWardrobeItems, FetchWardrobeItemsError } from './fetchWardrobeItems';
-import { type WardrobeGridItem, type FetchWardrobeItemsResponse, DEFAULT_PAGE_SIZE } from '../types';
+import {
+  type WardrobeGridItem,
+  type FetchWardrobeItemsResponse,
+  DEFAULT_PAGE_SIZE,
+} from '../types';
 
 /**
  * Query key factory for wardrobe items.

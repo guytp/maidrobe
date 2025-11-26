@@ -105,12 +105,9 @@ function WardrobeItemCardComponent({
   }, [item, onPress]);
 
   // Handle image load error - show placeholder
-  const handleImageError = useCallback(
-    (_event: NativeSyntheticEvent<ImageErrorEventData>) => {
-      setImageError(true);
-    },
-    []
-  );
+  const handleImageError = useCallback((_event: NativeSyntheticEvent<ImageErrorEventData>) => {
+    setImageError(true);
+  }, []);
 
   // Determine if we should show the placeholder
   const showPlaceholder = !imageUrl || imageError;
@@ -176,11 +173,7 @@ function WardrobeItemCardComponent({
       >
         <View style={styles.imageContainer}>
           {showPlaceholder ? (
-            <Text
-              style={styles.placeholderIcon}
-              role="img"
-              aria-label="Wardrobe item placeholder"
-            >
+            <Text style={styles.placeholderIcon} role="img" aria-label="Wardrobe item placeholder">
               👔
             </Text>
           ) : (
