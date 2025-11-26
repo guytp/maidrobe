@@ -15,8 +15,4 @@ export {
 } from './imageUpload';
 export type { UploadErrorType, PreparedImage } from './imageUpload';
 
-export {
-  getItemImageUrl,
-  getItemStorageKey,
-  getStoragePublicUrl,
-} from './getItemImageUrl';
+export { getItemImageUrl, getItemStorageKey, getStoragePublicUrl } from './getItemImageUrl';
