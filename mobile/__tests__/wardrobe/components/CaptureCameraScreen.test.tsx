@@ -56,9 +56,12 @@ const mockUseRouter = require('expo-router').useRouter;
 const mockUseLocalSearchParams = require('expo-router').useLocalSearchParams;
 const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
 const mockUseStore = require('../../../src/core/state/store').useStore;
-const mockUseCapturePermissions = require('../../../src/features/wardrobe/hooks/useCapturePermissions').useCapturePermissions;
-const mockUseGalleryPicker = require('../../../src/features/wardrobe/hooks/useGalleryPicker').useGalleryPicker;
-const mockValidateCapturedImage = require('../../../src/core/utils/imageValidation').validateCapturedImage;
+const mockUseCapturePermissions =
+  require('../../../src/features/wardrobe/hooks/useCapturePermissions').useCapturePermissions;
+const mockUseGalleryPicker =
+  require('../../../src/features/wardrobe/hooks/useGalleryPicker').useGalleryPicker;
+const mockValidateCapturedImage =
+  require('../../../src/core/utils/imageValidation').validateCapturedImage;
 
 describe('CaptureCameraScreen', () => {
   let mockRouter: any;
@@ -126,8 +129,8 @@ describe('CaptureCameraScreen', () => {
 
   describe('initial render', () => {
     it('renders camera view', () => {
-      const { getByTestID } = render(<CaptureCameraScreen />);
-      expect(getByTestID('camera-view')).toBeTruthy();
+      const { getByTestId } = render(<CaptureCameraScreen />);
+      expect(getByTestId('camera-view')).toBeTruthy();
     });
 
     it('tracks camera_opened event', () => {
