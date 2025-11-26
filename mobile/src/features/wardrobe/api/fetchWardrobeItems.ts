@@ -41,6 +41,33 @@ export class FetchWardrobeItemsError extends Error {
 }
 
 /**
+ * Escapes special characters in a search query for use in PostgreSQL ILIKE patterns.
+ *
+ * PostgreSQL ILIKE treats certain characters as wildcards:
+ * - % matches zero or more characters
+ * - _ matches exactly one character
+ * - \ is the escape character
+ *
+ * This function escapes these characters with a backslash so they are treated
+ * as literal characters in the search pattern.
+ *
+ * @param query - The raw search query from user input
+ * @returns The escaped query safe for ILIKE pattern construction
+ *
+ * @example
+ * ```ts
+ * escapeIlikePattern('50%') // Returns '50\%'
+ * escapeIlikePattern('shirt_blue') // Returns 'shirt\_blue'
+ * escapeIlikePattern('path\\to') // Returns 'path\\\\to'
+ * ```
+ */
+function escapeIlikePattern(query: string): string {
+  // Escape \, %, and _ with a backslash
+  // Order matters: escape backslash first to avoid double-escaping
+  return query.replace(/[\\%_]/g, '\\$&');
+}
+
+/**
  * Classifies a Supabase error into a user-friendly category.
  *
  * @param error - The error to classify
@@ -148,7 +175,10 @@ export async function fetchWardrobeItems(
     // Uses ILIKE for case-insensitive partial matching
     // Searches both name and tags (cast to text for array search)
     if (searchQuery && searchQuery.trim().length > 0) {
-      const searchPattern = `%${searchQuery.trim()}%`;
+      // Escape ILIKE special characters (%, _, \) so user input is treated literally
+      // e.g., "50%" searches for literal "50%" not "50" followed by anything
+      const escapedQuery = escapeIlikePattern(searchQuery.trim());
+      const searchPattern = `%${escapedQuery}%`;
       // Use OR to match either name or tags
       // tags::text converts the array to text for ILIKE matching
       query = query.or(`name.ilike.${searchPattern},tags::text.ilike.${searchPattern}`);
