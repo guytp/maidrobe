@@ -1,15 +1,27 @@
 /**
  * Wardrobe feature type definitions.
  *
- * This module defines types for the wardrobe grid display, pagination,
- * search, and related functionality. Types are designed to support:
+ * This module defines types for the wardrobe grid display, item detail view,
+ * pagination, search, and related functionality. Types are designed to support:
  * - Minimal data projection for grid performance
+ * - Full data projection for item detail view
  * - Image fallback chain (thumb_key → clean_key → original_key)
  * - Infinite scroll pagination
  * - Backend-powered search with ILIKE filters
  *
  * @module features/wardrobe/types
  */
+
+/**
+ * Processing status for AI attribute detection.
+ *
+ * Tracks the lifecycle of AI attribute extraction for wardrobe items:
+ * - pending: Waiting to be processed
+ * - processing: Currently being analyzed by AI
+ * - succeeded: AI attributes successfully extracted
+ * - failed: AI processing failed (attributes may be partial or missing)
+ */
+export type AttributeStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
 
 /**
  * Minimal projection of a wardrobe item for grid display.
@@ -58,6 +70,77 @@ export interface WardrobeGridItem {
  */
 export const WARDROBE_GRID_PROJECTION =
   'id, user_id, name, tags, thumb_key, clean_key, original_key, created_at' as const;
+
+/**
+ * Full projection of a wardrobe item for detail view.
+ *
+ * Contains all fields needed to display the item detail screen including:
+ * - Core fields (id, user_id, name, tags)
+ * - AI-detected attributes (type, colour, pattern, fabric, season, fit)
+ * - Image storage keys for fallback chain
+ * - Timestamps and processing status
+ *
+ * Uses snake_case to match Supabase column names directly.
+ */
+export interface ItemDetail {
+  /** Unique item identifier (UUIDv7) */
+  id: string;
+
+  /** User who owns this item (UUID foreign key to auth.users) */
+  user_id: string;
+
+  /** Optional user-provided name/label for the item */
+  name: string | null;
+
+  /** Optional user-provided tags (lowercased, max 20 tags, 30 chars each) */
+  tags: string[] | null;
+
+  /** AI-detected item type (e.g., shirt, pants, dress) */
+  type: string | null;
+
+  /** AI-detected colours (array allows multi-colour items) */
+  colour: string[] | null;
+
+  /** AI-detected pattern (e.g., striped, solid, floral) */
+  pattern: string | null;
+
+  /** AI-detected fabric type (e.g., cotton, wool, polyester) */
+  fabric: string | null;
+
+  /** AI-detected suitable seasons (array allows multi-season items) */
+  season: string[] | null;
+
+  /** AI-detected fit description (e.g., slim, regular, loose) */
+  fit: string | null;
+
+  /** Storage key for thumbnail image (preferred, ~200x200) */
+  thumb_key: string | null;
+
+  /** Storage key for background-removed image (fallback 1) */
+  clean_key: string | null;
+
+  /** Storage key for original uploaded image (fallback 2) */
+  original_key: string | null;
+
+  /** Item creation timestamp (ISO 8601, UTC) */
+  created_at: string;
+
+  /** Item last update timestamp (ISO 8601, UTC) */
+  updated_at: string;
+
+  /** Status of AI attribute detection */
+  attribute_status: AttributeStatus;
+}
+
+/**
+ * Supabase projection string for item detail queries.
+ *
+ * Projects all fields needed for the item detail screen including
+ * AI attributes and processing status. Use with:
+ * supabase.from('items').select(ITEM_DETAIL_PROJECTION).eq('id', itemId)
+ */
+export const ITEM_DETAIL_PROJECTION =
+  'id, user_id, name, tags, type, colour, pattern, fabric, season, fit, thumb_key, clean_key, original_key, created_at, updated_at, attribute_status' as const;
 
 /**
  * Parameters for fetching wardrobe items with pagination and search.
