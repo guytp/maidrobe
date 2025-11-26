@@ -46,7 +46,8 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
-import { useWardrobeItem, useUpdateWardrobeItem } from '../api';
+import { Toast } from '../../../core/components/Toast';
+import { useWardrobeItem, useUpdateWardrobeItem, useDeleteWardrobeItem } from '../api';
 import { getDetailImageUrl } from '../utils/getItemImageUrl';
 import type { ItemDetail } from '../types';
 
@@ -435,6 +436,19 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     reset: resetSaveError,
   } = useUpdateWardrobeItem();
 
+  // Delete mutation
+  const {
+    deleteItem,
+    isPending: isDeleting,
+    isSuccess: isDeleteSuccess,
+    isError: isDeleteError,
+    error: deleteError,
+    reset: resetDeleteError,
+  } = useDeleteWardrobeItem();
+
+  // Toast state for delete success
+  const [showDeleteSuccessToast, setShowDeleteSuccessToast] = useState(false);
+
   // Form state - initialized from item data when loaded
   const [name, setName] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -619,6 +633,46 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // Ref to track if we should skip the navigation guard (for intentional navigation)
   const skipNavigationGuardRef = useRef(false);
 
+  // Handle delete success - show toast and navigate back
+  useEffect(() => {
+    if (isDeleteSuccess) {
+      // Show success toast
+      setShowDeleteSuccessToast(true);
+
+      // Skip navigation guard (no unsaved changes dialog after delete)
+      skipNavigationGuardRef.current = true;
+
+      // Navigate back to wardrobe grid
+      router.back();
+    }
+  }, [isDeleteSuccess, router]);
+
+  // Show delete error alert when mutation fails
+  useEffect(() => {
+    if (isDeleteError && deleteError) {
+      // Show user-friendly error message based on error code
+      const errorMessage =
+        deleteError.code === 'network'
+          ? t('screens.itemDetail.errors.network')
+          : deleteError.code === 'auth'
+            ? t('screens.itemDetail.errors.deleteFailed')
+            : t('screens.itemDetail.errors.deleteFailed');
+
+      Alert.alert(
+        t('screens.itemDetail.errors.deleteFailed'),
+        errorMessage,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Just dismiss, keep the item visible so user can retry
+            },
+          },
+        ]
+      );
+    }
+  }, [isDeleteError, deleteError]);
+
   // Unsaved changes navigation guard
   // Shows confirmation dialog when user tries to navigate away with unsaved changes
   useEffect(() => {
@@ -778,10 +832,48 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     setImageError(true);
   }, []);
 
-  // Placeholder delete handler (functionality in later steps)
+  /**
+   * Delete handler - shows confirmation dialog and triggers deletion.
+   *
+   * On confirm:
+   * - Calls the delete mutation via Edge Function
+   * - Shows loading indicator while in progress
+   * - On success: navigates back with success toast
+   * - On failure: stays on screen with error alert
+   */
   const handleDelete = useCallback(() => {
-    // TODO: Will be implemented in Step 5
-  }, []);
+    // Don't allow delete while other operations are in progress
+    if (isDeleting || isSaving) return;
+
+    // Clear any previous delete error
+    resetDeleteError();
+
+    // Show confirmation dialog
+    // Alert.alert provides native accessibility - focus moves into dialog
+    // and returns to triggering element on dismiss
+    Alert.alert(
+      t('screens.itemDetail.deleteConfirmation.title'),
+      t('screens.itemDetail.deleteConfirmation.message'),
+      [
+        {
+          text: t('screens.itemDetail.deleteConfirmation.cancel'),
+          style: 'cancel',
+          onPress: () => {
+            // Do nothing, stay on screen
+          },
+        },
+        {
+          text: t('screens.itemDetail.deleteConfirmation.delete'),
+          style: 'destructive',
+          onPress: () => {
+            // Call the delete mutation
+            deleteItem({ itemId });
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  }, [isDeleting, isSaving, resetDeleteError, deleteItem, itemId]);
 
   // Determine if image should show placeholder
   const showImagePlaceholder = !imageUrl || imageError;
@@ -977,6 +1069,9 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           paddingVertical: spacing.md,
           alignItems: 'center',
           justifyContent: 'center',
+        },
+        deleteButtonDisabled: {
+          opacity: 0.5,
         },
         deleteButtonText: {
           color: colors.error,
@@ -1225,16 +1320,29 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           </Button>
 
           <Pressable
-            style={styles.deleteButton}
+            style={[styles.deleteButton, (isDeleting || isSaving) && styles.deleteButtonDisabled]}
             onPress={handleDelete}
+            disabled={isDeleting || isSaving}
             accessibilityLabel={t('screens.itemDetail.accessibility.deleteButton')}
             accessibilityHint={t('screens.itemDetail.accessibility.deleteButtonHint')}
             accessibilityRole="button"
+            accessibilityState={{ disabled: isDeleting || isSaving }}
           >
-            <Text style={styles.deleteButtonText}>{t('screens.itemDetail.delete')}</Text>
+            <Text style={styles.deleteButtonText}>
+              {isDeleting ? t('screens.itemDetail.deleting') : t('screens.itemDetail.delete')}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Success toast for delete - shown briefly before navigation */}
+      <Toast
+        visible={showDeleteSuccessToast}
+        message={t('screens.itemDetail.deleteSuccess')}
+        type="success"
+        duration={2000}
+        onDismiss={() => setShowDeleteSuccessToast(false)}
+      />
 
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </KeyboardAvoidingView>

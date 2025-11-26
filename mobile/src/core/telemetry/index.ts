@@ -329,7 +329,9 @@ export type CaptureEventType =
   | 'wardrobe_pagination_failed'
   | 'wardrobe_time_to_first_item'
   | 'wardrobe_item_updated'
-  | 'wardrobe_item_update_failed';
+  | 'wardrobe_item_update_failed'
+  | 'wardrobe_item_deleted'
+  | 'wardrobe_item_delete_failed';
 
 /**
  * Metadata for authentication event logging.
