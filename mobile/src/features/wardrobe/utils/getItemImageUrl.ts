@@ -1,8 +1,8 @@
 /**
  * Utility function for constructing wardrobe item image URLs.
  *
- * Provides image URL construction with fallback chain for the wardrobe grid.
- * Image priority follows AC12 specification:
+ * Provides image URL construction with fallback chain for the wardrobe grid
+ * and item detail views. Image priority follows AC12 specification:
  * 1. thumb_key - Optimized thumbnail (~200x200)
  * 2. clean_key - Background-removed version
  * 3. original_key - Original uploaded image
@@ -12,7 +12,7 @@
  */
 
 import { WARDROBE_BUCKET_NAME } from './imageUpload';
-import type { WardrobeGridItem } from '../types';
+import type { ItemDetail, WardrobeGridItem } from '../types';
 
 /**
  * Supabase project URL from environment.
@@ -23,6 +23,18 @@ import type { WardrobeGridItem } from '../types';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 
 /**
+ * Item with image storage keys.
+ *
+ * Minimal interface for any item type that contains the image storage keys
+ * needed for the fallback chain. Supports both WardrobeGridItem and ItemDetail.
+ */
+interface ItemWithImageKeys {
+  thumb_key: string | null;
+  clean_key: string | null;
+  original_key: string | null;
+}
+
+/**
  * Gets the storage key from a wardrobe item using the fallback chain.
  *
  * Returns the first available key from:
@@ -30,10 +42,10 @@ const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
  * 2. clean_key - Background-removed fallback
  * 3. original_key - Original image fallback
  *
- * @param item - Wardrobe grid item
+ * @param item - Wardrobe grid item or item detail
  * @returns Storage key or null if no image available
  */
-export function getItemStorageKey(item: WardrobeGridItem): string | null {
+export function getItemStorageKey(item: ItemWithImageKeys): string | null {
   return item.thumb_key || item.clean_key || item.original_key || null;
 }
 
@@ -71,7 +83,7 @@ export function getStoragePublicUrl(
  *
  * This follows the AC12 specification for image fallback order.
  *
- * @param item - Wardrobe grid item containing image storage keys
+ * @param item - Wardrobe grid item or item detail containing image storage keys
  * @returns Public image URL or null if no image available
  *
  * @example
@@ -83,8 +95,41 @@ export function getStoragePublicUrl(
  * return <PlaceholderImage />;
  * ```
  */
-export function getItemImageUrl(item: WardrobeGridItem): string | null {
+export function getItemImageUrl(item: WardrobeGridItem | ItemDetail): string | null {
   const storageKey = getItemStorageKey(item);
+
+  if (!storageKey) {
+    return null;
+  }
+
+  return getStoragePublicUrl(storageKey);
+}
+
+/**
+ * Gets the best available image URL for detail view display.
+ *
+ * For detail views, prefers the higher-quality clean or original image
+ * over the thumbnail for better visual presentation:
+ * 1. clean_key - Background-removed version (preferred for detail)
+ * 2. original_key - Original uploaded image
+ * 3. thumb_key - Thumbnail fallback
+ * 4. null if no valid image exists
+ *
+ * @param item - Item detail containing image storage keys
+ * @returns Public image URL or null if no image available
+ *
+ * @example
+ * ```tsx
+ * const imageUrl = getDetailImageUrl(item);
+ * if (imageUrl) {
+ *   return <Image source={{ uri: imageUrl }} style={styles.largeImage} />;
+ * }
+ * return <PlaceholderImage />;
+ * ```
+ */
+export function getDetailImageUrl(item: ItemDetail): string | null {
+  // Prefer higher quality images for detail view
+  const storageKey = item.clean_key || item.original_key || item.thumb_key || null;
 
   if (!storageKey) {
     return null;

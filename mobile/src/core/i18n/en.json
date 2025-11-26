@@ -599,6 +599,68 @@
         "retryHint": "Tap to retry loading your wardrobe"
       }
     },
+    "itemDetail": {
+      "title": "Item Details",
+      "nameLabel": "Name",
+      "namePlaceholder": "Give this item a name",
+      "nameHelper": "Name your item to help you find it later",
+      "tagsLabel": "Tags",
+      "tagsPlaceholder": "Add tags...",
+      "tagsHelper": "Press Enter, Space, or tap Add to add a tag",
+      "addTagButton": "Add",
+      "tagCount": "{count}/{max} tags",
+      "tagAlreadyAdded": "Tag already added",
+      "tagLimitReached": "Maximum 20 tags allowed",
+      "tagTooLong": "Tag must be 30 characters or less",
+      "nameTooLong": "Name must be 100 characters or less",
+      "nameRequired": "Please enter a name",
+      "aiSummary": {
+        "title": "AI Detection",
+        "detected": "Detected: {summary}"
+      },
+      "save": "Save",
+      "saving": "Saving...",
+      "delete": "Delete item",
+      "deleting": "Deleting...",
+      "unsavedChanges": {
+        "title": "Unsaved changes",
+        "message": "You have unsaved changes. What would you like to do?",
+        "save": "Save",
+        "discard": "Discard",
+        "cancel": "Cancel"
+      },
+      "errors": {
+        "loadFailed": "We could not load this item.",
+        "notFound": "This item no longer exists.",
+        "network": "Unable to connect. Please check your internet connection.",
+        "saveFailed": "We could not save your changes. Please try again.",
+        "deleteFailed": "We could not delete this item. Please try again."
+      },
+      "goBack": "Go back",
+      "accessibility": {
+        "screenLabel": "Item detail screen",
+        "screenHint": "View and edit item details",
+        "loadingScreen": "Loading item details",
+        "itemImage": "Photo of {name}",
+        "itemImagePlaceholder": "Item photo placeholder",
+        "nameInput": "Item name input",
+        "nameInputHint": "Enter a name for this item, up to 100 characters",
+        "tagsInput": "Tags input",
+        "tagsInputHint": "Add tags by pressing enter, space, or the add button",
+        "addTagButton": "Add tag button",
+        "addTagButtonHint": "Add the entered text as a tag",
+        "tagChip": "Tag",
+        "removeTag": "Remove tag",
+        "aiSummarySection": "AI detected attributes",
+        "saveButton": "Save changes button",
+        "saveButtonHint": "Save your changes to this item",
+        "deleteButton": "Delete this item",
+        "deleteButtonHint": "Permanently delete this item from your wardrobe",
+        "errorState": "Error loading item",
+        "goBackButton": "Go back button",
+        "goBackHint": "Return to wardrobe"
+      }
+    },
     "reviewDetails": {
       "title": "Review & Details",
       "nameLabel": "Name (Optional)",
