@@ -30,3 +30,15 @@ export {
   GRID_GAP,
   SEARCH_DEBOUNCE_MS,
 } from './types';
+
+// API / Data fetching
+export {
+  useWardrobeItems,
+  useInvalidateWardrobeItems,
+  usePrefetchWardrobeItems,
+  wardrobeItemsQueryKey,
+  fetchWardrobeItems,
+  FetchWardrobeItemsError,
+  type UseWardrobeItemsParams,
+  type UseWardrobeItemsResult,
+} from './api';
