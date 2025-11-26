@@ -12,7 +12,7 @@
  */
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
 import { fetchWardrobeItems, FetchWardrobeItemsError } from './fetchWardrobeItems';
@@ -269,27 +269,31 @@ export function useWardrobeItems(params: UseWardrobeItemsParams = {}): UseWardro
     staleTime: searchQuery ? 60 * 1000 : 30 * 1000,
   });
 
-  // Log errors for telemetry
-  if (query.error) {
-    const classification = mapErrorToClassification(query.error);
-    logError(query.error, classification, {
-      feature: 'wardrobe',
-      operation: 'fetchItems',
-      metadata: {
-        userId,
-        hasSearchQuery: !!searchQuery,
-        errorCode: query.error.code,
-      },
-    });
+  // Log errors for telemetry when error state changes
+  // Using useEffect ensures logging happens once per distinct error occurrence
+  // rather than on every re-render when query.error is truthy
+  useEffect(() => {
+    if (query.error) {
+      const classification = mapErrorToClassification(query.error);
+      logError(query.error, classification, {
+        feature: 'wardrobe',
+        operation: 'fetchItems',
+        metadata: {
+          userId,
+          hasSearchQuery: !!searchQuery,
+          errorCode: query.error.code,
+        },
+      });
 
-    // Track error event
-    trackCaptureEvent('wardrobe_items_load_failed', {
-      userId,
-      errorCode: query.error.code,
-      errorMessage: query.error.message,
-      hasSearchQuery: !!searchQuery,
-    });
-  }
+      // Track error event
+      trackCaptureEvent('wardrobe_items_load_failed', {
+        userId,
+        errorCode: query.error.code,
+        errorMessage: query.error.message,
+        hasSearchQuery: !!searchQuery,
+      });
+    }
+  }, [query.error, userId, searchQuery]);
 
   // Flatten all pages into a single items array
   const items = useMemo(() => {
