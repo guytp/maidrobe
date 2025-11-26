@@ -558,14 +558,45 @@
     "wardrobe": {
       "title": "My Wardrobe",
       "addItem": "Add item",
-      "empty": "No items yet",
+      "addFirstItem": "Add your first item",
+      "empty": {
+        "title": "Your closet is empty (for now).",
+        "subtitle": "Snap a few pieces you actually wear, and Maidrobe will start building outfits around them."
+      },
       "emptyHint": "Add your first item to get started with outfit suggestions",
+      "search": {
+        "placeholder": "Search items...",
+        "noResults": "No items match '{query}'",
+        "clearHint": "Clear search"
+      },
+      "loading": {
+        "initial": "Loading your wardrobe...",
+        "more": "Loading more items..."
+      },
+      "error": {
+        "loadFailed": "We couldn't load your wardrobe right now. Please try again.",
+        "retry": "Retry"
+      },
+      "grid": {
+        "itemName": "Unnamed item"
+      },
       "accessibility": {
         "screenLabel": "My wardrobe screen",
         "screenHint": "View and manage your wardrobe items",
         "addItemButton": "Add item button",
         "addItemHint": "Add a new item to your wardrobe",
-        "emptyState": "Empty wardrobe state"
+        "addFirstItemButton": "Add your first item button",
+        "addFirstItemHint": "Start building your wardrobe by adding your first item",
+        "emptyState": "Empty wardrobe state",
+        "searchInput": "Search wardrobe items",
+        "searchInputHint": "Type to filter items by name or tags",
+        "clearSearchButton": "Clear search button",
+        "clearSearchHint": "Clear the search query and show all items",
+        "gridItem": "Wardrobe item",
+        "gridItemHint": "Tap to view item details",
+        "loadingMore": "Loading more items",
+        "retryButton": "Retry loading",
+        "retryHint": "Tap to retry loading your wardrobe"
       }
     },
     "reviewDetails": {
