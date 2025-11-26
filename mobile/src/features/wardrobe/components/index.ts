@@ -7,3 +7,4 @@
 export { WardrobeScreen } from './WardrobeScreen';
 export { CaptureScreen } from './CaptureScreen';
 export { CaptureCameraScreen } from './CaptureCameraScreen';
+export { ItemDetailScreen, type ItemDetailScreenProps } from './ItemDetailScreen';
