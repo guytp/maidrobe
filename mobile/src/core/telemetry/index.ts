@@ -318,7 +318,16 @@ export type CaptureEventType =
   | 'review_details_save_pressed'
   | 'item_save_started'
   | 'item_save_succeeded'
-  | 'item_save_failed';
+  | 'item_save_failed'
+  | 'wardrobe_screen_viewed'
+  | 'wardrobe_items_loaded'
+  | 'wardrobe_items_load_failed'
+  | 'wardrobe_search_executed'
+  | 'wardrobe_search_cleared'
+  | 'wardrobe_item_tapped'
+  | 'wardrobe_pagination_triggered'
+  | 'wardrobe_pagination_failed'
+  | 'wardrobe_time_to_first_item';
 
 /**
  * Metadata for authentication event logging.
@@ -682,6 +691,14 @@ export interface CaptureEventMetadata {
   latencyMs?: number;
   /** Item ID for created items */
   itemId?: string;
+  /** Number of items loaded (for wardrobe grid analytics) */
+  itemCount?: number;
+  /** Total items available (for wardrobe grid analytics) */
+  totalItems?: number;
+  /** Current page number (for pagination analytics) */
+  page?: number;
+  /** Whether search is active (for wardrobe analytics) */
+  hasSearchQuery?: boolean;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }
