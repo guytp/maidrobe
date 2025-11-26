@@ -150,15 +150,8 @@ export function WardrobeScreen(): React.JSX.Element {
   const hasActiveSearch = debouncedSearchQuery.trim().length > 0;
 
   // Fetch wardrobe items with infinite scroll and search
-  const {
-    items,
-    isLoading,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-    refetch,
-  } = useWardrobeItems({ searchQuery: debouncedSearchQuery });
+  const { items, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+    useWardrobeItems({ searchQuery: debouncedSearchQuery });
 
   // Calculate grid dimensions
   const numColumns = useMemo(() => calculateNumColumns(screenWidth), [screenWidth]);
