@@ -1,5 +1,31 @@
 name: CI
 
+# =============================================================================
+# CI Workflow for Maidrobe
+# =============================================================================
+#
+# This workflow runs linting, type checking, and tests for both the React Native
+# mobile app and Supabase Edge Functions on every push and pull request.
+#
+# Jobs:
+#   Mobile (Node.js 18):
+#     - lint:       Runs ESLint via `npm run mobile:lint`
+#     - typecheck:  Runs TypeScript compiler via `npm run mobile:typecheck`
+#     - test:       Runs Jest tests via `npm run mobile:test`
+#
+#   Edge Functions (Deno v1.x):
+#     - edge_lint:      Runs `deno lint` in edge-functions/
+#     - edge_typecheck: Runs `deno check` on supabase/functions/**/*.ts
+#     - edge_test:      Runs `deno test --allow-all` in edge-functions/
+#
+# Modifying this workflow:
+#   - Mobile scripts: Update in root package.json (mobile:lint, mobile:typecheck, mobile:test)
+#   - Edge Functions paths: Update working-directory or glob patterns in edge_* jobs
+#   - Job IDs must use only alphanumeric characters, underscores, and hyphens
+#     (no colons allowed, e.g., use edge_lint not edge:lint)
+#
+# =============================================================================
+
 on:
   push:
     branches: [main, develop, 'feature/**']
