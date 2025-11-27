@@ -25,6 +25,37 @@
  * - Error classification: Typed errors for appropriate user messaging
  * - Non-guessable storage path: user/{userId}/items/{itemId}/original.jpg
  *
+ * SECURITY - RLS ENFORCEMENT:
+ * ---------------------------
+ * All database and storage operations use the authenticated Supabase client which
+ * enforces Row Level Security (RLS) policies. This provides defense-in-depth:
+ *
+ * Database (items table):
+ * - INSERT policy: `auth.uid() = user_id` - users can only create items for themselves
+ * - SELECT/UPDATE/DELETE policies: `auth.uid() = user_id` - users can only access own items
+ * - user_id is set from auth context, not from user input, preventing spoofing
+ *
+ * Storage (wardrobe-items bucket):
+ * - Path-based RLS: Policies enforce `user/{auth.uid()}/...` path pattern
+ * - Users can ONLY upload/read files in their own user folder
+ * - Cross-user access is impossible at the storage layer
+ *
+ * PRIVACY - EXIF STRIPPING:
+ * -------------------------
+ * All images are processed through prepareImageForUpload() which uses
+ * expo-image-manipulator to re-encode images as JPEG. This process STRIPS
+ * all EXIF metadata (GPS, device info, timestamps) before upload.
+ * See imageUpload.ts for detailed privacy guarantees.
+ *
+ * CROSS-USER ISOLATION:
+ * ---------------------
+ * Complete user isolation is enforced through multiple layers:
+ * 1. Auth context: All operations use authenticated session with auth.uid()
+ * 2. RLS policies: Database enforces user_id = auth.uid() on all operations
+ * 3. Storage paths: Include user_id, enforced by storage policies
+ * 4. Non-guessable IDs: UUIDv7 with crypto random prevents enumeration
+ * 5. No PII in logs: Telemetry uses pseudonymous user IDs only
+ *
  * @module features/wardrobe/hooks/useCreateItemWithImage
  */
 
