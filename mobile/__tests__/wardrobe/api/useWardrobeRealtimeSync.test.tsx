@@ -226,6 +226,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'succeeded',
           clean_key: 'user/test/items/456/clean.jpg',
           thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'pending',
         },
         old: {
           id: 'item-456',
@@ -233,6 +234,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'processing',
           clean_key: null,
           thumb_key: null,
+          attribute_status: 'pending',
         },
         schema: 'public',
         table: 'items',
@@ -254,7 +256,7 @@ describe('useWardrobeRealtimeSync', () => {
 
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
-      // Simulate an UPDATE event with only name change (no image processing changes)
+      // Simulate an UPDATE event with only name change (no background processing changes)
       const payload = {
         eventType: 'UPDATE' as const,
         new: {
@@ -263,6 +265,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'succeeded',
           clean_key: 'user/test/items/456/clean.jpg',
           thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'succeeded',
           name: 'Updated Name',
         },
         old: {
@@ -271,6 +274,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'succeeded',
           clean_key: 'user/test/items/456/clean.jpg',
           thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'succeeded',
           name: 'Old Name',
         },
         schema: 'public',
@@ -329,6 +333,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'succeeded',
           clean_key: 'user/test/items/789/clean.jpg',
           thumb_key: 'user/test/items/789/thumb.jpg',
+          attribute_status: 'pending',
         },
         old: {},
         schema: 'public',
@@ -366,6 +371,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'succeeded',
           clean_key: 'user/test/items/456/clean.jpg',
           thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'pending',
         },
         old: {
           id: 'item-456',
@@ -373,6 +379,7 @@ describe('useWardrobeRealtimeSync', () => {
           image_processing_status: 'processing',
           clean_key: null,
           thumb_key: null,
+          attribute_status: 'pending',
         },
         schema: 'public',
         table: 'items',
@@ -398,6 +405,44 @@ describe('useWardrobeRealtimeSync', () => {
           }),
         })
       );
+    });
+
+    it('should invalidate queries when attribute_status changes', () => {
+      const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries');
+
+      renderHook(() => useWardrobeRealtimeSync(), { wrapper });
+
+      // Simulate an UPDATE event with attribute detection completion
+      const payload = {
+        eventType: 'UPDATE' as const,
+        new: {
+          id: 'item-456',
+          user_id: mockUserId,
+          image_processing_status: 'succeeded',
+          clean_key: 'user/test/items/456/clean.jpg',
+          thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'succeeded',
+        },
+        old: {
+          id: 'item-456',
+          user_id: mockUserId,
+          image_processing_status: 'succeeded',
+          clean_key: 'user/test/items/456/clean.jpg',
+          thumb_key: 'user/test/items/456/thumb.jpg',
+          attribute_status: 'processing',
+        },
+        schema: 'public',
+        table: 'items',
+        commit_timestamp: '2024-01-01T00:00:00Z',
+        errors: [],
+      };
+
+      act(() => {
+        capturedChangeHandler(payload as RealtimePostgresChangesPayload<Record<string, unknown>>);
+      });
+
+      // Should invalidate queries when attribute_status changes (AI detection completed)
+      expect(invalidateSpy).toHaveBeenCalledTimes(1);
     });
   });
 
