@@ -127,6 +127,14 @@ export function useGallerySelection(
       source: 'gallery',
     });
 
+    // Emit item_capture_started with source now that user has made their selection
+    // (complements the initial item_capture_started emitted on flow entry without source)
+    trackCaptureEvent('item_capture_started', {
+      userId: options.user?.id,
+      context: options.origin || undefined,
+      source: 'gallery',
+    });
+
     // Launch gallery picker
     const result = await options.galleryPicker.pickImage();
 
