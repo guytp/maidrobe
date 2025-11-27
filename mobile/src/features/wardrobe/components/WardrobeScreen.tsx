@@ -130,6 +130,8 @@ export function WardrobeScreen(): React.JSX.Element {
   const router = useRouter();
   const flatListRef = useRef<FlatList<WardrobeGridItem>>(null);
   const hasTrackedScreenView = useRef(false);
+  const hasTrackedFirstPaint = useRef(false);
+  const screenMountTime = useRef(Date.now());
   const lastScrollUpdate = useRef(0);
 
   // Global state
@@ -184,6 +186,23 @@ export function WardrobeScreen(): React.JSX.Element {
       });
     }
   }, [user?.id]);
+
+  /**
+   * Track first paint metric when items are first rendered.
+   * Measures time from screen mount to first item visible in the grid.
+   * Only tracked once per screen instance.
+   */
+  useEffect(() => {
+    if (!hasTrackedFirstPaint.current && items.length > 0 && user?.id) {
+      hasTrackedFirstPaint.current = true;
+      const firstPaintMs = Date.now() - screenMountTime.current;
+      trackCaptureEvent('wardrobe_grid_first_paint', {
+        userId: user.id,
+        gridFirstPaintMs: firstPaintMs,
+        itemCount: items.length,
+      });
+    }
+  }, [items.length, user?.id]);
 
   /**
    * Restore scroll position when items are loaded.

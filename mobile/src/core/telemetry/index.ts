@@ -330,6 +330,7 @@ export type CaptureEventType =
   | 'wardrobe_pagination_triggered'
   | 'wardrobe_pagination_failed'
   | 'wardrobe_time_to_first_item'
+  | 'wardrobe_grid_first_paint'
   | 'wardrobe_item_updated'
   | 'wardrobe_item_update_failed'
   | 'wardrobe_item_deleted'
@@ -763,6 +764,11 @@ export interface CaptureEventMetadata {
    * Time from user action to results rendered
    */
   searchLatencyMs?: number;
+  /**
+   * Grid first paint latency in milliseconds (user story #241 spec property)
+   * Time from screen mount to first item rendered in wardrobe grid
+   */
+  gridFirstPaintMs?: number;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }

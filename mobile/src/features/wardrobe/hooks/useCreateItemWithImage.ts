@@ -54,7 +54,8 @@ import { EDGE_FUNCTIONS } from '../constants';
  *
  * Used for error classification and appropriate user messaging:
  * - offline: Device has no network connectivity
- * - network: Network error during operation (timeout, connection reset)
+ * - network: Network error during operation (connection reset, DNS failure)
+ * - timeout: Operation timed out waiting for server response
  * - storage: Failed to upload image to Supabase Storage
  * - database: Failed to insert item record
  * - validation: Invalid input data
@@ -64,11 +65,26 @@ import { EDGE_FUNCTIONS } from '../constants';
 export type CreateItemErrorType =
   | 'offline'
   | 'network'
+  | 'timeout'
   | 'storage'
   | 'database'
   | 'validation'
   | 'auth'
   | 'unknown';
+
+/**
+ * Retry configuration for bounded retry logic.
+ */
+const RETRY_CONFIG = {
+  /** Maximum number of retry attempts for transient failures */
+  maxRetries: 3,
+  /** Initial delay before first retry in milliseconds */
+  initialDelayMs: 1000,
+  /** Maximum delay between retries in milliseconds */
+  maxDelayMs: 10000,
+  /** Exponential backoff multiplier */
+  backoffMultiplier: 2,
+} as const;
 
 /**
  * User story #241 spec-compliant error type enum.
@@ -89,6 +105,8 @@ function mapErrorTypeToSpecEnum(errorType: CreateItemErrorType): SpecErrorType {
     case 'offline':
     case 'network':
       return 'network';
+    case 'timeout':
+      return 'timeout';
     case 'storage':
     case 'database':
     case 'auth':
@@ -100,6 +118,71 @@ function mapErrorTypeToSpecEnum(errorType: CreateItemErrorType): SpecErrorType {
       return 'server_error';
   }
 }
+
+/**
+ * Determines if an error message indicates a timeout.
+ *
+ * @param message - Error message to analyze
+ * @returns true if the error indicates a timeout
+ */
+function isTimeoutError(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  return (
+    lowerMessage.includes('timeout') ||
+    lowerMessage.includes('timed out') ||
+    lowerMessage.includes('aborted') ||
+    lowerMessage.includes('deadline exceeded')
+  );
+}
+
+/**
+ * Determines if an error is transient and should be retried.
+ *
+ * @param errorType - The classified error type
+ * @returns true if the error is transient and retryable
+ */
+function isRetryableError(errorType: CreateItemErrorType): boolean {
+  // Retry on transient errors: network issues, timeouts, server errors
+  return errorType === 'network' || errorType === 'timeout' || errorType === 'storage';
+}
+
+/**
+ * Calculates delay for exponential backoff.
+ *
+ * @param attempt - Current retry attempt (0-based)
+ * @returns Delay in milliseconds with jitter
+ */
+function calculateRetryDelay(attempt: number): number {
+  const exponentialDelay =
+    RETRY_CONFIG.initialDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, attempt);
+  const cappedDelay = Math.min(exponentialDelay, RETRY_CONFIG.maxDelayMs);
+  // Add jitter (±10%) to prevent thundering herd
+  const jitter = cappedDelay * 0.1 * (Math.random() * 2 - 1);
+  return Math.round(cappedDelay + jitter);
+}
+
+/**
+ * Sleep for a specified duration.
+ *
+ * @param ms - Duration in milliseconds
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * User-friendly error messages for each error type.
+ */
+const ERROR_MESSAGES: Record<CreateItemErrorType, string> = {
+  offline: 'No internet connection. Please check your network and try again.',
+  network: 'Connection error. Please check your network and try again.',
+  timeout: 'The request timed out. Please try again.',
+  storage: 'Failed to upload image. Please try again.',
+  database: 'Failed to save item. Please try again.',
+  validation: 'Invalid input. Please check your details and try again.',
+  auth: 'Your session has expired. Please log in again.',
+  unknown: 'An unexpected error occurred. Please try again.',
+};
 
 /**
  * Custom error class for item creation failures.
@@ -234,6 +317,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
   // Refs for single-flight semantics and stable itemId
   const isSavingRef = useRef(false);
   const cachedItemIdRef = useRef<string | null>(null);
+  const retryCountRef = useRef(0);
 
   /**
    * Generate a stable UUIDv7 for the item.
@@ -555,48 +639,157 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         const itemId = getOrCreateItemId();
         const storagePath = generateStoragePath(user.id, itemId);
 
-        // Step 4: Process image (resize, compress, strip EXIF)
-        // - Resize to max 1600px on longest edge (no upscaling if smaller)
-        // - Compress to JPEG at 0.85 quality (~1.5MB typical)
-        // - EXIF metadata stripped automatically by expo-image-manipulator
-        const preparedImage = await prepareImageForUpload(
-          input.imageUri,
-          input.imageWidth,
-          input.imageHeight
-        );
+        // Steps 4-6 are wrapped in bounded retry logic for transient failures.
+        // The retry loop handles network timeouts, connection errors, and storage
+        // failures with exponential backoff. Non-retryable errors (auth, validation)
+        // are thrown immediately.
+        //
+        // Idempotency:
+        // - Image upload uses upsert (overwrites existing file)
+        // - Database insert uses upsert with onConflict: 'id'
+        // - Stable itemId (cached) ensures consistent paths across retries
+        let lastError: CreateItemWithImageError | null = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let dbData: any = null;
 
-        // Step 5: Upload image to Supabase Storage
-        // - Uses authenticated client with RLS
-        // - Upsert enabled for retry idempotency
-        // - UploadError thrown with structured error type on failure
-        await uploadImageToStorage(preparedImage, storagePath);
+        for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+          try {
+            // Step 4: Process image (resize, compress, strip EXIF)
+            // - Resize to max 1600px on longest edge (no upscaling if smaller)
+            // - Compress to JPEG at 0.85 quality (~1.5MB typical)
+            // - EXIF metadata stripped automatically by expo-image-manipulator
+            const preparedImage = await prepareImageForUpload(
+              input.imageUri,
+              input.imageWidth,
+              input.imageHeight
+            );
 
-        // Step 6: Insert item record to database
-        // Using upsert with onConflict: 'id' for retry idempotency
-        // This ensures repeated calls with the same itemId are safe
-        const trimmedName = input.name.trim();
-        const normalizedTags =
-          input.tags.length > 0 ? input.tags.map((tag) => tag.toLowerCase()) : null;
+            // Step 5: Upload image to Supabase Storage
+            // - Uses authenticated client with RLS
+            // - Upsert enabled for retry idempotency
+            // - UploadError thrown with structured error type on failure
+            await uploadImageToStorage(preparedImage, storagePath);
 
-        const { data: dbData, error: dbError } = await supabase
-          .from('items')
-          .upsert(
-            {
-              id: itemId,
-              user_id: user.id,
-              name: trimmedName || null,
-              tags: normalizedTags,
-              original_key: storagePath,
-              image_processing_status: 'pending',
-              attribute_status: 'pending',
-            },
-            { onConflict: 'id' }
-          )
-          .select()
-          .single();
+            // Step 6: Insert item record to database
+            // Using upsert with onConflict: 'id' for retry idempotency
+            // This ensures repeated calls with the same itemId are safe
+            const trimmedName = input.name.trim();
+            const normalizedTags =
+              input.tags.length > 0 ? input.tags.map((tag) => tag.toLowerCase()) : null;
 
-        if (dbError) {
-          throw new CreateItemWithImageError('Failed to save item', 'database', dbError);
+            const { data: insertData, error: dbError } = await supabase
+              .from('items')
+              .upsert(
+                {
+                  id: itemId,
+                  user_id: user.id,
+                  name: trimmedName || null,
+                  tags: normalizedTags,
+                  original_key: storagePath,
+                  image_processing_status: 'pending',
+                  attribute_status: 'pending',
+                },
+                { onConflict: 'id' }
+              )
+              .select()
+              .single();
+
+            if (dbError) {
+              throw new CreateItemWithImageError(
+                ERROR_MESSAGES.database,
+                'database',
+                dbError
+              );
+            }
+
+            // Success - break out of retry loop
+            dbData = insertData;
+            retryCountRef.current = 0;
+            break;
+          } catch (retryError) {
+            // Classify the error to determine if it's retryable
+            let errorType: CreateItemErrorType = 'unknown';
+
+            if (retryError instanceof CreateItemWithImageError) {
+              errorType = retryError.errorType;
+              lastError = retryError;
+            } else if (retryError instanceof UploadError) {
+              const errorTypeMap: Record<string, CreateItemErrorType> = {
+                processing: 'storage',
+                file_read: 'storage',
+                network: 'network',
+                storage: 'storage',
+                permission: 'storage',
+                unknown: 'unknown',
+              };
+              errorType = errorTypeMap[retryError.errorType] || 'unknown';
+              lastError = new CreateItemWithImageError(
+                ERROR_MESSAGES[errorType],
+                errorType,
+                retryError
+              );
+            } else if (retryError instanceof Error) {
+              const lowerMessage = retryError.message.toLowerCase();
+              if (isTimeoutError(retryError.message)) {
+                errorType = 'timeout';
+              } else if (
+                lowerMessage.includes('network') ||
+                lowerMessage.includes('fetch') ||
+                lowerMessage.includes('connection')
+              ) {
+                errorType = 'network';
+              } else if (
+                lowerMessage.includes('storage') ||
+                lowerMessage.includes('upload')
+              ) {
+                errorType = 'storage';
+              }
+              lastError = new CreateItemWithImageError(
+                ERROR_MESSAGES[errorType],
+                errorType,
+                retryError
+              );
+            } else {
+              lastError = new CreateItemWithImageError(
+                ERROR_MESSAGES.unknown,
+                'unknown',
+                retryError
+              );
+            }
+
+            // Check if error is retryable and we have attempts remaining
+            const isRetryable = isRetryableError(errorType);
+            const hasAttemptsRemaining = attempt < RETRY_CONFIG.maxRetries;
+
+            if (isRetryable && hasAttemptsRemaining) {
+              // Log retry attempt
+              const delayMs = calculateRetryDelay(attempt);
+              retryCountRef.current = attempt + 1;
+
+              trackCaptureEvent('item_save_failed', {
+                userId: user.id,
+                errorType: lastError.errorType,
+                metadata: {
+                  retryAttempt: attempt + 1,
+                  maxRetries: RETRY_CONFIG.maxRetries,
+                  delayMs,
+                  willRetry: true,
+                },
+              });
+
+              // Wait before retrying
+              await sleep(delayMs);
+              continue;
+            }
+
+            // Non-retryable error or max retries exhausted - throw
+            throw lastError;
+          }
+        }
+
+        // If we exited the loop without dbData, throw the last error
+        if (!dbData) {
+          throw lastError || new CreateItemWithImageError(ERROR_MESSAGES.unknown, 'unknown');
         }
 
         // Construct created item from database response
@@ -721,25 +914,37 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         } else if (err instanceof Error) {
           // Classify error based on message patterns
           let errorType: CreateItemErrorType = 'unknown';
-          let errorMessage = 'Failed to save item';
+          const lowerMessage = err.message.toLowerCase();
 
-          if (
-            err.message.includes('network') ||
-            err.message.includes('fetch') ||
-            err.message.includes('timeout') ||
-            err.message.includes('connection')
+          // Check timeout first (more specific than network)
+          if (isTimeoutError(err.message)) {
+            errorType = 'timeout';
+          } else if (
+            lowerMessage.includes('network') ||
+            lowerMessage.includes('fetch') ||
+            lowerMessage.includes('connection') ||
+            lowerMessage.includes('dns') ||
+            lowerMessage.includes('econnrefused') ||
+            lowerMessage.includes('enotfound')
           ) {
             errorType = 'network';
-            errorMessage = 'Network error. Please try again.';
-          } else if (err.message.includes('storage') || err.message.includes('upload')) {
+          } else if (
+            lowerMessage.includes('storage') ||
+            lowerMessage.includes('upload') ||
+            lowerMessage.includes('bucket')
+          ) {
             errorType = 'storage';
-            errorMessage = 'Failed to upload image. Please try again.';
-          } else if (err.message.includes('database') || err.message.includes('insert')) {
+          } else if (
+            lowerMessage.includes('database') ||
+            lowerMessage.includes('insert') ||
+            lowerMessage.includes('rls') ||
+            lowerMessage.includes('policy') ||
+            lowerMessage.includes('permission denied')
+          ) {
             errorType = 'database';
-            errorMessage = 'Failed to save item. Please try again.';
           }
 
-          typedError = new CreateItemWithImageError(errorMessage, errorType, err);
+          typedError = new CreateItemWithImageError(ERROR_MESSAGES[errorType], errorType, err);
         } else {
           typedError = new CreateItemWithImageError('An unexpected error occurred', 'unknown', err);
         }

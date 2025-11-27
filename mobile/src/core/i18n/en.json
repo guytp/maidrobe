@@ -702,6 +702,7 @@
         "invalidPayload": "Please capture or select an image first.",
         "offline": "No internet connection. Please check your connection and try again.",
         "network": "Network error. Please try again.",
+        "timeout": "The request timed out. Please try again.",
         "storage": "Failed to upload image. Please try again.",
         "database": "Failed to save item. Please try again.",
         "validation": "Please check your information and try again.",
