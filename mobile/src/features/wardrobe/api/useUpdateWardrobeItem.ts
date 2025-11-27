@@ -188,13 +188,13 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
           latencyMs: latency,
         });
 
-        // New event per user story spec
+        // User story #241 spec-compliant event: item_edited
+        // Properties per spec: name_changed (boolean), tags_changed (boolean)
         trackCaptureEvent('item_edited', {
           userId,
           itemId: params.itemId,
-          nameChanged,
-          tagsChanged,
-          latencyMs: latency,
+          name_changed: nameChanged,
+          tags_changed: tagsChanged,
         });
 
         return result;

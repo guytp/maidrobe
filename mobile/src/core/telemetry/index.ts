@@ -765,8 +765,16 @@ export interface CaptureEventMetadata {
   hasTags?: boolean;
   /** Whether name was changed in edit (for item edit analytics) */
   nameChanged?: boolean;
+  /**
+   * Whether name was changed in edit (user story #241 spec property, snake_case)
+   */
+  name_changed?: boolean;
   /** Whether tags were changed in edit (for item edit analytics) */
   tagsChanged?: boolean;
+  /**
+   * Whether tags were changed in edit (user story #241 spec property, snake_case)
+   */
+  tags_changed?: boolean;
   /** Error category for failures (network, auth, server, validation, unknown) */
   errorCategory?: string;
   /**
