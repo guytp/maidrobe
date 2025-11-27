@@ -254,16 +254,18 @@ export function useWardrobeItems(params: UseWardrobeItemsParams = {}): UseWardro
         }
 
         // User story #241 spec-compliant event: item_search_used
-        // Emitted when search is applied and results are actually updated
+        // Emitted when a meaningful search is applied and results are updated.
+        // Only fires for non-empty queries to distinguish active searches from
+        // clearing the search field or initial load without search.
         // Properties per spec: query_length, results_count_bucket, search_latency_ms
-        if (searchQuery !== undefined) {
+        if (searchQuery && searchQuery.length > 0) {
           // Calculate results count bucket per spec: "0", "1-5", ">5"
           const resultsCountBucket: '0' | '1-5' | '>5' =
             result.total === 0 ? '0' : result.total <= 5 ? '1-5' : '>5';
 
           trackCaptureEvent('item_search_used', {
             userId,
-            queryLength: (searchQuery ?? '').length,
+            queryLength: searchQuery.length,
             resultsCountBucket,
             searchLatencyMs: latency,
           });
