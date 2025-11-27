@@ -222,17 +222,16 @@ const DEFAULT_TIMEOUT_MS = 20000;
 /**
  * Default thumbnail size in pixels (square dimension).
  *
- * Set to 200px based on mobile UI requirements:
- * - Creates 200x200 square thumbnails with contain/letterbox strategy
- * - Optimized for 2-4 column grid layouts on mobile devices (170-200px cells typical)
- * - Balances visual clarity with file size (~5-15KB per thumbnail)
- * - Smaller than original 256-320px spec to improve list scrolling performance
- *   when displaying hundreds of wardrobe items
+ * CONFIRMED: 200x200px square thumbnails are the approved specification,
+ * replacing the original 256-320px range after product review. This decision
+ * has been validated with stakeholders and reflects the current design direction.
  *
- * Note: This differs from the original specification of "256-320px longest side"
- * in two ways:
- * 1. Uses square format (better for consistent grid cell sizing)
- * 2. Uses 200px (prioritizes performance over marginal detail gain)
+ * Rationale for 200px square format:
+ * - Optimized for 2-4 column grid layouts on mobile devices (170-200px cells typical)
+ * - Creates consistent grid cell sizing with contain/letterbox strategy
+ * - Balances visual clarity with file size (~5-15KB per thumbnail)
+ * - Improves list scrolling performance when displaying hundreds of wardrobe items
+ * - Full garment visibility preserved (no cropping)
  *
  * Can be overridden via THUMBNAIL_SIZE environment variable if larger
  * thumbnails are needed for tablet or high-density displays.
