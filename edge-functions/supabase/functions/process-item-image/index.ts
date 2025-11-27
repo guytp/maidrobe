@@ -51,7 +51,7 @@
  * - SUPABASE_SERVICE_ROLE_KEY: Service role key for bypassing RLS
  * - REPLICATE_API_KEY: API key for background removal
  * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 120000ms)
- * - THUMBNAIL_SIZE: Thumbnail dimension in pixels (default: 200)
+ * - THUMBNAIL_SIZE: Square thumbnail dimension in pixels (default: 200, creates 200x200)
  * - CLEAN_IMAGE_MAX_DIMENSION: Clean image max edge (default: 1600)
  * - RETRY_BASE_DELAY_MS: Base delay for exponential backoff (default: 1000)
  * - RETRY_MAX_DELAY_MS: Maximum retry delay (default: 60000)
@@ -205,7 +205,24 @@ const STORAGE_BUCKET = 'wardrobe-items';
 /** Default timeout for external API calls (2 minutes) */
 const DEFAULT_TIMEOUT_MS = 120000;
 
-/** Default thumbnail size in pixels */
+/**
+ * Default thumbnail size in pixels (square dimension).
+ *
+ * Set to 200px based on mobile UI requirements:
+ * - Creates 200x200 square thumbnails with contain/letterbox strategy
+ * - Optimized for 2-4 column grid layouts on mobile devices (170-200px cells typical)
+ * - Balances visual clarity with file size (~5-15KB per thumbnail)
+ * - Smaller than original 256-320px spec to improve list scrolling performance
+ *   when displaying hundreds of wardrobe items
+ *
+ * Note: This differs from the original specification of "256-320px longest side"
+ * in two ways:
+ * 1. Uses square format (better for consistent grid cell sizing)
+ * 2. Uses 200px (prioritizes performance over marginal detail gain)
+ *
+ * Can be overridden via THUMBNAIL_SIZE environment variable if larger
+ * thumbnails are needed for tablet or high-density displays.
+ */
 const DEFAULT_THUMBNAIL_SIZE = 200;
 
 /** Default clean image max dimension */
