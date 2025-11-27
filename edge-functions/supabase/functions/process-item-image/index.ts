@@ -902,11 +902,107 @@ async function resizeImage(
 }
 
 /**
- * Generates a thumbnail from the clean image
+ * Generates a square thumbnail from the source image using a contain/letterbox strategy.
+ *
+ * Creates consistent square thumbnails optimized for grid views:
+ * - Resizes image to fit within target square (preserving aspect ratio)
+ * - Centers the resized image on a white square canvas
+ * - No cropping - entire item remains visible
+ * - Outputs JPEG for small file size
+ *
+ * This approach is ideal for wardrobe items where:
+ * - Background is already removed (white fill blends naturally)
+ * - Full garment visibility is important
+ * - Grid layout requires consistent dimensions
+ *
+ * @param imageData - Raw image bytes (JPEG, PNG, or GIF)
+ * @param size - Target square dimension in pixels (e.g., 200 for 200x200)
+ * @param quality - JPEG quality (0.0 to 1.0, default 0.90 for thumbnails)
+ * @returns Square thumbnail as JPEG bytes
  */
-async function generateThumbnail(imageData: Uint8Array, size: number): Promise<Uint8Array> {
-  structuredLog('info', 'generate_thumbnail', { size });
-  return resizeImage(imageData, size);
+async function generateThumbnail(
+  imageData: Uint8Array,
+  size: number,
+  quality: number = 0.9
+): Promise<Uint8Array> {
+  const startTime = Date.now();
+
+  try {
+    // Decode the source image
+    const sourceImage = await Image.decode(imageData);
+    const sourceWidth = sourceImage.width;
+    const sourceHeight = sourceImage.height;
+
+    structuredLog('info', 'generate_thumbnail_start', {
+      target_size: size,
+      quality,
+      source_width: sourceWidth,
+      source_height: sourceHeight,
+    });
+
+    // Calculate scale to fit within target square (contain strategy)
+    const longestEdge = Math.max(sourceWidth, sourceHeight);
+    const scale = Math.min(size / longestEdge, 1); // Don't upscale
+
+    const scaledWidth = Math.round(sourceWidth * scale);
+    const scaledHeight = Math.round(sourceHeight * scale);
+
+    // Resize the source image to fit within the square
+    sourceImage.resize(scaledWidth, scaledHeight);
+
+    // Create a square canvas with white background
+    // ImageScript uses RGBA format: 0xRRGGBBAA
+    const WHITE_BACKGROUND = 0xffffffff;
+    const canvas = new Image(size, size);
+    canvas.fill(WHITE_BACKGROUND);
+
+    // Calculate position to center the resized image on the canvas
+    const offsetX = Math.round((size - scaledWidth) / 2);
+    const offsetY = Math.round((size - scaledHeight) / 2);
+
+    // Composite the resized image onto the white canvas
+    canvas.composite(sourceImage, offsetX, offsetY);
+
+    structuredLog('info', 'generate_thumbnail_composed', {
+      scaled_width: scaledWidth,
+      scaled_height: scaledHeight,
+      offset_x: offsetX,
+      offset_y: offsetY,
+      canvas_size: size,
+    });
+
+    // Encode to JPEG with specified quality
+    // Use slightly higher quality for thumbnails since they're already small
+    const jpegQuality = Math.round(quality * 100);
+    const outputData = await canvas.encodeJPEG(jpegQuality);
+
+    const durationMs = Date.now() - startTime;
+    structuredLog('info', 'generate_thumbnail_complete', {
+      input_size_bytes: imageData.length,
+      output_size_bytes: outputData.length,
+      target_size: size,
+      duration_ms: durationMs,
+    });
+
+    return outputData;
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    structuredLog('error', 'generate_thumbnail_failed', {
+      target_size: size,
+      duration_ms: durationMs,
+      error_message: errorMessage,
+    });
+
+    // Classify as permanent error since invalid image data can't be retried
+    throw createClassifiedError(
+      `Thumbnail generation failed: ${errorMessage}`,
+      'permanent',
+      'unsupported_format',
+      'internal'
+    );
+  }
 }
 
 // ============================================================================
