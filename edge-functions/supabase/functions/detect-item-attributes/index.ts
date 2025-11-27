@@ -812,8 +812,8 @@ async function callOpenAIVision(
 
     structuredLog('info', 'openai_request_complete', {
       has_type: canonicalised.type !== null,
-      has_colour: canonicalised.colour.length > 0,
-      has_season: canonicalised.season.length > 0,
+      has_colour: canonicalised.colour !== null && canonicalised.colour.length > 0,
+      has_season: canonicalised.season !== null && canonicalised.season.length > 0,
       has_pattern: canonicalised.pattern !== null,
       has_fabric: canonicalised.fabric !== null,
       has_fit: canonicalised.fit !== null,
@@ -886,13 +886,20 @@ async function markItemFailed(
  * - Sets attribute_last_run_at to current timestamp
  *
  * The update is idempotent - later successful runs cleanly overwrite prior values.
- * Empty arrays are stored as-is (PostgreSQL handles empty TEXT[] correctly).
+ * Empty arrays are converted to null for consistency with PostgreSQL conventions.
  */
 async function markItemSucceeded(
   supabase: SupabaseClient,
   itemId: string,
   attributes: CanonicalisedAttributes
 ): Promise<void> {
+  // Convert empty arrays to null for database consistency
+  // This distinguishes "no colours detected" from "not yet processed"
+  const colourValue =
+    attributes.colour !== null && attributes.colour.length > 0 ? attributes.colour : null;
+  const seasonValue =
+    attributes.season !== null && attributes.season.length > 0 ? attributes.season : null;
+
   const { error } = await supabase
     .from('items')
     .update({
@@ -904,9 +911,9 @@ async function markItemSucceeded(
       pattern: attributes.pattern,
       fabric: attributes.fabric,
       fit: attributes.fit,
-      // Array fields: empty array if no values detected
-      colour: attributes.colour.length > 0 ? attributes.colour : null,
-      season: attributes.season.length > 0 ? attributes.season : null,
+      // Array fields: null if empty or not detected
+      colour: colourValue,
+      season: seasonValue,
     })
     .eq('id', itemId);
 
@@ -1546,7 +1553,10 @@ export async function handler(req: Request): Promise<Response> {
       }
 
       // Continue to queue processing
-      const queueBatchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
+      const queueBatchSize = Math.min(
+        requestBody.batchSize || DEFAULT_BATCH_SIZE,
+        DEFAULT_BATCH_SIZE
+      );
       const queueResults = await processJobQueue(supabase, queueBatchSize, config);
 
       return jsonResponse(
