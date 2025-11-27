@@ -58,6 +58,7 @@ import {
   type CanonicalisedAttributes,
   type CanonicalisationResult,
 } from './canonicalise.ts';
+import { isAIAttributesEnabled } from '../_shared/featureFlags.ts';
 
 // ============================================================================
 // Types
@@ -1452,15 +1453,11 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    // Load configuration from environment
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    const featureEnabled = Deno.env.get('ATTRIBUTE_DETECTION_ENABLED') !== 'false';
-
-    // Check feature flag first
-    if (!featureEnabled) {
-      structuredLog('info', 'feature_disabled', { feature: 'attribute_detection' });
+    // Check feature flag first - safe default is disabled
+    // Server-side decision: client cannot override this behaviour
+    // Uses shared feature flag module for consistency with other edge functions
+    if (!isAIAttributesEnabled()) {
+      structuredLog('info', 'feature_disabled', { feature: 'wardrobe_ai_attributes' });
       return jsonResponse(
         {
           success: true,
@@ -1472,6 +1469,11 @@ export async function handler(req: Request): Promise<Response> {
         200
       );
     }
+
+    // Load configuration from environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
     // Validate required configuration
     if (!supabaseUrl || !supabaseServiceKey) {

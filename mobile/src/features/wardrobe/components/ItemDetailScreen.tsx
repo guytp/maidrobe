@@ -50,6 +50,7 @@ import { Button } from '../../../core/components/Button';
 import { Toast } from '../../../core/components/Toast';
 import { trackCaptureEvent, logError, type ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { useWardrobeFeatureFlags } from '../../../core/featureFlags';
 import {
   useWardrobeItem,
   useUpdateWardrobeItem,
@@ -467,6 +468,11 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // See useWardrobeRealtimeSync JSDoc for multiple-instance considerations.
   useWardrobeRealtimeSync();
 
+  // Fetch wardrobe feature flags for UI adjustments.
+  // These flags are server-side authoritative - we only use them for UI visibility.
+  // Safe defaults (both false) are used while loading or on error.
+  const { flags: wardrobeFlags } = useWardrobeFeatureFlags();
+
   // Toast state for delete success
   const [showDeleteSuccessToast, setShowDeleteSuccessToast] = useState(false);
 
@@ -576,14 +582,23 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   }, [item]);
 
   // Check if AI attributes are available and should be shown
-  // Only show when status is 'succeeded' AND we have a valid summary
-  const hasAIAttributes = item?.attribute_status === 'succeeded' && aiSummary !== null;
+  // Only show when:
+  // 1. AI attributes feature flag is enabled (server-side authoritative)
+  // 2. Status is 'succeeded'
+  // 3. We have a valid summary
+  const hasAIAttributes =
+    wardrobeFlags.wardrobe_ai_attributes_enabled &&
+    item?.attribute_status === 'succeeded' &&
+    aiSummary !== null;
 
   // Determine if we should show attribute detection indicator
-  // Show for pending/processing states only (not failed - per spec "show no AI-related summary or error when failed")
+  // Only show when:
+  // 1. AI attributes feature flag is enabled (server-side authoritative)
+  // 2. Status is pending/processing (not failed - per spec "show no AI-related summary or error when failed")
   const attributeStatus = item?.attribute_status;
   const showAttributeDetectionIndicator =
-    attributeStatus === 'pending' || attributeStatus === 'processing';
+    wardrobeFlags.wardrobe_ai_attributes_enabled &&
+    (attributeStatus === 'pending' || attributeStatus === 'processing');
 
   // Get attribute detection status text using type-safe mapping
   const attributeDetectionText = useMemo(() => {
@@ -593,12 +608,15 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   }, [showAttributeDetectionIndicator, attributeStatus]);
 
   // Determine if we should show image processing status indicator
-  // Show for pending/processing states, or failed state (to inform user)
+  // Only show when:
+  // 1. Image cleanup feature flag is enabled (server-side authoritative)
+  // 2. Status is pending/processing/failed (to inform user)
   const imageProcessingStatus = item?.image_processing_status;
   const showProcessingIndicator =
-    imageProcessingStatus === 'pending' ||
-    imageProcessingStatus === 'processing' ||
-    imageProcessingStatus === 'failed';
+    wardrobeFlags.wardrobe_image_cleanup_enabled &&
+    (imageProcessingStatus === 'pending' ||
+      imageProcessingStatus === 'processing' ||
+      imageProcessingStatus === 'failed');
 
   // Get processing status text using type-safe mapping
   const processingStatusText = useMemo(() => {
