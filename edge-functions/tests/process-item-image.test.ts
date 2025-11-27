@@ -674,3 +674,263 @@ Deno.test('idempotency documentation exists', () => {
 
   assertEquals(idempotencyFeatures.length, 8);
 });
+
+// =============================================================================
+// Future Integration Tests (Placeholders)
+// =============================================================================
+
+/**
+ * Integration Test Requirements
+ *
+ * The tests above validate handler-level behavior in isolation. Full integration
+ * tests require a configured test environment with:
+ *
+ * 1. Test Supabase Project:
+ *    - Dedicated test project or local Supabase instance (supabase start)
+ *    - Service role key with access to storage and database
+ *    - Test bucket configured in storage (e.g., 'test-wardrobe-images')
+ *    - Database migrations applied (wardrobe_items, image_processing_queue tables)
+ *
+ * 2. Replicate API Access:
+ *    - Test API key with billing enabled, OR
+ *    - Mock server implementing Replicate's prediction API contract, OR
+ *    - Recorded fixtures with replay capability
+ *
+ * 3. Test Data:
+ *    - Sample images in various formats (JPEG, PNG, WebP)
+ *    - Edge cases: large files, transparent backgrounds, already-clean images
+ *    - User accounts with appropriate RLS permissions
+ *
+ * These integration tests are NOT implemented in this PR. The placeholders below
+ * document the specific scenarios that should be covered when the test
+ * infrastructure is established.
+ *
+ * TODO: Set up test infrastructure and implement these integration tests.
+ * Tracking issue: #229
+ */
+
+// -----------------------------------------------------------------------------
+// Storage Operation Tests (TODO)
+// -----------------------------------------------------------------------------
+
+/**
+ * TODO: Implement storage integration tests
+ *
+ * These tests verify the full storage lifecycle:
+ * - Download original image from storage bucket
+ * - Upload processed (clean) image to storage
+ * - Upload thumbnail to storage
+ * - Verify file integrity and correct MIME types
+ * - Test signed URL generation for private buckets
+ */
+Deno.test('TODO: downloads original image from storage', () => {
+  // Placeholder - requires test Supabase instance with storage configured
+  //
+  // Test should:
+  // 1. Upload a known test image to storage
+  // 2. Create a wardrobe_item record pointing to it
+  // 3. Invoke the handler with the item ID
+  // 4. Verify the image was downloaded (check logs or mock)
+});
+
+Deno.test('TODO: uploads clean image to correct storage path', () => {
+  // Placeholder - requires test Supabase instance with storage configured
+  //
+  // Test should:
+  // 1. Process a test item through the full pipeline
+  // 2. Verify clean image exists at: user/{userId}/items/{itemId}/clean.jpg
+  // 3. Verify image content type is image/jpeg
+  // 4. Verify image dimensions match CLEAN_IMAGE_MAX_DIMENSION constraint
+});
+
+Deno.test('TODO: uploads thumbnail to correct storage path', () => {
+  // Placeholder - requires test Supabase instance with storage configured
+  //
+  // Test should:
+  // 1. Process a test item through the full pipeline
+  // 2. Verify thumbnail exists at: user/{userId}/items/{itemId}/thumb.jpg
+  // 3. Verify thumbnail dimensions are THUMBNAIL_SIZE x THUMBNAIL_SIZE (200x200)
+  // 4. Verify thumbnail is square (letterboxed if source was not square)
+});
+
+Deno.test('TODO: handles storage download failures gracefully', () => {
+  // Placeholder - requires test Supabase instance or mock
+  //
+  // Test should:
+  // 1. Create an item record pointing to a non-existent storage path
+  // 2. Invoke the handler
+  // 3. Verify appropriate error response (not_found or storage error)
+  // 4. Verify item status updated to 'failed'
+});
+
+// -----------------------------------------------------------------------------
+// Replicate API Tests (TODO)
+// -----------------------------------------------------------------------------
+
+/**
+ * TODO: Implement Replicate API integration tests
+ *
+ * These tests verify interaction with the background removal service:
+ * - Successful background removal request/response cycle
+ * - Handling of API rate limits (429 responses)
+ * - Handling of model failures
+ * - Timeout handling for long-running predictions
+ *
+ * Options for implementation:
+ * - Use Replicate test mode (if available)
+ * - Mock Replicate API with a local HTTP server
+ * - Use recorded fixtures with HTTP replay
+ */
+Deno.test('TODO: sends correct payload to Replicate API', () => {
+  // Placeholder - requires Replicate mock or test API key
+  //
+  // Test should:
+  // 1. Intercept outgoing HTTP requests to Replicate
+  // 2. Verify request includes correct model version
+  // 3. Verify request includes base64-encoded image data
+  // 4. Verify Authorization header is present
+});
+
+Deno.test('TODO: processes Replicate response correctly', () => {
+  // Placeholder - requires Replicate mock or test API key
+  //
+  // Test should:
+  // 1. Mock a successful Replicate response with output URL
+  // 2. Verify the output image is fetched
+  // 3. Verify the image is decoded and processed for storage
+});
+
+Deno.test('TODO: handles Replicate rate limiting with retry', () => {
+  // Placeholder - requires Replicate mock
+  //
+  // Test should:
+  // 1. Mock a 429 response from Replicate
+  // 2. Verify job is marked for retry (not permanent failure)
+  // 3. Verify next_retry_at is set with exponential backoff
+  // 4. Verify attempt_count is incremented
+});
+
+Deno.test('TODO: handles Replicate model failure as permanent error', () => {
+  // Placeholder - requires Replicate mock
+  //
+  // Test should:
+  // 1. Mock a model failure response (e.g., unsupported image)
+  // 2. Verify job is marked as permanently failed
+  // 3. Verify error_code is 'provider_failed'
+  // 4. Verify no retry is scheduled
+});
+
+// -----------------------------------------------------------------------------
+// Database Status Update Tests (TODO)
+// -----------------------------------------------------------------------------
+
+/**
+ * TODO: Implement database status tracking tests
+ *
+ * These tests verify the job queue and item status lifecycle:
+ * - Job state transitions: pending → processing → complete/failed
+ * - Item status synchronization with job status
+ * - Retry scheduling with next_retry_at timestamps
+ * - Stale job detection and recovery
+ */
+Deno.test('TODO: updates job status to processing on start', () => {
+  // Placeholder - requires test database
+  //
+  // Test should:
+  // 1. Create a pending job in image_processing_queue
+  // 2. Invoke the handler in queue mode
+  // 3. Verify job status changes to 'processing'
+  // 4. Verify started_at timestamp is set
+});
+
+Deno.test('TODO: updates job and item status to complete on success', () => {
+  // Placeholder - requires test database and full pipeline
+  //
+  // Test should:
+  // 1. Process a job through completion
+  // 2. Verify job status is 'complete'
+  // 3. Verify item.image_processing_status is 'complete'
+  // 4. Verify item.clean_key and item.thumb_key are populated
+  // 5. Verify job.completed_at timestamp is set
+});
+
+Deno.test('TODO: schedules retry on transient failure', () => {
+  // Placeholder - requires test database and failure injection
+  //
+  // Test should:
+  // 1. Cause a transient failure (e.g., network timeout)
+  // 2. Verify job status remains 'pending' (reset for retry)
+  // 3. Verify attempt_count is incremented
+  // 4. Verify next_retry_at is set in the future
+  // 5. Verify exponential backoff is applied
+});
+
+Deno.test('TODO: marks job as failed after max retries', () => {
+  // Placeholder - requires test database
+  //
+  // Test should:
+  // 1. Create a job with attempt_count at max_attempts - 1
+  // 2. Cause another transient failure
+  // 3. Verify job status is 'failed' (not retried)
+  // 4. Verify item.image_processing_status is 'failed'
+  // 5. Verify error details are recorded
+});
+
+Deno.test('TODO: recovers stale jobs in processing state', () => {
+  // Placeholder - requires test database
+  //
+  // Test should:
+  // 1. Create a job with status='processing' and old started_at
+  // 2. Invoke handler with { recoverStale: true }
+  // 3. Verify job is reset to 'pending' (if attempts remain)
+  // 4. Verify next_retry_at is set
+  // 5. Verify recovery is logged
+});
+
+// -----------------------------------------------------------------------------
+// End-to-End Pipeline Tests (TODO)
+// -----------------------------------------------------------------------------
+
+/**
+ * TODO: Implement end-to-end pipeline tests
+ *
+ * These tests verify the complete flow from upload to processed images:
+ * - Single item processing from pending to complete
+ * - Batch processing of multiple items
+ * - Concurrent processing within limits
+ * - Full error recovery scenarios
+ */
+Deno.test('TODO: processes single item end-to-end', () => {
+  // Placeholder - requires full test environment
+  //
+  // Test should:
+  // 1. Upload a test image to storage
+  // 2. Create wardrobe_item with image_processing_status='pending'
+  // 3. Create job in image_processing_queue
+  // 4. Invoke handler with item ID
+  // 5. Verify clean image in storage
+  // 6. Verify thumbnail in storage
+  // 7. Verify item status is 'complete'
+  // 8. Verify clean_key and thumb_key are correct paths
+});
+
+Deno.test('TODO: processes batch of items with concurrency limit', () => {
+  // Placeholder - requires full test environment
+  //
+  // Test should:
+  // 1. Create multiple pending jobs (more than MAX_CONCURRENT_JOBS)
+  // 2. Invoke handler with batchSize
+  // 3. Verify all jobs processed successfully
+  // 4. Verify concurrency was respected (via timing or logs)
+});
+
+Deno.test('TODO: handles mixed success and failure in batch', () => {
+  // Placeholder - requires full test environment
+  //
+  // Test should:
+  // 1. Create batch with some valid and some invalid items
+  // 2. Process the batch
+  // 3. Verify successful items are complete
+  // 4. Verify failed items have appropriate error status
+  // 5. Verify response includes accurate processed/failed counts
+});
