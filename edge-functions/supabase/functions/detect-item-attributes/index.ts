@@ -123,6 +123,8 @@ interface JobResult {
   itemId: string;
   jobId?: number;
   success: boolean;
+  /** True if processing was skipped (e.g., feature flag disabled) */
+  skipped?: boolean;
   error?: string;
   errorCode?: ErrorCode;
   errorCategory?: ErrorCategory;
@@ -1452,15 +1454,66 @@ export async function handler(req: Request): Promise<Response> {
   logger.info('request_received');
 
   try {
+    // Load Supabase configuration early - needed even when feature disabled for skip updates
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
     // Check feature flag first - safe default is disabled
     // Server-side decision: client cannot override this behaviour
     // Uses shared feature flag module for consistency with other edge functions
     if (!isAIAttributesEnabled()) {
       logger.info('feature_disabled', { metadata: { feature: 'wardrobe_ai_attributes' } });
+
+      // If a specific itemId was provided, mark it as 'skipped' so it doesn't remain
+      // in 'pending' state forever. This provides clear status tracking.
+      if (supabaseUrl && supabaseServiceKey) {
+        let requestBody: DetectAttributesRequest = {};
+        try {
+          const text = await req.text();
+          if (text) {
+            requestBody = JSON.parse(text);
+          }
+        } catch {
+          // Ignore parse errors for feature-disabled path
+        }
+
+        if (requestBody.itemId && isValidUuid(requestBody.itemId)) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          const { error: updateError } = await supabase
+            .from('items')
+            .update({ attribute_status: 'skipped' })
+            .eq('id', requestBody.itemId)
+            .eq('attribute_status', 'pending');
+
+          if (updateError) {
+            logger.warn('skip_status_update_failed', {
+              item_id: requestBody.itemId,
+              error_message: updateError.message,
+            });
+          } else {
+            logger.info('item_marked_skipped', {
+              item_id: requestBody.itemId,
+              skip_reason: 'feature_disabled',
+            });
+          }
+
+          return jsonResponse(
+            {
+              success: true,
+              processed: 0,
+              failed: 0,
+              skipped: 1,
+              results: [{ itemId: requestBody.itemId, success: true, skipped: true }],
+              correlationId,
+            },
+            200
+          );
+        }
+      }
+
       return jsonResponse(
         {
           success: true,
-          skipped: 1,
           processed: 0,
           failed: 0,
           results: [],
@@ -1470,9 +1523,7 @@ export async function handler(req: Request): Promise<Response> {
       );
     }
 
-    // Load configuration from environment
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // Load remaining configuration (supabaseUrl and supabaseServiceKey already loaded above)
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
     // Validate required configuration
