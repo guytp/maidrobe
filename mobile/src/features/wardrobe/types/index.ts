@@ -24,6 +24,18 @@
 export type AttributeStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
 
 /**
+ * Processing status for image background removal and thumbnail generation.
+ *
+ * Tracks the lifecycle of image processing for wardrobe items:
+ * - pending: Item has non-null original_key and is waiting to be processed
+ * - processing: Background removal and thumbnail generation is in progress
+ * - succeeded: Processing completed successfully, clean_key/thumb_key are populated
+ * - failed: Processing failed after retries or due to non-recoverable error
+ * - skipped: Processing is intentionally not run (special imports, admin override)
+ */
+export type ImageProcessingStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'skipped';
+
+/**
  * Minimal projection of a wardrobe item for grid display.
  *
  * Contains only the fields needed for the wardrobe grid to minimize
@@ -128,6 +140,9 @@ export interface ItemDetail {
   /** Item last update timestamp (ISO 8601, UTC) */
   updated_at: string;
 
+  /** Status of background removal and thumbnail generation */
+  image_processing_status: ImageProcessingStatus;
+
   /** Status of AI attribute detection */
   attribute_status: AttributeStatus;
 }
@@ -140,7 +155,7 @@ export interface ItemDetail {
  * supabase.from('items').select(ITEM_DETAIL_PROJECTION).eq('id', itemId)
  */
 export const ITEM_DETAIL_PROJECTION =
-  'id, user_id, name, tags, type, colour, pattern, fabric, season, fit, thumb_key, clean_key, original_key, created_at, updated_at, attribute_status' as const;
+  'id, user_id, name, tags, type, colour, pattern, fabric, season, fit, thumb_key, clean_key, original_key, image_processing_status, created_at, updated_at, attribute_status' as const;
 
 /**
  * Parameters for fetching wardrobe items with pagination and search.
