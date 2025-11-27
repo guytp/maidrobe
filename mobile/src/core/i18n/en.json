@@ -621,7 +621,9 @@
       "imageProcessing": {
         "pending": "Processing image...",
         "processing": "Optimizing image...",
-        "failed": "Image processing unavailable"
+        "succeeded": "Image ready",
+        "failed": "Image processing unavailable",
+        "skipped": "Image processing skipped"
       },
       "save": "Save",
       "saving": "Saving...",
