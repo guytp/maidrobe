@@ -52,6 +52,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
+import {
+  canonicaliseAttributes,
+  hasAnyAttributes,
+  type CanonicalisedAttributes,
+  type CanonicalisationResult,
+} from './canonicalise.ts';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -179,9 +186,16 @@ interface OpenAIResponse {
 }
 
 /**
- * Expected structure from GPT-4o for garment attributes
+ * Expected raw structure from GPT-4o for garment attributes.
+ *
+ * This represents the unvalidated response from the AI model.
+ * After parsing, raw attributes are validated and canonicalised
+ * using the canonicalise module before persistence.
+ *
+ * @see CanonicalisedAttributes - The validated/normalised version
+ * @deprecated Use CanonicalisedAttributes for typed attribute handling
  */
-interface DetectedAttributes {
+interface _RawDetectedAttributes {
   type?: string;
   colour?: string[];
   pattern?: string;
@@ -572,14 +586,22 @@ async function generateSignedUrl(
 
 /**
  * Calls GPT-4o vision API to detect garment attributes from an image.
- * Enforces timeout and handles various error conditions.
+ *
+ * This function:
+ * 1. Sends the image to GPT-4o with the detection prompt
+ * 2. Parses the JSON response
+ * 3. Validates the response structure (type checking)
+ * 4. Canonicalises values to internal labels
+ *
+ * Returns canonicalised attributes ready for persistence.
+ * Throws ClassifiedError on any failure (network, timeout, invalid response).
  */
 async function callOpenAIVision(
   imageUrl: string,
   apiKey: string,
   model: string,
   timeoutMs: number
-): Promise<DetectedAttributes> {
+): Promise<CanonicalisedAttributes> {
   structuredLog('info', 'openai_request_start', { model, timeout_ms: timeoutMs });
 
   const controller = new AbortController();
@@ -670,7 +692,7 @@ async function callOpenAIVision(
     });
 
     // Parse JSON from response
-    let attributes: DetectedAttributes;
+    let rawAttributes: unknown;
     try {
       // Try to extract JSON from the response (handle potential markdown wrapping)
       let jsonContent = content.trim();
@@ -686,7 +708,7 @@ async function callOpenAIVision(
       }
       jsonContent = jsonContent.trim();
 
-      attributes = JSON.parse(jsonContent);
+      rawAttributes = JSON.parse(jsonContent);
     } catch (parseError) {
       structuredLog('error', 'openai_json_parse_error', {
         error_message: parseError instanceof Error ? parseError.message : String(parseError),
@@ -701,23 +723,36 @@ async function callOpenAIVision(
       );
     }
 
-    // Basic validation of response structure
-    if (typeof attributes !== 'object' || attributes === null) {
+    // Validate structure and canonicalise attributes
+    const canonResult: CanonicalisationResult = canonicaliseAttributes(rawAttributes);
+
+    if (!canonResult.valid || !canonResult.attributes) {
+      structuredLog('error', 'openai_validation_error', {
+        error_message: canonResult.error,
+        content_preview: content.substring(0, 100),
+      });
+
       throw createClassifiedError(
-        'OpenAI response is not a valid object',
+        `Invalid attribute structure: ${canonResult.error}`,
         'permanent',
         'invalid_json',
         'openai'
       );
     }
 
+    const canonicalised = canonResult.attributes;
+
     structuredLog('info', 'openai_request_complete', {
-      has_type: !!attributes.type,
-      has_colour: Array.isArray(attributes.colour) && attributes.colour.length > 0,
-      has_season: Array.isArray(attributes.season) && attributes.season.length > 0,
+      has_type: canonicalised.type !== null,
+      has_colour: canonicalised.colour.length > 0,
+      has_season: canonicalised.season.length > 0,
+      has_pattern: canonicalised.pattern !== null,
+      has_fabric: canonicalised.fabric !== null,
+      has_fit: canonicalised.fit !== null,
+      has_any_attributes: hasAnyAttributes(canonicalised),
     });
 
-    return attributes;
+    return canonicalised;
   } catch (error) {
     clearTimeout(timeoutId);
 
@@ -775,12 +810,20 @@ async function markItemFailed(
 
 /**
  * Updates an item with successful detection results.
- * Clears any previous error reason.
+ *
+ * Persists canonicalised attributes to the database:
+ * - Sets all attribute columns (type, colour, pattern, fabric, season, fit)
+ * - Sets attribute_status to 'succeeded'
+ * - Clears attribute_error_reason to null
+ * - Sets attribute_last_run_at to current timestamp
+ *
+ * The update is idempotent - later successful runs cleanly overwrite prior values.
+ * Empty arrays are stored as-is (PostgreSQL handles empty TEXT[] correctly).
  */
 async function markItemSucceeded(
   supabase: SupabaseClient,
   itemId: string,
-  attributes: DetectedAttributes
+  attributes: CanonicalisedAttributes
 ): Promise<void> {
   const { error } = await supabase
     .from('items')
@@ -788,12 +831,14 @@ async function markItemSucceeded(
       attribute_status: 'succeeded',
       attribute_error_reason: null,
       attribute_last_run_at: new Date().toISOString(),
-      type: attributes.type ?? null,
-      colour: attributes.colour ?? null,
-      pattern: attributes.pattern ?? null,
-      fabric: attributes.fabric ?? null,
-      season: attributes.season ?? null,
-      fit: attributes.fit ?? null,
+      // Single-value fields: null if not detected
+      type: attributes.type,
+      pattern: attributes.pattern,
+      fabric: attributes.fabric,
+      fit: attributes.fit,
+      // Array fields: empty array if no values detected
+      colour: attributes.colour.length > 0 ? attributes.colour : null,
+      season: attributes.season.length > 0 ? attributes.season : null,
     })
     .eq('id', itemId);
 
@@ -810,18 +855,27 @@ async function markItemSucceeded(
 /**
  * Processes a single item through the attribute detection pipeline.
  *
+ * Pipeline steps:
+ * 1. Fetch and validate item record
+ * 2. Determine source image key (clean_key preferred)
+ * 3. Check eligibility status
+ * 4. Atomically claim item for processing
+ * 5. Generate pre-signed URL
+ * 6. Call OpenAI Vision API (with canonicalisation)
+ * 7. Persist canonicalised attributes
+ *
  * @param supabase - Supabase client with service role
  * @param itemId - ID of the item to process
  * @param config - Processing configuration
  * @param jobId - Optional job ID for logging
- * @returns Processing result with user ID and duration
+ * @returns Processing result with user ID, duration, and canonicalised attributes
  */
 async function processItem(
   supabase: SupabaseClient,
   itemId: string,
   config: ProcessingConfig,
   jobId?: number
-): Promise<{ userId: string; durationMs: number; attributes: DetectedAttributes }> {
+): Promise<{ userId: string; durationMs: number; attributes: CanonicalisedAttributes }> {
   const startTime = Date.now();
   let userId = '';
 
