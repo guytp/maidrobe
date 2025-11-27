@@ -157,6 +157,7 @@ jest.mock('../../../src/features/wardrobe/api', () => ({
   useWardrobeItem: () => mockUseWardrobeItem(),
   useUpdateWardrobeItem: () => mockUseUpdateWardrobeItem(),
   useDeleteWardrobeItem: () => mockUseDeleteWardrobeItem(),
+  useWardrobeRealtimeSync: () => ({ isConnected: true, reconnect: jest.fn() }),
 }));
 
 jest.mock('../../../src/features/wardrobe/utils/getItemImageUrl', () => ({
