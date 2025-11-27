@@ -732,6 +732,11 @@ export interface CaptureEventMetadata {
   tags_count?: number;
   /** Error type for item save failures */
   errorType?: string;
+  /**
+   * Error type for failures (user story #241 spec property, snake_case)
+   * Enum values: "network", "server_error", "validation", "timeout"
+   */
+  error_type?: string;
   /** Latency in milliseconds */
   latencyMs?: number;
   /**
