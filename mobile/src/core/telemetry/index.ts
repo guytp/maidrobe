@@ -778,20 +778,35 @@ export interface CaptureEventMetadata {
   /** Error category for failures (network, auth, server, validation, unknown) */
   errorCategory?: string;
   /**
-   * Search query length (user story #241 spec property)
-   * Integer length of the search text (0 allowed) - never raw query text
+   * @deprecated Use query_length for spec-compliant analytics
+   * Search query length (legacy camelCase)
    */
   queryLength?: number;
   /**
-   * Results count bucket (user story #241 spec property)
-   * Bucketed count to preserve privacy: "0", "1-5", ">5"
+   * Search query length (user story #241 spec property, snake_case)
+   * Integer length of the search text (0 allowed) - never raw query text
+   */
+  query_length?: number;
+  /**
+   * @deprecated Use results_count_bucket for spec-compliant analytics
+   * Results count bucket (legacy camelCase)
    */
   resultsCountBucket?: '0' | '1-5' | '>5';
   /**
-   * Search latency in milliseconds (user story #241 spec property)
-   * Time from user action to results rendered
+   * Results count bucket (user story #241 spec property, snake_case)
+   * Bucketed count to preserve privacy: "0", "1-5", ">5"
+   */
+  results_count_bucket?: '0' | '1-5' | '>5';
+  /**
+   * @deprecated Use search_latency_ms for spec-compliant analytics
+   * Search latency in milliseconds (legacy camelCase)
    */
   searchLatencyMs?: number;
+  /**
+   * Search latency in milliseconds (user story #241 spec property, snake_case)
+   * Time from user action to results rendered
+   */
+  search_latency_ms?: number;
   /**
    * Grid first paint latency in milliseconds (user story #241 spec property)
    * Time from screen mount to first item rendered in wardrobe grid
