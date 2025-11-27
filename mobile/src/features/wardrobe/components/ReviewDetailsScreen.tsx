@@ -118,6 +118,7 @@ export function ReviewDetailsScreen(): React.JSX.Element {
     const errorMessages: Record<CreateItemErrorType, string> = {
       offline: t('screens.reviewDetails.errors.offline'),
       network: t('screens.reviewDetails.errors.network'),
+      timeout: t('screens.reviewDetails.errors.timeout'),
       storage: t('screens.reviewDetails.errors.storage'),
       database: t('screens.reviewDetails.errors.database'),
       validation: t('screens.reviewDetails.errors.validation'),
