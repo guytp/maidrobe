@@ -29,6 +29,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -49,7 +50,12 @@ import { Button } from '../../../core/components/Button';
 import { Toast } from '../../../core/components/Toast';
 import { trackCaptureEvent, logError, type ErrorClassification } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { useWardrobeItem, useUpdateWardrobeItem, useDeleteWardrobeItem } from '../api';
+import {
+  useWardrobeItem,
+  useUpdateWardrobeItem,
+  useDeleteWardrobeItem,
+  useWardrobeRealtimeSync,
+} from '../api';
 import { getDetailImageUrl } from '../utils/getItemImageUrl';
 import {
   MAX_NAME_LENGTH,
@@ -125,9 +131,7 @@ function formatAISummary(item: ItemDetail): string | null {
   // Add fabric if available (e.g., "blue cotton" or just "cotton")
   if (hasFabric) {
     const fabric = item.fabric!.toLowerCase();
-    primaryDescription = primaryDescription
-      ? `${primaryDescription} ${fabric}`
-      : fabric;
+    primaryDescription = primaryDescription ? `${primaryDescription} ${fabric}` : fabric;
   }
 
   // Add type (e.g., "blue cotton shirt" or "shirt")
@@ -170,7 +174,7 @@ function formatAISummary(item: ItemDetail): string | null {
     } else if (seasonCount === 1) {
       seasonText = item.season![0].toLowerCase();
     } else {
-      seasonText = item.season!.map(s => s.toLowerCase()).join(' / ');
+      seasonText = item.season!.map((s) => s.toLowerCase()).join(' / ');
     }
 
     if (parts.length > 0) {
@@ -440,6 +444,10 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     reset: resetDeleteError,
   } = useDeleteWardrobeItem();
 
+  // Enable real-time synchronization for image processing updates
+  // When backend updates clean_key/thumb_key, the detail view automatically refreshes
+  useWardrobeRealtimeSync();
+
   // Toast state for delete success
   const [showDeleteSuccessToast, setShowDeleteSuccessToast] = useState(false);
 
@@ -499,8 +507,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   // Log load errors to observability stack
   useEffect(() => {
     if (isError && error) {
-      const classification: ErrorClassification =
-        error.code === 'network' ? 'network' : 'server';
+      const classification: ErrorClassification = error.code === 'network' ? 'network' : 'server';
 
       logError(error, classification, {
         feature: 'wardrobe',
@@ -551,6 +558,21 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
 
   // Check if AI attributes are available
   const hasAIAttributes = item?.attribute_status === 'succeeded' && aiSummary !== null;
+
+  // Determine if we should show image processing status indicator
+  // Show for pending/processing states, or failed state (to inform user)
+  const imageProcessingStatus = item?.image_processing_status;
+  const showProcessingIndicator =
+    imageProcessingStatus === 'pending' ||
+    imageProcessingStatus === 'processing' ||
+    imageProcessingStatus === 'failed';
+
+  // Get processing status text
+  const processingStatusText = useMemo(() => {
+    if (!showProcessingIndicator || !imageProcessingStatus) return null;
+    const statusKey = `screens.itemDetail.imageProcessing.${imageProcessingStatus}` as const;
+    return t(statusKey as Parameters<typeof t>[0]);
+  }, [showProcessingIndicator, imageProcessingStatus]);
 
   // Navigation callback
   const handleGoBack = useCallback(() => {
@@ -683,18 +705,14 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
             ? t('screens.itemDetail.errors.deleteFailed')
             : t('screens.itemDetail.errors.deleteFailed');
 
-      Alert.alert(
-        t('screens.itemDetail.errors.deleteFailed'),
-        errorMessage,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Just dismiss, keep the item visible so user can retry
-            },
+      Alert.alert(t('screens.itemDetail.errors.deleteFailed'), errorMessage, [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Just dismiss, keep the item visible so user can retry
           },
-        ]
-      );
+        },
+      ]);
     }
   }, [isDeleteError, deleteError]);
 
@@ -1084,6 +1102,28 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           color: colors.textPrimary,
           fontStyle: 'italic',
         },
+        processingIndicator: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing.sm,
+          paddingHorizontal: spacing.md,
+          backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#f0f0f0',
+          borderRadius: radius.md,
+          marginTop: spacing.sm,
+          gap: spacing.sm,
+        },
+        processingIndicatorFailed: {
+          backgroundColor: colorScheme === 'dark' ? '#3a2020' : '#fff0f0',
+        },
+        processingText: {
+          fontSize: fontSize.sm,
+          color: colors.textSecondary,
+          fontStyle: 'italic',
+        },
+        processingTextFailed: {
+          color: colors.error,
+        },
         buttonContainer: {
           marginTop: spacing.xl,
           gap: spacing.md,
@@ -1165,6 +1205,33 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
               )}
               accessibilityIgnoresInvertColors
             />
+          )}
+
+          {/* Image Processing Status Indicator */}
+          {showProcessingIndicator && processingStatusText && (
+            <View
+              style={[
+                styles.processingIndicator,
+                imageProcessingStatus === 'failed' && styles.processingIndicatorFailed,
+              ]}
+              accessible
+              accessibilityLabel={processingStatusText}
+              accessibilityLiveRegion="polite"
+            >
+              {(imageProcessingStatus === 'pending' || imageProcessingStatus === 'processing') && (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              )}
+              <Text
+                style={[
+                  styles.processingText,
+                  imageProcessingStatus === 'failed' && styles.processingTextFailed,
+                ]}
+                allowFontScaling
+                maxFontSizeMultiplier={2}
+              >
+                {processingStatusText}
+              </Text>
+            </View>
           )}
         </View>
 

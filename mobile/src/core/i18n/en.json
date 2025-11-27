@@ -618,6 +618,11 @@
         "title": "AI Detection",
         "detected": "Detected: {summary}"
       },
+      "imageProcessing": {
+        "pending": "Processing image...",
+        "processing": "Optimizing image...",
+        "failed": "Image processing unavailable"
+      },
       "save": "Save",
       "saving": "Saving...",
       "delete": "Delete item",

@@ -38,7 +38,7 @@ import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { useWardrobeItems } from '../api';
+import { useWardrobeItems, useWardrobeRealtimeSync } from '../api';
 import { useDebounce } from '../hooks';
 import { WardrobeItemCard } from './WardrobeItemCard';
 import { SearchHeader } from './SearchHeader';
@@ -152,6 +152,10 @@ export function WardrobeScreen(): React.JSX.Element {
   // Fetch wardrobe items with infinite scroll and search
   const { items, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
     useWardrobeItems({ searchQuery: debouncedSearchQuery });
+
+  // Enable real-time synchronization for image processing updates
+  // When backend updates clean_key/thumb_key, the grid automatically refreshes
+  useWardrobeRealtimeSync();
 
   // Calculate grid dimensions
   const numColumns = useMemo(() => calculateNumColumns(screenWidth), [screenWidth]);

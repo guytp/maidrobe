@@ -65,3 +65,10 @@ export {
   type UseDeleteWardrobeItemMutationParams,
   type UseDeleteWardrobeItemResult,
 } from './useDeleteWardrobeItem';
+
+// Real-time synchronization
+export {
+  useWardrobeRealtimeSync,
+  type UseWardrobeRealtimeSyncParams,
+  type UseWardrobeRealtimeSyncResult,
+} from './useWardrobeRealtimeSync';

@@ -18,8 +18,9 @@ Comprehensive reference for the wardrobe items data model, including database sc
 12. [Service Role and Edge Functions](#service-role-and-edge-functions)
 13. [Signed URLs](#signed-urls)
 14. [Code Examples](#code-examples)
-15. [Usage by Feature Team](#usage-by-feature-team)
-16. [Migration Reference](#migration-reference)
+15. [React Native Client Integration](#react-native-client-integration)
+16. [Usage by Feature Team](#usage-by-feature-team)
+17. [Migration Reference](#migration-reference)
 
 ---
 
@@ -1005,6 +1006,145 @@ const getImageUrl = async (key: string | null) => {
 const thumbUrl = await getImageUrl(item.thumb_key);
 const displayUrl = thumbUrl || (await getImageUrl(item.original_key));
 ```
+
+---
+
+## React Native Client Integration
+
+The React Native mobile client integrates with the image processing pipeline through shared types, React Query hooks, and real-time subscriptions.
+
+### Types and Schemas
+
+**Location:** `mobile/src/features/wardrobe/types/index.ts`
+
+The client types mirror the database schema:
+
+```typescript
+// Processing status types
+type ImageProcessingStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'skipped';
+type AttributeStatus = 'pending' | 'processing' | 'succeeded' | 'failed';
+
+// Grid item (minimal projection for list views)
+interface WardrobeGridItem {
+  id: string;
+  user_id: string;
+  name: string | null;
+  tags: string[] | null;
+  thumb_key: string | null;
+  clean_key: string | null;
+  original_key: string | null;
+  created_at: string;
+}
+
+// Detail item (full projection)
+interface ItemDetail extends WardrobeGridItem {
+  type: string | null;
+  colour: string[] | null;
+  // ... other AI attributes
+  image_processing_status: ImageProcessingStatus;
+  attribute_status: AttributeStatus;
+  updated_at: string;
+}
+```
+
+### Image URL Selection Helpers
+
+**Location:** `mobile/src/features/wardrobe/utils/getItemImageUrl.ts`
+
+Shared helpers encapsulate the image fallback logic:
+
+```typescript
+// For grid views (thumbnail priority)
+getItemImageUrl(item): string | null
+// Fallback order: thumb_key → clean_key → original_key
+
+// For detail views (quality priority)
+getDetailImageUrl(item): string | null
+// Fallback order: clean_key → original_key → thumb_key
+```
+
+### Real-time Synchronization
+
+**Location:** `mobile/src/features/wardrobe/api/useWardrobeRealtimeSync.ts`
+
+The `useWardrobeRealtimeSync` hook provides automatic UI updates when the backend completes image processing:
+
+```typescript
+function WardrobeScreen() {
+  // Enable real-time sync - automatically refreshes when processing completes
+  useWardrobeRealtimeSync();
+
+  const { items } = useWardrobeItems({ userId });
+  // Items automatically update when clean_key/thumb_key are populated
+}
+```
+
+**How it works:**
+
+1. Subscribes to Supabase Realtime Postgres Changes on the `items` table
+2. Filters by `user_id` to respect RLS and minimize bandwidth
+3. When `image_processing_status`, `clean_key`, or `thumb_key` change, invalidates React Query cache
+4. Cache invalidation triggers automatic refetch with fresh data
+5. UI seamlessly transitions from original image to processed thumbnails
+
+**Security:**
+
+- Subscription respects RLS policies (user only sees their own items)
+- No sensitive data logged (only item IDs and status)
+- Uses authenticated Supabase client with secure token handling
+
+### Processing Status Indicator
+
+**Location:** `mobile/src/features/wardrobe/components/ItemDetailScreen.tsx`
+
+The detail screen shows a status indicator when processing is in progress:
+
+| Status       | UI Display                         |
+| ------------ | ---------------------------------- |
+| `pending`    | Spinner + "Processing image..."    |
+| `processing` | Spinner + "Optimizing image..."    |
+| `failed`     | Warning + "Processing unavailable" |
+| `succeeded`  | (hidden - show processed image)    |
+| `skipped`    | (hidden - show original image)     |
+
+### Item Creation Flow
+
+**Location:** `mobile/src/features/wardrobe/hooks/useCreateItemWithImage.ts`
+
+When creating a new item:
+
+1. Client generates UUIDv7 for `itemId`
+2. Uploads original image to storage
+3. Inserts item record with:
+   - `original_key` = storage path
+   - `image_processing_status` = `'pending'`
+   - `attribute_status` = `'pending'`
+4. Triggers Edge Function (fire-and-forget, no await)
+5. React Query cache invalidated
+6. User sees item immediately with original image
+7. Real-time sync updates UI when processing completes
+
+**Non-blocking design:** The client never waits for image processing. Items are immediately visible using `original_key`, and the UI updates seamlessly when processed variants become available.
+
+### Cache Invalidation Strategy
+
+React Query cache keys follow this structure:
+
+```typescript
+wardrobeItemsQueryKey = {
+  all: ['wardrobe', 'items'],
+  user: (userId) => [...all, userId],
+  search: (userId, query) => [...user(userId), { search: query }],
+  detail: (userId, itemId) => [...user(userId), 'detail', itemId],
+};
+```
+
+**Invalidation triggers:**
+
+- Item creation: Invalidates `user(userId)` queries
+- Item update: Updates detail cache + invalidates grid queries
+- Item deletion: Removes detail cache + invalidates grid queries
+- Real-time sync: Invalidates both detail and grid for affected item
 
 ---
 
