@@ -84,11 +84,29 @@ export const WARDROBE_GRID_PROJECTION =
   'id, user_id, name, tags, thumb_key, clean_key, original_key, created_at' as const;
 
 /**
+ * Error reason codes for failed AI attribute detection.
+ *
+ * Used when attribute_status is 'failed' to categorize the failure:
+ * - timeout: Model call exceeded 15-second timeout
+ * - invalid_json: Model response was malformed or failed validation
+ * - missing_image: No valid image key (clean_key or original_key) available
+ * - rate_limited: Provider returned 429 rate limit error
+ * - config_error: Missing API key, invalid endpoint, or misconfiguration
+ */
+export type AttributeErrorReason =
+  | 'timeout'
+  | 'invalid_json'
+  | 'missing_image'
+  | 'rate_limited'
+  | 'config_error';
+
+/**
  * Full projection of a wardrobe item for detail view.
  *
  * Contains all fields needed to display the item detail screen including:
  * - Core fields (id, user_id, name, tags)
  * - AI-detected attributes (type, colour, pattern, fabric, season, fit)
+ * - AI detection status and error tracking
  * - Image storage keys for fallback chain
  * - Timestamps and processing status
  *
@@ -145,17 +163,23 @@ export interface ItemDetail {
 
   /** Status of AI attribute detection */
   attribute_status: AttributeStatus;
+
+  /** Timestamp of last AI attribute detection attempt (ISO 8601, UTC). NULL if never run. */
+  attribute_last_run_at: string | null;
+
+  /** Error reason code when attribute_status is 'failed'. NULL otherwise. */
+  attribute_error_reason: AttributeErrorReason | null;
 }
 
 /**
  * Supabase projection string for item detail queries.
  *
  * Projects all fields needed for the item detail screen including
- * AI attributes and processing status. Use with:
+ * AI attributes, processing status, and detection tracking fields. Use with:
  * supabase.from('items').select(ITEM_DETAIL_PROJECTION).eq('id', itemId)
  */
 export const ITEM_DETAIL_PROJECTION =
-  'id, user_id, name, tags, type, colour, pattern, fabric, season, fit, thumb_key, clean_key, original_key, image_processing_status, created_at, updated_at, attribute_status' as const;
+  'id, user_id, name, tags, type, colour, pattern, fabric, season, fit, thumb_key, clean_key, original_key, image_processing_status, created_at, updated_at, attribute_status, attribute_last_run_at, attribute_error_reason' as const;
 
 /**
  * Parameters for fetching wardrobe items with pagination and search.
