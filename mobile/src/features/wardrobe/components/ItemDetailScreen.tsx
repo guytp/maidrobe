@@ -65,7 +65,33 @@ import {
   validateNewTag,
   normalizeTag,
 } from '../utils/itemValidation';
-import type { ItemDetail } from '../types';
+import type { ItemDetail, ImageProcessingStatus } from '../types';
+
+/**
+ * Type-safe mapping from ImageProcessingStatus to i18n keys.
+ *
+ * This mapping ensures compile-time verification that all status values
+ * have corresponding translation keys, avoiding the need for type assertions
+ * when constructing dynamic i18n keys.
+ *
+ * Note: 'succeeded' and 'skipped' statuses don't show an indicator in the UI
+ * (see showProcessingIndicator logic), but keys are included for completeness
+ * and type safety.
+ */
+const IMAGE_PROCESSING_STATUS_I18N_KEYS: Record<
+  ImageProcessingStatus,
+  | 'screens.itemDetail.imageProcessing.pending'
+  | 'screens.itemDetail.imageProcessing.processing'
+  | 'screens.itemDetail.imageProcessing.succeeded'
+  | 'screens.itemDetail.imageProcessing.failed'
+  | 'screens.itemDetail.imageProcessing.skipped'
+> = {
+  pending: 'screens.itemDetail.imageProcessing.pending',
+  processing: 'screens.itemDetail.imageProcessing.processing',
+  succeeded: 'screens.itemDetail.imageProcessing.succeeded',
+  failed: 'screens.itemDetail.imageProcessing.failed',
+  skipped: 'screens.itemDetail.imageProcessing.skipped',
+} as const;
 
 /**
  * Delay before auto-navigating back on error (ms).
@@ -570,11 +596,11 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     imageProcessingStatus === 'processing' ||
     imageProcessingStatus === 'failed';
 
-  // Get processing status text
+  // Get processing status text using type-safe mapping
   const processingStatusText = useMemo(() => {
     if (!showProcessingIndicator || !imageProcessingStatus) return null;
-    const statusKey = `screens.itemDetail.imageProcessing.${imageProcessingStatus}` as const;
-    return t(statusKey as Parameters<typeof t>[0]);
+    const statusKey = IMAGE_PROCESSING_STATUS_I18N_KEYS[imageProcessingStatus];
+    return t(statusKey);
   }, [showProcessingIndicator, imageProcessingStatus]);
 
   // Navigation callback
