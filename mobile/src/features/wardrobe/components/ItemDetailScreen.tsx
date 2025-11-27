@@ -51,27 +51,15 @@ import { trackCaptureEvent, logError, type ErrorClassification } from '../../../
 import { useStore } from '../../../core/state/store';
 import { useWardrobeItem, useUpdateWardrobeItem, useDeleteWardrobeItem } from '../api';
 import { getDetailImageUrl } from '../utils/getItemImageUrl';
+import {
+  MAX_NAME_LENGTH,
+  NAME_OVERFLOW_BUFFER,
+  MAX_TAGS_COUNT,
+  validateItemName,
+  validateNewTag,
+  normalizeTag,
+} from '../utils/itemValidation';
 import type { ItemDetail } from '../types';
-
-/**
- * Maximum character length for item name (per user story spec).
- */
-const MAX_NAME_LENGTH = 100;
-
-/**
- * Buffer to allow typing beyond MAX_NAME_LENGTH for validation feedback.
- */
-const NAME_OVERFLOW_BUFFER = 10;
-
-/**
- * Maximum character length for a single tag.
- */
-const MAX_TAG_LENGTH = 30;
-
-/**
- * Maximum number of tags per item.
- */
-const MAX_TAGS_COUNT = 20;
 
 /**
  * Delay before auto-navigating back on error (ms).
@@ -537,13 +525,12 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
   }, [name, tags, isFormInitialized]);
 
   // Validate form - returns true if all validation rules pass
+  // Uses shared validation schema from itemValidation.ts
   // Validation rules per user story:
   // - Name: required (non-empty after trim), ≤100 chars
   // - Tags: ≤20 entries, each ≤30 chars (already enforced on add)
   const isFormValid = useMemo(() => {
-    const trimmedName = name.trim();
-    // Name is required and must be within length limit
-    return trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH;
+    return validateItemName(name).isValid;
   }, [name]);
 
   // Determine if save button should be enabled
@@ -572,19 +559,17 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
 
   /**
    * Validates the form and returns field-level errors.
+   * Uses shared validation schema from itemValidation.ts.
    * Returns null if validation passes, otherwise returns error messages.
    */
   const validateForm = useCallback((): { nameError: string | null } => {
-    const trimmedName = name.trim();
+    const nameValidation = validateItemName(name);
 
-    // Check required name
-    if (trimmedName.length === 0) {
-      return { nameError: t('screens.itemDetail.nameRequired') };
-    }
-
-    // Check name length
-    if (trimmedName.length > MAX_NAME_LENGTH) {
-      return { nameError: t('screens.itemDetail.nameTooLong') };
+    if (!nameValidation.isValid && nameValidation.errorKey) {
+      // Translate the i18n key to localized message
+      // Cast is safe because errorKey values are defined in itemValidation.ts
+      // and correspond to valid keys in wardrobe.itemDetail namespace
+      return { nameError: t(nameValidation.errorKey as Parameters<typeof t>[0]) };
     }
 
     // Tags validation is already enforced on add (max count, max length, uniqueness)
@@ -783,8 +768,11 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     if (trimmed !== name) {
       setName(trimmed);
     }
-    if (trimmed.length > MAX_NAME_LENGTH) {
-      setNameError(t('screens.itemDetail.nameTooLong'));
+    // Validate using shared validation schema
+    const validation = validateItemName(trimmed);
+    if (!validation.isValid && validation.errorKey) {
+      // Cast is safe - errorKey values are valid i18n keys from itemValidation.ts
+      setNameError(t(validation.errorKey as Parameters<typeof t>[0]));
     } else {
       setNameError(null);
     }
@@ -796,7 +784,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     setTagInput(text);
   }, []);
 
-  // Try to add a tag
+  // Try to add a tag - uses shared validation schema
   const tryAddTag = useCallback((text: string): boolean => {
     const trimmed = text.trim();
 
@@ -804,25 +792,21 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
       return false;
     }
 
-    if (trimmed.length > MAX_TAG_LENGTH) {
-      setTagFeedback(t('screens.itemDetail.tagTooLong'));
-      return false;
-    }
-
     const currentTags = tagsRef.current;
 
-    if (currentTags.length >= MAX_TAGS_COUNT) {
-      setTagFeedback(t('screens.itemDetail.tagLimitReached'));
+    // Validate using shared validation schema
+    const validation = validateNewTag(trimmed, currentTags);
+
+    if (!validation.isValid) {
+      if (validation.errorKey) {
+        // Cast is safe - errorKey values are valid i18n keys from itemValidation.ts
+        setTagFeedback(t(validation.errorKey as Parameters<typeof t>[0]));
+      }
       return false;
     }
 
-    const normalized = trimmed.toLowerCase();
-
-    if (currentTags.includes(normalized)) {
-      setTagFeedback(t('screens.itemDetail.tagAlreadyAdded'));
-      return false;
-    }
-
+    // Normalize and add tag
+    const normalized = normalizeTag(trimmed);
     setTags((prev) => [...prev, normalized]);
     setTagFeedback(null);
     return true;
