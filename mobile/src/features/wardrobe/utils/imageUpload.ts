@@ -10,6 +10,33 @@
  * 3. EXIF metadata stripped automatically by expo-image-manipulator
  * 4. Upload to Supabase Storage with authenticated client
  *
+ * PRIVACY GUARANTEE - EXIF METADATA STRIPPING:
+ * ---------------------------------------------
+ * All images uploaded through this module have EXIF metadata stripped as a
+ * MANDATORY privacy protection. This is enforced regardless of any feature
+ * flags or server-side processing states.
+ *
+ * EXIF data can contain sensitive information including:
+ * - GPS coordinates (location where photo was taken)
+ * - Device identifiers (camera make/model, serial numbers)
+ * - Timestamps (when photo was taken)
+ * - Thumbnail images (potentially unedited originals)
+ * - Personal metadata (author name, copyright)
+ *
+ * HOW EXIF STRIPPING IS ENFORCED:
+ * 1. Gallery picker: Configured with `exif: false` to prevent EXIF inclusion
+ * 2. Image processing: expo-image-manipulator's manipulateAsync() creates a
+ *    new JPEG file that does NOT preserve EXIF metadata from the source
+ * 3. All images are re-encoded to JPEG format, which strips metadata
+ *
+ * This client-side stripping is the PRIMARY defense. Server-side processing
+ * (when enabled) provides additional re-encoding that also strips EXIF, but
+ * even when server processing is disabled via feature flags, images uploaded
+ * through this pipeline are already EXIF-free.
+ *
+ * SECURITY: This is a privacy requirement, not an optimization. Do not modify
+ * or bypass this behaviour without security review.
+ *
  * @module features/wardrobe/utils/imageUpload
  */
 

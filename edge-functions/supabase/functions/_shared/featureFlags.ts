@@ -26,6 +26,22 @@
  * - Allows gradual rollout of new features
  * - Provides a clear "off switch" for emergency situations
  *
+ * PRIVACY GUARANTEE - EXIF STRIPPING:
+ * -----------------------------------
+ * IMPORTANT: These feature flags control PROCESSING features, NOT privacy protections.
+ *
+ * EXIF metadata stripping is ALWAYS enforced regardless of flag state:
+ * - Client-side: All images are re-encoded via expo-image-manipulator before upload
+ * - Server-side: All processed images are re-encoded via ImageScript.encodeJPEG()
+ *
+ * When wardrobe_image_cleanup_enabled is FALSE:
+ * - No background removal occurs
+ * - No clean/thumb variants are generated
+ * - BUT original images are still EXIF-free (client stripped before upload)
+ * - User privacy is maintained through mandatory client-side processing
+ *
+ * This separation ensures privacy protections are NEVER dependent on feature flags.
+ *
  * MIGRATION TO UNLEASH:
  * This implementation is designed to be easily replaced with Unleash SDK:
  * 1. Replace Deno.env.get() with unleash.isEnabled()
