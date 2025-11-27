@@ -947,9 +947,9 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         // Properties per spec: has_name (boolean), tags_count (integer), save_latency_ms (optional)
         trackCaptureEvent('item_created', {
           userId: user.id,
-          hasName: input.name.trim().length > 0,
-          tagCount: input.tags.length,
-          saveLatencyMs: latency,
+          has_name: input.name.trim().length > 0,
+          tags_count: input.tags.length,
+          save_latency_ms: latency,
         });
 
         // Update state with result

@@ -718,15 +718,30 @@ export interface CaptureEventMetadata {
   type?: string;
   /** Whether item has a name (boolean only - never raw name) */
   hasName?: boolean;
+  /**
+   * Whether item has a name (user story #241 spec property, snake_case)
+   * Boolean only - never raw name
+   */
+  has_name?: boolean;
   /** Number of tags added (count only - never raw tags) */
   tagCount?: number;
+  /**
+   * Number of tags added (user story #241 spec property, snake_case)
+   * Count only - never raw tags
+   */
+  tags_count?: number;
   /** Error type for item save failures */
   errorType?: string;
   /** Latency in milliseconds */
   latencyMs?: number;
   /**
-   * Save latency in milliseconds (user story #241 spec property)
+   * Save latency in milliseconds (user story #241 spec property, snake_case)
    * Client-measured end-to-end latency from tap on Save to item visible
+   */
+  save_latency_ms?: number;
+  /**
+   * @deprecated Use save_latency_ms for spec-compliant analytics
+   * Save latency in milliseconds (legacy camelCase)
    */
   saveLatencyMs?: number;
   /** Item ID for created items */
