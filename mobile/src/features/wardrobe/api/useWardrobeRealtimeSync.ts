@@ -23,7 +23,7 @@
  * @module features/wardrobe/api/useWardrobeRealtimeSync
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '../../../services/supabase';
@@ -146,7 +146,10 @@ export function useWardrobeRealtimeSync(
 
   // Track subscription state
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const isConnectedRef = useRef(false);
+
+  // Use useState for connection status so UI components re-render on changes.
+  // This enables reactive "Syncing..." indicators and connection status displays.
+  const [isConnected, setIsConnected] = useState(false);
 
   /**
    * Handles an item update event from Supabase Realtime.
@@ -237,19 +240,19 @@ export function useWardrobeRealtimeSync(
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          isConnectedRef.current = true;
+          setIsConnected(true);
           logSuccess('wardrobe', 'realtime_subscribed', {
             data: { userId: user.id, channel: channelName },
           });
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          isConnectedRef.current = false;
+          setIsConnected(false);
           logError(err || new Error(`Realtime subscription ${status}`), 'network', {
             feature: 'wardrobe',
             operation: 'realtime_subscribe',
             metadata: { userId: user.id, channel: channelName, status },
           });
         } else if (status === 'CLOSED') {
-          isConnectedRef.current = false;
+          setIsConnected(false);
         }
       });
 
@@ -263,7 +266,7 @@ export function useWardrobeRealtimeSync(
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
-      isConnectedRef.current = false;
+      setIsConnected(false);
     }
   }, []);
 
@@ -290,7 +293,7 @@ export function useWardrobeRealtimeSync(
   }, [enabled, user?.id, subscribe, unsubscribe]);
 
   return {
-    isConnected: isConnectedRef.current,
+    isConnected,
     reconnect,
   };
 }
