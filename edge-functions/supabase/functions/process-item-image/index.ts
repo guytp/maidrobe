@@ -50,7 +50,7 @@
  * - SUPABASE_URL: Supabase project URL
  * - SUPABASE_SERVICE_ROLE_KEY: Service role key for bypassing RLS
  * - REPLICATE_API_KEY: API key for background removal
- * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 120000ms)
+ * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 20000ms / 20 seconds)
  * - THUMBNAIL_SIZE: Square thumbnail dimension in pixels (default: 200, creates 200x200)
  * - CLEAN_IMAGE_MAX_DIMENSION: Clean image max edge (default: 1600)
  * - RETRY_BASE_DELAY_MS: Base delay for exponential backoff (default: 1000)
@@ -202,8 +202,22 @@ interface LogEntry {
 /** Storage bucket for wardrobe items */
 const STORAGE_BUCKET = 'wardrobe-items';
 
-/** Default timeout for external API calls (2 minutes) */
-const DEFAULT_TIMEOUT_MS = 120000;
+/**
+ * Default timeout for external API calls in milliseconds.
+ *
+ * Set to 20 seconds as specified in the user story requirements:
+ * "Provider call timeout default: 20 seconds (configurable)"
+ *
+ * This timeout applies to the entire Replicate prediction lifecycle:
+ * - Initial prediction creation API call
+ * - Polling loop until prediction completes
+ * - Downloading the processed image result
+ *
+ * If background removal consistently times out in production, increase
+ * via IMAGE_PROCESSING_TIMEOUT_MS environment variable. The provider's
+ * actual processing time depends on image complexity and queue depth.
+ */
+const DEFAULT_TIMEOUT_MS = 20000;
 
 /**
  * Default thumbnail size in pixels (square dimension).
