@@ -183,20 +183,24 @@ export function useWardrobeRealtimeSync(
         },
       });
 
-      // Invalidate the specific item's detail cache
-      queryClient.invalidateQueries({
-        queryKey: wardrobeItemsQueryKey.detail(userId, itemId),
-      });
-
-      // Invalidate the grid cache to refresh thumbnails
+      // Invalidate all wardrobe queries for this user.
+      //
+      // This single invalidation covers both:
+      // - List queries: ['wardrobe', 'items', userId, { search: ... }]
+      // - Detail queries: ['wardrobe', 'items', userId, 'detail', itemId]
+      //
+      // React Query's prefix matching ensures all queries starting with
+      // ['wardrobe', 'items', userId] are invalidated. This is the desired
+      // behavior because:
+      // 1. List views need to refresh thumbnails when image processing completes
+      // 2. Detail views need to show the updated clean image
+      // 3. A single invalidation is more efficient than multiple targeted calls
+      //
+      // Note: We intentionally don't use `exact: true` here because we want
+      // to invalidate all queries under this user's namespace regardless of
+      // their search filters or specific item IDs.
       queryClient.invalidateQueries({
         queryKey: wardrobeItemsQueryKey.user(userId),
-        // Don't invalidate the detail query we just invalidated
-        predicate: (query) => {
-          const queryKey = query.queryKey;
-          // Skip if this is the detail query (has 'detail' in the key)
-          return !queryKey.includes('detail');
-        },
       });
     },
     [queryClient]
