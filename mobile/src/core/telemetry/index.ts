@@ -339,7 +339,7 @@ export type CaptureEventType =
   | 'item_edited'
   | 'item_edit_failed'
   | 'item_deleted'
-  | 'item_delete_failed'
+  | 'item_deletion_failed'
   // User story #241 product analytics events (spec-compliant names)
   | 'item_capture_started'
   | 'item_capture_cancelled'
