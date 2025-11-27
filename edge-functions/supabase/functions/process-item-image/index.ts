@@ -495,10 +495,7 @@ function sleep(ms: number): Promise<void> {
 /**
  * Downloads an image from Supabase Storage with error classification
  */
-async function downloadImage(
-  supabase: SupabaseClient,
-  imageKey: string
-): Promise<Uint8Array> {
+async function downloadImage(supabase: SupabaseClient, imageKey: string): Promise<Uint8Array> {
   structuredLog('info', 'storage_download_start', { storage_key: imageKey });
 
   try {
@@ -886,12 +883,7 @@ async function processItem(
   userId = typedItem.user_id;
 
   if (!typedItem.original_key) {
-    throw createClassifiedError(
-      'Item has no original_key',
-      'permanent',
-      'validation',
-      'internal'
-    );
+    throw createClassifiedError('Item has no original_key', 'permanent', 'validation', 'internal');
   }
 
   if (!ELIGIBLE_STATUSES.includes(typedItem.image_processing_status)) {
@@ -1309,10 +1301,7 @@ async function recoverStaleJobs(
  */
 export async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
-    return jsonResponse(
-      { success: false, error: 'Method not allowed', code: 'validation' },
-      405
-    );
+    return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation' }, 405);
   }
 
   try {
@@ -1345,10 +1334,7 @@ export async function handler(req: Request): Promise<Response> {
         Deno.env.get('IMAGE_PROCESSING_TIMEOUT_MS') || String(DEFAULT_TIMEOUT_MS),
         10
       ),
-      thumbnailSize: parseInt(
-        Deno.env.get('THUMBNAIL_SIZE') || String(DEFAULT_THUMBNAIL_SIZE),
-        10
-      ),
+      thumbnailSize: parseInt(Deno.env.get('THUMBNAIL_SIZE') || String(DEFAULT_THUMBNAIL_SIZE), 10),
       cleanMaxDimension: parseInt(
         Deno.env.get('CLEAN_IMAGE_MAX_DIMENSION') || String(DEFAULT_CLEAN_MAX_DIMENSION),
         10
