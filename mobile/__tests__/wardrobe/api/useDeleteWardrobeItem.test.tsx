@@ -291,7 +291,7 @@ describe('useDeleteWardrobeItem', () => {
       );
 
       expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith(
-        'item_delete_failed',
+        'item_deletion_failed',
         expect.objectContaining({
           userId: 'test-user-123',
           itemId: 'item-123',

@@ -181,8 +181,8 @@ export function useDeleteWardrobeItem(): UseDeleteWardrobeItemResult {
             errorMessage: error.message,
           });
 
-          // New event per user story spec
-          trackCaptureEvent('item_delete_failed', {
+          // User story #241 spec-compliant event
+          trackCaptureEvent('item_deletion_failed', {
             userId,
             itemId: params.itemId,
             errorCategory: error.code,
