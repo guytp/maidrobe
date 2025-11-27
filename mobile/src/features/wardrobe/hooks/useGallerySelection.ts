@@ -127,8 +127,7 @@ export function useGallerySelection(
       source: 'gallery',
     });
 
-    // Emit item_capture_started with source now that user has made their selection
-    // (complements the initial item_capture_started emitted on flow entry without source)
+    // User story #241: emit item_capture_started when user selects capture source
     trackCaptureEvent('item_capture_started', {
       userId: options.user?.id,
       context: options.origin || undefined,

@@ -99,8 +99,7 @@ export function CaptureScreen(): React.JSX.Element {
         source: 'camera',
       });
 
-      // Emit item_capture_started with source now that user has made their selection
-      // (complements the initial item_capture_started emitted on flow entry without source)
+      // User story #241: emit item_capture_started when user selects capture source
       trackCaptureEvent('item_capture_started', {
         userId: user?.id,
         context: origin || undefined,
@@ -155,8 +154,7 @@ export function CaptureScreen(): React.JSX.Element {
                   source: 'camera',
                 });
 
-                // Emit item_capture_started with source now that user has made their selection
-                // (complements the initial item_capture_started emitted on flow entry without source)
+                // User story #241: emit item_capture_started when user selects capture source
                 trackCaptureEvent('item_capture_started', {
                   userId: user?.id,
                   context: origin || undefined,
@@ -224,13 +222,10 @@ export function CaptureScreen(): React.JSX.Element {
         origin,
       });
 
-      // Track item_capture_started (user story #241 spec-compliant event)
-      // Emitted when capture flow is initiated, with source populated on selection
-      // Note: source is undefined at this point - it will be set when user chooses camera/gallery
-      trackCaptureEvent('item_capture_started', {
-        userId: user?.id,
-        context: origin,
-      });
+      // Note: item_capture_started is emitted when user selects camera or gallery
+      // (see handleTakePhoto and useGallerySelection), not on screen mount.
+      // This ensures the event always has a populated `source` property per the
+      // user story #241 spec, and avoids duplicate events per capture flow.
     }
 
     // Cleanup on unmount - reset capture state
