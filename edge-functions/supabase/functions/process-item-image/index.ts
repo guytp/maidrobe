@@ -1374,9 +1374,7 @@ async function processJobsWithConcurrency(
     });
 
     // Process chunk in parallel
-    const chunkResults = await Promise.all(
-      chunk.map((job) => processJob(supabase, job, config))
-    );
+    const chunkResults = await Promise.all(chunk.map((job) => processJob(supabase, job, config)));
 
     // Aggregate results
     for (const result of chunkResults) {
