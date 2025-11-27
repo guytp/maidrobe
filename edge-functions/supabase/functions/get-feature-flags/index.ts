@@ -46,18 +46,25 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { getWardrobeFeatureFlags, type WardrobeFeatureFlags } from '../_shared/featureFlags.ts';
+import { createLogger, getOrGenerateCorrelationId } from '../_shared/structuredLogger.ts';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Success response body
+ * Success response body.
+ *
+ * When `defaults_used` is true, the flags are safe fallback defaults
+ * rather than the actual configured values. This occurs when flag
+ * retrieval fails but the endpoint still returns a 2xx response.
  */
 interface GetFeatureFlagsResponse {
   success: true;
   flags: WardrobeFeatureFlags;
   timestamp: string;
+  /** True when fallback defaults are returned due to retrieval failure */
+  defaults_used?: boolean;
 }
 
 /**
@@ -69,46 +76,12 @@ interface ErrorResponse {
   code: string;
 }
 
-/**
- * Structured log entry
- */
-interface LogEntry {
-  timestamp: string;
-  level: 'info' | 'error';
-  event: string;
-  [key: string]: unknown;
-}
-
 // ============================================================================
-// Logging
+// Constants
 // ============================================================================
 
-/**
- * Emits a structured log entry as JSON.
- */
-function structuredLog(
-  level: 'info' | 'error',
-  event: string,
-  data: Record<string, unknown> = {}
-): void {
-  const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    event,
-    ...data,
-  };
-
-  const message = JSON.stringify(entry);
-
-  // Console logging is intentional for Edge Function observability
-  if (level === 'error') {
-    // eslint-disable-next-line no-console
-    console.error('[GetFeatureFlags]', message);
-  } else {
-    // eslint-disable-next-line no-console
-    console.log('[GetFeatureFlags]', message);
-  }
-}
+/** Function name for logging attribution */
+const FUNCTION_NAME = 'get-feature-flags';
 
 // ============================================================================
 // Response Helpers
@@ -142,27 +115,67 @@ function jsonResponse(
 // ============================================================================
 
 /**
+ * Classifies an error into a category for monitoring and debugging.
+ *
+ * @param error - The error to classify
+ * @returns Error category string
+ */
+function classifyError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'unknown';
+  }
+
+  const message = error.message.toLowerCase();
+
+  // Configuration errors (missing env vars, invalid config)
+  if (
+    message.includes('env') ||
+    message.includes('config') ||
+    message.includes('undefined') ||
+    message.includes('not defined')
+  ) {
+    return 'config_error';
+  }
+
+  // Type/parsing errors
+  if (
+    message.includes('type') ||
+    message.includes('parse') ||
+    message.includes('json')
+  ) {
+    return 'parse_error';
+  }
+
+  return 'unknown';
+}
+
+/**
  * Main handler for feature flag requests.
  *
  * Supports GET requests only. Returns the current state of all wardrobe
  * feature flags for client-side UI adjustments.
  */
 export async function handler(req: Request): Promise<Response> {
-  // Handle CORS preflight
+  // Handle CORS preflight (no logging needed for preflight)
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Correlation-ID',
         'Access-Control-Max-Age': '86400',
       },
     });
   }
 
+  // Extract or generate correlation ID for request tracing
+  const correlationId = getOrGenerateCorrelationId(req);
+  const logger = createLogger(FUNCTION_NAME, correlationId);
+
   // Only allow GET requests
   if (req.method !== 'GET') {
+    logger.warn('method_not_allowed', { metadata: { method: req.method } });
     return jsonResponse(
       { success: false, error: 'Method not allowed', code: 'method_not_allowed' },
       405
@@ -174,9 +187,11 @@ export async function handler(req: Request): Promise<Response> {
     const flags = getWardrobeFeatureFlags();
     const timestamp = new Date().toISOString();
 
-    structuredLog('info', 'flags_retrieved', {
-      wardrobe_image_cleanup_enabled: flags.wardrobe_image_cleanup_enabled,
-      wardrobe_ai_attributes_enabled: flags.wardrobe_ai_attributes_enabled,
+    logger.info('flags_retrieved', {
+      feature_flags: {
+        wardrobe_image_cleanup_enabled: flags.wardrobe_image_cleanup_enabled,
+        wardrobe_ai_attributes_enabled: flags.wardrobe_ai_attributes_enabled,
+      },
     });
 
     const response: GetFeatureFlagsResponse = {
@@ -188,13 +203,21 @@ export async function handler(req: Request): Promise<Response> {
     return jsonResponse(response, 200);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCategory = classifyError(error);
 
-    structuredLog('error', 'flags_retrieval_failed', {
+    // Log the failure at error level with full context for monitoring
+    logger.error('flags_retrieval_failed', {
+      error_code: 'FLAG_RETRIEVAL_ERROR',
+      error_category: errorCategory,
       error_message: errorMessage,
+      metadata: {
+        fallback_applied: true,
+      },
     });
 
-    // On error, return safe defaults (both flags false)
+    // On error, return safe defaults (both flags false) with defaults_used marker
     // This ensures the client doesn't try to use features that may not be available
+    // while allowing clients and monitoring to distinguish fallback from real values
     return jsonResponse(
       {
         success: true,
@@ -203,6 +226,7 @@ export async function handler(req: Request): Promise<Response> {
           wardrobe_ai_attributes_enabled: false,
         },
         timestamp: new Date().toISOString(),
+        defaults_used: true,
       },
       200
     );
