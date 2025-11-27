@@ -19,6 +19,49 @@
 --   - Status reset to 'pending': enqueued on UPDATE (reprocessing request)
 --   - New original_key uploaded: enqueued on UPDATE (new image version)
 --   - Duplicate enqueue attempts: silently ignored via ON CONFLICT
+--
+-- SECURITY DEFINER Configuration:
+-- ================================
+-- This function uses SECURITY DEFINER to execute with the privileges of the
+-- function owner (the role that runs this migration, typically postgres or
+-- supabase_admin) rather than the invoking user.
+--
+-- Why SECURITY DEFINER is required:
+--   - Row Level Security (RLS) is enabled on image_processing_jobs table
+--   - Authenticated users have no INSERT policy on image_processing_jobs
+--   - The trigger fires in the context of the authenticated user's session
+--   - Without SECURITY DEFINER, the INSERT would fail due to RLS denial
+--   - SECURITY DEFINER allows the trigger to bypass RLS for job creation
+--
+-- Function owner:
+--   - Owner is the role executing this migration (postgres/supabase_admin)
+--   - Owner role has superuser or sufficient privileges to bypass RLS
+--   - Ownership can be verified: SELECT proowner::regrole FROM pg_proc
+--                                WHERE proname = 'enqueue_image_processing_job';
+--
+-- Required privileges (granted implicitly to owner):
+--   - INSERT on public.image_processing_jobs
+--   - SELECT on public.items (via trigger context, NEW row is available)
+--
+-- Security constraints and considerations:
+--   ⚠️  SECURITY DEFINER functions execute with elevated privileges
+--   ⚠️  Any SQL injection vulnerability would execute as the owner role
+--   ⚠️  All inputs MUST be validated or come from trusted sources
+--
+--   Mitigations in place:
+--   ✓ No dynamic SQL (no EXECUTE with string concatenation)
+--   ✓ All values come from NEW record (trigger context, not user input)
+--   ✓ Parameterized INSERT with column values, not string interpolation
+--   ✓ Function only performs INSERT, no SELECT that could leak data
+--   ✓ ON CONFLICT DO NOTHING prevents information disclosure via errors
+--
+-- Maintenance warnings:
+--   - DO NOT add dynamic SQL or EXECUTE statements to this function
+--   - DO NOT use user-provided strings in any SQL construction
+--   - DO NOT add SELECT statements that return data to callers
+--   - DO NOT change to SECURITY INVOKER without adding INSERT policy
+--   - Any modifications must be reviewed for privilege escalation risks
+--
 CREATE OR REPLACE FUNCTION public.enqueue_image_processing_job()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -51,7 +94,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Add documentation comment to the function
-COMMENT ON FUNCTION public.enqueue_image_processing_job() IS 'Trigger function that enqueues image processing jobs when items become eligible (original_key NOT NULL AND image_processing_status = pending). Idempotent via ON CONFLICT DO NOTHING.';
+COMMENT ON FUNCTION public.enqueue_image_processing_job() IS 'Trigger function that enqueues image processing jobs when items become eligible (original_key NOT NULL AND image_processing_status = pending). Idempotent via ON CONFLICT DO NOTHING. Uses SECURITY DEFINER to bypass RLS on image_processing_jobs table - see migration file header for security documentation.';
 
 -- Drop existing triggers if they exist (for idempotency)
 DROP TRIGGER IF EXISTS enqueue_image_processing_on_insert ON public.items;
