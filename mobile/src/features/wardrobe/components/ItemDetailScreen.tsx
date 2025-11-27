@@ -65,7 +65,7 @@ import {
   validateNewTag,
   normalizeTag,
 } from '../utils/itemValidation';
-import type { ItemDetail, ImageProcessingStatus } from '../types';
+import type { ItemDetail, ImageProcessingStatus, AttributeStatus } from '../types';
 
 /**
  * Type-safe mapping from ImageProcessingStatus to i18n keys.
@@ -91,6 +91,22 @@ const IMAGE_PROCESSING_STATUS_I18N_KEYS: Record<
   succeeded: 'screens.itemDetail.imageProcessing.succeeded',
   failed: 'screens.itemDetail.imageProcessing.failed',
   skipped: 'screens.itemDetail.imageProcessing.skipped',
+} as const;
+
+/**
+ * Type-safe mapping from AttributeStatus to i18n keys for detection indicator.
+ *
+ * Only 'pending' and 'processing' states show an indicator. The 'succeeded'
+ * state shows the AI summary instead, and 'failed' shows nothing (per spec).
+ */
+const ATTRIBUTE_STATUS_I18N_KEYS: Partial<
+  Record<
+    AttributeStatus,
+    'screens.itemDetail.attributeDetection.pending' | 'screens.itemDetail.attributeDetection.processing'
+  >
+> = {
+  pending: 'screens.itemDetail.attributeDetection.pending',
+  processing: 'screens.itemDetail.attributeDetection.processing',
 } as const;
 
 /**
@@ -125,95 +141,68 @@ function arraysEqual(a: string[], b: string[]): boolean {
 /**
  * Formats AI attributes into a human-readable summary string.
  *
- * Creates a concise summary from available AI attributes following patterns:
- * - Primary: colour + type (e.g., "blue shirt")
- * - Secondary: pattern, fabric, fit (if interesting/non-default)
- * - Tertiary: season information
+ * Creates a concise summary following the format: '{colour(s)} {type} · {season(s)}'
+ * Omits missing parts gracefully.
  *
  * Examples:
- * - "blue cotton shirt · slim fit · all-season"
- * - "striped wool sweater · spring / autumn"
- * - "floral dress · summer"
- * - "black item" (colour only)
+ * - "blue shirt · summer"
+ * - "red, white dress · all-season"
+ * - "black jeans · autumn, winter"
+ * - "blue" (colour only)
+ * - "dress" (type only)
+ * - "spring" (season only)
+ *
+ * Returns null if none of type, colour, or season are present.
  *
  * @param item - Item detail with AI attributes
  * @returns Formatted summary string or null if no usable attributes
  */
 function formatAISummary(item: ItemDetail): string | null {
+  const hasColour = item.colour && item.colour.length > 0;
+  const hasType = item.type && item.type.trim().length > 0;
+  const hasSeason = item.season && item.season.length > 0;
+
+  // Per spec: at least one of type, colour, or season must be present
+  if (!hasColour && !hasType && !hasSeason) {
+    return null;
+  }
+
   const parts: string[] = [];
 
-  // Build the main description (colour + fabric + type)
-  const hasColour = item.colour && item.colour.length > 0;
-  const hasType = item.type;
-  const hasFabric = item.fabric && item.fabric.trim().length > 0;
-
-  // Primary description building
-  let primaryDescription = '';
+  // Build primary part: "{colour(s)} {type}"
+  let primaryPart = '';
 
   if (hasColour) {
-    primaryDescription = item.colour![0].toLowerCase();
+    // Join multiple colours with comma
+    const colourText = item.colour!.map((c) => c.toLowerCase()).join(', ');
+    primaryPart = colourText;
   }
 
-  // Add fabric if available (e.g., "blue cotton" or just "cotton")
-  if (hasFabric) {
-    const fabric = item.fabric!.toLowerCase();
-    primaryDescription = primaryDescription ? `${primaryDescription} ${fabric}` : fabric;
-  }
-
-  // Add type (e.g., "blue cotton shirt" or "shirt")
   if (hasType) {
-    primaryDescription = primaryDescription
-      ? `${primaryDescription} ${item.type!.toLowerCase()}`
-      : item.type!.toLowerCase();
-  } else if (primaryDescription) {
-    // If we have colour/fabric but no type, append "item"
-    primaryDescription = `${primaryDescription} item`;
+    const typeText = item.type!.toLowerCase();
+    primaryPart = primaryPart ? `${primaryPart} ${typeText}` : typeText;
   }
 
-  if (primaryDescription) {
-    parts.push(primaryDescription);
+  if (primaryPart) {
+    parts.push(primaryPart);
   }
 
-  // Add pattern if available and meaningful (skip "solid" as it's default/uninteresting)
-  const hasPattern = item.pattern && item.pattern.trim().length > 0;
-  if (hasPattern) {
-    const pattern = item.pattern!.toLowerCase();
-    if (pattern !== 'solid' && pattern !== 'plain') {
-      parts.push(pattern);
-    }
-  }
-
-  // Add fit if available
-  const hasFit = item.fit && item.fit.trim().length > 0;
-  if (hasFit) {
-    parts.push(`${item.fit!.toLowerCase()} fit`);
-  }
-
-  // Add season if available
-  const hasSeason = item.season && item.season.length > 0;
+  // Add season part
   if (hasSeason) {
     const seasonCount = item.season!.length;
     let seasonText: string;
 
     if (seasonCount === 4) {
+      // All four seasons = all-season
       seasonText = 'all-season';
     } else if (seasonCount === 1) {
       seasonText = item.season![0].toLowerCase();
     } else {
-      seasonText = item.season!.map((s) => s.toLowerCase()).join(' / ');
+      // Join multiple seasons with comma
+      seasonText = item.season!.map((s) => s.toLowerCase()).join(', ');
     }
 
-    if (parts.length > 0) {
-      parts.push(seasonText);
-    } else {
-      // If season is the only attribute, make it readable
-      parts.push(`${seasonText} item`);
-    }
-  }
-
-  // Return null if no usable attributes
-  if (parts.length === 0) {
-    return null;
+    parts.push(seasonText);
   }
 
   return parts.join(' · ');
@@ -585,8 +574,22 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     return formatAISummary(item);
   }, [item]);
 
-  // Check if AI attributes are available
+  // Check if AI attributes are available and should be shown
+  // Only show when status is 'succeeded' AND we have a valid summary
   const hasAIAttributes = item?.attribute_status === 'succeeded' && aiSummary !== null;
+
+  // Determine if we should show attribute detection indicator
+  // Show for pending/processing states only (not failed - per spec "show no AI-related summary or error when failed")
+  const attributeStatus = item?.attribute_status;
+  const showAttributeDetectionIndicator =
+    attributeStatus === 'pending' || attributeStatus === 'processing';
+
+  // Get attribute detection status text using type-safe mapping
+  const attributeDetectionText = useMemo(() => {
+    if (!showAttributeDetectionIndicator || !attributeStatus) return null;
+    const statusKey = ATTRIBUTE_STATUS_I18N_KEYS[attributeStatus];
+    return statusKey ? t(statusKey) : null;
+  }, [showAttributeDetectionIndicator, attributeStatus]);
 
   // Determine if we should show image processing status indicator
   // Show for pending/processing states, or failed state (to inform user)
@@ -1131,6 +1134,20 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           color: colors.textPrimary,
           fontStyle: 'italic',
         },
+        attributeDetectionIndicator: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: spacing.lg,
+          padding: spacing.md,
+          backgroundColor: colorScheme === 'dark' ? '#1a1a2a' : '#f8f8ff',
+          borderRadius: radius.md,
+          gap: spacing.sm,
+        },
+        attributeDetectionText: {
+          fontSize: fontSize.sm,
+          color: colors.textSecondary,
+          fontStyle: 'italic',
+        },
         processingIndicator: {
           flexDirection: 'row',
           alignItems: 'center',
@@ -1406,7 +1423,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
             )}
           </View>
 
-          {/* AI Attributes Summary (read-only) */}
+          {/* AI Attributes Summary (read-only) - shown when detection succeeded */}
           {hasAIAttributes && (
             <View
               style={styles.aiSummarySection}
@@ -1417,6 +1434,23 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
               </Text>
               <Text style={styles.aiSummaryText} allowFontScaling maxFontSizeMultiplier={2}>
                 {t('screens.itemDetail.aiSummary.detected').replace('{summary}', aiSummary!)}
+              </Text>
+            </View>
+          )}
+
+          {/* Attribute Detection Indicator - shown when detection is pending/processing */}
+          {/* Non-blocking: does not delay screen rendering */}
+          {/* Hidden when status is 'failed' or 'succeeded' (per spec) */}
+          {showAttributeDetectionIndicator && attributeDetectionText && (
+            <View
+              style={styles.attributeDetectionIndicator}
+              accessible
+              accessibilityLabel={attributeDetectionText}
+              accessibilityLiveRegion="polite"
+            >
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+              <Text style={styles.attributeDetectionText} allowFontScaling maxFontSizeMultiplier={2}>
+                {attributeDetectionText}
               </Text>
             </View>
           )}

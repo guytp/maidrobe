@@ -618,6 +618,10 @@
         "title": "AI Detection",
         "detected": "Detected: {summary}"
       },
+      "attributeDetection": {
+        "pending": "Detecting item details…",
+        "processing": "Detecting item details…"
+      },
       "imageProcessing": {
         "pending": "Processing image...",
         "processing": "Optimizing image...",
