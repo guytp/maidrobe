@@ -46,7 +46,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { getWardrobeFeatureFlags, type WardrobeFeatureFlags } from '../_shared/featureFlags.ts';
-import { createLogger, getOrGenerateCorrelationId } from '../_shared/structuredLogger.ts';
+import { createLogger, getOrGenerateCorrelationId, getEnvironment } from '../_shared/structuredLogger.ts';
 
 // ============================================================================
 // Types
@@ -171,7 +171,17 @@ export async function handler(req: Request): Promise<Response> {
 
   // Extract or generate correlation ID for request tracing
   const correlationId = getOrGenerateCorrelationId(req);
-  const logger = createLogger(FUNCTION_NAME, correlationId);
+  const environment = getEnvironment();
+  const logger = createLogger(FUNCTION_NAME, correlationId, environment);
+
+  // Log request received with environment context for observability filtering
+  // User story #241: Environment tagging enables separation of feature flag
+  // requests by environment (development/staging/production) in dashboards
+  logger.info('request_received', {
+    metadata: {
+      environment,
+    },
+  });
 
   // Only allow GET requests
   if (req.method !== 'GET') {
@@ -192,6 +202,9 @@ export async function handler(req: Request): Promise<Response> {
         wardrobe_image_cleanup_enabled: flags.wardrobe_image_cleanup_enabled,
         wardrobe_ai_attributes_enabled: flags.wardrobe_ai_attributes_enabled,
       },
+      metadata: {
+        environment,
+      },
     });
 
     const response: GetFeatureFlagsResponse = {
@@ -211,6 +224,7 @@ export async function handler(req: Request): Promise<Response> {
       error_category: errorCategory,
       error_message: errorMessage,
       metadata: {
+        environment,
         fallback_applied: true,
       },
     });
