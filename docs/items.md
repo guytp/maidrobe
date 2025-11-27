@@ -8,16 +8,17 @@ Comprehensive reference for the wardrobe items data model, including database sc
 2. [Database Schema](#database-schema)
 3. [Field Descriptions](#field-descriptions)
 4. [Image Processing Status](#image-processing-status)
-5. [Soft Delete Semantics](#soft-delete-semantics)
-6. [Storage Configuration](#storage-configuration)
-7. [Object Key Pattern](#object-key-pattern)
-8. [Row Level Security](#row-level-security)
-9. [Storage Policies](#storage-policies)
-10. [Service Role and Edge Functions](#service-role-and-edge-functions)
-11. [Signed URLs](#signed-urls)
-12. [Code Examples](#code-examples)
-13. [Usage by Feature Team](#usage-by-feature-team)
-14. [Migration Reference](#migration-reference)
+5. [Image Processing Job Queue](#image-processing-job-queue)
+6. [Soft Delete Semantics](#soft-delete-semantics)
+7. [Storage Configuration](#storage-configuration)
+8. [Object Key Pattern](#object-key-pattern)
+9. [Row Level Security](#row-level-security)
+10. [Storage Policies](#storage-policies)
+11. [Service Role and Edge Functions](#service-role-and-edge-functions)
+12. [Signed URLs](#signed-urls)
+13. [Code Examples](#code-examples)
+14. [Usage by Feature Team](#usage-by-feature-team)
+15. [Migration Reference](#migration-reference)
 
 ---
 
@@ -256,6 +257,120 @@ Uses the same state machine as above, except without the `skipped` status:
 - Attribute detection failure doesn't prevent item usage
 - Background jobs poll for `pending` and `failed` items to process
 - Items with `skipped` status will not be automatically processed
+
+---
+
+## Image Processing Job Queue
+
+The image processing pipeline uses a database-backed job queue to ensure reliable, asynchronous processing.
+
+### Architecture Overview
+
+```
+┌─────────────┐     ┌─────────────────────┐     ┌───────────────────────────┐
+│   Client    │────▶│   items table       │────▶│  image_processing_jobs    │
+│  (insert/   │     │  (trigger fires)    │     │  (job enqueued)           │
+│   update)   │     └─────────────────────┘     └───────────────────────────┘
+└─────────────┘                                             │
+                                                            ▼
+                                        ┌───────────────────────────────────┐
+                                        │  Edge Function Worker             │
+                                        │  (polls for pending jobs)         │
+                                        └───────────────────────────────────┘
+```
+
+### Job Queue Table
+
+**Table:** `public.image_processing_jobs`
+
+**Columns:**
+
+```
+Column          | Type         | Nullable | Default   | Description
+----------------|--------------|----------|-----------|---------------------------
+id              | BIGSERIAL    | NO       | auto      | Primary key (FIFO ordering)
+item_id         | UUID         | NO       | -         | FK to items(id)
+original_key    | TEXT         | NO       | -         | Storage key being processed
+status          | TEXT         | NO       | 'pending' | Job status
+attempt_count   | INTEGER      | NO       | 0         | Number of attempts made
+max_attempts    | INTEGER      | NO       | 3         | Max attempts before failure
+last_error      | TEXT         | YES      | NULL      | Error from last attempt
+created_at      | TIMESTAMPTZ  | NO       | NOW()     | When job was enqueued
+updated_at      | TIMESTAMPTZ  | NO       | NOW()     | Last update (auto)
+started_at      | TIMESTAMPTZ  | YES      | NULL      | When worker started
+completed_at    | TIMESTAMPTZ  | YES      | NULL      | When job completed
+```
+
+**Constraints:**
+
+- Primary key: `id`
+- Foreign key: `item_id` references `items(id)` ON DELETE CASCADE
+- Unique: `(item_id, original_key)` - ensures idempotency
+- Check: `status IN ('pending', 'processing', 'completed', 'failed')`
+
+### Job Status Values
+
+1. **`pending`** (default)
+   - Job is waiting to be picked up by a worker
+   - Inserted by database trigger
+
+2. **`processing`**
+   - Worker has claimed the job
+   - `started_at` is set
+   - `attempt_count` is incremented
+
+3. **`completed`**
+   - Processing finished successfully
+   - `completed_at` is set
+   - Item's `image_processing_status` set to `succeeded`
+
+4. **`failed`**
+   - Processing failed after max attempts
+   - `completed_at` is set
+   - `last_error` contains error message
+   - Item's `image_processing_status` set to `failed`
+
+### Database Triggers
+
+Jobs are automatically enqueued by database triggers when items become eligible:
+
+**Eligibility Criteria:**
+
+- `original_key IS NOT NULL` (image has been uploaded)
+- `image_processing_status = 'pending'` (awaiting processing)
+
+**Trigger Events:**
+
+1. **INSERT** - New item created with image and pending status
+2. **UPDATE** - Item's `original_key` changed (new image uploaded)
+3. **UPDATE** - Item's `image_processing_status` reset to `pending`
+
+**Idempotency:**
+
+The unique constraint on `(item_id, original_key)` combined with `ON CONFLICT DO NOTHING` ensures:
+
+- Duplicate enqueue attempts are silently ignored
+- Only one job exists per item/image combination
+- Safe to retry or re-trigger without side effects
+
+### RLS Policies
+
+**SELECT Policy:** Users can view jobs for their own items
+
+```sql
+USING (
+  EXISTS (
+    SELECT 1 FROM items
+    WHERE items.id = image_processing_jobs.item_id
+      AND items.user_id = auth.uid()
+  )
+)
+```
+
+**No INSERT/UPDATE/DELETE for users** - Jobs are managed by:
+
+- Database triggers (job creation)
+- Edge Functions with service role (job updates)
 
 ---
 
@@ -798,6 +913,25 @@ The items data model is defined in the following migrations:
   - Configures file size and MIME type restrictions
   - Enables RLS on `storage.objects`
   - Creates 4 storage policies
+
+**Image Processing Status Enhancement:**
+
+- `20241127000001_add_skipped_image_processing_status.sql`
+  - Adds `skipped` value to `image_processing_status` CHECK constraint
+  - Enables intentional bypassing of processing for special imports
+
+**Image Processing Job Queue:**
+
+- `20241127000002_create_image_processing_jobs_table.sql`
+  - Creates `public.image_processing_jobs` table
+  - Adds indexes for efficient job polling
+  - Enables RLS with SELECT policy for users
+  - Creates `updated_at` trigger
+
+- `20241127000003_create_image_processing_trigger.sql`
+  - Creates `enqueue_image_processing_job()` trigger function
+  - Creates triggers on `public.items` for INSERT and UPDATE
+  - Implements idempotent job enqueueing
 
 **Location:**
 `edge-functions/supabase/migrations/`
