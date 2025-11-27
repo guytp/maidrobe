@@ -303,6 +303,40 @@ Example response:
 // ============================================================================
 
 /**
+ * Consolidated processing summary for observability.
+ *
+ * This interface defines the single summary log entry emitted at the end
+ * of each item processing attempt, containing all fields required for
+ * monitoring and debugging without exposing sensitive data.
+ *
+ * Privacy guarantees:
+ * - No raw image data or base64 content
+ * - No bucket paths or storage keys
+ * - No API keys or secrets
+ * - No PII beyond user/item IDs
+ */
+interface ProcessingSummary {
+  /** Item being processed (UUID) */
+  itemId: string;
+  /** Owner of the item (UUID) */
+  userId: string;
+  /** AI provider used (e.g., 'openai') */
+  modelProvider: string;
+  /** Specific model name (e.g., 'gpt-4o') */
+  modelName: string;
+  /** ISO 8601 timestamp when processing started */
+  startTimestamp: string;
+  /** ISO 8601 timestamp when processing completed */
+  endTimestamp: string;
+  /** Total processing time in milliseconds */
+  durationMs: number;
+  /** Final status: 'succeeded' or 'failed' */
+  attributeStatus: 'succeeded' | 'failed';
+  /** Error reason if failed, null if succeeded */
+  attributeErrorReason: AttributeErrorCode | null;
+}
+
+/**
  * Emits a structured log entry as JSON.
  * Privacy-aware: avoids logging raw image data, bucket paths, or secrets.
  */
@@ -329,6 +363,49 @@ function structuredLog(
       break;
     default:
       console.log('[DetectAttributes]', message);
+  }
+}
+
+/**
+ * Emits a consolidated processing summary log entry.
+ *
+ * This function outputs a single structured JSON log containing all
+ * information needed for monitoring and debugging attribute detection:
+ * - Item and user identifiers (IDs only, no PII)
+ * - Model provider and name for attribution
+ * - Timing information (start, end, duration)
+ * - Final status and error reason
+ *
+ * The log explicitly excludes:
+ * - Raw image data or URLs
+ * - Storage bucket paths or keys
+ * - API keys or authentication tokens
+ * - Personal information beyond IDs
+ *
+ * @param summary - Processing summary data
+ */
+function emitProcessingSummary(summary: ProcessingSummary): void {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level: summary.attributeStatus === 'succeeded' ? 'info' : 'error',
+    event: 'attribute_detection_summary',
+    item_id: summary.itemId,
+    user_id: summary.userId,
+    model_provider: summary.modelProvider,
+    model_name: summary.modelName,
+    start_timestamp: summary.startTimestamp,
+    end_timestamp: summary.endTimestamp,
+    duration_ms: summary.durationMs,
+    attribute_status: summary.attributeStatus,
+    attribute_error_reason: summary.attributeErrorReason,
+  };
+
+  const message = JSON.stringify(logEntry);
+
+  if (summary.attributeStatus === 'failed') {
+    console.error('[DetectAttributes:Summary]', message);
+  } else {
+    console.log('[DetectAttributes:Summary]', message);
   }
 }
 
@@ -984,6 +1061,21 @@ async function processItem(
       attribute_status: 'succeeded',
     });
 
+    // Emit consolidated summary log for observability
+    // Contains all required fields per FR 7.1-7.4
+    // Explicitly avoids: raw image data, bucket paths, secrets, PII beyond IDs
+    emitProcessingSummary({
+      itemId,
+      userId,
+      modelProvider: 'openai',
+      modelName: config.openaiModel,
+      startTimestamp: new Date(startTime).toISOString(),
+      endTimestamp: new Date().toISOString(),
+      durationMs,
+      attributeStatus: 'succeeded',
+      attributeErrorReason: null,
+    });
+
     return { userId, durationMs, attributes };
   } catch (processingError) {
     const durationMs = Date.now() - startTime;
@@ -991,6 +1083,8 @@ async function processItem(
 
     // Mark item as failed
     await markItemFailed(supabase, itemId, classifiedError.code);
+
+    const attributeErrorReason = mapToAttributeErrorReason(classifiedError.code);
 
     structuredLog('error', 'item_processing_failed', {
       item_id: itemId,
@@ -1003,6 +1097,19 @@ async function processItem(
       error_message: classifiedError.message,
       provider: classifiedError.provider,
       attribute_status: 'failed',
+    });
+
+    // Emit consolidated summary log for observability
+    emitProcessingSummary({
+      itemId,
+      userId,
+      modelProvider: 'openai',
+      modelName: config.openaiModel,
+      startTimestamp: new Date(startTime).toISOString(),
+      endTimestamp: new Date().toISOString(),
+      durationMs,
+      attributeStatus: 'failed',
+      attributeErrorReason,
     });
 
     throw classifiedError;
