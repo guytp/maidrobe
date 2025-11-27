@@ -454,15 +454,18 @@ user/{userId}/items/{itemId}/thumb.jpg   # 200x200 thumbnail
 
 ### Environment Variables
 
-| Variable                      | Required | Default              | Description                     |
-| ----------------------------- | -------- | -------------------- | ------------------------------- |
-| `SUPABASE_URL`                | Yes      | -                    | Supabase project URL            |
-| `SUPABASE_SERVICE_ROLE_KEY`   | Yes      | -                    | Service role key (bypasses RLS) |
-| `REPLICATE_API_KEY`           | Yes      | -                    | Replicate API key               |
-| `REPLICATE_MODEL_VERSION`     | No       | cjwbw/rembg:fb8af... | Background removal model        |
-| `IMAGE_PROCESSING_TIMEOUT_MS` | No       | 120000               | API timeout in milliseconds     |
-| `THUMBNAIL_SIZE`              | No       | 200                  | Thumbnail dimension (pixels)    |
-| `CLEAN_IMAGE_MAX_DIMENSION`   | No       | 1600                 | Clean image max edge (pixels)   |
+| Variable                      | Required | Default              | Description                        |
+| ----------------------------- | -------- | -------------------- | ---------------------------------- |
+| `SUPABASE_URL`                | Yes      | -                    | Supabase project URL               |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Yes      | -                    | Service role key (bypasses RLS)    |
+| `REPLICATE_API_KEY`           | Yes      | -                    | Replicate API key                  |
+| `REPLICATE_MODEL_VERSION`     | No       | cjwbw/rembg:fb8af... | Background removal model           |
+| `IMAGE_PROCESSING_TIMEOUT_MS` | No       | 120000               | API timeout in milliseconds        |
+| `THUMBNAIL_SIZE`              | No       | 200                  | Thumbnail dimension (pixels)       |
+| `CLEAN_IMAGE_MAX_DIMENSION`   | No       | 1600                 | Clean image max edge (pixels)      |
+| `RETRY_BASE_DELAY_MS`         | No       | 1000                 | Base delay for exponential backoff |
+| `RETRY_MAX_DELAY_MS`          | No       | 60000                | Maximum retry delay (1 minute)     |
+| `STALE_JOB_THRESHOLD_MS`      | No       | 600000               | Stale job detection (10 minutes)   |
 
 ### Idempotency
 
@@ -472,23 +475,102 @@ The function is safe to retry:
 - Uses deterministic storage paths (uploads with `upsert: true`)
 - Job queue has `UNIQUE(item_id, original_key)` constraint
 - Same item can be reprocessed if status reset to `pending`
+- On failure, `clean_key` and `thumb_key` are cleared to avoid inconsistent state
 
-### Error Handling
+### Error Classification
 
-- **Transient failures**: Job status reset to `pending`, `attempt_count` incremented
-- **Permanent failures**: After `max_attempts` (3), job and item marked as `failed`
-- **Item updates**: Status reverts to `failed` if any pipeline step fails
+Errors are categorized for intelligent retry decisions:
+
+**Transient (will retry with exponential backoff):**
+
+| Code           | Description                            |
+| -------------- | -------------------------------------- |
+| `timeout`      | Request or processing timeout          |
+| `rate_limit`   | 429 Too Many Requests                  |
+| `network`      | Connection refused, reset, DNS error   |
+| `server_error` | 5xx HTTP status codes                  |
+| `unknown`      | Unclassified errors (retry for safety) |
+
+**Permanent (no retry, mark as failed immediately):**
+
+| Code                 | Description                      |
+| -------------------- | -------------------------------- |
+| `not_found`          | 404 or resource doesn't exist    |
+| `unauthorized`       | 401 authentication failure       |
+| `forbidden`          | 403 authorization failure        |
+| `validation`         | 4xx client errors (except 429)   |
+| `unsupported_format` | Invalid image format             |
+| `provider_failed`    | Background removal model failure |
+
+### Retry Strategy
+
+Exponential backoff with jitter:
+
+```
+delay = min(baseDelay * 2^attemptCount, maxDelay) ± 25% jitter
+```
+
+Example delays (default settings):
+
+- Attempt 1: ~1 second
+- Attempt 2: ~2 seconds
+- Attempt 3: ~4 seconds (max attempts reached)
+
+Jobs store `next_retry_at` timestamp and won't be picked up until ready.
+
+### Stale Job Recovery
+
+Detects and recovers jobs stuck in `processing` status.
+
+**Invocation:**
+
+```json
+{ "recoverStale": true }
+```
+
+**Combined with queue processing:**
+
+```json
+{ "recoverStale": true, "batchSize": 10 }
+```
+
+**Recovery logic:**
+
+1. Find jobs where `status='processing'` AND `started_at < now - threshold`
+2. If `attempt_count < max_attempts`: Reset to `pending` with backoff
+3. If `attempt_count >= max_attempts`: Mark as `failed`
+4. Update item's `image_processing_status` accordingly
+5. Emit structured log with `stale_job_recovered` event
+
+### Structured Logging
+
+All operations emit JSON logs with:
+
+```json
+{
+  "timestamp": "2024-11-27T12:00:00.000Z",
+  "level": "info",
+  "event": "job_completed",
+  "item_id": "...",
+  "user_id": "...",
+  "job_id": 123,
+  "duration_ms": 5000,
+  "provider": "replicate"
+}
+```
+
+**Event types:** `job_started`, `job_completed`, `job_failed`, `job_retry_scheduled`, `job_permanently_failed`, `stale_job_recovered`
 
 ### Scheduled Invocation
 
-For production, configure a scheduled task (e.g., cron job, pg_cron, or external scheduler) to invoke the function periodically:
+For production, configure a scheduled task to invoke the function periodically:
 
 ```bash
-# Example: Process queue every minute
+# Example: Process queue every minute with stale recovery
 curl -X POST https://your-project.supabase.co/functions/v1/process-item-image \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"batchSize": 10}'
+  -d '{"recoverStale": true, "batchSize": 10}'
 ```
 
 ---
