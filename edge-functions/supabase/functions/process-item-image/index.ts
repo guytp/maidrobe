@@ -335,7 +335,12 @@ function createClassifiedError(
 }
 
 /**
- * Classifies an HTTP status code into error category and code
+ * Classifies an HTTP status code into error category and code.
+ *
+ * @param status - HTTP status code to classify
+ * @param _provider - Provider identifier (unused). Retained for interface consistency
+ *   with callers and to support future provider-specific classification logic.
+ *   Prefixed with underscore to satisfy TypeScript's noUnusedParameters check.
  */
 function classifyHttpStatus(
   status: number,
