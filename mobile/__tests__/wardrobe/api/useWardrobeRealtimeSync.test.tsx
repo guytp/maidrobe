@@ -244,8 +244,9 @@ describe('useWardrobeRealtimeSync', () => {
         capturedChangeHandler(payload as RealtimePostgresChangesPayload<Record<string, unknown>>);
       });
 
-      // Should invalidate both detail and grid queries
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      // Single invalidation with prefix matching covers both list and detail queries
+      // (invalidates all queries under ['wardrobe', 'items', userId])
+      expect(invalidateSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should not invalidate queries when only non-image fields change', () => {
@@ -340,8 +341,9 @@ describe('useWardrobeRealtimeSync', () => {
         capturedChangeHandler(payload as RealtimePostgresChangesPayload<Record<string, unknown>>);
       });
 
-      // Should invalidate queries since the INSERT has processed image data
-      expect(invalidateSpy).toHaveBeenCalledTimes(2);
+      // Single invalidation with prefix matching covers both list and detail queries
+      // (invalidates all queries under ['wardrobe', 'items', userId])
+      expect(invalidateSpy).toHaveBeenCalledTimes(1);
     });
 
     it('should log update event for observability', () => {
