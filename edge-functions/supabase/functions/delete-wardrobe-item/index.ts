@@ -17,14 +17,20 @@
  * - Safe to retry failed requests
  * - Storage deletions are idempotent (404 ignored)
  *
+ * OBSERVABILITY:
+ * - Structured JSON logging with correlation IDs
+ * - All logs include environment and function name
+ * - Correlation ID propagated from client via X-Correlation-ID header
+ *
  * REQUEST:
  * POST /delete-wardrobe-item
  * Authorization: Bearer <user-jwt>
+ * X-Correlation-ID: <uuid> (optional, generated if not provided)
  * Body: { itemId: string }
  *
  * RESPONSE:
- * Success: { success: true }
- * Error: { success: false, error: string, code: string }
+ * Success: { success: true, correlationId: string }
+ * Error: { success: false, error: string, code: string, correlationId: string }
  *
  * ERROR CODES:
  * - 'auth': Not authenticated or unauthorized
@@ -35,6 +41,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import {
+  createLogger,
+  getOrGenerateCorrelationId,
+  withContext,
+  type StructuredLogger,
+} from '../_shared/structuredLogger.ts';
 
 /**
  * Request body schema
@@ -50,6 +62,7 @@ interface DeleteWardrobeItemResponse {
   success: boolean;
   error?: string;
   code?: string;
+  correlationId?: string;
 }
 
 /**
@@ -68,8 +81,13 @@ interface ItemRecord {
  */
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id',
 };
+
+/**
+ * Function name for logging
+ */
+const FUNCTION_NAME = 'delete-wardrobe-item';
 
 /**
  * Storage bucket name for wardrobe items
@@ -90,6 +108,29 @@ function jsonResponse(
 }
 
 /**
+ * Creates an error response with logging
+ */
+function errorResponse(
+  logger: StructuredLogger,
+  event: string,
+  message: string,
+  code: string,
+  status: number,
+  data?: Record<string, unknown>
+): Response {
+  logger.error(event, {
+    error_message: message,
+    error_code: code,
+    status_code: status,
+    ...data,
+  });
+  return jsonResponse(
+    { success: false, error: message, code, correlationId: logger.correlationId },
+    status
+  );
+}
+
+/**
  * Main handler for wardrobe item deletion.
  *
  * Exported for unit testing. The serve() call at the bottom wires this
@@ -104,13 +145,22 @@ export async function handler(req: Request): Promise<Response> {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Initialize logger with correlation ID from request or generate new one
+  const correlationId = getOrGenerateCorrelationId(req);
+  const logger = createLogger(FUNCTION_NAME, correlationId);
+  const startTime = Date.now();
+
+  logger.info('request_received');
+
   try {
     // Extract authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[DeleteItem] Missing or invalid Authorization header');
-      return jsonResponse(
-        { success: false, error: 'Not authenticated', code: 'auth' },
+      return errorResponse(
+        logger,
+        'auth_header_missing',
+        'Not authenticated',
+        'auth',
         401
       );
     }
@@ -122,8 +172,11 @@ export async function handler(req: Request): Promise<Response> {
     try {
       requestBody = await req.json();
     } catch {
-      return jsonResponse(
-        { success: false, error: 'Invalid request body', code: 'validation' },
+      return errorResponse(
+        logger,
+        'invalid_request_body',
+        'Invalid request body',
+        'validation',
         400
       );
     }
@@ -132,8 +185,11 @@ export async function handler(req: Request): Promise<Response> {
 
     // Validate itemId
     if (!itemId || typeof itemId !== 'string') {
-      return jsonResponse(
-        { success: false, error: 'Invalid itemId', code: 'validation' },
+      return errorResponse(
+        logger,
+        'invalid_item_id',
+        'Invalid itemId',
+        'validation',
         400
       );
     }
@@ -141,9 +197,13 @@ export async function handler(req: Request): Promise<Response> {
     // Validate UUID format (basic check)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(itemId)) {
-      return jsonResponse(
-        { success: false, error: 'Invalid itemId format', code: 'validation' },
-        400
+      return errorResponse(
+        logger,
+        'invalid_item_id_format',
+        'Invalid itemId format',
+        'validation',
+        400,
+        { item_id: itemId }
       );
     }
 
@@ -153,9 +213,11 @@ export async function handler(req: Request): Promise<Response> {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('[DeleteItem] Missing Supabase configuration');
-      return jsonResponse(
-        { success: false, error: 'Service configuration error', code: 'server' },
+      return errorResponse(
+        logger,
+        'config_missing',
+        'Service configuration error',
+        'server',
         500
       );
     }
@@ -170,14 +232,21 @@ export async function handler(req: Request): Promise<Response> {
     // Get the authenticated user's ID
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
-      console.error('[DeleteItem] Failed to get user:', userError);
-      return jsonResponse(
-        { success: false, error: 'Authentication failed', code: 'auth' },
+      return errorResponse(
+        logger,
+        'auth_failed',
+        'Authentication failed',
+        'auth',
         401
       );
     }
 
     const userId = userData.user.id;
+
+    // Create user-scoped logger
+    const userLogger = withContext(logger, { item_id: itemId, user_id: userId });
+
+    userLogger.info('deletion_started');
 
     // Fetch the item to get storage keys and verify ownership
     // RLS will only return the item if user owns it
@@ -188,9 +257,12 @@ export async function handler(req: Request): Promise<Response> {
       .maybeSingle();
 
     if (fetchError) {
-      console.error('[DeleteItem] Failed to fetch item:', fetchError);
+      userLogger.error('fetch_failed', {
+        error_message: fetchError.message,
+        error_code: fetchError.code,
+      });
       return jsonResponse(
-        { success: false, error: 'Failed to fetch item', code: 'server' },
+        { success: false, error: 'Failed to fetch item', code: 'server', correlationId },
         500
       );
     }
@@ -200,8 +272,12 @@ export async function handler(req: Request): Promise<Response> {
     // 1. Item was already deleted (retry scenario)
     // 2. Item doesn't belong to user (RLS filtered it)
     if (!item) {
-      console.log('[DeleteItem] Item not found or not owned, treating as success:', itemId);
-      return jsonResponse({ success: true }, 200);
+      const durationMs = Date.now() - startTime;
+      userLogger.info('item_not_found_success', {
+        duration_ms: durationMs,
+        metadata: { reason: 'idempotent_success' },
+      });
+      return jsonResponse({ success: true, correlationId }, 200);
     }
 
     const typedItem = item as ItemRecord;
@@ -209,12 +285,12 @@ export async function handler(req: Request): Promise<Response> {
     // Defense in depth: explicit ownership check
     // (Should always pass if RLS is working, but adds safety)
     if (typedItem.user_id !== userId) {
-      console.error('[DeleteItem] Ownership mismatch:', {
-        itemUserId: typedItem.user_id,
-        requestUserId: userId,
+      userLogger.error('ownership_mismatch', {
+        error_code: 'OWNERSHIP_MISMATCH',
+        error_category: 'authorization',
       });
       return jsonResponse(
-        { success: false, error: 'Not authorized to delete this item', code: 'auth' },
+        { success: false, error: 'Not authorized to delete this item', code: 'auth', correlationId },
         403
       );
     }
@@ -227,7 +303,9 @@ export async function handler(req: Request): Promise<Response> {
 
     // Delete storage objects (ignore not-found errors for idempotency)
     if (storageKeys.length > 0) {
-      console.log('[DeleteItem] Deleting storage objects:', storageKeys);
+      userLogger.info('storage_deletion_started', {
+        metadata: { object_count: storageKeys.length },
+      });
 
       const { error: storageError } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -236,8 +314,12 @@ export async function handler(req: Request): Promise<Response> {
       if (storageError) {
         // Log but don't fail - storage cleanup can be handled by background job
         // if needed. The important thing is to delete the database row.
-        console.warn('[DeleteItem] Storage deletion warning:', storageError);
+        userLogger.warn('storage_deletion_warning', {
+          error_message: storageError.message,
+        });
         // Continue with database deletion even if storage fails
+      } else {
+        userLogger.info('storage_deletion_completed');
       }
     }
 
@@ -250,23 +332,39 @@ export async function handler(req: Request): Promise<Response> {
     if (deleteError) {
       // Check if it's a not-found error (item deleted between fetch and delete)
       if (deleteError.code === 'PGRST116' || deleteError.message?.includes('not found')) {
-        console.log('[DeleteItem] Item already deleted, treating as success:', itemId);
-        return jsonResponse({ success: true }, 200);
+        const durationMs = Date.now() - startTime;
+        userLogger.info('item_already_deleted_success', {
+          duration_ms: durationMs,
+          metadata: { reason: 'idempotent_success' },
+        });
+        return jsonResponse({ success: true, correlationId }, 200);
       }
 
-      console.error('[DeleteItem] Failed to delete item:', deleteError);
+      userLogger.error('database_deletion_failed', {
+        error_message: deleteError.message,
+        error_code: deleteError.code,
+      });
       return jsonResponse(
-        { success: false, error: 'Failed to delete item', code: 'server' },
+        { success: false, error: 'Failed to delete item', code: 'server', correlationId },
         500
       );
     }
 
-    console.log('[DeleteItem] Successfully deleted item:', itemId);
-    return jsonResponse({ success: true }, 200);
+    const durationMs = Date.now() - startTime;
+    userLogger.info('deletion_completed', {
+      duration_ms: durationMs,
+      status_code: 200,
+    });
+    return jsonResponse({ success: true, correlationId }, 200);
   } catch (error) {
-    console.error('[DeleteItem] Unexpected error:', error);
+    const durationMs = Date.now() - startTime;
+    logger.error('unexpected_error', {
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      error_code: 'UNEXPECTED_ERROR',
+      duration_ms: durationMs,
+    });
     return jsonResponse(
-      { success: false, error: 'Unexpected error', code: 'server' },
+      { success: false, error: 'Unexpected error', code: 'server', correlationId },
       500
     );
   }

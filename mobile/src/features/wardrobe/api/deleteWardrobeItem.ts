@@ -11,6 +11,11 @@
  * - If item is already deleted, returns success
  * - Safe to retry failed requests
  *
+ * OBSERVABILITY:
+ * - Generates correlation ID for request tracing
+ * - Correlation ID included in X-Correlation-ID header
+ * - All backend logs include correlation ID for debugging
+ *
  * ERROR CLASSIFICATION:
  * - auth: Not authenticated or not authorized
  * - network: Network connectivity issues
@@ -22,6 +27,7 @@
  */
 
 import { supabase } from '../../../services/supabase';
+import { generateCorrelationId, getCorrelationHeaders } from '../../../core/utils/correlationId';
 
 /**
  * Error codes for delete operation.
@@ -68,6 +74,8 @@ interface EdgeFunctionResponse {
   success: boolean;
   error?: string;
   code?: string;
+  /** Correlation ID returned for request tracing */
+  correlationId?: string;
 }
 
 /**
@@ -112,12 +120,16 @@ export async function deleteWardrobeItem(
 ): Promise<void> {
   const { itemId } = params;
 
+  // Generate correlation ID for request tracing
+  const correlationId = generateCorrelationId();
+
   try {
-    // Invoke the Edge Function
+    // Invoke the Edge Function with correlation ID header
     const { data, error } = await supabase.functions.invoke<EdgeFunctionResponse>(
       'delete-wardrobe-item',
       {
         body: { itemId },
+        headers: getCorrelationHeaders(correlationId),
       }
     );
 

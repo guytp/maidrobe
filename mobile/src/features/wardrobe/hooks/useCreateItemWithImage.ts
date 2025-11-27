@@ -79,6 +79,7 @@ import {
   UploadError,
 } from '../utils/imageUpload';
 import { EDGE_FUNCTIONS } from '../constants';
+import { generateCorrelationId, getCorrelationHeaders } from '../../../core/utils/correlationId';
 
 /**
  * Error types for item creation failures.
@@ -860,17 +861,22 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         // - Clear documentation of available functions and their purposes
         // - Reduced risk of typos causing runtime failures
 
+        // Generate correlation IDs for pipeline tracing
+        const imageProcessingCorrelationId = generateCorrelationId();
+        const classificationCorrelationId = generateCorrelationId();
+
         // Trigger image processing pipeline
         supabase.functions
           .invoke(EDGE_FUNCTIONS.PROCESS_ITEM_IMAGE, {
             body: { itemId },
+            headers: getCorrelationHeaders(imageProcessingCorrelationId),
           })
           .catch((pipelineError) => {
             // Log but don't fail the save - pipeline can retry internally
             logError(pipelineError, 'server', {
               feature: 'wardrobe',
               operation: 'trigger_image_processing_pipeline',
-              metadata: { itemId, userId: user.id },
+              metadata: { itemId, userId: user.id, correlationId: imageProcessingCorrelationId },
             });
           });
 
@@ -878,13 +884,14 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         supabase.functions
           .invoke(EDGE_FUNCTIONS.CLASSIFY_ITEM, {
             body: { itemId },
+            headers: getCorrelationHeaders(classificationCorrelationId),
           })
           .catch((pipelineError) => {
             // Log but don't fail the save - pipeline can retry internally
             logError(pipelineError, 'server', {
               feature: 'wardrobe',
               operation: 'trigger_classification_pipeline',
-              metadata: { itemId, userId: user.id },
+              metadata: { itemId, userId: user.id, correlationId: classificationCorrelationId },
             });
           });
 
