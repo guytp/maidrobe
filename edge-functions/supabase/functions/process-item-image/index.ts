@@ -82,6 +82,11 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 import { isImageCleanupEnabled } from '../_shared/featureFlags.ts';
+import {
+  createLogger,
+  getOrGenerateCorrelationId,
+  type StructuredLogger,
+} from '../_shared/structuredLogger.ts';
 
 // ============================================================================
 // Types
@@ -163,6 +168,8 @@ interface ProcessItemImageResponse {
   results?: JobResult[];
   error?: string;
   code?: string;
+  /** Correlation ID for request tracing */
+  correlationId?: string;
 }
 
 /**
@@ -201,23 +208,9 @@ interface ReplicatePrediction {
 }
 
 /**
- * Structured log entry
+ * Function name for logging
  */
-interface LogEntry {
-  timestamp: string;
-  level: 'info' | 'warn' | 'error';
-  event: string;
-  item_id?: string;
-  user_id?: string;
-  job_id?: number;
-  provider?: Provider;
-  attempt_count?: number;
-  duration_ms?: number;
-  error_category?: ErrorCategory;
-  error_code?: ErrorCode;
-  error_message?: string;
-  [key: string]: unknown;
-}
+const FUNCTION_NAME = 'process-item-image';
 
 // ============================================================================
 // Constants
@@ -308,31 +301,70 @@ const DEFAULT_MAX_CONCURRENCY = 5;
 // ============================================================================
 
 /**
- * Emits a structured log entry as JSON
+ * Module-level logger instance.
+ * Initialized per-request in the handler with the correlation ID.
+ * Falls back to a default logger for internal operations.
+ */
+let moduleLogger: StructuredLogger | null = null;
+
+/**
+ * Gets or creates the module logger.
+ * If not initialized (e.g., called from internal functions before handler),
+ * creates a logger with a generated correlation ID.
+ */
+function getLogger(): StructuredLogger {
+  if (!moduleLogger) {
+    moduleLogger = createLogger(FUNCTION_NAME, crypto.randomUUID());
+  }
+  return moduleLogger;
+}
+
+/**
+ * Initializes the module logger for a request.
+ * Should be called at the start of the handler.
+ */
+function initializeLogger(correlationId: string): StructuredLogger {
+  moduleLogger = createLogger(FUNCTION_NAME, correlationId);
+  return moduleLogger;
+}
+
+/**
+ * Legacy structured logging function for backwards compatibility.
+ * Wraps the shared logger module.
  */
 function structuredLog(
   level: 'info' | 'warn' | 'error',
   event: string,
-  data: Partial<Omit<LogEntry, 'timestamp' | 'level' | 'event'>> = {}
+  data: Record<string, unknown> = {}
 ): void {
-  const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    event,
-    ...data,
-  };
+  const logger = getLogger();
 
-  const message = JSON.stringify(entry);
+  // Map legacy data fields to structured logger format
+  const logData = {
+    item_id: data.item_id as string | undefined,
+    user_id: data.user_id as string | undefined,
+    job_id: data.job_id as number | undefined,
+    duration_ms: data.duration_ms as number | undefined,
+    error_code: data.error_code as string | undefined,
+    error_category: data.error_category as string | undefined,
+    error_message: data.error_message as string | undefined,
+    metadata: Object.fromEntries(
+      Object.entries(data).filter(
+        ([key]) =>
+          !['item_id', 'user_id', 'job_id', 'duration_ms', 'error_code', 'error_category', 'error_message'].includes(key)
+      )
+    ) as Record<string, string | number | boolean | null>,
+  };
 
   switch (level) {
     case 'error':
-      console.error('[ProcessImage]', message);
+      logger.error(event, logData);
       break;
     case 'warn':
-      console.warn('[ProcessImage]', message);
+      logger.warn(event, logData);
       break;
     default:
-      console.log('[ProcessImage]', message);
+      logger.info(event, logData);
   }
 }
 
@@ -1615,9 +1647,15 @@ async function recoverStaleJobs(
  * Main handler for image processing requests.
  */
 export async function handler(req: Request): Promise<Response> {
+  // Initialize logger with correlation ID from request
+  const correlationId = getOrGenerateCorrelationId(req);
+  const logger = initializeLogger(correlationId);
+
   if (req.method !== 'POST') {
-    return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation' }, 405);
+    return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation', correlationId }, 405);
   }
+
+  logger.info('request_received');
 
   try {
     // Load configuration from environment (needed even when feature disabled for skip updates)
@@ -1683,6 +1721,7 @@ export async function handler(req: Request): Promise<Response> {
               failed: 0,
               skipped: 1,
               results: [{ itemId: requestBody.itemId, success: true, skipped: true }],
+              correlationId,
             },
             200
           );
@@ -1695,6 +1734,7 @@ export async function handler(req: Request): Promise<Response> {
           processed: 0,
           failed: 0,
           results: [],
+          correlationId,
         },
         200
       );
@@ -1706,7 +1746,7 @@ export async function handler(req: Request): Promise<Response> {
     if (!supabaseUrl || !supabaseServiceKey) {
       structuredLog('error', 'config_missing', { missing: 'SUPABASE_URL or SERVICE_KEY' });
       return jsonResponse(
-        { success: false, error: 'Service configuration error', code: 'server' },
+        { success: false, error: 'Service configuration error', code: 'server', correlationId },
         500
       );
     }
@@ -1714,7 +1754,7 @@ export async function handler(req: Request): Promise<Response> {
     if (!replicateApiKey) {
       structuredLog('error', 'config_missing', { missing: 'REPLICATE_API_KEY' });
       return jsonResponse(
-        { success: false, error: 'Image processing service not configured', code: 'server' },
+        { success: false, error: 'Image processing service not configured', code: 'server', correlationId },
         500
       );
     }
@@ -1759,7 +1799,7 @@ export async function handler(req: Request): Promise<Response> {
       }
     } catch {
       return jsonResponse(
-        { success: false, error: 'Invalid request body', code: 'validation' },
+        { success: false, error: 'Invalid request body', code: 'validation', correlationId },
         400
       );
     }
@@ -1778,6 +1818,7 @@ export async function handler(req: Request): Promise<Response> {
             success: true,
             recovered,
             results,
+            correlationId,
           },
           200
         );
@@ -1798,6 +1839,7 @@ export async function handler(req: Request): Promise<Response> {
           failed: queueResults.failed,
           recovered,
           results: [...results, ...queueResults.results],
+          correlationId,
         },
         200
       );
@@ -1809,7 +1851,7 @@ export async function handler(req: Request): Promise<Response> {
 
       if (!isValidUuid(itemId)) {
         return jsonResponse(
-          { success: false, error: 'Invalid itemId format', code: 'validation' },
+          { success: false, error: 'Invalid itemId format', code: 'validation', correlationId },
           400
         );
       }
@@ -1822,6 +1864,7 @@ export async function handler(req: Request): Promise<Response> {
             processed: 1,
             failed: 0,
             results: [{ itemId, success: true, durationMs }],
+            correlationId,
           },
           200
         );
@@ -1843,6 +1886,7 @@ export async function handler(req: Request): Promise<Response> {
             ],
             error: classifiedError.message,
             code: 'processing',
+            correlationId,
           },
           200
         );
@@ -1859,6 +1903,7 @@ export async function handler(req: Request): Promise<Response> {
         processed,
         failed,
         results,
+        correlationId,
       },
       200
     );
@@ -1869,7 +1914,7 @@ export async function handler(req: Request): Promise<Response> {
       error_category: classifiedError.category,
       error_code: classifiedError.code,
     });
-    return jsonResponse({ success: false, error: 'Unexpected error', code: 'server' }, 500);
+    return jsonResponse({ success: false, error: 'Unexpected error', code: 'server', correlationId }, 500);
   }
 }
 
