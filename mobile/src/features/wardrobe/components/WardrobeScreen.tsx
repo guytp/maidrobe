@@ -153,8 +153,11 @@ export function WardrobeScreen(): React.JSX.Element {
   const { items, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
     useWardrobeItems({ searchQuery: debouncedSearchQuery });
 
-  // Enable real-time synchronization for image processing updates
-  // When backend updates clean_key/thumb_key, the grid automatically refreshes
+  // Enable real-time synchronization for image processing updates.
+  // When backend updates clean_key/thumb_key, the grid automatically refreshes.
+  // The hook returns { isConnected, reconnect } for optional UI status indicators.
+  // Currently we don't display connection status, but it's available if needed.
+  // See useWardrobeRealtimeSync JSDoc for multiple-instance considerations.
   useWardrobeRealtimeSync();
 
   // Calculate grid dimensions
