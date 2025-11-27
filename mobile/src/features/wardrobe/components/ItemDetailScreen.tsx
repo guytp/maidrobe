@@ -444,8 +444,11 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     reset: resetDeleteError,
   } = useDeleteWardrobeItem();
 
-  // Enable real-time synchronization for image processing updates
-  // When backend updates clean_key/thumb_key, the detail view automatically refreshes
+  // Enable real-time synchronization for image processing updates.
+  // When backend updates clean_key/thumb_key, the detail view automatically refreshes.
+  // The hook returns { isConnected, reconnect } for optional UI status indicators.
+  // This screen displays image_processing_status from item data, not connection status.
+  // See useWardrobeRealtimeSync JSDoc for multiple-instance considerations.
   useWardrobeRealtimeSync();
 
   // Toast state for delete success
