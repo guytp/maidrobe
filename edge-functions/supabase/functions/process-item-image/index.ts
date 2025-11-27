@@ -60,6 +60,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
 
 // ============================================================================
 // Types
@@ -807,16 +808,97 @@ function detectMimeType(data: Uint8Array): string {
 }
 
 /**
- * Resizes image to specified max dimension while maintaining aspect ratio
+ * Resizes image to specified max dimension while maintaining aspect ratio.
+ *
+ * Uses ImageScript for Deno-compatible image processing.
+ * - Constrains the longest edge to maxDimension pixels
+ * - Preserves aspect ratio (no distortion)
+ * - Does not upscale images smaller than maxDimension
+ * - Outputs JPEG format with configurable quality
+ *
+ * @param imageData - Raw image bytes (JPEG, PNG, or GIF)
+ * @param maxDimension - Maximum size for the longest edge in pixels
+ * @param quality - JPEG quality (0.0 to 1.0, default 0.85)
+ * @returns Resized image as JPEG bytes
  */
 async function resizeImage(
   imageData: Uint8Array,
   maxDimension: number,
   quality: number = JPEG_QUALITY
 ): Promise<Uint8Array> {
-  // Placeholder: In production, use a Deno image library
-  structuredLog('info', 'resize_image', { max_dimension: maxDimension, quality });
-  return imageData;
+  const startTime = Date.now();
+
+  try {
+    // Decode the image using ImageScript
+    const image = await Image.decode(imageData);
+    const originalWidth = image.width;
+    const originalHeight = image.height;
+
+    structuredLog('info', 'resize_image_start', {
+      max_dimension: maxDimension,
+      quality,
+      original_width: originalWidth,
+      original_height: originalHeight,
+    });
+
+    // Determine the longest edge
+    const longestEdge = Math.max(originalWidth, originalHeight);
+
+    // Only resize if the image exceeds maxDimension (no upscaling)
+    if (longestEdge > maxDimension) {
+      // Calculate scale factor to constrain longest edge to maxDimension
+      const scaleFactor = maxDimension / longestEdge;
+      const newWidth = Math.round(originalWidth * scaleFactor);
+      const newHeight = Math.round(originalHeight * scaleFactor);
+
+      // Resize the image using RESIZE_AUTO for best quality
+      // ImageScript's resize method maintains aspect ratio when both dimensions provided
+      image.resize(newWidth, newHeight);
+
+      structuredLog('info', 'resize_image_resized', {
+        new_width: newWidth,
+        new_height: newHeight,
+        scale_factor: scaleFactor,
+      });
+    } else {
+      structuredLog('info', 'resize_image_skip', {
+        reason: 'image_smaller_than_max',
+        longest_edge: longestEdge,
+        max_dimension: maxDimension,
+      });
+    }
+
+    // Encode to JPEG with specified quality
+    // ImageScript quality is 1-100, convert from 0.0-1.0
+    const jpegQuality = Math.round(quality * 100);
+    const outputData = await image.encodeJPEG(jpegQuality);
+
+    const durationMs = Date.now() - startTime;
+    structuredLog('info', 'resize_image_complete', {
+      input_size_bytes: imageData.length,
+      output_size_bytes: outputData.length,
+      duration_ms: durationMs,
+    });
+
+    return outputData;
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    structuredLog('error', 'resize_image_failed', {
+      max_dimension: maxDimension,
+      duration_ms: durationMs,
+      error_message: errorMessage,
+    });
+
+    // Classify as permanent error since invalid image data can't be retried
+    throw createClassifiedError(
+      `Image resize failed: ${errorMessage}`,
+      'permanent',
+      'unsupported_format',
+      'internal'
+    );
+  }
 }
 
 /**
