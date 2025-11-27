@@ -209,11 +209,12 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
             errorMessage: error.message,
           });
 
-          // New event per user story spec
+          // User story #241 spec-compliant event: item_edit_failed
+          // Properties per spec: error_type (enum)
           trackCaptureEvent('item_edit_failed', {
             userId,
             itemId: params.itemId,
-            errorCategory: error.code,
+            error_type: error.code,
           });
         }
         throw error;
