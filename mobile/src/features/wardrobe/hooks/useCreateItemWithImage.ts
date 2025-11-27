@@ -1042,9 +1042,9 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         const specErrorType = mapErrorTypeToSpecEnum(typedError.errorType);
         trackCaptureEvent('item_creation_failed', {
           userId: user.id,
-          errorType: specErrorType,
-          hasName: input.name.trim().length > 0,
-          tagCount: input.tags.length,
+          error_type: specErrorType,
+          has_name: input.name.trim().length > 0,
+          tags_count: input.tags.length,
         });
 
         // Update state with error
