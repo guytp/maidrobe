@@ -90,9 +90,15 @@ function jsonResponse(
 }
 
 /**
- * Main handler for wardrobe item deletion
+ * Main handler for wardrobe item deletion.
+ *
+ * Exported for unit testing. The serve() call at the bottom wires this
+ * handler to the Deno HTTP server.
+ *
+ * @param req - Incoming HTTP request
+ * @returns Promise resolving to HTTP response
  */
-serve(async (req: Request): Promise<Response> => {
+export async function handler(req: Request): Promise<Response> {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -264,4 +270,7 @@ serve(async (req: Request): Promise<Response> => {
       500
     );
   }
-});
+}
+
+// Wire the handler to Deno's HTTP server
+serve(handler);
