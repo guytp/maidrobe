@@ -73,6 +73,8 @@ describe('useUpdateWardrobeItem', () => {
     thumb_key: 'user/test-user-123/items/item-123/thumb.jpg',
     image_processing_status: 'succeeded' as const,
     attribute_status: 'succeeded' as const,
+    attribute_last_run_at: '2024-01-01T00:00:00Z',
+    attribute_error_reason: null,
     colour: ['blue'],
     type: 'shirt',
     fabric: 'cotton',
