@@ -297,78 +297,6 @@ const DEFAULT_STALE_JOB_THRESHOLD_MS = 600000;
 const DEFAULT_MAX_CONCURRENCY = 5;
 
 // ============================================================================
-// Structured Logging
-// ============================================================================
-
-/**
- * Module-level logger instance.
- * Initialized per-request in the handler with the correlation ID.
- * Falls back to a default logger for internal operations.
- */
-let moduleLogger: StructuredLogger | null = null;
-
-/**
- * Gets or creates the module logger.
- * If not initialized (e.g., called from internal functions before handler),
- * creates a logger with a generated correlation ID.
- */
-function getLogger(): StructuredLogger {
-  if (!moduleLogger) {
-    moduleLogger = createLogger(FUNCTION_NAME, crypto.randomUUID());
-  }
-  return moduleLogger;
-}
-
-/**
- * Initializes the module logger for a request.
- * Should be called at the start of the handler.
- */
-function initializeLogger(correlationId: string): StructuredLogger {
-  moduleLogger = createLogger(FUNCTION_NAME, correlationId);
-  return moduleLogger;
-}
-
-/**
- * Legacy structured logging function for backwards compatibility.
- * Wraps the shared logger module.
- */
-function structuredLog(
-  level: 'info' | 'warn' | 'error',
-  event: string,
-  data: Record<string, unknown> = {}
-): void {
-  const logger = getLogger();
-
-  // Map legacy data fields to structured logger format
-  const logData = {
-    item_id: data.item_id as string | undefined,
-    user_id: data.user_id as string | undefined,
-    job_id: data.job_id as number | undefined,
-    duration_ms: data.duration_ms as number | undefined,
-    error_code: data.error_code as string | undefined,
-    error_category: data.error_category as string | undefined,
-    error_message: data.error_message as string | undefined,
-    metadata: Object.fromEntries(
-      Object.entries(data).filter(
-        ([key]) =>
-          !['item_id', 'user_id', 'job_id', 'duration_ms', 'error_code', 'error_category', 'error_message'].includes(key)
-      )
-    ) as Record<string, string | number | boolean | null>,
-  };
-
-  switch (level) {
-    case 'error':
-      logger.error(event, logData);
-      break;
-    case 'warn':
-      logger.warn(event, logData);
-      break;
-    default:
-      logger.info(event, logData);
-  }
-}
-
-// ============================================================================
 // Error Classification
 // ============================================================================
 
@@ -595,8 +523,12 @@ function sleep(ms: number): Promise<void> {
 /**
  * Downloads an image from Supabase Storage with error classification
  */
-async function downloadImage(supabase: SupabaseClient, imageKey: string): Promise<Uint8Array> {
-  structuredLog('info', 'storage_download_start', { storage_key: imageKey });
+async function downloadImage(
+  supabase: SupabaseClient,
+  imageKey: string,
+  logger: StructuredLogger
+): Promise<Uint8Array> {
+  logger.info('storage_download_start', { metadata: { storage_key: imageKey } });
 
   try {
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(imageKey);
@@ -641,9 +573,8 @@ async function downloadImage(supabase: SupabaseClient, imageKey: string): Promis
     }
 
     const imageData = new Uint8Array(await data.arrayBuffer());
-    structuredLog('info', 'storage_download_complete', {
-      storage_key: imageKey,
-      size_bytes: imageData.length,
+    logger.info('storage_download_complete', {
+      metadata: { storage_key: imageKey, size_bytes: imageData.length },
     });
 
     return imageData;
@@ -662,11 +593,11 @@ async function uploadImage(
   supabase: SupabaseClient,
   imageKey: string,
   imageData: Uint8Array,
+  logger: StructuredLogger,
   contentType: string = 'image/jpeg'
 ): Promise<void> {
-  structuredLog('info', 'storage_upload_start', {
-    storage_key: imageKey,
-    size_bytes: imageData.length,
+  logger.info('storage_upload_start', {
+    metadata: { storage_key: imageKey, size_bytes: imageData.length },
   });
 
   try {
@@ -703,7 +634,7 @@ async function uploadImage(
       );
     }
 
-    structuredLog('info', 'storage_upload_complete', { storage_key: imageKey });
+    logger.info('storage_upload_complete', { metadata: { storage_key: imageKey } });
   } catch (error) {
     if (error instanceof Error && 'category' in error) {
       throw error;
@@ -719,9 +650,10 @@ async function removeBackground(
   imageData: Uint8Array,
   apiKey: string,
   model: string,
-  timeoutMs: number
+  timeoutMs: number,
+  logger: StructuredLogger
 ): Promise<Uint8Array> {
-  structuredLog('info', 'replicate_start', { model });
+  logger.info('replicate_start', { metadata: { model } });
 
   try {
     // Convert image to base64 data URI
@@ -779,7 +711,7 @@ async function removeBackground(
     }
 
     const prediction = (await createResponse.json()) as ReplicatePrediction;
-    structuredLog('info', 'replicate_prediction_created', { prediction_id: prediction.id });
+    logger.info('replicate_prediction_created', { metadata: { prediction_id: prediction.id } });
 
     // Poll for completion
     const startTime = Date.now();
@@ -818,9 +750,8 @@ async function removeBackground(
       }
 
       currentPrediction = (await pollResponse.json()) as ReplicatePrediction;
-      structuredLog('info', 'replicate_poll', {
-        prediction_id: prediction.id,
-        status: currentPrediction.status,
+      logger.info('replicate_poll', {
+        metadata: { prediction_id: prediction.id, status: currentPrediction.status },
       });
     }
 
@@ -857,7 +788,7 @@ async function removeBackground(
     }
 
     // Download processed image
-    structuredLog('info', 'replicate_download_start', { output_url: outputUrl });
+    logger.info('replicate_download_start', { metadata: { output_url: outputUrl } });
     const outputResponse = await fetch(outputUrl);
 
     if (!outputResponse.ok) {
@@ -872,9 +803,8 @@ async function removeBackground(
     }
 
     const result = new Uint8Array(await outputResponse.arrayBuffer());
-    structuredLog('info', 'replicate_complete', {
-      prediction_id: prediction.id,
-      output_size_bytes: result.length,
+    logger.info('replicate_complete', {
+      metadata: { prediction_id: prediction.id, output_size_bytes: result.length },
     });
 
     return result;
@@ -922,12 +852,14 @@ function detectMimeType(data: Uint8Array): string {
  *
  * @param imageData - Raw image bytes (JPEG, PNG, or GIF)
  * @param maxDimension - Maximum size for the longest edge in pixels
+ * @param logger - Structured logger instance for request-scoped logging
  * @param quality - JPEG quality (0.0 to 1.0, default 0.85)
  * @returns Resized image as JPEG bytes
  */
 async function resizeImage(
   imageData: Uint8Array,
   maxDimension: number,
+  logger: StructuredLogger,
   quality: number = JPEG_QUALITY
 ): Promise<Uint8Array> {
   const startTime = Date.now();
@@ -938,11 +870,13 @@ async function resizeImage(
     const originalWidth = image.width;
     const originalHeight = image.height;
 
-    structuredLog('info', 'resize_image_start', {
-      max_dimension: maxDimension,
-      quality,
-      original_width: originalWidth,
-      original_height: originalHeight,
+    logger.info('resize_image_start', {
+      metadata: {
+        max_dimension: maxDimension,
+        quality,
+        original_width: originalWidth,
+        original_height: originalHeight,
+      },
     });
 
     // Determine the longest edge
@@ -959,16 +893,20 @@ async function resizeImage(
       // ImageScript's resize method maintains aspect ratio when both dimensions provided
       image.resize(newWidth, newHeight);
 
-      structuredLog('info', 'resize_image_resized', {
-        new_width: newWidth,
-        new_height: newHeight,
-        scale_factor: scaleFactor,
+      logger.info('resize_image_resized', {
+        metadata: {
+          new_width: newWidth,
+          new_height: newHeight,
+          scale_factor: scaleFactor,
+        },
       });
     } else {
-      structuredLog('info', 'resize_image_skip', {
-        reason: 'image_smaller_than_max',
-        longest_edge: longestEdge,
-        max_dimension: maxDimension,
+      logger.info('resize_image_skip', {
+        metadata: {
+          reason: 'image_smaller_than_max',
+          longest_edge: longestEdge,
+          max_dimension: maxDimension,
+        },
       });
     }
 
@@ -978,10 +916,12 @@ async function resizeImage(
     const outputData = await image.encodeJPEG(jpegQuality);
 
     const durationMs = Date.now() - startTime;
-    structuredLog('info', 'resize_image_complete', {
-      input_size_bytes: imageData.length,
-      output_size_bytes: outputData.length,
+    logger.info('resize_image_complete', {
       duration_ms: durationMs,
+      metadata: {
+        input_size_bytes: imageData.length,
+        output_size_bytes: outputData.length,
+      },
     });
 
     return outputData;
@@ -989,10 +929,10 @@ async function resizeImage(
     const durationMs = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    structuredLog('error', 'resize_image_failed', {
-      max_dimension: maxDimension,
+    logger.error('resize_image_failed', {
       duration_ms: durationMs,
       error_message: errorMessage,
+      metadata: { max_dimension: maxDimension },
     });
 
     // Classify as permanent error since invalid image data can't be retried
@@ -1021,12 +961,14 @@ async function resizeImage(
  *
  * @param imageData - Raw image bytes (JPEG, PNG, or GIF)
  * @param size - Target square dimension in pixels (e.g., 200 for 200x200)
+ * @param logger - Structured logger instance for request-scoped logging
  * @param quality - JPEG quality (0.0 to 1.0, default 0.90 for thumbnails)
  * @returns Square thumbnail as JPEG bytes
  */
 async function generateThumbnail(
   imageData: Uint8Array,
   size: number,
+  logger: StructuredLogger,
   quality: number = 0.9
 ): Promise<Uint8Array> {
   const startTime = Date.now();
@@ -1037,11 +979,13 @@ async function generateThumbnail(
     const sourceWidth = sourceImage.width;
     const sourceHeight = sourceImage.height;
 
-    structuredLog('info', 'generate_thumbnail_start', {
-      target_size: size,
-      quality,
-      source_width: sourceWidth,
-      source_height: sourceHeight,
+    logger.info('generate_thumbnail_start', {
+      metadata: {
+        target_size: size,
+        quality,
+        source_width: sourceWidth,
+        source_height: sourceHeight,
+      },
     });
 
     // Calculate scale to fit within target square (contain strategy)
@@ -1067,12 +1011,14 @@ async function generateThumbnail(
     // Composite the resized image onto the white canvas
     canvas.composite(sourceImage, offsetX, offsetY);
 
-    structuredLog('info', 'generate_thumbnail_composed', {
-      scaled_width: scaledWidth,
-      scaled_height: scaledHeight,
-      offset_x: offsetX,
-      offset_y: offsetY,
-      canvas_size: size,
+    logger.info('generate_thumbnail_composed', {
+      metadata: {
+        scaled_width: scaledWidth,
+        scaled_height: scaledHeight,
+        offset_x: offsetX,
+        offset_y: offsetY,
+        canvas_size: size,
+      },
     });
 
     // Encode to JPEG with specified quality
@@ -1081,11 +1027,13 @@ async function generateThumbnail(
     const outputData = await canvas.encodeJPEG(jpegQuality);
 
     const durationMs = Date.now() - startTime;
-    structuredLog('info', 'generate_thumbnail_complete', {
-      input_size_bytes: imageData.length,
-      output_size_bytes: outputData.length,
-      target_size: size,
+    logger.info('generate_thumbnail_complete', {
       duration_ms: durationMs,
+      metadata: {
+        input_size_bytes: imageData.length,
+        output_size_bytes: outputData.length,
+        target_size: size,
+      },
     });
 
     return outputData;
@@ -1093,10 +1041,10 @@ async function generateThumbnail(
     const durationMs = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
 
-    structuredLog('error', 'generate_thumbnail_failed', {
-      target_size: size,
+    logger.error('generate_thumbnail_failed', {
       duration_ms: durationMs,
       error_message: errorMessage,
+      metadata: { target_size: size },
     });
 
     // Classify as permanent error since invalid image data can't be retried
@@ -1135,12 +1083,13 @@ async function processItem(
   supabase: SupabaseClient,
   itemId: string,
   config: ProcessingConfig,
+  logger: StructuredLogger,
   jobId?: number
 ): Promise<{ userId: string; durationMs: number }> {
   const startTime = Date.now();
   let userId = '';
 
-  structuredLog('info', 'job_started', { item_id: itemId, job_id: jobId });
+  logger.info('job_started', { item_id: itemId, job_id: jobId });
 
   // Step 1: Fetch and validate item
   const { data: item, error: fetchError } = await supabase
@@ -1196,19 +1145,20 @@ async function processItem(
 
   try {
     // Step 3: Download original image
-    const originalImage = await downloadImage(supabase, typedItem.original_key);
+    const originalImage = await downloadImage(supabase, typedItem.original_key, logger);
 
     // Step 4: Call background removal provider
     const cleanImage = await removeBackground(
       originalImage,
       config.replicateApiKey,
       config.replicateModel,
-      config.timeoutMs
+      config.timeoutMs,
+      logger
     );
 
     // Step 5: Generate clean image (resize if needed) and thumbnail
-    const resizedCleanImage = await resizeImage(cleanImage, config.cleanMaxDimension);
-    const thumbnail = await generateThumbnail(cleanImage, config.thumbnailSize);
+    const resizedCleanImage = await resizeImage(cleanImage, config.cleanMaxDimension, logger);
+    const thumbnail = await generateThumbnail(cleanImage, config.thumbnailSize, logger);
 
     // Step 6: Upload clean and thumb to deterministic paths
     const pathInfo = parseStoragePath(typedItem.original_key);
@@ -1224,8 +1174,8 @@ async function processItem(
     const { cleanKey, thumbKey } = generateOutputPaths(pathInfo.userId, pathInfo.itemId);
 
     // Upload both images (upsert ensures idempotency)
-    await uploadImage(supabase, cleanKey, resizedCleanImage);
-    await uploadImage(supabase, thumbKey, thumbnail);
+    await uploadImage(supabase, cleanKey, resizedCleanImage, logger);
+    await uploadImage(supabase, thumbKey, thumbnail, logger);
 
     // Step 7: Update item with storage keys and success status
     // Only set keys after BOTH uploads succeed
@@ -1248,7 +1198,7 @@ async function processItem(
     }
 
     const durationMs = Date.now() - startTime;
-    structuredLog('info', 'job_completed', {
+    logger.info('job_completed', {
       item_id: itemId,
       user_id: userId,
       job_id: jobId,
@@ -1271,7 +1221,7 @@ async function processItem(
       })
       .eq('id', itemId);
 
-    structuredLog('error', 'job_failed', {
+    logger.error('job_failed', {
       item_id: itemId,
       user_id: userId,
       job_id: jobId,
@@ -1279,7 +1229,7 @@ async function processItem(
       error_category: classifiedError.category,
       error_code: classifiedError.code,
       error_message: classifiedError.message,
-      provider: classifiedError.provider,
+      metadata: { provider: classifiedError.provider },
     });
 
     throw classifiedError;
@@ -1292,15 +1242,16 @@ async function processItem(
 async function processJob(
   supabase: SupabaseClient,
   job: JobRecord,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<JobResult> {
   const startTime = Date.now();
   const newAttemptCount = job.attempt_count + 1;
 
-  structuredLog('info', 'job_pickup', {
+  logger.info('job_pickup', {
     job_id: job.id,
     item_id: job.item_id,
-    attempt_count: newAttemptCount,
+    metadata: { attempt_count: newAttemptCount },
   });
 
   // Update job to processing status
@@ -1323,7 +1274,7 @@ async function processJob(
   }
 
   try {
-    const { durationMs } = await processItem(supabase, job.item_id, config, job.id);
+    const { durationMs } = await processItem(supabase, job.item_id, config, logger, job.id);
 
     // Mark job as completed
     await supabase
@@ -1370,13 +1321,15 @@ async function processJob(
         config.retryBaseDelayMs,
         config.retryMaxDelayMs
       );
-      structuredLog('info', 'job_retry_scheduled', {
+      logger.info('job_retry_scheduled', {
         job_id: job.id,
         item_id: job.item_id,
-        attempt_count: newAttemptCount,
-        next_retry_at: jobUpdate.next_retry_at,
         error_category: classifiedError.category,
         error_code: classifiedError.code,
+        metadata: {
+          attempt_count: newAttemptCount,
+          next_retry_at: jobUpdate.next_retry_at as string,
+        },
       });
     } else {
       // Update item status to failed (already done in processItem, but ensure consistency)
@@ -1389,15 +1342,17 @@ async function processJob(
         })
         .eq('id', job.item_id);
 
-      structuredLog('error', 'job_permanently_failed', {
+      logger.error('job_permanently_failed', {
         job_id: job.id,
         item_id: job.item_id,
-        attempt_count: newAttemptCount,
-        max_attempts: job.max_attempts,
         error_category: classifiedError.category,
         error_code: classifiedError.code,
         error_message: classifiedError.message,
-        provider: classifiedError.provider,
+        metadata: {
+          attempt_count: newAttemptCount,
+          max_attempts: job.max_attempts,
+          provider: classifiedError.provider,
+        },
       });
     }
 
@@ -1424,12 +1379,14 @@ async function processJob(
  * @param jobs - Array of jobs to process
  * @param supabase - Supabase client
  * @param config - Processing configuration
+ * @param logger - Structured logger instance for request-scoped logging
  * @returns Aggregated results from all processed jobs
  */
 async function processJobsWithConcurrency(
   jobs: JobRecord[],
   supabase: SupabaseClient,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
   const results: JobResult[] = [];
   let processed = 0;
@@ -1440,15 +1397,19 @@ async function processJobsWithConcurrency(
     const chunk = jobs.slice(i, i + config.maxConcurrency);
     const chunkIndex = Math.floor(i / config.maxConcurrency);
 
-    structuredLog('info', 'concurrent_chunk_start', {
-      chunk_index: chunkIndex,
-      chunk_size: chunk.length,
-      max_concurrency: config.maxConcurrency,
-      total_jobs: jobs.length,
+    logger.info('concurrent_chunk_start', {
+      metadata: {
+        chunk_index: chunkIndex,
+        chunk_size: chunk.length,
+        max_concurrency: config.maxConcurrency,
+        total_jobs: jobs.length,
+      },
     });
 
     // Process chunk in parallel
-    const chunkResults = await Promise.all(chunk.map((job) => processJob(supabase, job, config)));
+    const chunkResults = await Promise.all(
+      chunk.map((job) => processJob(supabase, job, config, logger))
+    );
 
     // Aggregate results
     for (const result of chunkResults) {
@@ -1460,10 +1421,12 @@ async function processJobsWithConcurrency(
       }
     }
 
-    structuredLog('info', 'concurrent_chunk_complete', {
-      chunk_index: chunkIndex,
-      chunk_processed: chunkResults.filter((r) => r.success).length,
-      chunk_failed: chunkResults.filter((r) => !r.success).length,
+    logger.info('concurrent_chunk_complete', {
+      metadata: {
+        chunk_index: chunkIndex,
+        chunk_processed: chunkResults.filter((r) => r.success).length,
+        chunk_failed: chunkResults.filter((r) => !r.success).length,
+      },
     });
   }
 
@@ -1479,11 +1442,11 @@ async function processJobsWithConcurrency(
 async function processJobQueue(
   supabase: SupabaseClient,
   batchSize: number,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
-  structuredLog('info', 'queue_poll_start', {
-    batch_size: batchSize,
-    max_concurrency: config.maxConcurrency,
+  logger.info('queue_poll_start', {
+    metadata: { batch_size: batchSize, max_concurrency: config.maxConcurrency },
   });
 
   // Fetch pending jobs that are ready for retry (next_retry_at is null or <= now)
@@ -1505,7 +1468,7 @@ async function processJobQueue(
   }
 
   const typedJobs = (jobs || []) as JobRecord[];
-  structuredLog('info', 'queue_poll_complete', { jobs_found: typedJobs.length });
+  logger.info('queue_poll_complete', { metadata: { jobs_found: typedJobs.length } });
 
   if (typedJobs.length === 0) {
     return { processed: 0, failed: 0, results: [] };
@@ -1515,14 +1478,17 @@ async function processJobQueue(
   const { processed, failed, results } = await processJobsWithConcurrency(
     typedJobs,
     supabase,
-    config
+    config,
+    logger
   );
 
-  structuredLog('info', 'queue_batch_complete', {
-    processed,
-    failed,
-    total: typedJobs.length,
-    max_concurrency: config.maxConcurrency,
+  logger.info('queue_batch_complete', {
+    metadata: {
+      processed,
+      failed,
+      total: typedJobs.length,
+      max_concurrency: config.maxConcurrency,
+    },
   });
 
   return { processed, failed, results };
@@ -1533,13 +1499,13 @@ async function processJobQueue(
  */
 async function recoverStaleJobs(
   supabase: SupabaseClient,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ recovered: number; results: JobResult[] }> {
   const thresholdTime = new Date(Date.now() - config.staleJobThresholdMs).toISOString();
 
-  structuredLog('info', 'stale_recovery_start', {
-    threshold_ms: config.staleJobThresholdMs,
-    threshold_time: thresholdTime,
+  logger.info('stale_recovery_start', {
+    metadata: { threshold_ms: config.staleJobThresholdMs, threshold_time: thresholdTime },
   });
 
   // Find jobs stuck in processing
@@ -1559,7 +1525,7 @@ async function recoverStaleJobs(
   }
 
   const typedStaleJobs = (staleJobs || []) as JobRecord[];
-  structuredLog('info', 'stale_jobs_found', { count: typedStaleJobs.length });
+  logger.info('stale_jobs_found', { metadata: { count: typedStaleJobs.length } });
 
   const results: JobResult[] = [];
   let recovered = 0;
@@ -1567,13 +1533,15 @@ async function recoverStaleJobs(
   for (const job of typedStaleJobs) {
     const canRetry = job.attempt_count < job.max_attempts;
 
-    structuredLog('warn', 'stale_job_recovered', {
+    logger.warn('stale_job_recovered', {
       job_id: job.id,
       item_id: job.item_id,
-      attempt_count: job.attempt_count,
-      max_attempts: job.max_attempts,
-      started_at: job.started_at,
-      action: canRetry ? 'reset_to_pending' : 'mark_as_failed',
+      metadata: {
+        attempt_count: job.attempt_count,
+        max_attempts: job.max_attempts,
+        started_at: job.started_at,
+        action: canRetry ? 'reset_to_pending' : 'mark_as_failed',
+      },
     });
 
     if (canRetry) {
@@ -1635,7 +1603,7 @@ async function recoverStaleJobs(
     });
   }
 
-  structuredLog('info', 'stale_recovery_complete', { recovered });
+  logger.info('stale_recovery_complete', { metadata: { recovered } });
   return { recovered, results };
 }
 
@@ -1647,9 +1615,10 @@ async function recoverStaleJobs(
  * Main handler for image processing requests.
  */
 export async function handler(req: Request): Promise<Response> {
-  // Initialize logger with correlation ID from request
+  // Create per-request logger with correlation ID
+  // This ensures correlation IDs cannot leak between concurrent requests
   const correlationId = getOrGenerateCorrelationId(req);
-  const logger = initializeLogger(correlationId);
+  const logger = createLogger(FUNCTION_NAME, correlationId);
 
   if (req.method !== 'POST') {
     return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation', correlationId }, 405);
@@ -1676,9 +1645,11 @@ export async function handler(req: Request): Promise<Response> {
     // - No clean/thumb variants are generated (original serves both purposes)
     // - User privacy is maintained through client-side enforcement
     if (!isImageCleanupEnabled()) {
-      structuredLog('info', 'feature_disabled', {
-        feature: 'wardrobe_image_cleanup',
-        privacy_note: 'EXIF stripping enforced client-side before upload',
+      logger.info('feature_disabled', {
+        metadata: {
+          feature: 'wardrobe_image_cleanup',
+          privacy_note: 'EXIF stripping enforced client-side before upload',
+        },
       });
 
       // If a specific itemId was provided, mark it as 'skipped' so it doesn't remain
@@ -1703,14 +1674,14 @@ export async function handler(req: Request): Promise<Response> {
             .eq('image_processing_status', 'pending');
 
           if (updateError) {
-            structuredLog('warn', 'skip_status_update_failed', {
+            logger.warn('skip_status_update_failed', {
               item_id: requestBody.itemId,
-              error: updateError.message,
+              error_message: updateError.message,
             });
           } else {
-            structuredLog('info', 'item_marked_skipped', {
+            logger.info('item_marked_skipped', {
               item_id: requestBody.itemId,
-              reason: 'feature_disabled',
+              skip_reason: 'feature_disabled',
             });
           }
 
@@ -1744,7 +1715,7 @@ export async function handler(req: Request): Promise<Response> {
     const replicateApiKey = Deno.env.get('REPLICATE_API_KEY');
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      structuredLog('error', 'config_missing', { missing: 'SUPABASE_URL or SERVICE_KEY' });
+      logger.error('config_missing', { metadata: { missing: 'SUPABASE_URL or SERVICE_KEY' } });
       return jsonResponse(
         { success: false, error: 'Service configuration error', code: 'server', correlationId },
         500
@@ -1752,7 +1723,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!replicateApiKey) {
-      structuredLog('error', 'config_missing', { missing: 'REPLICATE_API_KEY' });
+      logger.error('config_missing', { metadata: { missing: 'REPLICATE_API_KEY' } });
       return jsonResponse(
         { success: false, error: 'Image processing service not configured', code: 'server', correlationId },
         500
@@ -1809,7 +1780,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle stale job recovery mode
     if (requestBody.recoverStale) {
-      const { recovered, results } = await recoverStaleJobs(supabase, config);
+      const { recovered, results } = await recoverStaleJobs(supabase, config, logger);
 
       // If also processing queue, continue; otherwise return
       if (!requestBody.itemId && !requestBody.batchSize) {
@@ -1830,7 +1801,7 @@ export async function handler(req: Request): Promise<Response> {
         DEFAULT_BATCH_SIZE
       );
 
-      const queueResults = await processJobQueue(supabase, queueBatchSize, config);
+      const queueResults = await processJobQueue(supabase, queueBatchSize, config, logger);
 
       return jsonResponse(
         {
@@ -1857,7 +1828,7 @@ export async function handler(req: Request): Promise<Response> {
       }
 
       try {
-        const { durationMs } = await processItem(supabase, itemId, config);
+        const { durationMs } = await processItem(supabase, itemId, config, logger);
         return jsonResponse(
           {
             success: true,
@@ -1895,7 +1866,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle queue mode (default)
     const batchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
-    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config);
+    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config, logger);
 
     return jsonResponse(
       {
@@ -1909,7 +1880,7 @@ export async function handler(req: Request): Promise<Response> {
     );
   } catch (error) {
     const classifiedError = classifyError(error, 'internal');
-    structuredLog('error', 'unexpected_error', {
+    logger.error('unexpected_error', {
       error_message: classifiedError.message,
       error_category: classifiedError.category,
       error_code: classifiedError.code,
