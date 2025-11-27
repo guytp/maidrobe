@@ -98,8 +98,7 @@ export function useCreateFirstItem() {
         // Step 2: Upload to Supabase Storage
         // PLACEHOLDER: Mock upload
         const itemId = generateUUID();
-        const timestamp = Date.now();
-        const storagePath = WARDROBE_STORAGE_CONFIG.pathTemplate(user.id, itemId, timestamp);
+        const storagePath = WARDROBE_STORAGE_CONFIG.pathTemplate(user.id, itemId);
 
         // Real implementation would upload blob to storage:
         // const blob = await imageUriToBlob(processedImage.uri);
