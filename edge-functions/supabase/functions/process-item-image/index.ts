@@ -2,9 +2,10 @@
  * Process Item Image Edge Function
  *
  * Handles background removal and thumbnail generation for wardrobe items.
- * This function can be invoked in two modes:
+ * This function can be invoked in multiple modes:
  * 1. Direct mode: Process a specific item by itemId
  * 2. Queue mode: Poll image_processing_jobs table for pending jobs
+ * 3. Recovery mode: Scan for and recover stale jobs stuck in processing
  *
  * PROCESSING PIPELINE:
  * 1. Validate item exists with original_key and status in {pending, failed}
@@ -15,26 +16,35 @@
  * 6. Upload clean and thumb variants to deterministic storage paths
  * 7. Update item with clean_key, thumb_key, status = 'succeeded'
  *
+ * ERROR HANDLING:
+ * - Categorizes errors as 'transient' (retry) or 'permanent' (no retry)
+ * - Transient: timeouts, 429 rate limits, network errors, 5xx server errors
+ * - Permanent: 4xx client errors (except 429), unsupported formats, validation
+ * - Exponential backoff with jitter for transient retries
+ * - Structured logging with item_id, user_id, provider, duration, error codes
+ *
  * IDEMPOTENCY:
  * - Re-validates item state before processing
  * - Uses deterministic storage paths (upsert semantics)
  * - Safe to repeat for same (item_id, original_key) pair
- * - Job queue has UNIQUE constraint on (item_id, original_key)
+ * - On failure, clears clean_key/thumb_key to avoid inconsistent state
+ *
+ * STALE JOB RECOVERY:
+ * - Scans for jobs stuck in 'processing' beyond threshold
+ * - Resets to 'pending' if retries remain, 'failed' otherwise
+ * - Prevents items from being permanently stuck
  *
  * SECURITY:
  * - Uses service role to bypass RLS (background job pattern)
  * - No user authentication required (internal/scheduled invocation)
- * - All operations scoped to specific item_id
  *
  * REQUEST:
  * POST /process-item-image
- * Body: { itemId?: string, batchSize?: number }
- *   - itemId: Process specific item (direct mode)
- *   - batchSize: Max jobs to process in queue mode (default: 10)
- *
- * RESPONSE:
- * Success: { success: true, processed: number, failed: number, results: [...] }
- * Error: { success: false, error: string, code: string }
+ * Body: {
+ *   itemId?: string,       // Direct mode: process specific item
+ *   batchSize?: number,    // Queue mode: max jobs to process (default: 10)
+ *   recoverStale?: boolean // Recovery mode: scan for stale jobs
+ * }
  *
  * ENVIRONMENT VARIABLES:
  * - SUPABASE_URL: Supabase project URL
@@ -43,6 +53,9 @@
  * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 120000ms)
  * - THUMBNAIL_SIZE: Thumbnail dimension in pixels (default: 200)
  * - CLEAN_IMAGE_MAX_DIMENSION: Clean image max edge (default: 1600)
+ * - RETRY_BASE_DELAY_MS: Base delay for exponential backoff (default: 1000)
+ * - RETRY_MAX_DELAY_MS: Maximum retry delay (default: 60000)
+ * - STALE_JOB_THRESHOLD_MS: Time before job considered stale (default: 600000)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -53,6 +66,42 @@ import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-
 // ============================================================================
 
 /**
+ * Error category for retry logic
+ */
+type ErrorCategory = 'transient' | 'permanent';
+
+/**
+ * Normalized error codes
+ */
+type ErrorCode =
+  | 'timeout'
+  | 'rate_limit'
+  | 'network'
+  | 'server_error'
+  | 'not_found'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'unsupported_format'
+  | 'validation'
+  | 'provider_failed'
+  | 'unknown';
+
+/**
+ * Provider identifiers
+ */
+type Provider = 'storage' | 'replicate' | 'internal';
+
+/**
+ * Classified error with full context
+ */
+interface ClassifiedError extends Error {
+  category: ErrorCategory;
+  code: ErrorCode;
+  provider: Provider;
+  httpStatus?: number;
+}
+
+/**
  * Request body schema
  */
 interface ProcessItemImageRequest {
@@ -60,6 +109,8 @@ interface ProcessItemImageRequest {
   itemId?: string;
   /** Max jobs to process in queue mode (default: 10) */
   batchSize?: number;
+  /** Recover stale jobs stuck in processing */
+  recoverStale?: boolean;
 }
 
 /**
@@ -67,8 +118,12 @@ interface ProcessItemImageRequest {
  */
 interface JobResult {
   itemId: string;
+  jobId?: number;
   success: boolean;
   error?: string;
+  errorCode?: ErrorCode;
+  errorCategory?: ErrorCategory;
+  durationMs?: number;
 }
 
 /**
@@ -78,6 +133,7 @@ interface ProcessItemImageResponse {
   success: boolean;
   processed?: number;
   failed?: number;
+  recovered?: number;
   results?: JobResult[];
   error?: string;
   code?: string;
@@ -105,6 +161,7 @@ interface JobRecord {
   status: string;
   attempt_count: number;
   max_attempts: number;
+  started_at: string | null;
 }
 
 /**
@@ -115,6 +172,25 @@ interface ReplicatePrediction {
   status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled';
   output?: string | string[];
   error?: string;
+}
+
+/**
+ * Structured log entry
+ */
+interface LogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  event: string;
+  item_id?: string;
+  user_id?: string;
+  job_id?: number;
+  provider?: Provider;
+  attempt_count?: number;
+  duration_ms?: number;
+  error_category?: ErrorCategory;
+  error_code?: ErrorCode;
+  error_message?: string;
+  [key: string]: unknown;
 }
 
 // ============================================================================
@@ -143,7 +219,8 @@ const REPLICATE_API_URL = 'https://api.replicate.com/v1';
  * Default Replicate model for background removal
  * Using cjwbw/rembg - a popular open-source background removal model
  */
-const DEFAULT_REPLICATE_MODEL = 'cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003';
+const DEFAULT_REPLICATE_MODEL =
+  'cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003';
 
 /** Polling interval for Replicate predictions (ms) */
 const REPLICATE_POLL_INTERVAL_MS = 1000;
@@ -153,6 +230,205 @@ const ELIGIBLE_STATUSES = ['pending', 'failed'];
 
 /** JPEG compression quality */
 const JPEG_QUALITY = 0.85;
+
+/** Default base delay for exponential backoff (1 second) */
+const DEFAULT_RETRY_BASE_DELAY_MS = 1000;
+
+/** Default maximum delay between retries (1 minute) */
+const DEFAULT_RETRY_MAX_DELAY_MS = 60000;
+
+/** Default threshold for stale job detection (10 minutes) */
+const DEFAULT_STALE_JOB_THRESHOLD_MS = 600000;
+
+// ============================================================================
+// Structured Logging
+// ============================================================================
+
+/**
+ * Emits a structured log entry as JSON
+ */
+function structuredLog(
+  level: 'info' | 'warn' | 'error',
+  event: string,
+  data: Partial<Omit<LogEntry, 'timestamp' | 'level' | 'event'>> = {}
+): void {
+  const entry: LogEntry = {
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...data,
+  };
+
+  const message = JSON.stringify(entry);
+
+  switch (level) {
+    case 'error':
+      console.error('[ProcessImage]', message);
+      break;
+    case 'warn':
+      console.warn('[ProcessImage]', message);
+      break;
+    default:
+      console.log('[ProcessImage]', message);
+  }
+}
+
+// ============================================================================
+// Error Classification
+// ============================================================================
+
+/**
+ * Creates a classified error with category and code
+ */
+function createClassifiedError(
+  message: string,
+  category: ErrorCategory,
+  code: ErrorCode,
+  provider: Provider,
+  httpStatus?: number
+): ClassifiedError {
+  const error = new Error(message) as ClassifiedError;
+  error.category = category;
+  error.code = code;
+  error.provider = provider;
+  error.httpStatus = httpStatus;
+  return error;
+}
+
+/**
+ * Classifies an HTTP status code into error category and code
+ */
+function classifyHttpStatus(
+  status: number,
+  _provider: Provider
+): { category: ErrorCategory; code: ErrorCode } {
+  // Rate limiting - transient
+  if (status === 429) {
+    return { category: 'transient', code: 'rate_limit' };
+  }
+
+  // Server errors - transient (can retry)
+  if (status >= 500) {
+    return { category: 'transient', code: 'server_error' };
+  }
+
+  // Client errors - permanent (except 429 handled above)
+  if (status === 401) {
+    return { category: 'permanent', code: 'unauthorized' };
+  }
+  if (status === 403) {
+    return { category: 'permanent', code: 'forbidden' };
+  }
+  if (status === 404) {
+    return { category: 'permanent', code: 'not_found' };
+  }
+  if (status >= 400) {
+    return { category: 'permanent', code: 'validation' };
+  }
+
+  // Default for unexpected status
+  return { category: 'permanent', code: 'unknown' };
+}
+
+/**
+ * Wraps an error with classification based on its characteristics
+ */
+function classifyError(error: unknown, provider: Provider): ClassifiedError {
+  // Already classified
+  if (error instanceof Error && 'category' in error && 'code' in error) {
+    return error as ClassifiedError;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  const lowerMessage = message.toLowerCase();
+
+  // Timeout errors - transient
+  if (
+    lowerMessage.includes('timeout') ||
+    lowerMessage.includes('timed out') ||
+    lowerMessage.includes('deadline')
+  ) {
+    return createClassifiedError(message, 'transient', 'timeout', provider);
+  }
+
+  // Network errors - transient
+  if (
+    lowerMessage.includes('network') ||
+    lowerMessage.includes('econnrefused') ||
+    lowerMessage.includes('econnreset') ||
+    lowerMessage.includes('enotfound') ||
+    lowerMessage.includes('socket') ||
+    lowerMessage.includes('dns')
+  ) {
+    return createClassifiedError(message, 'transient', 'network', provider);
+  }
+
+  // Rate limit indicators - transient
+  if (lowerMessage.includes('rate limit') || lowerMessage.includes('too many requests')) {
+    return createClassifiedError(message, 'transient', 'rate_limit', provider);
+  }
+
+  // Unsupported format - permanent
+  if (
+    lowerMessage.includes('unsupported') ||
+    lowerMessage.includes('invalid format') ||
+    lowerMessage.includes('invalid image')
+  ) {
+    return createClassifiedError(message, 'permanent', 'unsupported_format', provider);
+  }
+
+  // Not found - permanent
+  if (lowerMessage.includes('not found') || lowerMessage.includes('does not exist')) {
+    return createClassifiedError(message, 'permanent', 'not_found', provider);
+  }
+
+  // Provider failure - permanent
+  if (
+    lowerMessage.includes('failed') &&
+    (lowerMessage.includes('background removal') || lowerMessage.includes('prediction'))
+  ) {
+    return createClassifiedError(message, 'permanent', 'provider_failed', provider);
+  }
+
+  // Default to transient for unknown errors (safer to retry)
+  return createClassifiedError(message, 'transient', 'unknown', provider);
+}
+
+// ============================================================================
+// Retry Logic
+// ============================================================================
+
+/**
+ * Calculates exponential backoff delay with jitter
+ */
+function calculateBackoffDelay(
+  attemptCount: number,
+  baseDelayMs: number,
+  maxDelayMs: number
+): number {
+  // Exponential backoff: baseDelay * 2^attempt
+  const exponentialDelay = baseDelayMs * Math.pow(2, attemptCount);
+
+  // Cap at maximum delay
+  const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
+
+  // Add jitter (±25%) to prevent thundering herd
+  const jitter = cappedDelay * 0.25 * (Math.random() * 2 - 1);
+
+  return Math.round(cappedDelay + jitter);
+}
+
+/**
+ * Calculates the next retry timestamp
+ */
+function calculateNextRetryAt(
+  attemptCount: number,
+  baseDelayMs: number,
+  maxDelayMs: number
+): string {
+  const delayMs = calculateBackoffDelay(attemptCount, baseDelayMs, maxDelayMs);
+  return new Date(Date.now() + delayMs).toISOString();
+}
 
 // ============================================================================
 // Utility Functions
@@ -217,31 +493,73 @@ function sleep(ms: number): Promise<void> {
 // ============================================================================
 
 /**
- * Downloads an image from Supabase Storage
+ * Downloads an image from Supabase Storage with error classification
  */
 async function downloadImage(
   supabase: SupabaseClient,
   imageKey: string
 ): Promise<Uint8Array> {
-  console.log('[ProcessImage] Downloading image:', imageKey);
+  structuredLog('info', 'storage_download_start', { storage_key: imageKey });
 
-  const { data, error } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .download(imageKey);
+  try {
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).download(imageKey);
 
-  if (error) {
-    throw new Error(`Failed to download image: ${error.message}`);
+    if (error) {
+      // Classify storage errors
+      const lowerMessage = error.message.toLowerCase();
+      if (lowerMessage.includes('not found') || lowerMessage.includes('404')) {
+        throw createClassifiedError(
+          `Image not found: ${imageKey}`,
+          'permanent',
+          'not_found',
+          'storage',
+          404
+        );
+      }
+      if (lowerMessage.includes('unauthorized') || lowerMessage.includes('401')) {
+        throw createClassifiedError(
+          `Unauthorized access to storage`,
+          'permanent',
+          'unauthorized',
+          'storage',
+          401
+        );
+      }
+      // Default to transient for other storage errors
+      throw createClassifiedError(
+        `Storage download failed: ${error.message}`,
+        'transient',
+        'server_error',
+        'storage'
+      );
+    }
+
+    if (!data) {
+      throw createClassifiedError(
+        'Downloaded image data is empty',
+        'permanent',
+        'not_found',
+        'storage'
+      );
+    }
+
+    const imageData = new Uint8Array(await data.arrayBuffer());
+    structuredLog('info', 'storage_download_complete', {
+      storage_key: imageKey,
+      size_bytes: imageData.length,
+    });
+
+    return imageData;
+  } catch (error) {
+    if (error instanceof Error && 'category' in error) {
+      throw error;
+    }
+    throw classifyError(error, 'storage');
   }
-
-  if (!data) {
-    throw new Error('Downloaded image data is empty');
-  }
-
-  return new Uint8Array(await data.arrayBuffer());
 }
 
 /**
- * Uploads an image to Supabase Storage with upsert semantics
+ * Uploads an image to Supabase Storage with error classification
  */
 async function uploadImage(
   supabase: SupabaseClient,
@@ -249,21 +567,56 @@ async function uploadImage(
   imageData: Uint8Array,
   contentType: string = 'image/jpeg'
 ): Promise<void> {
-  console.log('[ProcessImage] Uploading image:', imageKey);
-
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(imageKey, imageData, {
-    contentType,
-    upsert: true, // Overwrite if exists (idempotency)
+  structuredLog('info', 'storage_upload_start', {
+    storage_key: imageKey,
+    size_bytes: imageData.length,
   });
 
-  if (error) {
-    throw new Error(`Failed to upload image: ${error.message}`);
+  try {
+    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(imageKey, imageData, {
+      contentType,
+      upsert: true, // Overwrite if exists (idempotency)
+    });
+
+    if (error) {
+      const lowerMessage = error.message.toLowerCase();
+      if (lowerMessage.includes('too large') || lowerMessage.includes('413')) {
+        throw createClassifiedError(
+          `Image too large for upload`,
+          'permanent',
+          'validation',
+          'storage',
+          413
+        );
+      }
+      if (lowerMessage.includes('unsupported') || lowerMessage.includes('mime')) {
+        throw createClassifiedError(
+          `Unsupported image format`,
+          'permanent',
+          'unsupported_format',
+          'storage'
+        );
+      }
+      // Default to transient for other storage errors
+      throw createClassifiedError(
+        `Storage upload failed: ${error.message}`,
+        'transient',
+        'server_error',
+        'storage'
+      );
+    }
+
+    structuredLog('info', 'storage_upload_complete', { storage_key: imageKey });
+  } catch (error) {
+    if (error instanceof Error && 'category' in error) {
+      throw error;
+    }
+    throw classifyError(error, 'storage');
   }
 }
 
 /**
- * Calls Replicate API to remove background from image
- * Returns the processed image as Uint8Array
+ * Calls Replicate API to remove background from image with error classification
  */
 async function removeBackground(
   imageData: Uint8Array,
@@ -271,107 +624,176 @@ async function removeBackground(
   model: string,
   timeoutMs: number
 ): Promise<Uint8Array> {
-  console.log('[ProcessImage] Calling background removal API');
+  structuredLog('info', 'replicate_start', { model });
 
-  // Convert image to base64 data URI
-  const base64Image = btoa(String.fromCharCode(...imageData));
-  const mimeType = detectMimeType(imageData);
-  const dataUri = `data:${mimeType};base64,${base64Image}`;
+  try {
+    // Convert image to base64 data URI
+    const base64Image = btoa(String.fromCharCode(...imageData));
+    const mimeType = detectMimeType(imageData);
+    const dataUri = `data:${mimeType};base64,${base64Image}`;
 
-  // Create prediction
-  const createResponse = await fetch(`${REPLICATE_API_URL}/predictions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Token ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      version: model.split(':')[1], // Extract version from model string
-      input: {
-        image: dataUri,
-      },
-    }),
-  });
+    // Create prediction with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!createResponse.ok) {
-    const errorText = await createResponse.text();
-    throw new Error(`Replicate API error: ${createResponse.status} - ${errorText}`);
-  }
+    let createResponse: Response;
+    try {
+      createResponse = await fetch(`${REPLICATE_API_URL}/predictions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: model.split(':')[1],
+          input: { image: dataUri },
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        throw createClassifiedError(
+          `Replicate API request timed out after ${timeoutMs}ms`,
+          'transient',
+          'timeout',
+          'replicate'
+        );
+      }
+      throw classifyError(fetchError, 'replicate');
+    }
+    clearTimeout(timeoutId);
 
-  const prediction = (await createResponse.json()) as ReplicatePrediction;
-  console.log('[ProcessImage] Created prediction:', prediction.id);
-
-  // Poll for completion
-  const startTime = Date.now();
-  let currentPrediction = prediction;
-
-  while (
-    currentPrediction.status !== 'succeeded' &&
-    currentPrediction.status !== 'failed' &&
-    currentPrediction.status !== 'canceled'
-  ) {
-    // Check timeout
-    if (Date.now() - startTime > timeoutMs) {
-      throw new Error(`Background removal timed out after ${timeoutMs}ms`);
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      const { category, code } = classifyHttpStatus(createResponse.status, 'replicate');
+      throw createClassifiedError(
+        `Replicate API error: ${createResponse.status} - ${errorText}`,
+        category,
+        code,
+        'replicate',
+        createResponse.status
+      );
     }
 
-    await sleep(REPLICATE_POLL_INTERVAL_MS);
+    const prediction = (await createResponse.json()) as ReplicatePrediction;
+    structuredLog('info', 'replicate_prediction_created', { prediction_id: prediction.id });
 
-    const pollResponse = await fetch(`${REPLICATE_API_URL}/predictions/${prediction.id}`, {
-      headers: {
-        Authorization: `Token ${apiKey}`,
-      },
+    // Poll for completion
+    const startTime = Date.now();
+    let currentPrediction = prediction;
+
+    while (
+      currentPrediction.status !== 'succeeded' &&
+      currentPrediction.status !== 'failed' &&
+      currentPrediction.status !== 'canceled'
+    ) {
+      // Check timeout
+      if (Date.now() - startTime > timeoutMs) {
+        throw createClassifiedError(
+          `Background removal timed out after ${timeoutMs}ms`,
+          'transient',
+          'timeout',
+          'replicate'
+        );
+      }
+
+      await sleep(REPLICATE_POLL_INTERVAL_MS);
+
+      const pollResponse = await fetch(`${REPLICATE_API_URL}/predictions/${prediction.id}`, {
+        headers: { Authorization: `Token ${apiKey}` },
+      });
+
+      if (!pollResponse.ok) {
+        const { category, code } = classifyHttpStatus(pollResponse.status, 'replicate');
+        throw createClassifiedError(
+          `Failed to poll prediction: ${pollResponse.status}`,
+          category,
+          code,
+          'replicate',
+          pollResponse.status
+        );
+      }
+
+      currentPrediction = (await pollResponse.json()) as ReplicatePrediction;
+      structuredLog('info', 'replicate_poll', {
+        prediction_id: prediction.id,
+        status: currentPrediction.status,
+      });
+    }
+
+    if (currentPrediction.status === 'failed') {
+      throw createClassifiedError(
+        `Background removal failed: ${currentPrediction.error || 'Unknown error'}`,
+        'permanent',
+        'provider_failed',
+        'replicate'
+      );
+    }
+
+    if (currentPrediction.status === 'canceled') {
+      throw createClassifiedError(
+        'Background removal was canceled',
+        'transient',
+        'unknown',
+        'replicate'
+      );
+    }
+
+    // Get output URL
+    const outputUrl = Array.isArray(currentPrediction.output)
+      ? currentPrediction.output[0]
+      : currentPrediction.output;
+
+    if (!outputUrl) {
+      throw createClassifiedError(
+        'No output URL in prediction result',
+        'permanent',
+        'provider_failed',
+        'replicate'
+      );
+    }
+
+    // Download processed image
+    structuredLog('info', 'replicate_download_start', { output_url: outputUrl });
+    const outputResponse = await fetch(outputUrl);
+
+    if (!outputResponse.ok) {
+      const { category, code } = classifyHttpStatus(outputResponse.status, 'replicate');
+      throw createClassifiedError(
+        `Failed to download processed image: ${outputResponse.status}`,
+        category,
+        code,
+        'replicate',
+        outputResponse.status
+      );
+    }
+
+    const result = new Uint8Array(await outputResponse.arrayBuffer());
+    structuredLog('info', 'replicate_complete', {
+      prediction_id: prediction.id,
+      output_size_bytes: result.length,
     });
 
-    if (!pollResponse.ok) {
-      throw new Error(`Failed to poll prediction: ${pollResponse.status}`);
+    return result;
+  } catch (error) {
+    if (error instanceof Error && 'category' in error) {
+      throw error;
     }
-
-    currentPrediction = (await pollResponse.json()) as ReplicatePrediction;
-    console.log('[ProcessImage] Prediction status:', currentPrediction.status);
+    throw classifyError(error, 'replicate');
   }
-
-  if (currentPrediction.status === 'failed') {
-    throw new Error(`Background removal failed: ${currentPrediction.error || 'Unknown error'}`);
-  }
-
-  if (currentPrediction.status === 'canceled') {
-    throw new Error('Background removal was canceled');
-  }
-
-  // Get output URL
-  const outputUrl = Array.isArray(currentPrediction.output)
-    ? currentPrediction.output[0]
-    : currentPrediction.output;
-
-  if (!outputUrl) {
-    throw new Error('No output URL in prediction result');
-  }
-
-  // Download processed image
-  console.log('[ProcessImage] Downloading processed image from:', outputUrl);
-  const outputResponse = await fetch(outputUrl);
-
-  if (!outputResponse.ok) {
-    throw new Error(`Failed to download processed image: ${outputResponse.status}`);
-  }
-
-  return new Uint8Array(await outputResponse.arrayBuffer());
 }
 
 /**
  * Detects MIME type from image data magic bytes
  */
 function detectMimeType(data: Uint8Array): string {
-  // JPEG: FF D8 FF
   if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
     return 'image/jpeg';
   }
-  // PNG: 89 50 4E 47
   if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) {
     return 'image/png';
   }
-  // WebP: RIFF...WEBP
   if (
     data[0] === 0x52 &&
     data[1] === 0x49 &&
@@ -384,53 +806,27 @@ function detectMimeType(data: Uint8Array): string {
   ) {
     return 'image/webp';
   }
-  // Default to JPEG
   return 'image/jpeg';
 }
 
 /**
  * Resizes image to specified max dimension while maintaining aspect ratio
- * Uses canvas-based approach for Deno
- *
- * Note: In Deno, we use a simplified approach - for production, consider
- * using a dedicated image processing library or service
  */
 async function resizeImage(
   imageData: Uint8Array,
   maxDimension: number,
   quality: number = JPEG_QUALITY
 ): Promise<Uint8Array> {
-  // For now, we'll use the processed image as-is since Deno doesn't have
-  // built-in image manipulation. The background removal service typically
-  // returns reasonably sized images.
-  //
-  // In production, you could:
-  // 1. Use a Deno image library (e.g., https://deno.land/x/imagescript)
-  // 2. Call another service endpoint for resizing
-  // 3. Use the Replicate API's resize options if available
-
-  // For thumbnail generation, we'll need to implement actual resizing
-  // This is a placeholder that returns the input
-  console.log(
-    `[ProcessImage] Resize requested to max ${maxDimension}px at quality ${quality}`
-  );
-
+  // Placeholder: In production, use a Deno image library
+  structuredLog('info', 'resize_image', { max_dimension: maxDimension, quality });
   return imageData;
 }
 
 /**
  * Generates a thumbnail from the clean image
- * Returns JPEG data at the specified size
  */
-async function generateThumbnail(
-  imageData: Uint8Array,
-  size: number
-): Promise<Uint8Array> {
-  // Similar to resizeImage, this needs proper image library support
-  // For now, return the input image
-  // In production, implement actual thumbnail generation
-  console.log(`[ProcessImage] Generating thumbnail at ${size}x${size}`);
-
+async function generateThumbnail(imageData: Uint8Array, size: number): Promise<Uint8Array> {
+  structuredLog('info', 'generate_thumbnail', { size });
   return resizeImage(imageData, size);
 }
 
@@ -439,20 +835,32 @@ async function generateThumbnail(
 // ============================================================================
 
 /**
+ * Configuration for processing
+ */
+interface ProcessingConfig {
+  replicateApiKey: string;
+  replicateModel: string;
+  timeoutMs: number;
+  thumbnailSize: number;
+  cleanMaxDimension: number;
+  retryBaseDelayMs: number;
+  retryMaxDelayMs: number;
+  staleJobThresholdMs: number;
+}
+
+/**
  * Processes a single item through the image pipeline
  */
 async function processItem(
   supabase: SupabaseClient,
   itemId: string,
-  config: {
-    replicateApiKey: string;
-    replicateModel: string;
-    timeoutMs: number;
-    thumbnailSize: number;
-    cleanMaxDimension: number;
-  }
-): Promise<void> {
-  console.log('[ProcessImage] Processing item:', itemId);
+  config: ProcessingConfig,
+  jobId?: number
+): Promise<{ userId: string; durationMs: number }> {
+  const startTime = Date.now();
+  let userId = '';
+
+  structuredLog('info', 'job_started', { item_id: itemId, job_id: jobId });
 
   // Step 1: Fetch and validate item
   const { data: item, error: fetchError } = await supabase
@@ -462,24 +870,36 @@ async function processItem(
     .single();
 
   if (fetchError) {
-    throw new Error(`Failed to fetch item: ${fetchError.message}`);
+    throw createClassifiedError(
+      `Failed to fetch item: ${fetchError.message}`,
+      'transient',
+      'server_error',
+      'internal'
+    );
   }
 
   if (!item) {
-    throw new Error('Item not found');
+    throw createClassifiedError('Item not found', 'permanent', 'not_found', 'internal');
   }
 
   const typedItem = item as ItemRecord;
+  userId = typedItem.user_id;
 
-  // Validate original_key exists
   if (!typedItem.original_key) {
-    throw new Error('Item has no original_key');
+    throw createClassifiedError(
+      'Item has no original_key',
+      'permanent',
+      'validation',
+      'internal'
+    );
   }
 
-  // Validate status is eligible for processing
   if (!ELIGIBLE_STATUSES.includes(typedItem.image_processing_status)) {
-    throw new Error(
-      `Item status '${typedItem.image_processing_status}' not eligible for processing`
+    throw createClassifiedError(
+      `Item status '${typedItem.image_processing_status}' not eligible for processing`,
+      'permanent',
+      'validation',
+      'internal'
     );
   }
 
@@ -488,16 +908,20 @@ async function processItem(
     .from('items')
     .update({ image_processing_status: 'processing' })
     .eq('id', itemId)
-    .eq('image_processing_status', typedItem.image_processing_status); // Optimistic lock
+    .eq('image_processing_status', typedItem.image_processing_status);
 
   if (updateError) {
-    throw new Error(`Failed to update item status: ${updateError.message}`);
+    throw createClassifiedError(
+      `Failed to update item status: ${updateError.message}`,
+      'transient',
+      'server_error',
+      'internal'
+    );
   }
 
   try {
     // Step 3: Download original image
     const originalImage = await downloadImage(supabase, typedItem.original_key);
-    console.log('[ProcessImage] Downloaded original image, size:', originalImage.length);
 
     // Step 4: Call background removal provider
     const cleanImage = await removeBackground(
@@ -506,7 +930,6 @@ async function processItem(
       config.replicateModel,
       config.timeoutMs
     );
-    console.log('[ProcessImage] Background removal complete, size:', cleanImage.length);
 
     // Step 5: Generate clean image (resize if needed) and thumbnail
     const resizedCleanImage = await resizeImage(cleanImage, config.cleanMaxDimension);
@@ -515,15 +938,22 @@ async function processItem(
     // Step 6: Upload clean and thumb to deterministic paths
     const pathInfo = parseStoragePath(typedItem.original_key);
     if (!pathInfo) {
-      throw new Error(`Invalid original_key path format: ${typedItem.original_key}`);
+      throw createClassifiedError(
+        `Invalid original_key path format: ${typedItem.original_key}`,
+        'permanent',
+        'validation',
+        'internal'
+      );
     }
 
     const { cleanKey, thumbKey } = generateOutputPaths(pathInfo.userId, pathInfo.itemId);
 
+    // Upload both images (upsert ensures idempotency)
     await uploadImage(supabase, cleanKey, resizedCleanImage);
     await uploadImage(supabase, thumbKey, thumbnail);
 
     // Step 7: Update item with storage keys and success status
+    // Only set keys after BOTH uploads succeed
     const { error: finalUpdateError } = await supabase
       .from('items')
       .update({
@@ -534,37 +964,69 @@ async function processItem(
       .eq('id', itemId);
 
     if (finalUpdateError) {
-      throw new Error(`Failed to update item with results: ${finalUpdateError.message}`);
+      throw createClassifiedError(
+        `Failed to update item with results: ${finalUpdateError.message}`,
+        'transient',
+        'server_error',
+        'internal'
+      );
     }
 
-    console.log('[ProcessImage] Successfully processed item:', itemId);
+    const durationMs = Date.now() - startTime;
+    structuredLog('info', 'job_completed', {
+      item_id: itemId,
+      user_id: userId,
+      job_id: jobId,
+      duration_ms: durationMs,
+    });
+
+    return { userId, durationMs };
   } catch (processingError) {
-    // On failure, update status back to 'failed'
-    console.error('[ProcessImage] Processing failed, updating status to failed');
+    const durationMs = Date.now() - startTime;
+    const classifiedError = classifyError(processingError, 'internal');
+
+    // On failure, clear any partial state and set to failed
+    // This ensures we don't have inconsistent clean_key/thumb_key
     await supabase
       .from('items')
-      .update({ image_processing_status: 'failed' })
+      .update({
+        clean_key: null,
+        thumb_key: null,
+        image_processing_status: 'failed',
+      })
       .eq('id', itemId);
 
-    throw processingError;
+    structuredLog('error', 'job_failed', {
+      item_id: itemId,
+      user_id: userId,
+      job_id: jobId,
+      duration_ms: durationMs,
+      error_category: classifiedError.category,
+      error_code: classifiedError.code,
+      error_message: classifiedError.message,
+      provider: classifiedError.provider,
+    });
+
+    throw classifiedError;
   }
 }
 
 /**
- * Processes a job from the job queue
+ * Processes a job from the job queue with retry logic
  */
 async function processJob(
   supabase: SupabaseClient,
   job: JobRecord,
-  config: {
-    replicateApiKey: string;
-    replicateModel: string;
-    timeoutMs: number;
-    thumbnailSize: number;
-    cleanMaxDimension: number;
-  }
-): Promise<void> {
-  console.log('[ProcessImage] Processing job:', job.id, 'for item:', job.item_id);
+  config: ProcessingConfig
+): Promise<JobResult> {
+  const startTime = Date.now();
+  const newAttemptCount = job.attempt_count + 1;
+
+  structuredLog('info', 'job_pickup', {
+    job_id: job.id,
+    item_id: job.item_id,
+    attempt_count: newAttemptCount,
+  });
 
   // Update job to processing status
   const { error: jobUpdateError } = await supabase
@@ -572,17 +1034,21 @@ async function processJob(
     .update({
       status: 'processing',
       started_at: new Date().toISOString(),
-      attempt_count: job.attempt_count + 1,
+      attempt_count: newAttemptCount,
     })
     .eq('id', job.id);
 
   if (jobUpdateError) {
-    throw new Error(`Failed to update job status: ${jobUpdateError.message}`);
+    throw createClassifiedError(
+      `Failed to update job status: ${jobUpdateError.message}`,
+      'transient',
+      'server_error',
+      'internal'
+    );
   }
 
   try {
-    // Process the item
-    await processItem(supabase, job.item_id, config);
+    const { durationMs } = await processItem(supabase, job.item_id, config, job.id);
 
     // Mark job as completed
     await supabase
@@ -590,36 +1056,87 @@ async function processJob(
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
+        processing_duration_ms: durationMs,
+        error_category: null,
+        error_code: null,
+        error_provider: null,
+        last_error: null,
       })
       .eq('id', job.id);
 
-    console.log('[ProcessImage] Job completed successfully:', job.id);
+    return {
+      itemId: job.item_id,
+      jobId: job.id,
+      success: true,
+      durationMs,
+    };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[ProcessImage] Job failed:', job.id, errorMessage);
+    const durationMs = Date.now() - startTime;
+    const classifiedError = classifyError(error, 'internal');
 
     // Determine if we should retry or mark as permanently failed
-    const newAttemptCount = job.attempt_count + 1;
-    const isPermanentlyFailed = newAttemptCount >= job.max_attempts;
+    const shouldRetry =
+      classifiedError.category === 'transient' && newAttemptCount < job.max_attempts;
 
-    await supabase
-      .from('image_processing_jobs')
-      .update({
-        status: isPermanentlyFailed ? 'failed' : 'pending',
-        last_error: errorMessage,
-        completed_at: isPermanentlyFailed ? new Date().toISOString() : null,
-      })
-      .eq('id', job.id);
+    const jobUpdate: Record<string, unknown> = {
+      status: shouldRetry ? 'pending' : 'failed',
+      last_error: classifiedError.message,
+      error_category: classifiedError.category,
+      error_code: classifiedError.code,
+      error_provider: classifiedError.provider,
+      processing_duration_ms: durationMs,
+      completed_at: shouldRetry ? null : new Date().toISOString(),
+    };
 
-    // If permanently failed, also update the item status
-    if (isPermanentlyFailed) {
+    // Set next retry time if retrying
+    if (shouldRetry) {
+      jobUpdate.next_retry_at = calculateNextRetryAt(
+        newAttemptCount,
+        config.retryBaseDelayMs,
+        config.retryMaxDelayMs
+      );
+      structuredLog('info', 'job_retry_scheduled', {
+        job_id: job.id,
+        item_id: job.item_id,
+        attempt_count: newAttemptCount,
+        next_retry_at: jobUpdate.next_retry_at,
+        error_category: classifiedError.category,
+        error_code: classifiedError.code,
+      });
+    } else {
+      // Update item status to failed (already done in processItem, but ensure consistency)
       await supabase
         .from('items')
-        .update({ image_processing_status: 'failed' })
+        .update({
+          clean_key: null,
+          thumb_key: null,
+          image_processing_status: 'failed',
+        })
         .eq('id', job.item_id);
+
+      structuredLog('error', 'job_permanently_failed', {
+        job_id: job.id,
+        item_id: job.item_id,
+        attempt_count: newAttemptCount,
+        max_attempts: job.max_attempts,
+        error_category: classifiedError.category,
+        error_code: classifiedError.code,
+        error_message: classifiedError.message,
+        provider: classifiedError.provider,
+      });
     }
 
-    throw error;
+    await supabase.from('image_processing_jobs').update(jobUpdate).eq('id', job.id);
+
+    return {
+      itemId: job.item_id,
+      jobId: job.id,
+      success: false,
+      error: classifiedError.message,
+      errorCode: classifiedError.code,
+      errorCategory: classifiedError.category,
+      durationMs,
+    };
   }
 }
 
@@ -629,51 +1146,158 @@ async function processJob(
 async function processJobQueue(
   supabase: SupabaseClient,
   batchSize: number,
-  config: {
-    replicateApiKey: string;
-    replicateModel: string;
-    timeoutMs: number;
-    thumbnailSize: number;
-    cleanMaxDimension: number;
-  }
+  config: ProcessingConfig
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
-  console.log('[ProcessImage] Polling job queue, batch size:', batchSize);
+  structuredLog('info', 'queue_poll_start', { batch_size: batchSize });
 
-  // Fetch pending jobs ordered by creation time (FIFO)
+  // Fetch pending jobs that are ready for retry (next_retry_at is null or <= now)
   const { data: jobs, error: queryError } = await supabase
     .from('image_processing_jobs')
-    .select('id, item_id, original_key, status, attempt_count, max_attempts')
+    .select('id, item_id, original_key, status, attempt_count, max_attempts, started_at')
     .eq('status', 'pending')
+    .or(`next_retry_at.is.null,next_retry_at.lte.${new Date().toISOString()}`)
     .order('created_at', { ascending: true })
     .limit(batchSize);
 
   if (queryError) {
-    throw new Error(`Failed to query job queue: ${queryError.message}`);
+    throw createClassifiedError(
+      `Failed to query job queue: ${queryError.message}`,
+      'transient',
+      'server_error',
+      'internal'
+    );
   }
 
   const typedJobs = (jobs || []) as JobRecord[];
-  console.log('[ProcessImage] Found', typedJobs.length, 'pending jobs');
+  structuredLog('info', 'queue_poll_complete', { jobs_found: typedJobs.length });
 
   const results: JobResult[] = [];
   let processed = 0;
   let failed = 0;
 
   for (const job of typedJobs) {
-    try {
-      await processJob(supabase, job, config);
+    const result = await processJob(supabase, job, config);
+    results.push(result);
+    if (result.success) {
       processed++;
-      results.push({ itemId: job.item_id, success: true });
-    } catch (error) {
+    } else {
       failed++;
-      results.push({
-        itemId: job.item_id,
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
     }
   }
 
+  structuredLog('info', 'queue_batch_complete', { processed, failed });
   return { processed, failed, results };
+}
+
+/**
+ * Recovers stale jobs that have been stuck in 'processing' status
+ */
+async function recoverStaleJobs(
+  supabase: SupabaseClient,
+  config: ProcessingConfig
+): Promise<{ recovered: number; results: JobResult[] }> {
+  const thresholdTime = new Date(Date.now() - config.staleJobThresholdMs).toISOString();
+
+  structuredLog('info', 'stale_recovery_start', {
+    threshold_ms: config.staleJobThresholdMs,
+    threshold_time: thresholdTime,
+  });
+
+  // Find jobs stuck in processing
+  const { data: staleJobs, error: queryError } = await supabase
+    .from('image_processing_jobs')
+    .select('id, item_id, original_key, status, attempt_count, max_attempts, started_at')
+    .eq('status', 'processing')
+    .lt('started_at', thresholdTime);
+
+  if (queryError) {
+    throw createClassifiedError(
+      `Failed to query stale jobs: ${queryError.message}`,
+      'transient',
+      'server_error',
+      'internal'
+    );
+  }
+
+  const typedStaleJobs = (staleJobs || []) as JobRecord[];
+  structuredLog('info', 'stale_jobs_found', { count: typedStaleJobs.length });
+
+  const results: JobResult[] = [];
+  let recovered = 0;
+
+  for (const job of typedStaleJobs) {
+    const canRetry = job.attempt_count < job.max_attempts;
+
+    structuredLog('warn', 'stale_job_recovered', {
+      job_id: job.id,
+      item_id: job.item_id,
+      attempt_count: job.attempt_count,
+      max_attempts: job.max_attempts,
+      started_at: job.started_at,
+      action: canRetry ? 'reset_to_pending' : 'mark_as_failed',
+    });
+
+    if (canRetry) {
+      // Reset to pending with next retry time
+      await supabase
+        .from('image_processing_jobs')
+        .update({
+          status: 'pending',
+          last_error: 'Job timed out (stale processing)',
+          error_category: 'transient',
+          error_code: 'timeout',
+          error_provider: 'internal',
+          next_retry_at: calculateNextRetryAt(
+            job.attempt_count,
+            config.retryBaseDelayMs,
+            config.retryMaxDelayMs
+          ),
+        })
+        .eq('id', job.id);
+
+      // Reset item status to pending so it can be reprocessed
+      await supabase
+        .from('items')
+        .update({ image_processing_status: 'pending' })
+        .eq('id', job.item_id);
+    } else {
+      // Mark as permanently failed
+      await supabase
+        .from('image_processing_jobs')
+        .update({
+          status: 'failed',
+          last_error: 'Job exceeded max attempts after stale recovery',
+          error_category: 'permanent',
+          error_code: 'timeout',
+          error_provider: 'internal',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+
+      // Mark item as failed and clear any partial state
+      await supabase
+        .from('items')
+        .update({
+          clean_key: null,
+          thumb_key: null,
+          image_processing_status: 'failed',
+        })
+        .eq('id', job.item_id);
+    }
+
+    recovered++;
+    results.push({
+      itemId: job.item_id,
+      jobId: job.id,
+      success: canRetry, // Successful recovery if it can retry
+      error: canRetry ? undefined : 'Exceeded max attempts',
+      errorCode: 'timeout',
+      errorCategory: canRetry ? 'transient' : 'permanent',
+    });
+  }
+
+  structuredLog('info', 'stale_recovery_complete', { recovered });
+  return { recovered, results };
 }
 
 // ============================================================================
@@ -682,12 +1306,8 @@ async function processJobQueue(
 
 /**
  * Main handler for image processing requests.
- *
- * Exported for unit testing. The serve() call at the bottom wires this
- * handler to the Deno HTTP server.
  */
 export async function handler(req: Request): Promise<Response> {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return jsonResponse(
       { success: false, error: 'Method not allowed', code: 'validation' },
@@ -702,7 +1322,7 @@ export async function handler(req: Request): Promise<Response> {
     const replicateApiKey = Deno.env.get('REPLICATE_API_KEY');
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('[ProcessImage] Missing Supabase configuration');
+      structuredLog('error', 'config_missing', { missing: 'SUPABASE_URL or SERVICE_KEY' });
       return jsonResponse(
         { success: false, error: 'Service configuration error', code: 'server' },
         500
@@ -710,35 +1330,41 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!replicateApiKey) {
-      console.error('[ProcessImage] Missing REPLICATE_API_KEY');
+      structuredLog('error', 'config_missing', { missing: 'REPLICATE_API_KEY' });
       return jsonResponse(
         { success: false, error: 'Image processing service not configured', code: 'server' },
         500
       );
     }
 
-    // Parse optional configuration
-    const replicateModel =
-      Deno.env.get('REPLICATE_MODEL_VERSION') || DEFAULT_REPLICATE_MODEL;
-    const timeoutMs = parseInt(
-      Deno.env.get('IMAGE_PROCESSING_TIMEOUT_MS') || String(DEFAULT_TIMEOUT_MS),
-      10
-    );
-    const thumbnailSize = parseInt(
-      Deno.env.get('THUMBNAIL_SIZE') || String(DEFAULT_THUMBNAIL_SIZE),
-      10
-    );
-    const cleanMaxDimension = parseInt(
-      Deno.env.get('CLEAN_IMAGE_MAX_DIMENSION') || String(DEFAULT_CLEAN_MAX_DIMENSION),
-      10
-    );
-
-    const config = {
+    // Parse configuration with defaults
+    const config: ProcessingConfig = {
       replicateApiKey,
-      replicateModel,
-      timeoutMs,
-      thumbnailSize,
-      cleanMaxDimension,
+      replicateModel: Deno.env.get('REPLICATE_MODEL_VERSION') || DEFAULT_REPLICATE_MODEL,
+      timeoutMs: parseInt(
+        Deno.env.get('IMAGE_PROCESSING_TIMEOUT_MS') || String(DEFAULT_TIMEOUT_MS),
+        10
+      ),
+      thumbnailSize: parseInt(
+        Deno.env.get('THUMBNAIL_SIZE') || String(DEFAULT_THUMBNAIL_SIZE),
+        10
+      ),
+      cleanMaxDimension: parseInt(
+        Deno.env.get('CLEAN_IMAGE_MAX_DIMENSION') || String(DEFAULT_CLEAN_MAX_DIMENSION),
+        10
+      ),
+      retryBaseDelayMs: parseInt(
+        Deno.env.get('RETRY_BASE_DELAY_MS') || String(DEFAULT_RETRY_BASE_DELAY_MS),
+        10
+      ),
+      retryMaxDelayMs: parseInt(
+        Deno.env.get('RETRY_MAX_DELAY_MS') || String(DEFAULT_RETRY_MAX_DELAY_MS),
+        10
+      ),
+      staleJobThresholdMs: parseInt(
+        Deno.env.get('STALE_JOB_THRESHOLD_MS') || String(DEFAULT_STALE_JOB_THRESHOLD_MS),
+        10
+      ),
     };
 
     // Parse request body
@@ -758,12 +1384,46 @@ export async function handler(req: Request): Promise<Response> {
     // Create Supabase client with service role (bypasses RLS)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Determine processing mode
+    // Handle stale job recovery mode
+    if (requestBody.recoverStale) {
+      const { recovered, results } = await recoverStaleJobs(supabase, config);
+
+      // If also processing queue, continue; otherwise return
+      if (!requestBody.itemId && !requestBody.batchSize) {
+        return jsonResponse(
+          {
+            success: true,
+            recovered,
+            results,
+          },
+          200
+        );
+      }
+
+      // Continue to queue processing but include recovery results
+      const queueBatchSize = Math.min(
+        requestBody.batchSize || DEFAULT_BATCH_SIZE,
+        DEFAULT_BATCH_SIZE
+      );
+
+      const queueResults = await processJobQueue(supabase, queueBatchSize, config);
+
+      return jsonResponse(
+        {
+          success: true,
+          processed: queueResults.processed,
+          failed: queueResults.failed,
+          recovered,
+          results: [...results, ...queueResults.results],
+        },
+        200
+      );
+    }
+
+    // Handle direct mode
     if (requestBody.itemId) {
-      // Direct mode: Process specific item
       const { itemId } = requestBody;
 
-      // Validate itemId format
       if (!isValidUuid(itemId)) {
         return jsonResponse(
           { success: false, error: 'Invalid itemId format', code: 'validation' },
@@ -772,60 +1432,61 @@ export async function handler(req: Request): Promise<Response> {
       }
 
       try {
-        await processItem(supabase, itemId, config);
+        const { durationMs } = await processItem(supabase, itemId, config);
         return jsonResponse(
           {
             success: true,
             processed: 1,
             failed: 0,
-            results: [{ itemId, success: true }],
+            results: [{ itemId, success: true, durationMs }],
           },
           200
         );
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error('[ProcessImage] Direct processing failed:', errorMessage);
+        const classifiedError = classifyError(error, 'internal');
         return jsonResponse(
           {
             success: false,
             processed: 0,
             failed: 1,
-            results: [{ itemId, success: false, error: errorMessage }],
-            error: errorMessage,
+            results: [
+              {
+                itemId,
+                success: false,
+                error: classifiedError.message,
+                errorCode: classifiedError.code,
+                errorCategory: classifiedError.category,
+              },
+            ],
+            error: classifiedError.message,
             code: 'processing',
           },
-          200 // Return 200 with error details for batch compatibility
+          200
         );
       }
-    } else {
-      // Queue mode: Process pending jobs from queue
-      const batchSize = Math.min(
-        requestBody.batchSize || DEFAULT_BATCH_SIZE,
-        DEFAULT_BATCH_SIZE
-      );
-
-      const { processed, failed, results } = await processJobQueue(
-        supabase,
-        batchSize,
-        config
-      );
-
-      return jsonResponse(
-        {
-          success: true,
-          processed,
-          failed,
-          results,
-        },
-        200
-      );
     }
-  } catch (error) {
-    console.error('[ProcessImage] Unexpected error:', error);
+
+    // Handle queue mode (default)
+    const batchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
+    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config);
+
     return jsonResponse(
-      { success: false, error: 'Unexpected error', code: 'server' },
-      500
+      {
+        success: true,
+        processed,
+        failed,
+        results,
+      },
+      200
     );
+  } catch (error) {
+    const classifiedError = classifyError(error, 'internal');
+    structuredLog('error', 'unexpected_error', {
+      error_message: classifiedError.message,
+      error_category: classifiedError.category,
+      error_code: classifiedError.code,
+    });
+    return jsonResponse({ success: false, error: 'Unexpected error', code: 'server' }, 500);
   }
 }
 

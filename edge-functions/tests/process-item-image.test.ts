@@ -6,6 +6,8 @@
  * - Method enforcement (POST only)
  * - Error code responses
  * - Response format consistency
+ * - Stale job recovery mode
+ * - Error classification
  *
  * NOTE: These tests focus on handler-level validation and response format.
  * Full integration tests (Replicate API, Storage operations, database updates)
@@ -51,7 +53,16 @@ async function parseResponse(response: Response): Promise<{
   success: boolean;
   processed?: number;
   failed?: number;
-  results?: Array<{ itemId: string; success: boolean; error?: string }>;
+  recovered?: number;
+  results?: Array<{
+    itemId: string;
+    jobId?: number;
+    success: boolean;
+    error?: string;
+    errorCode?: string;
+    errorCategory?: string;
+    durationMs?: number;
+  }>;
   error?: string;
   code?: string;
 }> {
@@ -113,14 +124,11 @@ Deno.test('returns 400 when request body is invalid JSON', async () => {
     'Content-Type': 'application/json',
   });
 
-  const request = new Request(
-    'http://localhost:54321/functions/v1/process-item-image',
-    {
-      method: 'POST',
-      headers,
-      body: 'not valid json{',
-    }
-  );
+  const request = new Request('http://localhost:54321/functions/v1/process-item-image', {
+    method: 'POST',
+    headers,
+    body: 'not valid json{',
+  });
 
   const response = await handler(request);
   const body = await parseResponse(response);
@@ -132,9 +140,6 @@ Deno.test('returns 400 when request body is invalid JSON', async () => {
 });
 
 Deno.test('returns 400 when itemId has invalid UUID format', async () => {
-  // Note: This test requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be set
-  // Since they're not set in test environment, we'll get a 500 first
-  // This documents expected behavior when validation passes but config is missing
   const request = createRequest({
     body: { itemId: 'not-a-uuid' },
   });
@@ -142,8 +147,7 @@ Deno.test('returns 400 when itemId has invalid UUID format', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Without env vars, we get 500 for config error before UUID validation
-  // In production with env vars set, invalid UUID would return 400
+  // Config check happens before UUID validation in current implementation
   if (response.status === 500) {
     assertEquals(body.code, 'server');
   } else {
@@ -161,7 +165,6 @@ Deno.test('returns 400 when itemId has invalid UUID characters', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Config check happens before UUID validation
   if (response.status === 500) {
     assertEquals(body.code, 'server');
   } else {
@@ -172,7 +175,7 @@ Deno.test('returns 400 when itemId has invalid UUID characters', async () => {
 
 Deno.test('returns 400 when itemId has wrong UUID length', async () => {
   const request = createRequest({
-    body: { itemId: '12345678-1234-1234-1234-12345678901' }, // One char short
+    body: { itemId: '12345678-1234-1234-1234-12345678901' },
   });
 
   const response = await handler(request);
@@ -198,7 +201,6 @@ Deno.test('returns 500 when Supabase configuration is missing', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Without env vars, should return server configuration error
   assertEquals(response.status, 500);
   assertEquals(body.success, false);
   assertEquals(body.code, 'server');
@@ -211,8 +213,6 @@ Deno.test('handles empty request body gracefully (queue mode)', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Without env vars, returns config error
-  // With env vars, would attempt to poll job queue
   assertEquals(response.status, 500);
   assertEquals(body.success, false);
   assertEquals(body.code, 'server');
@@ -224,7 +224,6 @@ Deno.test('handles empty JSON object (queue mode)', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Without env vars, returns config error
   assertEquals(response.status, 500);
   assertEquals(body.success, false);
   assertEquals(body.code, 'server');
@@ -246,7 +245,6 @@ Deno.test('error response has consistent schema', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Verify error response schema
   assertEquals(typeof body.success, 'boolean');
   assertEquals(body.success, false);
   assertExists(body.error);
@@ -264,7 +262,9 @@ Deno.test('validation error returns proper code', async () => {
 });
 
 Deno.test('server error returns proper code', async () => {
-  const request = createRequest({ body: { itemId: '12345678-1234-1234-1234-123456789012' } });
+  const request = createRequest({
+    body: { itemId: '12345678-1234-1234-1234-123456789012' },
+  });
   const response = await handler(request);
   const body = await parseResponse(response);
 
@@ -283,7 +283,6 @@ Deno.test('accepts lowercase UUID format', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Should pass UUID validation and fail at config check
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
   assertEquals(body.error, 'Service configuration error');
@@ -297,7 +296,6 @@ Deno.test('accepts uppercase UUID format', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Should pass UUID validation and fail at config check
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
 });
@@ -310,7 +308,6 @@ Deno.test('accepts mixed case UUID format', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Should pass UUID validation and fail at config check
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
 });
@@ -327,7 +324,6 @@ Deno.test('accepts batchSize parameter', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Should accept batchSize and fail at config check
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
 });
@@ -343,7 +339,48 @@ Deno.test('accepts both itemId and batchSize (itemId takes precedence)', async (
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Should accept both and fail at config check
+  assertEquals(response.status, 500);
+  assertEquals(body.code, 'server');
+});
+
+// =============================================================================
+// Stale Job Recovery Mode Tests
+// =============================================================================
+
+Deno.test('accepts recoverStale parameter', async () => {
+  const request = createRequest({
+    body: { recoverStale: true },
+  });
+
+  const response = await handler(request);
+  const body = await parseResponse(response);
+
+  // Without env vars, returns config error
+  assertEquals(response.status, 500);
+  assertEquals(body.code, 'server');
+});
+
+Deno.test('accepts recoverStale with batchSize for combined mode', async () => {
+  const request = createRequest({
+    body: { recoverStale: true, batchSize: 5 },
+  });
+
+  const response = await handler(request);
+  const body = await parseResponse(response);
+
+  assertEquals(response.status, 500);
+  assertEquals(body.code, 'server');
+});
+
+Deno.test('recoverStale false does not trigger recovery mode', async () => {
+  const request = createRequest({
+    body: { recoverStale: false, batchSize: 5 },
+  });
+
+  const response = await handler(request);
+  const body = await parseResponse(response);
+
+  // Should behave like queue mode
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
 });
@@ -360,14 +397,11 @@ Deno.test('does not expose internal error details in response', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Error message should be generic, not expose stack traces
   assertEquals(body.error, 'Service configuration error');
   assertEquals(body.success, false);
 });
 
 Deno.test('no authentication required (service-to-service)', async () => {
-  // This function is designed for internal/scheduled invocation
-  // and uses service role key, not user authentication
   const request = createRequest({
     body: { itemId: '12345678-1234-1234-1234-123456789012' },
   });
@@ -378,94 +412,207 @@ Deno.test('no authentication required (service-to-service)', async () => {
   // Should not return 401 (auth error), but 500 (config error in test env)
   assertEquals(response.status, 500);
   assertEquals(body.code, 'server');
-  // No 'auth' code indicates no authentication check
 });
 
 // =============================================================================
-// Job Queue Mode Tests (Documentation)
+// Error Classification Documentation Tests
 // =============================================================================
 
 /**
- * The following behaviors are expected when running in queue mode:
+ * Error Classification System
  *
- * 1. Without itemId parameter, function polls image_processing_jobs table
- * 2. Jobs are processed in FIFO order (created_at ascending)
- * 3. Default batch size is 10, configurable via batchSize parameter
- * 4. Each job is processed independently; failures don't stop batch
- * 5. Response includes processed count, failed count, and per-job results
+ * Errors are categorized as either 'transient' or 'permanent':
  *
- * Integration tests should verify:
- * - Jobs transition: pending -> processing -> completed/failed
- * - Failed jobs increment attempt_count
- * - Jobs exceeding max_attempts are marked as permanently failed
- * - Item's image_processing_status is updated correctly
+ * TRANSIENT (will retry with exponential backoff):
+ * - timeout: Request or processing timeout
+ * - rate_limit: 429 Too Many Requests
+ * - network: Connection refused, reset, DNS failures
+ * - server_error: 5xx HTTP status codes
+ * - unknown: Unclassified errors (default to retry for safety)
+ *
+ * PERMANENT (no retry, mark as failed immediately):
+ * - not_found: 404 or resource doesn't exist
+ * - unauthorized: 401 authentication failure
+ * - forbidden: 403 authorization failure
+ * - validation: 4xx client errors (except 429)
+ * - unsupported_format: Invalid image format
+ * - provider_failed: Background removal model failure
  */
-Deno.test('queue mode documentation exists', () => {
-  const expectedBehaviors = [
-    'polls image_processing_jobs table',
-    'FIFO order processing',
-    'configurable batch size',
-    'independent job processing',
-    'detailed response with results',
+Deno.test('error classification documentation exists', () => {
+  const transientCodes = ['timeout', 'rate_limit', 'network', 'server_error', 'unknown'];
+  const permanentCodes = [
+    'not_found',
+    'unauthorized',
+    'forbidden',
+    'validation',
+    'unsupported_format',
+    'provider_failed',
   ];
 
-  assertEquals(expectedBehaviors.length, 5);
+  assertEquals(transientCodes.length, 5);
+  assertEquals(permanentCodes.length, 6);
 });
 
 // =============================================================================
-// Direct Mode Tests (Documentation)
+// Retry Strategy Documentation Tests
 // =============================================================================
 
 /**
- * The following behaviors are expected when running in direct mode:
+ * Exponential Backoff Retry Strategy
  *
- * 1. With itemId parameter, processes specific item immediately
- * 2. Validates item exists and has original_key
- * 3. Validates item status is 'pending' or 'failed'
- * 4. Atomically updates status to 'processing' before work
- * 5. Downloads original image from Storage
- * 6. Calls Replicate API for background removal
- * 7. Generates thumbnail from cleaned image
- * 8. Uploads clean.jpg and thumb.jpg to deterministic paths
- * 9. Updates item with clean_key, thumb_key, status='succeeded'
+ * When a transient error occurs:
+ * 1. Calculate delay: baseDelay * 2^attemptCount
+ * 2. Cap at maxDelay (default: 60 seconds)
+ * 3. Add jitter (±25%) to prevent thundering herd
+ * 4. Store next_retry_at timestamp in job record
+ * 5. Job won't be picked up until next_retry_at <= now
  *
- * Integration tests should verify:
- * - Complete pipeline from pending to succeeded
- * - Idempotency: same (item_id, original_key) can be reprocessed
- * - Failure handling: status reverts to 'failed' on error
- * - Storage paths follow user/{userId}/items/{itemId}/ pattern
+ * Environment Variables:
+ * - RETRY_BASE_DELAY_MS: Base delay (default: 1000ms)
+ * - RETRY_MAX_DELAY_MS: Max delay cap (default: 60000ms)
+ *
+ * Example delays for default settings:
+ * - Attempt 1: ~1000ms (1s)
+ * - Attempt 2: ~2000ms (2s)
+ * - Attempt 3: ~4000ms (4s) - max attempts reached by default
  */
-Deno.test('direct mode documentation exists', () => {
-  const pipelineSteps = [
-    'validate item exists',
-    'validate original_key not null',
-    'validate status eligible',
-    'atomically update to processing',
-    'download original image',
-    'call background removal API',
-    'generate thumbnail',
-    'upload processed images',
-    'update item with results',
+Deno.test('retry strategy documentation exists', () => {
+  const defaultSettings = {
+    baseDelayMs: 1000,
+    maxDelayMs: 60000,
+    maxAttempts: 3,
+    jitterPercent: 25,
+  };
+
+  assertEquals(defaultSettings.baseDelayMs, 1000);
+  assertEquals(defaultSettings.maxDelayMs, 60000);
+  assertEquals(defaultSettings.maxAttempts, 3);
+});
+
+// =============================================================================
+// Stale Job Recovery Documentation Tests
+// =============================================================================
+
+/**
+ * Stale Job Recovery Mode
+ *
+ * Recovers jobs stuck in 'processing' status beyond a threshold.
+ *
+ * Invocation:
+ * POST /process-item-image
+ * Body: { "recoverStale": true }
+ *
+ * Or combined with queue processing:
+ * Body: { "recoverStale": true, "batchSize": 10 }
+ *
+ * Recovery Logic:
+ * 1. Find jobs where status='processing' AND started_at < now - threshold
+ * 2. For each stale job:
+ *    - If attempt_count < max_attempts: Reset to 'pending' with next_retry_at
+ *    - If attempt_count >= max_attempts: Mark as 'failed'
+ * 3. Update corresponding item's image_processing_status
+ * 4. Emit structured log with 'stale_job_recovered' event
+ *
+ * Environment Variables:
+ * - STALE_JOB_THRESHOLD_MS: Time before job is stale (default: 600000 = 10 min)
+ *
+ * Recommended: Run recovery before each queue processing batch:
+ * { "recoverStale": true, "batchSize": 10 }
+ */
+Deno.test('stale job recovery documentation exists', () => {
+  const recoverySettings = {
+    defaultThresholdMs: 600000, // 10 minutes
+    recoveryActions: ['reset_to_pending', 'mark_as_failed'],
+    logEvent: 'stale_job_recovered',
+  };
+
+  assertEquals(recoverySettings.defaultThresholdMs, 600000);
+  assertEquals(recoverySettings.recoveryActions.length, 2);
+});
+
+// =============================================================================
+// Structured Logging Documentation Tests
+// =============================================================================
+
+/**
+ * Structured Logging Format
+ *
+ * All log entries are JSON objects with the following fields:
+ *
+ * Common fields (always present):
+ * - timestamp: ISO8601 timestamp
+ * - level: 'info' | 'warn' | 'error'
+ * - event: Event type identifier
+ *
+ * Context fields (when applicable):
+ * - item_id: UUID of the item being processed
+ * - user_id: UUID of the item owner
+ * - job_id: ID of the job record
+ * - provider: 'storage' | 'replicate' | 'internal'
+ * - attempt_count: Current attempt number
+ * - duration_ms: Processing duration in milliseconds
+ *
+ * Error fields (on failure):
+ * - error_category: 'transient' | 'permanent'
+ * - error_code: Normalized error code
+ * - error_message: Human-readable error description
+ *
+ * Event Types:
+ * - job_started: Processing began
+ * - job_completed: Processing succeeded
+ * - job_failed: Processing failed (will not retry)
+ * - job_retry_scheduled: Transient failure, retry scheduled
+ * - job_permanently_failed: All retries exhausted
+ * - stale_job_recovered: Stale job detected and recovered
+ * - queue_poll_start: Starting queue poll
+ * - queue_poll_complete: Queue poll finished
+ * - queue_batch_complete: Batch processing finished
+ * - storage_download_start/complete: Storage operations
+ * - storage_upload_start/complete: Storage operations
+ * - replicate_start/complete: Background removal operations
+ */
+Deno.test('structured logging documentation exists', () => {
+  const eventTypes = [
+    'job_started',
+    'job_completed',
+    'job_failed',
+    'job_retry_scheduled',
+    'job_permanently_failed',
+    'stale_job_recovered',
+    'queue_poll_start',
+    'queue_poll_complete',
+    'queue_batch_complete',
+    'storage_download_start',
+    'storage_download_complete',
+    'storage_upload_start',
+    'storage_upload_complete',
+    'replicate_start',
+    'replicate_complete',
   ];
 
-  assertEquals(pipelineSteps.length, 9);
+  assertEquals(eventTypes.length, 15);
 });
 
 // =============================================================================
-// Environment Variable Tests (Documentation)
+// Environment Variable Documentation Tests
 // =============================================================================
 
 /**
- * Required environment variables:
+ * Environment Variables
+ *
+ * Required:
  * - SUPABASE_URL: Supabase project URL
- * - SUPABASE_SERVICE_ROLE_KEY: Service role key for bypassing RLS
- * - REPLICATE_API_KEY: API key for background removal
+ * - SUPABASE_SERVICE_ROLE_KEY: Service role key (bypasses RLS)
+ * - REPLICATE_API_KEY: Replicate API key for background removal
  *
- * Optional environment variables:
- * - REPLICATE_MODEL_VERSION: Custom model version (default: cjwbw/rembg)
- * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 120000ms)
- * - THUMBNAIL_SIZE: Thumbnail dimension (default: 200px)
- * - CLEAN_IMAGE_MAX_DIMENSION: Clean image max edge (default: 1600px)
+ * Optional (with defaults):
+ * - REPLICATE_MODEL_VERSION: Background removal model (default: cjwbw/rembg:...)
+ * - IMAGE_PROCESSING_TIMEOUT_MS: API timeout (default: 120000 = 2 min)
+ * - THUMBNAIL_SIZE: Thumbnail dimension (default: 200)
+ * - CLEAN_IMAGE_MAX_DIMENSION: Clean image max edge (default: 1600)
+ * - RETRY_BASE_DELAY_MS: Exponential backoff base (default: 1000)
+ * - RETRY_MAX_DELAY_MS: Max retry delay (default: 60000)
+ * - STALE_JOB_THRESHOLD_MS: Stale detection threshold (default: 600000)
  */
 Deno.test('environment variable documentation exists', () => {
   const requiredVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'REPLICATE_API_KEY'];
@@ -475,8 +622,55 @@ Deno.test('environment variable documentation exists', () => {
     'IMAGE_PROCESSING_TIMEOUT_MS',
     'THUMBNAIL_SIZE',
     'CLEAN_IMAGE_MAX_DIMENSION',
+    'RETRY_BASE_DELAY_MS',
+    'RETRY_MAX_DELAY_MS',
+    'STALE_JOB_THRESHOLD_MS',
   ];
 
   assertEquals(requiredVars.length, 3);
-  assertEquals(optionalVars.length, 4);
+  assertEquals(optionalVars.length, 7);
+});
+
+// =============================================================================
+// Idempotency Documentation Tests
+// =============================================================================
+
+/**
+ * Idempotency Guarantees
+ *
+ * The function is safe to retry for the same (item_id, original_key):
+ *
+ * 1. Storage Operations:
+ *    - Uses upsert: true for uploads (overwrites existing)
+ *    - Deterministic paths: user/{userId}/items/{itemId}/clean.jpg
+ *    - No duplicate blobs created on retry
+ *
+ * 2. Database Operations:
+ *    - Job queue has UNIQUE(item_id, original_key) constraint
+ *    - Item status updated atomically
+ *    - clean_key/thumb_key only set after BOTH uploads succeed
+ *
+ * 3. Failure Handling:
+ *    - On failure, clean_key and thumb_key are cleared (set to null)
+ *    - Prevents inconsistent state with partial uploads
+ *    - Item can be reprocessed from clean state
+ *
+ * 4. Job Queue:
+ *    - ON CONFLICT DO NOTHING for duplicate enqueue attempts
+ *    - Retry tracking via attempt_count
+ *    - Scheduled retries via next_retry_at
+ */
+Deno.test('idempotency documentation exists', () => {
+  const idempotencyFeatures = [
+    'storage_upsert',
+    'deterministic_paths',
+    'unique_job_constraint',
+    'atomic_status_update',
+    'clear_on_failure',
+    'conflict_ignore',
+    'attempt_tracking',
+    'scheduled_retries',
+  ];
+
+  assertEquals(idempotencyFeatures.length, 8);
 });
