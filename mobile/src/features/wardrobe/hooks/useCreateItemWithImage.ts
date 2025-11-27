@@ -71,6 +71,37 @@ export type CreateItemErrorType =
   | 'unknown';
 
 /**
+ * User story #241 spec-compliant error type enum.
+ * Maps internal error types to the analytics spec enum values.
+ */
+type SpecErrorType = 'network' | 'server_error' | 'validation' | 'timeout';
+
+/**
+ * Maps internal CreateItemErrorType to user story #241 spec-compliant error_type enum.
+ *
+ * Per spec, error_type should be one of: "network", "server_error", "validation", "timeout"
+ *
+ * @param errorType - Internal error type classification
+ * @returns Spec-compliant error_type enum value
+ */
+function mapErrorTypeToSpecEnum(errorType: CreateItemErrorType): SpecErrorType {
+  switch (errorType) {
+    case 'offline':
+    case 'network':
+      return 'network';
+    case 'storage':
+    case 'database':
+    case 'auth':
+    case 'unknown':
+      return 'server_error';
+    case 'validation':
+      return 'validation';
+    default:
+      return 'server_error';
+  }
+}
+
+/**
  * Custom error class for item creation failures.
  *
  * Provides typed error classification for appropriate user messaging
@@ -651,6 +682,16 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           },
         });
 
+        // User story #241 spec-compliant event: item_created
+        // Emitted when item creation successfully completes (DB row committed and item visible)
+        // Properties per spec: has_name (boolean), tags_count (integer), save_latency_ms (optional)
+        trackCaptureEvent('item_created', {
+          userId: user.id,
+          hasName: input.name.trim().length > 0,
+          tagCount: input.tags.length,
+          saveLatencyMs: latency,
+        });
+
         // Update state with result
         const createResult: CreateItemResult = { item };
         setResult(createResult);
@@ -720,6 +761,18 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
           userId: user.id,
           errorType: typedError.errorType,
           latencyMs: latency,
+        });
+
+        // User story #241 spec-compliant event: item_creation_failed
+        // Emitted when item creation fails in a way visible to the user
+        // Properties per spec: error_type (enum), has_name (optional), tags_count (optional)
+        // Maps internal errorType to spec-compliant error_type enum
+        const specErrorType = mapErrorTypeToSpecEnum(typedError.errorType);
+        trackCaptureEvent('item_creation_failed', {
+          userId: user.id,
+          errorType: specErrorType,
+          hasName: input.name.trim().length > 0,
+          tagCount: input.tags.length,
         });
 
         // Update state with error

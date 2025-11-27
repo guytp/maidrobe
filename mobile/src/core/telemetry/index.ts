@@ -285,6 +285,7 @@ export type OnboardingGateEventType =
  * Event naming convention: snake_case with capture_ prefix
  */
 export type CaptureEventType =
+  // Capture flow events (internal/legacy)
   | 'capture_flow_opened'
   | 'capture_source_selected'
   | 'camera_opened'
@@ -319,6 +320,7 @@ export type CaptureEventType =
   | 'item_save_started'
   | 'item_save_succeeded'
   | 'item_save_failed'
+  // Wardrobe screen events (internal/legacy)
   | 'wardrobe_screen_viewed'
   | 'wardrobe_items_loaded'
   | 'wardrobe_items_load_failed'
@@ -336,7 +338,14 @@ export type CaptureEventType =
   | 'item_edited'
   | 'item_edit_failed'
   | 'item_deleted'
-  | 'item_delete_failed';
+  | 'item_delete_failed'
+  // User story #241 product analytics events (spec-compliant names)
+  | 'item_capture_started'
+  | 'item_capture_cancelled'
+  | 'item_created'
+  | 'item_creation_failed'
+  | 'item_edit_cancelled'
+  | 'item_search_used';
 
 /**
  * Metadata for authentication event logging.
@@ -676,12 +685,24 @@ export function trackOnboardingGateEvent(
  *
  * SECURITY: Never include passwords, tokens, or other sensitive PII.
  * Image URIs are logged as they are local file paths, not user content.
+ *
+ * PRIVACY CONSTRAINTS (per user story #241):
+ * - Do NOT include raw or full item names/tags (only booleans and counts)
+ * - Do NOT include raw image data or image URLs
+ * - Do NOT include EXIF metadata
+ * - Do NOT include auth tokens or credentials
+ * - User identification uses anonymous/pseudonymous ID (Supabase user ID)
  */
 export interface CaptureEventMetadata {
-  /** User ID if available (safe to log) */
+  /** User ID if available (safe to log - pseudonymous identifier) */
   userId?: string;
   /** Capture origin context - wardrobe or onboarding */
   origin?: 'wardrobe' | 'onboarding';
+  /**
+   * Context for capture flow (user story #241 spec property)
+   * Maps to origin but uses 'context' name per analytics spec
+   */
+  context?: 'wardrobe' | 'onboarding';
   /** Image source - camera or gallery */
   source?: 'camera' | 'gallery';
   /** Error code or classification if failure */
@@ -694,14 +715,19 @@ export interface CaptureEventMetadata {
   height?: number;
   /** Image MIME type */
   type?: string;
-  /** Whether item has a name (for review details analytics) */
+  /** Whether item has a name (boolean only - never raw name) */
   hasName?: boolean;
-  /** Number of tags added (for review details analytics) */
+  /** Number of tags added (count only - never raw tags) */
   tagCount?: number;
   /** Error type for item save failures */
   errorType?: string;
   /** Latency in milliseconds */
   latencyMs?: number;
+  /**
+   * Save latency in milliseconds (user story #241 spec property)
+   * Client-measured end-to-end latency from tap on Save to item visible
+   */
+  saveLatencyMs?: number;
   /** Item ID for created items */
   itemId?: string;
   /** Number of items loaded (for wardrobe grid analytics) */
@@ -722,6 +748,21 @@ export interface CaptureEventMetadata {
   tagsChanged?: boolean;
   /** Error category for failures (network, auth, server, validation, unknown) */
   errorCategory?: string;
+  /**
+   * Search query length (user story #241 spec property)
+   * Integer length of the search text (0 allowed) - never raw query text
+   */
+  queryLength?: number;
+  /**
+   * Results count bucket (user story #241 spec property)
+   * Bucketed count to preserve privacy: "0", "1-5", ">5"
+   */
+  resultsCountBucket?: '0' | '1-5' | '>5';
+  /**
+   * Search latency in milliseconds (user story #241 spec property)
+   * Time from user action to results rendered
+   */
+  searchLatencyMs?: number;
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }

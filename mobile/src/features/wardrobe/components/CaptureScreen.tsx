@@ -202,10 +202,18 @@ export function CaptureScreen(): React.JSX.Element {
       // Set origin in store for access throughout capture flow
       setOrigin(origin);
 
-      // Track successful capture flow opened
+      // Track successful capture flow opened (legacy event for backward compatibility)
       trackCaptureEvent('capture_flow_opened', {
         userId: user?.id,
         origin,
+      });
+
+      // Track item_capture_started (user story #241 spec-compliant event)
+      // Emitted when capture flow is initiated, with source populated on selection
+      // Note: source is undefined at this point - it will be set when user chooses camera/gallery
+      trackCaptureEvent('item_capture_started', {
+        userId: user?.id,
+        context: origin,
       });
     }
 
@@ -223,9 +231,17 @@ export function CaptureScreen(): React.JSX.Element {
    * - origin=onboarding -> /onboarding/first-item
    */
   const handleCancel = () => {
+    // Legacy event for backward compatibility
     trackCaptureEvent('capture_cancelled', {
       userId: user?.id,
       origin: origin || undefined,
+    });
+
+    // User story #241 spec-compliant event
+    // Emitted when user starts capture but cancels before completing
+    trackCaptureEvent('item_capture_cancelled', {
+      userId: user?.id,
+      context: origin || undefined,
     });
 
     if (origin === 'wardrobe') {

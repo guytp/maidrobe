@@ -252,6 +252,22 @@ export function useWardrobeItems(params: UseWardrobeItemsParams = {}): UseWardro
             hasSearchQuery: !!searchQuery,
           });
         }
+
+        // User story #241 spec-compliant event: item_search_used
+        // Emitted when search is applied and results are actually updated
+        // Properties per spec: query_length, results_count_bucket, search_latency_ms
+        if (searchQuery !== undefined) {
+          // Calculate results count bucket per spec: "0", "1-5", ">5"
+          const resultsCountBucket: '0' | '1-5' | '>5' =
+            result.total === 0 ? '0' : result.total <= 5 ? '1-5' : '>5';
+
+          trackCaptureEvent('item_search_used', {
+            userId,
+            queryLength: (searchQuery ?? '').length,
+            resultsCountBucket,
+            searchLatencyMs: latency,
+          });
+        }
       } else {
         // Track pagination event
         trackCaptureEvent('wardrobe_pagination_triggered', {
