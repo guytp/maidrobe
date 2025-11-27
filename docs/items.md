@@ -9,16 +9,17 @@ Comprehensive reference for the wardrobe items data model, including database sc
 3. [Field Descriptions](#field-descriptions)
 4. [Image Processing Status](#image-processing-status)
 5. [Image Processing Job Queue](#image-processing-job-queue)
-6. [Soft Delete Semantics](#soft-delete-semantics)
-7. [Storage Configuration](#storage-configuration)
-8. [Object Key Pattern](#object-key-pattern)
-9. [Row Level Security](#row-level-security)
-10. [Storage Policies](#storage-policies)
-11. [Service Role and Edge Functions](#service-role-and-edge-functions)
-12. [Signed URLs](#signed-urls)
-13. [Code Examples](#code-examples)
-14. [Usage by Feature Team](#usage-by-feature-team)
-15. [Migration Reference](#migration-reference)
+6. [Image Processing Edge Function](#image-processing-edge-function)
+7. [Soft Delete Semantics](#soft-delete-semantics)
+8. [Storage Configuration](#storage-configuration)
+9. [Object Key Pattern](#object-key-pattern)
+10. [Row Level Security](#row-level-security)
+11. [Storage Policies](#storage-policies)
+12. [Service Role and Edge Functions](#service-role-and-edge-functions)
+13. [Signed URLs](#signed-urls)
+14. [Code Examples](#code-examples)
+15. [Usage by Feature Team](#usage-by-feature-team)
+16. [Migration Reference](#migration-reference)
 
 ---
 
@@ -371,6 +372,124 @@ USING (
 
 - Database triggers (job creation)
 - Edge Functions with service role (job updates)
+
+---
+
+## Image Processing Edge Function
+
+The `process-item-image` Edge Function handles background removal and thumbnail generation.
+
+### Endpoint
+
+```
+POST /functions/v1/process-item-image
+```
+
+### Invocation Modes
+
+**Direct Mode** - Process a specific item:
+
+```json
+{
+  "itemId": "123e4567-e89b-12d3-a456-426614174000"
+}
+```
+
+**Queue Mode** - Poll and process pending jobs:
+
+```json
+{
+  "batchSize": 10
+}
+```
+
+Or with empty body `{}` to use default batch size (10).
+
+### Processing Pipeline
+
+1. **Validate Item** - Fetch item, verify `original_key` exists
+2. **Check Eligibility** - Status must be `pending` or `failed`
+3. **Claim Job** - Atomically set `image_processing_status = 'processing'`
+4. **Download Original** - Fetch from Storage using service role
+5. **Background Removal** - Call Replicate API over TLS
+6. **Generate Thumbnail** - Create 200x200 version
+7. **Upload Results** - Save `clean.jpg` and `thumb.jpg` to deterministic paths
+8. **Update Item** - Set `clean_key`, `thumb_key`, `image_processing_status = 'succeeded'`
+
+### Storage Paths
+
+Output images use deterministic paths:
+
+```
+user/{userId}/items/{itemId}/clean.jpg   # Background-removed image
+user/{userId}/items/{itemId}/thumb.jpg   # 200x200 thumbnail
+```
+
+### Response Format
+
+**Success:**
+
+```json
+{
+  "success": true,
+  "processed": 1,
+  "failed": 0,
+  "results": [{ "itemId": "...", "success": true }]
+}
+```
+
+**Partial Failure (batch mode):**
+
+```json
+{
+  "success": true,
+  "processed": 8,
+  "failed": 2,
+  "results": [
+    { "itemId": "...", "success": true },
+    { "itemId": "...", "success": false, "error": "..." }
+  ]
+}
+```
+
+### Environment Variables
+
+| Variable                      | Required | Default              | Description                     |
+| ----------------------------- | -------- | -------------------- | ------------------------------- |
+| `SUPABASE_URL`                | Yes      | -                    | Supabase project URL            |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Yes      | -                    | Service role key (bypasses RLS) |
+| `REPLICATE_API_KEY`           | Yes      | -                    | Replicate API key               |
+| `REPLICATE_MODEL_VERSION`     | No       | cjwbw/rembg:fb8af... | Background removal model        |
+| `IMAGE_PROCESSING_TIMEOUT_MS` | No       | 120000               | API timeout in milliseconds     |
+| `THUMBNAIL_SIZE`              | No       | 200                  | Thumbnail dimension (pixels)    |
+| `CLEAN_IMAGE_MAX_DIMENSION`   | No       | 1600                 | Clean image max edge (pixels)   |
+
+### Idempotency
+
+The function is safe to retry:
+
+- Re-validates item state before processing
+- Uses deterministic storage paths (uploads with `upsert: true`)
+- Job queue has `UNIQUE(item_id, original_key)` constraint
+- Same item can be reprocessed if status reset to `pending`
+
+### Error Handling
+
+- **Transient failures**: Job status reset to `pending`, `attempt_count` incremented
+- **Permanent failures**: After `max_attempts` (3), job and item marked as `failed`
+- **Item updates**: Status reverts to `failed` if any pipeline step fails
+
+### Scheduled Invocation
+
+For production, configure a scheduled task (e.g., cron job, pg_cron, or external scheduler) to invoke the function periodically:
+
+```bash
+# Example: Process queue every minute
+curl -X POST https://your-project.supabase.co/functions/v1/process-item-image \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"batchSize": 10}'
+```
 
 ---
 
