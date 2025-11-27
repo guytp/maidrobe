@@ -11,7 +11,9 @@ import { renderHook, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { type ReactNode } from 'react';
 import { useWardrobeRealtimeSync } from '../../../src/features/wardrobe/api/useWardrobeRealtimeSync';
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { supabase } from '../../../src/services/supabase';
+import { logError, logSuccess } from '../../../src/core/telemetry';
 
 // Mock the Supabase client
 const mockChannel = {
@@ -33,6 +35,11 @@ jest.mock('../../../src/core/telemetry', () => ({
   logError: jest.fn(),
   logSuccess: jest.fn(),
 }));
+
+// Get typed mock references
+const mockSupabase = jest.mocked(supabase);
+const mockLogError = jest.mocked(logError);
+const mockLogSuccess = jest.mocked(logSuccess);
 
 // Mock store
 const mockUserId = 'test-user-123';
@@ -90,11 +97,9 @@ describe('useWardrobeRealtimeSync', () => {
 
   describe('subscription lifecycle', () => {
     it('should create a Supabase channel on mount when user is authenticated', () => {
-      const { supabase } = require('../../../src/services/supabase');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
-      expect(supabase.channel).toHaveBeenCalledWith(`wardrobe-items-${mockUserId}`);
+      expect(mockSupabase.channel).toHaveBeenCalledWith(`wardrobe-items-${mockUserId}`);
       expect(mockChannel.on).toHaveBeenCalledWith(
         'postgres_changes',
         expect.objectContaining({
@@ -109,11 +114,9 @@ describe('useWardrobeRealtimeSync', () => {
     });
 
     it('should not create a channel when disabled', () => {
-      const { supabase } = require('../../../src/services/supabase');
-
       renderHook(() => useWardrobeRealtimeSync({ enabled: false }), { wrapper });
 
-      expect(supabase.channel).not.toHaveBeenCalled();
+      expect(mockSupabase.channel).not.toHaveBeenCalled();
     });
 
     it('should remove channel on unmount', () => {
@@ -131,12 +134,10 @@ describe('useWardrobeRealtimeSync', () => {
     });
 
     it('should remove and recreate channel on reconnect', () => {
-      const { supabase } = require('../../../src/services/supabase');
-
       const { result } = renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
       // Initial subscription
-      expect(supabase.channel).toHaveBeenCalledTimes(1);
+      expect(mockSupabase.channel).toHaveBeenCalledTimes(1);
 
       // Reconnect
       act(() => {
@@ -145,14 +146,12 @@ describe('useWardrobeRealtimeSync', () => {
 
       // Should have removed old channel and created new one
       expect(mockRemoveChannel).toHaveBeenCalledWith(mockChannel);
-      expect(supabase.channel).toHaveBeenCalledTimes(2);
+      expect(mockSupabase.channel).toHaveBeenCalledTimes(2);
     });
   });
 
   describe('subscription status', () => {
     it('should handle SUBSCRIBED status', () => {
-      const { logSuccess } = require('../../../src/core/telemetry');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
       // Simulate successful subscription
@@ -160,7 +159,7 @@ describe('useWardrobeRealtimeSync', () => {
         capturedSubscribeCallback('SUBSCRIBED');
       });
 
-      expect(logSuccess).toHaveBeenCalledWith(
+      expect(mockLogSuccess).toHaveBeenCalledWith(
         'wardrobe',
         'realtime_subscribed',
         expect.objectContaining({
@@ -172,8 +171,6 @@ describe('useWardrobeRealtimeSync', () => {
     });
 
     it('should handle CHANNEL_ERROR status', () => {
-      const { logError } = require('../../../src/core/telemetry');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
       // Simulate channel error
@@ -182,7 +179,7 @@ describe('useWardrobeRealtimeSync', () => {
         capturedSubscribeCallback('CHANNEL_ERROR', testError);
       });
 
-      expect(logError).toHaveBeenCalledWith(
+      expect(mockLogError).toHaveBeenCalledWith(
         testError,
         'network',
         expect.objectContaining({
@@ -193,8 +190,6 @@ describe('useWardrobeRealtimeSync', () => {
     });
 
     it('should handle TIMED_OUT status', () => {
-      const { logError } = require('../../../src/core/telemetry');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
       // Simulate timeout
@@ -202,7 +197,7 @@ describe('useWardrobeRealtimeSync', () => {
         capturedSubscribeCallback('TIMED_OUT');
       });
 
-      expect(logError).toHaveBeenCalledWith(
+      expect(mockLogError).toHaveBeenCalledWith(
         expect.any(Error),
         'network',
         expect.objectContaining({
@@ -350,8 +345,6 @@ describe('useWardrobeRealtimeSync', () => {
     });
 
     it('should log update event for observability', () => {
-      const { logSuccess } = require('../../../src/core/telemetry');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
       // Simulate subscription success first
@@ -360,7 +353,7 @@ describe('useWardrobeRealtimeSync', () => {
       });
 
       // Clear previous calls
-      logSuccess.mockClear();
+      mockLogSuccess.mockClear();
 
       // Simulate an UPDATE event
       const payload = {
@@ -389,7 +382,7 @@ describe('useWardrobeRealtimeSync', () => {
         capturedChangeHandler(payload as RealtimePostgresChangesPayload<Record<string, unknown>>);
       });
 
-      expect(logSuccess).toHaveBeenCalledWith(
+      expect(mockLogSuccess).toHaveBeenCalledWith(
         'wardrobe',
         'realtime_item_updated',
         expect.objectContaining({
@@ -408,17 +401,16 @@ describe('useWardrobeRealtimeSync', () => {
 
   describe('user authentication', () => {
     it('should not subscribe when user is not authenticated', () => {
-      // Override mock for this test
+      // Override mock for this test - need to use require for dynamic mock override
+      // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
       const { useStore } = require('../../../src/core/state/store');
       useStore.mockImplementation((selector: (state: { user: null }) => unknown) =>
         selector({ user: null })
       );
 
-      const { supabase } = require('../../../src/services/supabase');
-
       renderHook(() => useWardrobeRealtimeSync(), { wrapper });
 
-      expect(supabase.channel).not.toHaveBeenCalled();
+      expect(mockSupabase.channel).not.toHaveBeenCalled();
     });
   });
 });
