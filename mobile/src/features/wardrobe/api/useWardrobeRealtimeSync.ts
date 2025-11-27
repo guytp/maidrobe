@@ -50,7 +50,7 @@ import { supabase } from '../../../services/supabase';
 import { useStore } from '../../../core/state/store';
 import { logError, logSuccess } from '../../../core/telemetry';
 import { wardrobeItemsQueryKey } from './useWardrobeItems';
-import type { ImageProcessingStatus } from '../types';
+import type { AttributeStatus, ImageProcessingStatus } from '../types';
 
 /**
  * Payload structure for item updates from Supabase Realtime.
@@ -64,34 +64,46 @@ interface ItemUpdatePayload {
   image_processing_status: ImageProcessingStatus | null;
   clean_key: string | null;
   thumb_key: string | null;
+  attribute_status: AttributeStatus | null;
 }
 
 /**
  * Fields that trigger cache invalidation when changed.
  *
- * We only care about image processing field updates, not name/tag changes
- * (those are handled by the mutation hooks with optimistic updates).
+ * We care about:
+ * - Image processing field updates (background cleanup pipeline)
+ * - Attribute detection status changes (AI attribute detection pipeline)
+ *
+ * Name/tag changes are handled by mutation hooks with optimistic updates.
  */
-const IMAGE_PROCESSING_FIELDS = ['image_processing_status', 'clean_key', 'thumb_key'] as const;
+const BACKGROUND_PROCESSING_FIELDS = [
+  'image_processing_status',
+  'clean_key',
+  'thumb_key',
+  'attribute_status',
+] as const;
 
 /**
- * Checks if an update payload contains changes to image processing fields.
+ * Checks if an update payload contains changes to background processing fields.
+ *
+ * This includes both image processing (cleanup pipeline) and attribute detection
+ * (AI pipeline) field changes.
  *
  * @param newRecord - The updated record from Supabase
  * @param oldRecord - The previous record state (may be partial)
- * @returns True if any image processing field changed
+ * @returns True if any background processing field changed
  */
-function hasImageProcessingChanges(
+function hasBackgroundProcessingChanges(
   newRecord: ItemUpdatePayload,
   oldRecord: Partial<ItemUpdatePayload> | undefined
 ): boolean {
   if (!oldRecord) {
-    // INSERT event - always refresh if it has image processing data
+    // INSERT event - always refresh if it has processing data
     return !!(newRecord.clean_key || newRecord.thumb_key);
   }
 
-  // UPDATE event - check if any image processing field changed
-  return IMAGE_PROCESSING_FIELDS.some((field) => {
+  // UPDATE event - check if any background processing field changed
+  return BACKGROUND_PROCESSING_FIELDS.some((field) => {
     const newValue = newRecord[field];
     const oldValue = oldRecord[field];
     return newValue !== oldValue;
@@ -186,8 +198,8 @@ export function useWardrobeRealtimeSync(
         return;
       }
 
-      // Check if this update is relevant (image processing fields changed)
-      if (!hasImageProcessingChanges(newRecord, oldRecord)) {
+      // Check if this update is relevant (background processing fields changed)
+      if (!hasBackgroundProcessingChanges(newRecord, oldRecord)) {
         return;
       }
 
