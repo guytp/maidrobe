@@ -60,8 +60,10 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { Image } from 'https://deno.land/x/imagescript@1.3.0/mod.ts';
+
+import { isImageCleanupEnabled } from '../_shared/featureFlags.ts';
 
 // ============================================================================
 // Types
@@ -1596,6 +1598,21 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   try {
+    // Check feature flag first - safe default is disabled
+    // Server-side decision: client cannot override this behaviour
+    if (!isImageCleanupEnabled()) {
+      structuredLog('info', 'feature_disabled', { feature: 'wardrobe_image_cleanup' });
+      return jsonResponse(
+        {
+          success: true,
+          processed: 0,
+          failed: 0,
+          results: [],
+        },
+        200
+      );
+    }
+
     // Load configuration from environment
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

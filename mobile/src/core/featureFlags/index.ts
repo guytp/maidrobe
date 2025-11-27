@@ -92,6 +92,10 @@ export interface FeatureFlagResult {
  * - auth.errorLogging: Auth error logging
  * - onboarding.gate: Onboarding gate routing (routes new users to onboarding flow)
  * - capture.cropScreen: Crop & adjust experience for wardrobe item images
+ *
+ * Server-side wardrobe flags (fetched remotely, cannot be overridden locally):
+ * - wardrobe.imageCleanup: Whether image cleanup/background removal is enabled
+ * - wardrobe.aiAttributes: Whether AI attribute detection is enabled
  */
 export type FeatureFlagName =
   | 'auth.login'
@@ -100,7 +104,9 @@ export type FeatureFlagName =
   | 'auth.recaptcha'
   | 'auth.errorLogging'
   | 'onboarding.gate'
-  | 'capture.cropScreen';
+  | 'capture.cropScreen'
+  | 'wardrobe.imageCleanup'
+  | 'wardrobe.aiAttributes';
 
 /**
  * Client version information for compatibility checks.
@@ -360,3 +366,12 @@ export function checkFeatureFlagSync(flagName: FeatureFlagName): FeatureFlagResu
 export function getClientVersion(): ClientVersion {
   return { ...CLIENT_VERSION };
 }
+
+// Re-export wardrobe feature flags hook and types
+export {
+  useWardrobeFeatureFlags,
+  prefetchWardrobeFeatureFlags,
+  WARDROBE_FEATURE_FLAGS_QUERY_KEY,
+  type WardrobeFeatureFlags,
+  type UseWardrobeFeatureFlagsResult,
+} from './useWardrobeFeatureFlags';

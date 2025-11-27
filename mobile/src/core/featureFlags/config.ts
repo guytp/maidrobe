@@ -21,6 +21,13 @@
  * Custom update message (default: generic message):
  * - EXPO_PUBLIC_FEATURE_UPDATE_MESSAGE
  *
+ * WARDROBE FEATURE FLAGS (fetched from server):
+ * These flags are evaluated server-side and fetched via the get-feature-flags
+ * Edge Function. The client uses them for UI adjustments only - the server
+ * always makes the authoritative decision for backend operations.
+ * - wardrobe.imageCleanup: Controls whether image cleanup UI elements are shown
+ * - wardrobe.aiAttributes: Controls whether AI attributes UI elements are shown
+ *
  * MIGRATION TO UNLEASH:
  * When migrating to Unleash, this module can be replaced with Unleash SDK calls
  * while maintaining the same FlagConfig interface for backward compatibility.
