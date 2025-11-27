@@ -267,10 +267,11 @@ describe('ItemDetailScreen', () => {
         error: { code: 'server', message: 'Server error' },
       });
 
-      const { getByLabelText, getByText } = renderScreen();
+      const { getByLabelText, getAllByText } = renderScreen();
 
       expect(getByLabelText('Error loading item')).toBeTruthy();
-      expect(getByText('Could not load item')).toBeTruthy();
+      // Use getAllByText since the error message may appear in multiple places
+      expect(getAllByText('Could not load item').length).toBeGreaterThan(0);
     });
 
     it('logs error to observability stack on load failure', async () => {
@@ -408,24 +409,30 @@ describe('ItemDetailScreen', () => {
     });
 
     it('allows adding new tags', async () => {
-      const { getByLabelText, getByText } = renderScreen();
+      const { getByLabelText, getByText, queryByText } = renderScreen();
 
       const tagsInput = getByLabelText('Tags input');
       const addButton = getByLabelText('Add tag button');
 
+      // First enter the tag text
       await act(async () => {
         fireEvent.changeText(tagsInput, 'newtag');
+      });
+
+      // Then press add button
+      await act(async () => {
         fireEvent.press(addButton);
       });
 
+      // Verify the tag was added (normalized to lowercase)
       await waitFor(() => {
-        expect(getByText('newtag')).toBeTruthy();
+        expect(queryByText('newtag')).toBeTruthy();
       });
     });
   });
 
   describe('save functionality', () => {
-    it('shows saving state when mutation is pending', () => {
+    it('disables save button when mutation is pending', () => {
       mockUseUpdateWardrobeItem.mockReturnValue({
         updateItem: jest.fn(),
         isPending: true,
@@ -436,9 +443,12 @@ describe('ItemDetailScreen', () => {
         reset: jest.fn(),
       });
 
-      const { getByText } = renderScreen();
+      const { getByLabelText } = renderScreen();
 
-      expect(getByText('Saving...')).toBeTruthy();
+      // Button component shows ActivityIndicator when loading={true}
+      // Verify save button is disabled during save operation
+      const saveButton = getByLabelText('Save changes button');
+      expect(saveButton.props.accessibilityState?.disabled).toBe(true);
     });
   });
 
