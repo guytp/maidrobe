@@ -20,6 +20,26 @@
  * - No sensitive data logged (only item IDs and status changes)
  * - Uses authenticated Supabase client with secure token handling
  *
+ * Multiple instance considerations:
+ * This hook is currently used by both WardrobeScreen and ItemDetailScreen.
+ * When navigating from the grid to an item detail (without unmounting the grid),
+ * both screens may mount simultaneously, resulting in duplicate channel
+ * subscriptions with the same channel name (`wardrobe-items-{userId}`).
+ *
+ * Current behavior and implications:
+ * - Supabase reuses the same underlying channel for duplicate names, but each
+ *   hook instance registers its own callback, potentially causing duplicate
+ *   cache invalidations (benign but wasteful)
+ * - When one screen unmounts, it may close a channel still needed by the other
+ *
+ * Future mitigation options (not implemented in this PR):
+ * 1. Lift subscription to a shared parent (e.g., WardrobeNavigator or context)
+ * 2. Implement a singleton subscription manager with reference counting
+ * 3. Use Supabase's channel multiplexing more carefully with unique instance IDs
+ *
+ * For now, the duplicate invalidation is harmless (React Query dedupes refetches)
+ * and the subscription cleanup is handled gracefully by Supabase's client.
+ *
  * @module features/wardrobe/api/useWardrobeRealtimeSync
  */
 
@@ -223,7 +243,9 @@ export function useWardrobeRealtimeSync(
       channelRef.current = null;
     }
 
-    // Create a new channel with a unique name per user
+    // Channel name is per-user, not per-component-instance.
+    // See module JSDoc "Multiple instance considerations" for implications
+    // when this hook is used by multiple mounted screens simultaneously.
     const channelName = `wardrobe-items-${user.id}`;
 
     const channel = supabase
