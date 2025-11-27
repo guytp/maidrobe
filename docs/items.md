@@ -68,7 +68,7 @@ deleted_at                 | TIMESTAMPTZ  | YES      | NULL              | Soft 
 **Constraints:**
 - Primary key: `id`
 - Foreign key: `user_id` references `auth.users(id)` ON DELETE CASCADE
-- Check: `image_processing_status IN ('pending', 'processing', 'succeeded', 'failed')`
+- Check: `image_processing_status IN ('pending', 'processing', 'succeeded', 'failed', 'skipped')`
 - Check: `attribute_status IN ('pending', 'processing', 'succeeded', 'failed')`
 
 **Indexes:**
@@ -189,12 +189,13 @@ deleted_at                 | TIMESTAMPTZ  | YES      | NULL              | Soft 
 
 ## Image Processing Status
 
-Both `image_processing_status` and `attribute_status` use the same state machine:
+The `image_processing_status` field tracks the lifecycle of background removal and thumbnail generation.
+The `attribute_status` field tracks AI attribute detection and uses a similar state machine (without `skipped`).
 
-**Status Values:**
+**Status Values for `image_processing_status`:**
 
 1. **`pending`** (default)
-   - Initial state after item creation
+   - Initial state after item creation with non-null `original_key`
    - Item is queued for background processing
    - Consumers should show placeholder or original image
    - Item is still fully usable
@@ -206,21 +207,32 @@ Both `image_processing_status` and `attribute_status` use the same state machine
 
 3. **`succeeded`**
    - Processing completed successfully
-   - For images: `clean_key` and `thumb_key` are available
-   - For attributes: `type`, `colour`, `pattern`, `fabric`, `season`, `fit` may be populated
+   - `clean_key` and `thumb_key` are available
    - Consumers should use processed results
 
 4. **`failed`**
-   - Processing failed (network error, invalid image, AI timeout, etc.)
+   - Processing failed after retries or due to non-recoverable error
    - Item remains valid and usable
-   - Consumers should fall back to original image or manual entry
-   - Can be retried by background jobs
+   - Consumers should fall back to original image
+   - Can be retried by setting status back to `pending`
+
+5. **`skipped`** (image processing only)
+   - Processing is intentionally not run for this item
+   - Used for special imports or admin overrides
+   - Item remains valid and usable with original image only
+   - Will not be picked up by background processing jobs
+
+**Status Values for `attribute_status`:**
+
+Uses the same state machine as above, except without the `skipped` status:
+`pending` → `processing` → `succeeded` | `failed`
 
 **Important Notes:**
-- Items with `pending` or `failed` status are valid and usable
+- Items with `pending`, `failed`, or `skipped` status are valid and usable
 - UI should gracefully handle missing `clean_key` and `thumb_key`
 - Attribute detection failure doesn't prevent item usage
-- Background jobs poll for `pending` items to process
+- Background jobs poll for `pending` and `failed` items to process
+- Items with `skipped` status will not be automatically processed
 
 ---
 
@@ -771,6 +783,6 @@ See `edge-functions/supabase/migrations/README.md` for migration details and how
 
 ---
 
-**Last Updated:** 2024-11-20
+**Last Updated:** 2024-11-27
 **Maintained By:** Backend team
 **Questions:** See migrations or ask in #backend channel
