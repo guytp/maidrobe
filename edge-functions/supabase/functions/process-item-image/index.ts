@@ -56,6 +56,7 @@
  * - RETRY_BASE_DELAY_MS: Base delay for exponential backoff (default: 1000)
  * - RETRY_MAX_DELAY_MS: Maximum retry delay (default: 60000)
  * - STALE_JOB_THRESHOLD_MS: Time before job considered stale (default: 600000)
+ * - MAX_CONCURRENT_JOBS: Max parallel job processing per invocation (default: 5)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -240,6 +241,13 @@ const DEFAULT_RETRY_MAX_DELAY_MS = 60000;
 
 /** Default threshold for stale job detection (10 minutes) */
 const DEFAULT_STALE_JOB_THRESHOLD_MS = 600000;
+
+/**
+ * Default maximum concurrent job processing per function invocation.
+ * Limits parallel Replicate API calls to avoid rate limiting and memory pressure.
+ * Set to 5 as a balance between throughput and resource usage.
+ */
+const DEFAULT_MAX_CONCURRENCY = 5;
 
 // ============================================================================
 // Structured Logging
@@ -1026,6 +1034,7 @@ interface ProcessingConfig {
   retryBaseDelayMs: number;
   retryMaxDelayMs: number;
   staleJobThresholdMs: number;
+  maxConcurrency: number;
 }
 
 /**
@@ -1316,14 +1325,77 @@ async function processJob(
 }
 
 /**
- * Polls the job queue and processes pending jobs
+ * Processes an array of jobs with controlled concurrency.
+ *
+ * Splits jobs into chunks of maxConcurrency and processes each chunk in parallel
+ * using Promise.all. This balances throughput with resource usage and rate limits.
+ *
+ * @param jobs - Array of jobs to process
+ * @param supabase - Supabase client
+ * @param config - Processing configuration
+ * @returns Aggregated results from all processed jobs
+ */
+async function processJobsWithConcurrency(
+  jobs: JobRecord[],
+  supabase: SupabaseClient,
+  config: ProcessingConfig
+): Promise<{ processed: number; failed: number; results: JobResult[] }> {
+  const results: JobResult[] = [];
+  let processed = 0;
+  let failed = 0;
+
+  // Process jobs in chunks of maxConcurrency
+  for (let i = 0; i < jobs.length; i += config.maxConcurrency) {
+    const chunk = jobs.slice(i, i + config.maxConcurrency);
+    const chunkIndex = Math.floor(i / config.maxConcurrency);
+
+    structuredLog('info', 'concurrent_chunk_start', {
+      chunk_index: chunkIndex,
+      chunk_size: chunk.length,
+      max_concurrency: config.maxConcurrency,
+      total_jobs: jobs.length,
+    });
+
+    // Process chunk in parallel
+    const chunkResults = await Promise.all(
+      chunk.map((job) => processJob(supabase, job, config))
+    );
+
+    // Aggregate results
+    for (const result of chunkResults) {
+      results.push(result);
+      if (result.success) {
+        processed++;
+      } else {
+        failed++;
+      }
+    }
+
+    structuredLog('info', 'concurrent_chunk_complete', {
+      chunk_index: chunkIndex,
+      chunk_processed: chunkResults.filter((r) => r.success).length,
+      chunk_failed: chunkResults.filter((r) => !r.success).length,
+    });
+  }
+
+  return { processed, failed, results };
+}
+
+/**
+ * Polls the job queue and processes pending jobs with controlled concurrency.
+ *
+ * Jobs are processed in parallel batches up to config.maxConcurrency (default: 5)
+ * to balance throughput with rate limits and memory constraints.
  */
 async function processJobQueue(
   supabase: SupabaseClient,
   batchSize: number,
   config: ProcessingConfig
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
-  structuredLog('info', 'queue_poll_start', { batch_size: batchSize });
+  structuredLog('info', 'queue_poll_start', {
+    batch_size: batchSize,
+    max_concurrency: config.maxConcurrency,
+  });
 
   // Fetch pending jobs that are ready for retry (next_retry_at is null or <= now)
   const { data: jobs, error: queryError } = await supabase
@@ -1346,21 +1418,24 @@ async function processJobQueue(
   const typedJobs = (jobs || []) as JobRecord[];
   structuredLog('info', 'queue_poll_complete', { jobs_found: typedJobs.length });
 
-  const results: JobResult[] = [];
-  let processed = 0;
-  let failed = 0;
-
-  for (const job of typedJobs) {
-    const result = await processJob(supabase, job, config);
-    results.push(result);
-    if (result.success) {
-      processed++;
-    } else {
-      failed++;
-    }
+  if (typedJobs.length === 0) {
+    return { processed: 0, failed: 0, results: [] };
   }
 
-  structuredLog('info', 'queue_batch_complete', { processed, failed });
+  // Process jobs with controlled concurrency
+  const { processed, failed, results } = await processJobsWithConcurrency(
+    typedJobs,
+    supabase,
+    config
+  );
+
+  structuredLog('info', 'queue_batch_complete', {
+    processed,
+    failed,
+    total: typedJobs.length,
+    max_concurrency: config.maxConcurrency,
+  });
+
   return { processed, failed, results };
 }
 
@@ -1532,6 +1607,10 @@ export async function handler(req: Request): Promise<Response> {
       ),
       staleJobThresholdMs: parseInt(
         Deno.env.get('STALE_JOB_THRESHOLD_MS') || String(DEFAULT_STALE_JOB_THRESHOLD_MS),
+        10
+      ),
+      maxConcurrency: parseInt(
+        Deno.env.get('MAX_CONCURRENT_JOBS') || String(DEFAULT_MAX_CONCURRENCY),
         10
       ),
     };
