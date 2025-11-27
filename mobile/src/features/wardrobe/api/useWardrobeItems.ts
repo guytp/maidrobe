@@ -265,9 +265,9 @@ export function useWardrobeItems(params: UseWardrobeItemsParams = {}): UseWardro
 
           trackCaptureEvent('item_search_used', {
             userId,
-            queryLength: searchQuery.length,
-            resultsCountBucket,
-            searchLatencyMs: latency,
+            query_length: searchQuery.length,
+            results_count_bucket: resultsCountBucket,
+            search_latency_ms: latency,
           });
         }
       } else {
