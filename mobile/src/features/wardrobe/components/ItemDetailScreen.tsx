@@ -102,7 +102,8 @@ const IMAGE_PROCESSING_STATUS_I18N_KEYS: Record<
 const ATTRIBUTE_STATUS_I18N_KEYS: Partial<
   Record<
     AttributeStatus,
-    'screens.itemDetail.attributeDetection.pending' | 'screens.itemDetail.attributeDetection.processing'
+    | 'screens.itemDetail.attributeDetection.pending'
+    | 'screens.itemDetail.attributeDetection.processing'
   >
 > = {
   pending: 'screens.itemDetail.attributeDetection.pending',
@@ -788,8 +789,6 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
           {
             text: t('screens.itemDetail.unsavedChanges.save'),
             onPress: () => {
-              // TODO: Save will be implemented in Step 4
-              // For now, just stay on screen (save handler is a no-op)
               handleSave();
             },
           },
@@ -1449,7 +1448,11 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
               accessibilityLiveRegion="polite"
             >
               <ActivityIndicator size="small" color={colors.textSecondary} />
-              <Text style={styles.attributeDetectionText} allowFontScaling maxFontSizeMultiplier={2}>
+              <Text
+                style={styles.attributeDetectionText}
+                allowFontScaling
+                maxFontSizeMultiplier={2}
+              >
                 {attributeDetectionText}
               </Text>
             </View>
