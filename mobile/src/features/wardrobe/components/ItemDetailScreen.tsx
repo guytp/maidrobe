@@ -781,6 +781,13 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
             text: t('screens.itemDetail.unsavedChanges.discard'),
             style: 'destructive',
             onPress: () => {
+              // User story #241 spec-compliant event: item_edit_cancelled
+              // Emitted when user enters edit mode but exits without saving any changes
+              trackCaptureEvent('item_edit_cancelled', {
+                userId: user?.id,
+                itemId,
+              });
+
               // Skip guard and allow navigation
               skipNavigationGuardRef.current = true;
               navigation.dispatch(e.data.action);
@@ -798,7 +805,7 @@ export function ItemDetailScreen({ itemId }: ItemDetailScreenProps): React.JSX.E
     });
 
     return unsubscribe;
-  }, [isDirty, navigation, handleSave]);
+  }, [isDirty, navigation, handleSave, user?.id, itemId]);
 
   // Name change handler with validation
   const handleNameChange = useCallback((text: string) => {
