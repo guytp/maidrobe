@@ -138,6 +138,7 @@ export interface UseWardrobeFeatureFlagsResult {
  * CACHING STRATEGY:
  * - staleTime: 5 minutes - flags are considered fresh for 5 minutes
  * - gcTime: 30 minutes - cached data is kept for 30 minutes
+ * - refetchOnMount: true - refetch stale data when component mounts (screen navigation)
  * - refetchOnWindowFocus: true - refetch when app comes to foreground
  * - retry: 2 - retry failed requests twice before giving up
  *
@@ -169,6 +170,7 @@ export function useWardrobeFeatureFlags(): UseWardrobeFeatureFlagsResult {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
     // Refetch behaviour
+    refetchOnMount: true, // Refetch stale data on component mount (screen navigation)
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     // Retry configuration
