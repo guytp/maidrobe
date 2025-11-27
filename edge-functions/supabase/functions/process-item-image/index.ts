@@ -626,7 +626,12 @@ async function removeBackground(
 
   try {
     // Convert image to base64 data URI
-    const base64Image = btoa(String.fromCharCode(...imageData));
+    // Using TextDecoder with 'latin1' (ISO-8859-1) encoding for memory-efficient conversion.
+    // This avoids the spread operator (...imageData) which fails on large images due to
+    // JavaScript's maximum argument limit (~65K-125K depending on engine).
+    // latin1 maps each byte (0-255) directly to the same Unicode code point,
+    // making it safe for binary-to-base64 conversion of images up to 50 MiB.
+    const base64Image = btoa(new TextDecoder('latin1').decode(imageData));
     const mimeType = detectMimeType(imageData);
     const dataUri = `data:${mimeType};base64,${base64Image}`;
 
