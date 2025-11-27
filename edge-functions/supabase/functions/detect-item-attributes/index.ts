@@ -186,25 +186,6 @@ interface OpenAIResponse {
 }
 
 /**
- * Expected raw structure from GPT-4o for garment attributes.
- *
- * This represents the unvalidated response from the AI model.
- * After parsing, raw attributes are validated and canonicalised
- * using the canonicalise module before persistence.
- *
- * @see CanonicalisedAttributes - The validated/normalised version
- * @deprecated Use CanonicalisedAttributes for typed attribute handling
- */
-interface _RawDetectedAttributes {
-  type?: string;
-  colour?: string[];
-  pattern?: string;
-  fabric?: string;
-  season?: string[];
-  fit?: string;
-}
-
-/**
  * Structured log entry
  */
 interface LogEntry {
@@ -354,14 +335,18 @@ function structuredLog(
 
   const message = JSON.stringify(entry);
 
+  // Console logging is intentional for Edge Function observability
   switch (level) {
     case 'error':
+      // eslint-disable-next-line no-console
       console.error('[DetectAttributes]', message);
       break;
     case 'warn':
+      // eslint-disable-next-line no-console
       console.warn('[DetectAttributes]', message);
       break;
     default:
+      // eslint-disable-next-line no-console
       console.log('[DetectAttributes]', message);
   }
 }
@@ -402,9 +387,12 @@ function emitProcessingSummary(summary: ProcessingSummary): void {
 
   const message = JSON.stringify(logEntry);
 
+  // Console logging is intentional for Edge Function observability
   if (summary.attributeStatus === 'failed') {
+    // eslint-disable-next-line no-console
     console.error('[DetectAttributes:Summary]', message);
   } else {
+    // eslint-disable-next-line no-console
     console.log('[DetectAttributes:Summary]', message);
   }
 }
@@ -432,11 +420,14 @@ function createClassifiedError(
 }
 
 /**
- * Classifies an HTTP status code into error category and code
+ * Classifies an HTTP status code into error category and code.
+ *
+ * @param status - HTTP status code
+ * @param _provider - Provider for future provider-specific handling (currently unused)
  */
 function classifyHttpStatus(
   status: number,
-  provider: Provider
+  _provider: Provider
 ): { category: ErrorCategory; code: ErrorCode } {
   // Rate limiting - transient
   if (status === 429) {
