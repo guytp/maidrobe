@@ -273,36 +273,8 @@ Example response:
 {"type":"t-shirt","colour":["navy","white"],"pattern":"striped","fabric":"cotton","season":["spring","summer"],"fit":"regular"}`;
 
 // ============================================================================
-// Structured Logging
+// Processing Summary Types
 // ============================================================================
-
-/**
- * Module-level logger instance.
- * Initialized per-request in the handler with the correlation ID.
- * Falls back to a default logger for internal operations.
- */
-let moduleLogger: StructuredLogger | null = null;
-
-/**
- * Gets or creates the module logger.
- * If not initialized (e.g., called from internal functions before handler),
- * creates a logger with a generated correlation ID.
- */
-function getLogger(): StructuredLogger {
-  if (!moduleLogger) {
-    moduleLogger = createLogger(FUNCTION_NAME, crypto.randomUUID());
-  }
-  return moduleLogger;
-}
-
-/**
- * Initializes the module logger for a request.
- * Should be called at the start of the handler.
- */
-function initializeLogger(correlationId: string): StructuredLogger {
-  moduleLogger = createLogger(FUNCTION_NAME, correlationId);
-  return moduleLogger;
-}
 
 /**
  * Consolidated processing summary for observability.
@@ -339,47 +311,6 @@ interface ProcessingSummary {
 }
 
 /**
- * Legacy structured logging function for backwards compatibility.
- * Wraps the shared logger module.
- * Privacy-aware: avoids logging raw image data, bucket paths, or secrets.
- */
-function structuredLog(
-  level: 'info' | 'warn' | 'error',
-  event: string,
-  data: Record<string, unknown> = {}
-): void {
-  const logger = getLogger();
-
-  // Map legacy data fields to structured logger format
-  const logData = {
-    item_id: data.item_id as string | undefined,
-    user_id: data.user_id as string | undefined,
-    job_id: data.job_id as number | undefined,
-    duration_ms: data.duration_ms as number | undefined,
-    error_code: data.error_code as string | undefined,
-    error_category: data.error_category as string | undefined,
-    error_message: data.error_message as string | undefined,
-    metadata: Object.fromEntries(
-      Object.entries(data).filter(
-        ([key]) =>
-          !['item_id', 'user_id', 'job_id', 'duration_ms', 'error_code', 'error_category', 'error_message'].includes(key)
-      )
-    ) as Record<string, string | number | boolean | null>,
-  };
-
-  switch (level) {
-    case 'error':
-      logger.error(event, logData);
-      break;
-    case 'warn':
-      logger.warn(event, logData);
-      break;
-    default:
-      logger.info(event, logData);
-  }
-}
-
-/**
  * Emits a consolidated processing summary log entry.
  *
  * This function outputs a single structured JSON log containing all
@@ -396,10 +327,9 @@ function structuredLog(
  * - Personal information beyond IDs
  *
  * @param summary - Processing summary data
+ * @param logger - Structured logger instance for request-scoped logging
  */
-function emitProcessingSummary(summary: ProcessingSummary): void {
-  const logger = getLogger();
-
+function emitProcessingSummary(summary: ProcessingSummary, logger: StructuredLogger): void {
   const logData = {
     item_id: summary.itemId,
     user_id: summary.userId,
@@ -632,9 +562,10 @@ function isValidUuid(value: string): boolean {
 async function generateSignedUrl(
   supabase: SupabaseClient,
   imageKey: string,
-  expirySeconds: number
+  expirySeconds: number,
+  logger: StructuredLogger
 ): Promise<string> {
-  structuredLog('info', 'signed_url_generate_start', { expiry_seconds: expirySeconds });
+  logger.info('signed_url_generate_start', { metadata: { expiry_seconds: expirySeconds } });
 
   const { data, error } = await supabase.storage
     .from(STORAGE_BUCKET)
@@ -668,7 +599,7 @@ async function generateSignedUrl(
     );
   }
 
-  structuredLog('info', 'signed_url_generate_complete');
+  logger.info('signed_url_generate_complete');
   return data.signedUrl;
 }
 
@@ -692,9 +623,10 @@ async function callOpenAIVision(
   imageUrl: string,
   apiKey: string,
   model: string,
-  timeoutMs: number
+  timeoutMs: number,
+  logger: StructuredLogger
 ): Promise<CanonicalisedAttributes> {
-  structuredLog('info', 'openai_request_start', { model, timeout_ms: timeoutMs });
+  logger.info('openai_request_start', { metadata: { model, timeout_ms: timeoutMs } });
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -739,10 +671,10 @@ async function callOpenAIVision(
       const errorText = await response.text().catch(() => 'Unknown error');
       const { category, code } = classifyHttpStatus(response.status, 'openai');
 
-      structuredLog('error', 'openai_http_error', {
-        http_status: response.status,
+      logger.error('openai_http_error', {
         error_category: category,
         error_code: code,
+        metadata: { http_status: response.status },
       });
 
       throw createClassifiedError(
@@ -778,9 +710,11 @@ async function callOpenAIVision(
       );
     }
 
-    structuredLog('info', 'openai_response_received', {
-      finish_reason: data.choices?.[0]?.finish_reason,
-      content_length: content.length,
+    logger.info('openai_response_received', {
+      metadata: {
+        finish_reason: data.choices?.[0]?.finish_reason,
+        content_length: content.length,
+      },
     });
 
     // Parse JSON from response
@@ -802,9 +736,9 @@ async function callOpenAIVision(
 
       rawAttributes = JSON.parse(jsonContent);
     } catch (parseError) {
-      structuredLog('error', 'openai_json_parse_error', {
+      logger.error('openai_json_parse_error', {
         error_message: parseError instanceof Error ? parseError.message : String(parseError),
-        content_preview: content.substring(0, 100),
+        metadata: { content_preview: content.substring(0, 100) },
       });
 
       throw createClassifiedError(
@@ -819,9 +753,9 @@ async function callOpenAIVision(
     const canonResult: CanonicalisationResult = canonicaliseAttributes(rawAttributes);
 
     if (!canonResult.valid || !canonResult.attributes) {
-      structuredLog('error', 'openai_validation_error', {
+      logger.error('openai_validation_error', {
         error_message: canonResult.error,
-        content_preview: content.substring(0, 100),
+        metadata: { content_preview: content.substring(0, 100) },
       });
 
       throw createClassifiedError(
@@ -834,14 +768,16 @@ async function callOpenAIVision(
 
     const canonicalised = canonResult.attributes;
 
-    structuredLog('info', 'openai_request_complete', {
-      has_type: canonicalised.type !== null,
-      has_colour: canonicalised.colour !== null && canonicalised.colour.length > 0,
-      has_season: canonicalised.season !== null && canonicalised.season.length > 0,
-      has_pattern: canonicalised.pattern !== null,
-      has_fabric: canonicalised.fabric !== null,
-      has_fit: canonicalised.fit !== null,
-      has_any_attributes: hasAnyAttributes(canonicalised),
+    logger.info('openai_request_complete', {
+      metadata: {
+        has_type: canonicalised.type !== null,
+        has_colour: canonicalised.colour !== null && canonicalised.colour.length > 0,
+        has_season: canonicalised.season !== null && canonicalised.season.length > 0,
+        has_pattern: canonicalised.pattern !== null,
+        has_fabric: canonicalised.fabric !== null,
+        has_fit: canonicalised.fit !== null,
+        has_any_attributes: hasAnyAttributes(canonicalised),
+      },
     });
 
     return canonicalised;
@@ -879,7 +815,8 @@ async function callOpenAIVision(
 async function markItemFailed(
   supabase: SupabaseClient,
   itemId: string,
-  errorCode: ErrorCode
+  errorCode: ErrorCode,
+  logger: StructuredLogger
 ): Promise<void> {
   const attributeErrorReason = mapToAttributeErrorReason(errorCode);
 
@@ -893,7 +830,7 @@ async function markItemFailed(
     .eq('id', itemId);
 
   if (error) {
-    structuredLog('error', 'item_update_failed', {
+    logger.error('item_update_failed', {
       item_id: itemId,
       error_message: error.message,
     });
@@ -966,6 +903,7 @@ async function markItemSucceeded(
  * @param supabase - Supabase client with service role
  * @param itemId - ID of the item to process
  * @param config - Processing configuration
+ * @param logger - Structured logger instance for request-scoped logging
  * @param jobId - Optional job ID for logging
  * @returns Processing result with user ID, duration, and canonicalised attributes
  */
@@ -973,12 +911,13 @@ async function processItem(
   supabase: SupabaseClient,
   itemId: string,
   config: ProcessingConfig,
+  logger: StructuredLogger,
   jobId?: number
 ): Promise<{ userId: string; durationMs: number; attributes: CanonicalisedAttributes }> {
   const startTime = Date.now();
   let userId = '';
 
-  structuredLog('info', 'item_processing_start', { item_id: itemId, job_id: jobId });
+  logger.info('item_processing_start', { item_id: itemId, job_id: jobId });
 
   // Step 1: Fetch and validate item
   const { data: item, error: fetchError } = await supabase
@@ -1009,9 +948,9 @@ async function processItem(
   const imageKey = typedItem.clean_key ?? typedItem.original_key;
 
   if (!imageKey) {
-    structuredLog('warn', 'item_no_image_key', { item_id: itemId, user_id: userId });
+    logger.warn('item_no_image_key', { item_id: itemId, user_id: userId });
 
-    await markItemFailed(supabase, itemId, 'missing_image');
+    await markItemFailed(supabase, itemId, 'missing_image', logger);
 
     throw createClassifiedError(
       'Item has no valid image key (clean_key or original_key)',
@@ -1059,14 +998,15 @@ async function processItem(
 
   try {
     // Step 5: Generate pre-signed URL for the image
-    const signedUrl = await generateSignedUrl(supabase, imageKey, config.signedUrlExpirySeconds);
+    const signedUrl = await generateSignedUrl(supabase, imageKey, config.signedUrlExpirySeconds, logger);
 
     // Step 6: Call OpenAI Vision API
     const attributes = await callOpenAIVision(
       signedUrl,
       config.openaiApiKey,
       config.openaiModel,
-      config.timeoutMs
+      config.timeoutMs,
+      logger
     );
 
     // Step 7: Update item with results
@@ -1074,13 +1014,15 @@ async function processItem(
 
     const durationMs = Date.now() - startTime;
 
-    structuredLog('info', 'item_processing_complete', {
+    logger.info('item_processing_complete', {
       item_id: itemId,
       user_id: userId,
       job_id: jobId,
       duration_ms: durationMs,
-      model: config.openaiModel,
-      attribute_status: 'succeeded',
+      metadata: {
+        model: config.openaiModel,
+        attribute_status: 'succeeded',
+      },
     });
 
     // Emit consolidated summary log for observability
@@ -1096,7 +1038,7 @@ async function processItem(
       durationMs,
       attributeStatus: 'succeeded',
       attributeErrorReason: null,
-    });
+    }, logger);
 
     return { userId, durationMs, attributes };
   } catch (processingError) {
@@ -1104,21 +1046,23 @@ async function processItem(
     const classifiedError = classifyError(processingError, 'internal');
 
     // Mark item as failed
-    await markItemFailed(supabase, itemId, classifiedError.code);
+    await markItemFailed(supabase, itemId, classifiedError.code, logger);
 
     const attributeErrorReason = mapToAttributeErrorReason(classifiedError.code);
 
-    structuredLog('error', 'item_processing_failed', {
+    logger.error('item_processing_failed', {
       item_id: itemId,
       user_id: userId,
       job_id: jobId,
       duration_ms: durationMs,
-      model: config.openaiModel,
       error_category: classifiedError.category,
       error_code: classifiedError.code,
       error_message: classifiedError.message,
-      provider: classifiedError.provider,
-      attribute_status: 'failed',
+      metadata: {
+        model: config.openaiModel,
+        provider: classifiedError.provider,
+        attribute_status: 'failed',
+      },
     });
 
     // Emit consolidated summary log for observability
@@ -1132,7 +1076,7 @@ async function processItem(
       durationMs,
       attributeStatus: 'failed',
       attributeErrorReason,
-    });
+    }, logger);
 
     throw classifiedError;
   }
@@ -1148,15 +1092,16 @@ async function processItem(
 async function processJob(
   supabase: SupabaseClient,
   job: JobRecord,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<JobResult> {
   const startTime = Date.now();
   const newAttemptCount = job.attempt_count + 1;
 
-  structuredLog('info', 'job_pickup', {
+  logger.info('job_pickup', {
     job_id: job.id,
     item_id: job.item_id,
-    attempt_count: newAttemptCount,
+    metadata: { attempt_count: newAttemptCount },
   });
 
   // Update job to processing status
@@ -1179,7 +1124,7 @@ async function processJob(
   }
 
   try {
-    const { durationMs } = await processItem(supabase, job.item_id, config, job.id);
+    const { durationMs } = await processItem(supabase, job.item_id, config, logger, job.id);
 
     // Mark job as completed
     await supabase
@@ -1226,24 +1171,28 @@ async function processJob(
         config.retryMaxDelayMs
       );
 
-      structuredLog('info', 'job_retry_scheduled', {
+      logger.info('job_retry_scheduled', {
         job_id: job.id,
         item_id: job.item_id,
-        attempt_count: newAttemptCount,
-        next_retry_at: jobUpdate.next_retry_at as string,
         error_category: classifiedError.category,
         error_code: classifiedError.code,
+        metadata: {
+          attempt_count: newAttemptCount,
+          next_retry_at: jobUpdate.next_retry_at as string,
+        },
       });
     } else {
-      structuredLog('error', 'job_permanently_failed', {
+      logger.error('job_permanently_failed', {
         job_id: job.id,
         item_id: job.item_id,
-        attempt_count: newAttemptCount,
-        max_attempts: job.max_attempts,
         error_category: classifiedError.category,
         error_code: classifiedError.code,
         error_message: classifiedError.message,
-        provider: classifiedError.provider,
+        metadata: {
+          attempt_count: newAttemptCount,
+          max_attempts: job.max_attempts,
+          provider: classifiedError.provider,
+        },
       });
     }
 
@@ -1267,7 +1216,8 @@ async function processJob(
 async function processJobsWithConcurrency(
   jobs: JobRecord[],
   supabase: SupabaseClient,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
   const results: JobResult[] = [];
   let processed = 0;
@@ -1276,16 +1226,21 @@ async function processJobsWithConcurrency(
   // Process jobs in chunks of maxConcurrency
   for (let i = 0; i < jobs.length; i += config.maxConcurrency) {
     const chunk = jobs.slice(i, i + config.maxConcurrency);
+    const chunkIndex = Math.floor(i / config.maxConcurrency);
 
-    structuredLog('info', 'concurrent_chunk_start', {
-      chunk_index: Math.floor(i / config.maxConcurrency),
-      chunk_size: chunk.length,
-      max_concurrency: config.maxConcurrency,
-      total_jobs: jobs.length,
+    logger.info('concurrent_chunk_start', {
+      metadata: {
+        chunk_index: chunkIndex,
+        chunk_size: chunk.length,
+        max_concurrency: config.maxConcurrency,
+        total_jobs: jobs.length,
+      },
     });
 
     // Process chunk in parallel
-    const chunkResults = await Promise.all(chunk.map((job) => processJob(supabase, job, config)));
+    const chunkResults = await Promise.all(
+      chunk.map((job) => processJob(supabase, job, config, logger))
+    );
 
     // Aggregate results
     for (const result of chunkResults) {
@@ -1296,6 +1251,14 @@ async function processJobsWithConcurrency(
         failed++;
       }
     }
+
+    logger.info('concurrent_chunk_complete', {
+      metadata: {
+        chunk_index: chunkIndex,
+        chunk_processed: chunkResults.filter((r) => r.success).length,
+        chunk_failed: chunkResults.filter((r) => !r.success).length,
+      },
+    });
   }
 
   return { processed, failed, results };
@@ -1307,11 +1270,11 @@ async function processJobsWithConcurrency(
 async function processJobQueue(
   supabase: SupabaseClient,
   batchSize: number,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ processed: number; failed: number; results: JobResult[] }> {
-  structuredLog('info', 'queue_poll_start', {
-    batch_size: batchSize,
-    max_concurrency: config.maxConcurrency,
+  logger.info('queue_poll_start', {
+    metadata: { batch_size: batchSize, max_concurrency: config.maxConcurrency },
   });
 
   // Fetch pending jobs that are ready for retry
@@ -1333,7 +1296,7 @@ async function processJobQueue(
   }
 
   const typedJobs = (jobs || []) as JobRecord[];
-  structuredLog('info', 'queue_poll_complete', { jobs_found: typedJobs.length });
+  logger.info('queue_poll_complete', { metadata: { jobs_found: typedJobs.length } });
 
   if (typedJobs.length === 0) {
     return { processed: 0, failed: 0, results: [] };
@@ -1343,13 +1306,17 @@ async function processJobQueue(
   const { processed, failed, results } = await processJobsWithConcurrency(
     typedJobs,
     supabase,
-    config
+    config,
+    logger
   );
 
-  structuredLog('info', 'queue_batch_complete', {
-    processed,
-    failed,
-    total: typedJobs.length,
+  logger.info('queue_batch_complete', {
+    metadata: {
+      processed,
+      failed,
+      total: typedJobs.length,
+      max_concurrency: config.maxConcurrency,
+    },
   });
 
   return { processed, failed, results };
@@ -1360,13 +1327,13 @@ async function processJobQueue(
  */
 async function recoverStaleJobs(
   supabase: SupabaseClient,
-  config: ProcessingConfig
+  config: ProcessingConfig,
+  logger: StructuredLogger
 ): Promise<{ recovered: number; results: JobResult[] }> {
   const thresholdTime = new Date(Date.now() - config.staleJobThresholdMs).toISOString();
 
-  structuredLog('info', 'stale_recovery_start', {
-    threshold_ms: config.staleJobThresholdMs,
-    threshold_time: thresholdTime,
+  logger.info('stale_recovery_start', {
+    metadata: { threshold_ms: config.staleJobThresholdMs, threshold_time: thresholdTime },
   });
 
   // Find jobs stuck in processing
@@ -1386,7 +1353,7 @@ async function recoverStaleJobs(
   }
 
   const typedStaleJobs = (staleJobs || []) as JobRecord[];
-  structuredLog('info', 'stale_jobs_found', { count: typedStaleJobs.length });
+  logger.info('stale_jobs_found', { metadata: { count: typedStaleJobs.length } });
 
   const results: JobResult[] = [];
   let recovered = 0;
@@ -1394,13 +1361,15 @@ async function recoverStaleJobs(
   for (const job of typedStaleJobs) {
     const canRetry = job.attempt_count < job.max_attempts;
 
-    structuredLog('warn', 'stale_job_recovered', {
+    logger.warn('stale_job_recovered', {
       job_id: job.id,
       item_id: job.item_id,
-      attempt_count: job.attempt_count,
-      max_attempts: job.max_attempts,
-      started_at: job.started_at,
-      action: canRetry ? 'reset_to_pending' : 'mark_as_failed',
+      metadata: {
+        attempt_count: job.attempt_count,
+        max_attempts: job.max_attempts,
+        started_at: job.started_at,
+        action: canRetry ? 'reset_to_pending' : 'mark_as_failed',
+      },
     });
 
     if (canRetry) {
@@ -1444,7 +1413,7 @@ async function recoverStaleJobs(
         .eq('id', job.id);
 
       // Mark item as failed
-      await markItemFailed(supabase, job.item_id, 'timeout');
+      await markItemFailed(supabase, job.item_id, 'timeout', logger);
     }
 
     recovered++;
@@ -1458,7 +1427,7 @@ async function recoverStaleJobs(
     });
   }
 
-  structuredLog('info', 'stale_recovery_complete', { recovered });
+  logger.info('stale_recovery_complete', { metadata: { recovered } });
   return { recovered, results };
 }
 
@@ -1471,9 +1440,10 @@ async function recoverStaleJobs(
  * Exported for unit testing.
  */
 export async function handler(req: Request): Promise<Response> {
-  // Initialize logger with correlation ID from request
+  // Create per-request logger with correlation ID
+  // This ensures correlation IDs cannot leak between concurrent requests
   const correlationId = getOrGenerateCorrelationId(req);
-  const logger = initializeLogger(correlationId);
+  const logger = createLogger(FUNCTION_NAME, correlationId);
 
   if (req.method !== 'POST') {
     return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation', correlationId }, 405);
@@ -1486,7 +1456,7 @@ export async function handler(req: Request): Promise<Response> {
     // Server-side decision: client cannot override this behaviour
     // Uses shared feature flag module for consistency with other edge functions
     if (!isAIAttributesEnabled()) {
-      structuredLog('info', 'feature_disabled', { feature: 'wardrobe_ai_attributes' });
+      logger.info('feature_disabled', { metadata: { feature: 'wardrobe_ai_attributes' } });
       return jsonResponse(
         {
           success: true,
@@ -1507,7 +1477,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Validate required configuration
     if (!supabaseUrl || !supabaseServiceKey) {
-      structuredLog('error', 'config_missing', { missing: 'SUPABASE_URL or SERVICE_KEY' });
+      logger.error('config_missing', { metadata: { missing: 'SUPABASE_URL or SERVICE_KEY' } });
       return jsonResponse(
         { success: false, error: 'Service configuration error', code: 'config_error', correlationId },
         500
@@ -1515,7 +1485,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (!openaiApiKey) {
-      structuredLog('error', 'config_missing', { missing: 'OPENAI_API_KEY' });
+      logger.error('config_missing', { metadata: { missing: 'OPENAI_API_KEY' } });
       return jsonResponse(
         { success: false, error: 'AI provider not configured', code: 'config_error', correlationId },
         500
@@ -1568,7 +1538,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle stale job recovery mode
     if (requestBody.recoverStale) {
-      const { recovered, results } = await recoverStaleJobs(supabase, config);
+      const { recovered, results } = await recoverStaleJobs(supabase, config, logger);
 
       // If also processing queue, continue
       if (!requestBody.itemId && !requestBody.batchSize) {
@@ -1590,7 +1560,7 @@ export async function handler(req: Request): Promise<Response> {
         requestBody.batchSize || DEFAULT_BATCH_SIZE,
         DEFAULT_BATCH_SIZE
       );
-      const queueResults = await processJobQueue(supabase, queueBatchSize, config);
+      const queueResults = await processJobQueue(supabase, queueBatchSize, config, logger);
 
       return jsonResponse(
         {
@@ -1617,7 +1587,7 @@ export async function handler(req: Request): Promise<Response> {
       }
 
       try {
-        const { durationMs } = await processItem(supabase, itemId, config);
+        const { durationMs } = await processItem(supabase, itemId, config, logger);
         return jsonResponse(
           {
             success: true,
@@ -1632,7 +1602,7 @@ export async function handler(req: Request): Promise<Response> {
         const classifiedError = classifyError(error, 'internal');
 
         // Mark item as failed in case processItem didn't complete the update
-        await markItemFailed(supabase, itemId, classifiedError.code);
+        await markItemFailed(supabase, itemId, classifiedError.code, logger);
 
         return jsonResponse(
           {
@@ -1659,7 +1629,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle queue mode (default)
     const batchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
-    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config);
+    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config, logger);
 
     return jsonResponse(
       {
@@ -1673,7 +1643,7 @@ export async function handler(req: Request): Promise<Response> {
     );
   } catch (error) {
     const classifiedError = classifyError(error, 'internal');
-    structuredLog('error', 'unexpected_error', {
+    logger.error('unexpected_error', {
       error_message: classifiedError.message,
       error_category: classifiedError.category,
       error_code: classifiedError.code,
