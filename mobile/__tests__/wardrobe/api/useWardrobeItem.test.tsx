@@ -7,7 +7,7 @@
  * @module __tests__/wardrobe/api/useWardrobeItem
  */
 
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { type ReactNode } from 'react';
 import { useWardrobeItem } from '../../../src/features/wardrobe/api/useWardrobeItem';
@@ -28,17 +28,31 @@ jest.mock('../../../src/core/state/store', () => ({
   ),
 }));
 
-// Mock fetchWardrobeItem
+// Mock fetchWardrobeItem - define mock class inside factory with 'mock' prefixed properties
 jest.mock('../../../src/features/wardrobe/api/fetchWardrobeItem', () => ({
   fetchWardrobeItem: jest.fn(),
-  FetchWardrobeItemError: class FetchWardrobeItemError extends Error {
+  FetchWardrobeItemError: class MockFetchWardrobeItemError extends Error {
+    public readonly mockCode: string;
+    public readonly mockOriginalError?: unknown;
+
     constructor(
       message: string,
-      public readonly code: string,
-      public readonly originalError?: unknown
+      mockCode: string,
+      mockOriginalError?: unknown
     ) {
       super(message);
       this.name = 'FetchWardrobeItemError';
+      this.mockCode = mockCode;
+      this.mockOriginalError = mockOriginalError;
+    }
+
+    // Getter for 'code' property to maintain API compatibility
+    get code(): string {
+      return this.mockCode;
+    }
+
+    get originalError(): unknown {
+      return this.mockOriginalError;
     }
   },
 }));
@@ -102,7 +116,7 @@ describe('useWardrobeItem', () => {
 
       // Initially loading
       expect(result.current.isLoading).toBe(true);
-      expect(result.current.item).toBeUndefined();
+      expect(result.current.item).toBeNull();
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -134,17 +148,34 @@ describe('useWardrobeItem', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Use fake timers to speed up retry delays for queries
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('handles network errors', async () => {
       const networkError = new mockFetchModule.FetchWardrobeItemError(
         'Network error',
         'network'
       );
-      mockFetchModule.fetchWardrobeItem.mockRejectedValueOnce(networkError);
+      // Use mockRejectedValue (not Once) because network errors are retried
+      mockFetchModule.fetchWardrobeItem.mockRejectedValue(networkError);
 
       const { result } = renderHook(
         () => useWardrobeItem({ itemId: 'item-123' }),
         { wrapper }
       );
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 4; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -180,12 +211,20 @@ describe('useWardrobeItem', () => {
         'Server error',
         'server'
       );
-      mockFetchModule.fetchWardrobeItem.mockRejectedValueOnce(serverError);
+      // Use mockRejectedValue (not Once) because server errors are retried
+      mockFetchModule.fetchWardrobeItem.mockRejectedValue(serverError);
 
       const { result } = renderHook(
         () => useWardrobeItem({ itemId: 'item-123' }),
         { wrapper }
       );
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 4; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
