@@ -104,7 +104,7 @@ export function useUpdateProfileHasOnboarded(): UseMutationResult<
         });
       } catch (error) {
         // Log unexpected errors
-        logError(error as Error, 'client', {
+        logError(error as Error, 'user', {
           feature: 'auth',
           operation: 'updateProfileHasOnboarded',
           metadata: {
@@ -210,7 +210,7 @@ export async function updateProfileHasOnboarded(
       },
     });
   } catch (error) {
-    logError(error as Error, 'client', {
+    logError(error as Error, 'user', {
       feature: 'auth',
       operation: 'updateProfileHasOnboardedDirect',
       metadata: {
