@@ -181,11 +181,12 @@ export function useDeleteWardrobeItem(): UseDeleteWardrobeItemResult {
             errorMessage: error.message,
           });
 
-          // User story #241 spec-compliant event
+          // User story #241 spec-compliant event: item_deletion_failed
+          // Properties per spec: error_type (enum)
           trackCaptureEvent('item_deletion_failed', {
             userId,
             itemId: params.itemId,
-            errorCategory: error.code,
+            error_type: error.code,
           });
         }
         throw error;
