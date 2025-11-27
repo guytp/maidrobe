@@ -443,13 +443,21 @@ export interface RawAttributes {
 /**
  * Validated and canonicalised attributes ready for persistence.
  * All fields have been type-checked and normalised.
+ *
+ * Note on array fields (colour, season):
+ * - The canonicalisation functions return empty arrays `[]` when no values are detected
+ * - When persisting to the database, empty arrays are converted to `null` for consistency
+ *   with PostgreSQL conventions and to distinguish "no colours detected" from "not yet processed"
+ * - Consumers should handle both empty arrays and null values appropriately
  */
 export interface CanonicalisedAttributes {
   type: string | null;
-  colour: string[];
+  /** Canonical colour values, or null if none detected / not yet processed */
+  colour: string[] | null;
   pattern: string | null;
   fabric: string | null;
-  season: string[];
+  /** Canonical season values, or null if none detected / not yet processed */
+  season: string[] | null;
   fit: string | null;
 }
 
@@ -711,16 +719,22 @@ export function canonicaliseAttributes(raw: unknown): CanonicalisationResult {
  * Returns true if at least one field has a non-null/non-empty value.
  * Useful for deciding whether to update the database.
  *
+ * Handles both null and empty array cases for colour and season fields,
+ * since these may be null (from DB) or empty arrays (from canonicalisation).
+ *
  * @param attributes - Canonicalised attributes to check
  * @returns true if any field has data
  */
 export function hasAnyAttributes(attributes: CanonicalisedAttributes): boolean {
+  const hasColour = attributes.colour !== null && attributes.colour.length > 0;
+  const hasSeason = attributes.season !== null && attributes.season.length > 0;
+
   return (
     attributes.type !== null ||
-    attributes.colour.length > 0 ||
+    hasColour ||
     attributes.pattern !== null ||
     attributes.fabric !== null ||
-    attributes.season.length > 0 ||
+    hasSeason ||
     attributes.fit !== null
   );
 }
