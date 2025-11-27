@@ -99,6 +99,14 @@ export function CaptureScreen(): React.JSX.Element {
         source: 'camera',
       });
 
+      // Emit item_capture_started with source now that user has made their selection
+      // (complements the initial item_capture_started emitted on flow entry without source)
+      trackCaptureEvent('item_capture_started', {
+        userId: user?.id,
+        context: origin || undefined,
+        source: 'camera',
+      });
+
       // Navigate to camera screen
       router.push(`/capture/camera?origin=${origin || 'wardrobe'}`);
       setTimeout(() => setIsNavigating(false), NAVIGATION_DEBOUNCE_MS);
@@ -144,6 +152,14 @@ export function CaptureScreen(): React.JSX.Element {
                 trackCaptureEvent('capture_source_selected', {
                   userId: user?.id,
                   origin: origin || undefined,
+                  source: 'camera',
+                });
+
+                // Emit item_capture_started with source now that user has made their selection
+                // (complements the initial item_capture_started emitted on flow entry without source)
+                trackCaptureEvent('item_capture_started', {
+                  userId: user?.id,
+                  context: origin || undefined,
                   source: 'camera',
                 });
 
