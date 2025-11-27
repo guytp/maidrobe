@@ -258,6 +258,36 @@ export interface CreateItemResult {
 }
 
 /**
+ * Response shape from Supabase items table upsert with select().single().
+ *
+ * This interface represents the exact columns returned by the upsert operation
+ * in the retry loop. Using a concrete type instead of `any` enables:
+ * - Compile-time validation of property access
+ * - IDE autocomplete and IntelliSense support
+ * - Early detection of schema mismatches
+ *
+ * Fields match the columns inserted/selected in the upsert query.
+ */
+interface ItemUpsertResponse {
+  /** Item UUID (UUIDv7 format) */
+  id: string;
+  /** User ID (foreign key to auth.users) */
+  user_id: string;
+  /** Optional item name */
+  name: string | null;
+  /** Optional tags array (lowercased) */
+  tags: string[] | null;
+  /** Storage path for original image */
+  original_key: string;
+  /** Image processing pipeline status */
+  image_processing_status: string;
+  /** AI attribute detection status */
+  attribute_status: string;
+  /** Creation timestamp (ISO 8601, UTC) */
+  created_at: string;
+}
+
+/**
  * State returned by the useCreateItemWithImage hook.
  */
 export interface UseCreateItemWithImageState {
@@ -681,8 +711,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
         // - Database insert uses upsert with onConflict: 'id'
         // - Stable itemId (cached) ensures consistent paths across retries
         let lastError: CreateItemWithImageError | null = null;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let dbData: any = null;
+        let dbData: ItemUpsertResponse | null = null;
 
         for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
           try {
