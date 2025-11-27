@@ -28,17 +28,31 @@ jest.mock('../../../src/core/state/store', () => ({
   ),
 }));
 
-// Mock deleteWardrobeItem
+// Mock deleteWardrobeItem - define mock class inside factory with 'mock' prefixed properties
 jest.mock('../../../src/features/wardrobe/api/deleteWardrobeItem', () => ({
   deleteWardrobeItem: jest.fn(),
-  DeleteWardrobeItemError: class DeleteWardrobeItemError extends Error {
+  DeleteWardrobeItemError: class MockDeleteWardrobeItemError extends Error {
+    public readonly mockCode: string;
+    public readonly mockOriginalError?: unknown;
+
     constructor(
       message: string,
-      public readonly code: string,
-      public readonly originalError?: unknown
+      mockCode: string,
+      mockOriginalError?: unknown
     ) {
       super(message);
       this.name = 'DeleteWardrobeItemError';
+      this.mockCode = mockCode;
+      this.mockOriginalError = mockOriginalError;
+    }
+
+    // Getter for 'code' property to maintain API compatibility
+    get code(): string {
+      return this.mockCode;
+    }
+
+    get originalError(): unknown {
+      return this.mockOriginalError;
     }
   },
 }));
@@ -156,18 +170,35 @@ describe('useDeleteWardrobeItem', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Use fake timers to speed up retry delays
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('handles network errors', async () => {
       const networkError = new mockDeleteModule.DeleteWardrobeItemError(
         'Network error',
         'network'
       );
-      mockDeleteModule.deleteWardrobeItem.mockRejectedValueOnce(networkError);
+      // Use mockRejectedValue (not Once) because network errors are retried
+      mockDeleteModule.deleteWardrobeItem.mockRejectedValue(networkError);
 
       const { result } = renderHook(() => useDeleteWardrobeItem(), { wrapper });
 
       await act(async () => {
         result.current.deleteItem({ itemId: 'item-123' });
       });
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true);
@@ -201,13 +232,21 @@ describe('useDeleteWardrobeItem', () => {
         'Server error',
         'server'
       );
-      mockDeleteModule.deleteWardrobeItem.mockRejectedValueOnce(serverError);
+      // Use mockRejectedValue (not Once) because server errors are retried
+      mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 
       const { result } = renderHook(() => useDeleteWardrobeItem(), { wrapper });
 
       await act(async () => {
         result.current.deleteItem({ itemId: 'item-123' });
       });
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true);
@@ -221,13 +260,21 @@ describe('useDeleteWardrobeItem', () => {
         'Server error',
         'server'
       );
-      mockDeleteModule.deleteWardrobeItem.mockRejectedValueOnce(serverError);
+      // Use mockRejectedValue (not Once) because server errors are retried
+      mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 
       const { result } = renderHook(() => useDeleteWardrobeItem(), { wrapper });
 
       await act(async () => {
         result.current.deleteItem({ itemId: 'item-123' });
       });
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true);
@@ -258,13 +305,21 @@ describe('useDeleteWardrobeItem', () => {
         'Server error',
         'server'
       );
-      mockDeleteModule.deleteWardrobeItem.mockRejectedValueOnce(serverError);
+      // Use mockRejectedValue (not Once) because server errors are retried
+      mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 
       const { result } = renderHook(() => useDeleteWardrobeItem(), { wrapper });
 
       await act(async () => {
         result.current.deleteItem({ itemId: 'item-123' });
       });
+
+      // Fast-forward through retry delays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          jest.advanceTimersByTime(15000);
+        });
+      }
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true);
@@ -299,7 +354,10 @@ describe('useDeleteWardrobeItem', () => {
         result.current.reset();
       });
 
-      expect(result.current.isSuccess).toBe(false);
+      // Wait for the reset to take effect
+      await waitFor(() => {
+        expect(result.current.isSuccess).toBe(false);
+      });
     });
   });
 
