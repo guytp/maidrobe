@@ -68,7 +68,7 @@ jobs:
       - name: Run tests
         run: npm run mobile:test
 
-  edge:lint:
+  edge_lint:
     name: Edge Functions Lint
     runs-on: ubuntu-latest
     steps:
@@ -84,7 +84,7 @@ jobs:
         run: deno lint
         working-directory: edge-functions
 
-  edge:typecheck:
+  edge_typecheck:
     name: Edge Functions Type Check
     runs-on: ubuntu-latest
     steps:
@@ -100,7 +100,7 @@ jobs:
         run: deno check supabase/functions/**/*.ts
         working-directory: edge-functions
 
-  edge:test:
+  edge_test:
     name: Edge Functions Test
     runs-on: ubuntu-latest
     steps:
