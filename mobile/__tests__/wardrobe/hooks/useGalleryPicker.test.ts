@@ -10,6 +10,8 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useGalleryPicker } from '../../../src/features/wardrobe/hooks/useGalleryPicker';
 import * as ImagePicker from 'expo-image-picker';
+import { trackCaptureEvent } from '../../../src/core/telemetry';
+import { validateCapturedImage } from '../../../src/core/utils/imageValidation';
 
 // Mock dependencies
 jest.mock('expo-image-picker');
@@ -30,8 +32,8 @@ jest.mock('../../../src/core/state/store', () => ({
 const mockLaunchImageLibraryAsync = ImagePicker.launchImageLibraryAsync as jest.MockedFunction<
   typeof ImagePicker.launchImageLibraryAsync
 >;
-const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
-const mockValidateCapturedImage = require('../../../src/core/utils/imageValidation').validateCapturedImage;
+const mockTrackCaptureEvent = trackCaptureEvent as jest.Mock;
+const mockValidateCapturedImage = validateCapturedImage as jest.Mock;
 
 describe('useGalleryPicker', () => {
   beforeEach(() => {

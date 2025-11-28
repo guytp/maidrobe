@@ -11,6 +11,11 @@ import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import { CaptureScreen } from '../../../src/features/wardrobe/components/CaptureScreen';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { trackCaptureEvent } from '../../../src/core/telemetry';
+import { useStore } from '../../../src/core/state/store';
+import { useCapturePermissions } from '../../../src/features/wardrobe/hooks/useCapturePermissions';
+import { useGalleryPicker } from '../../../src/features/wardrobe/hooks/useGalleryPicker';
 
 // Mock dependencies
 jest.mock('expo-router', () => ({
@@ -39,12 +44,12 @@ jest.mock('../../../src/core/theme', () => ({
   }),
 }));
 
-const mockUseRouter = require('expo-router').useRouter;
-const mockUseLocalSearchParams = require('expo-router').useLocalSearchParams;
-const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
-const mockUseStore = require('../../../src/core/state/store').useStore;
-const mockUseCapturePermissions = require('../../../src/features/wardrobe/hooks/useCapturePermissions').useCapturePermissions;
-const mockUseGalleryPicker = require('../../../src/features/wardrobe/hooks/useGalleryPicker').useGalleryPicker;
+const mockUseRouter = useRouter as jest.Mock;
+const mockUseLocalSearchParams = useLocalSearchParams as jest.Mock;
+const mockTrackCaptureEvent = trackCaptureEvent as jest.Mock;
+const mockUseStore = useStore as unknown as jest.Mock;
+const mockUseCapturePermissions = useCapturePermissions as jest.Mock;
+const mockUseGalleryPicker = useGalleryPicker as jest.Mock;
 
 describe('CaptureScreen', () => {
   let mockRouter: any;

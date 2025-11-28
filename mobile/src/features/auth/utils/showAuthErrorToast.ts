@@ -171,10 +171,12 @@ export function mapSeverityToToastType(severity: AuthErrorSeverity): ToastType {
       // Informational messages: email verification needed
       return 'info';
 
-    default:
+    default: {
       // Exhaustive check - TypeScript will error if we miss a case
       const _exhaustive: never = severity;
+      void _exhaustive;
       return 'error';
+    }
   }
 }
 

@@ -106,7 +106,7 @@ export function handleAuthError(
       severity,
       isRetryable,
     };
-  } catch (handlerError) {
+  } catch {
     // If error handling itself fails, return safe fallback
     // This should never happen, but defensive programming requires it
     return createFallbackError();
@@ -473,10 +473,12 @@ function mapCategoryToSeverity(category: AuthErrorCategory): AuthErrorSeverity {
     case 'unknown':
       return 'error';
 
-    default:
+    default: {
       // Exhaustive check - TypeScript will error if we miss a category
       const _exhaustive: never = category;
+      void _exhaustive;
       return 'error';
+    }
   }
 }
 
@@ -513,9 +515,11 @@ function isErrorRetryable(category: AuthErrorCategory, context: AuthErrorContext
     case 'password_policy':
       return false;
 
-    default:
+    default: {
       const _exhaustive: never = category;
+      void _exhaustive;
       return false;
+    }
   }
 }
 
@@ -548,9 +552,11 @@ function mapCategoryToMessageKey(category: AuthErrorCategory): string {
       return 'auth.errors.rateLimited';
     case 'unknown':
       return 'auth.errors.unknown';
-    default:
+    default: {
       const _exhaustive: never = category;
+      void _exhaustive;
       return 'auth.errors.unknown';
+    }
   }
 }
 

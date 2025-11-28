@@ -212,11 +212,11 @@ export function useGallerySelection(
    * Show blocked permission dialog with settings option.
    */
   const showBlockedPermissionDialog = useCallback(() => {
-    const actions: Array<{
+    const actions: {
       text: string;
       onPress?: () => void;
       style?: 'default' | 'cancel' | 'destructive';
-    }> = [
+    }[] = [
       {
         text: t('screens.capture.permissions.actions.openSettings'),
         onPress: async () => {

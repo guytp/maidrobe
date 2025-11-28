@@ -105,7 +105,7 @@ export function getAuthErrorMessage(
     }
 
     return message;
-  } catch (err) {
+  } catch {
     // Catastrophic failure: return safe generic message
     return 'Something went wrong. Please try again.';
   }
@@ -237,6 +237,7 @@ function selectI18nKey(
 
   // Exhaustive check - should never reach here
   const _exhaustive: never = category;
+  void _exhaustive;
   return 'screens.auth.common.errors.unknown';
 }
 
@@ -354,9 +355,11 @@ function getFallbackMessage(category: AuthErrorCategory, flow: AuthFlow): string
     case 'unknown':
       return 'Something went wrong. Please try again.';
 
-    default:
+    default: {
       const _exhaustive: never = category;
+      void _exhaustive;
       return 'Something went wrong. Please try again.';
+    }
   }
 }
 

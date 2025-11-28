@@ -8,7 +8,6 @@
  */
 
 import {
-  PermissionStatus,
   isCameraAvailable,
   checkCameraPermission,
   requestCameraPermission,
@@ -18,6 +17,7 @@ import {
   ensureCameraPermission,
   ensureMediaLibraryPermission,
 } from '../../../src/core/utils/permissions';
+import { Platform } from 'react-native';
 
 // Mock expo-camera
 const mockGetCameraPermissionsAsync = jest.fn();
@@ -245,8 +245,7 @@ describe('permissions utilities', () => {
   describe('openAppSettings', () => {
     it('opens settings on iOS and returns true', async () => {
       mockOpenSettings.mockResolvedValue(undefined);
-      const Platform = require('react-native').Platform;
-      Platform.OS = 'ios';
+      (Platform as unknown as { OS: string }).OS = 'ios';
 
       const result = await openAppSettings();
       expect(result).toBe(true);
@@ -255,8 +254,7 @@ describe('permissions utilities', () => {
 
     it('opens settings on Android and returns true', async () => {
       mockOpenSettings.mockResolvedValue(undefined);
-      const Platform = require('react-native').Platform;
-      Platform.OS = 'android';
+      (Platform as unknown as { OS: string }).OS = 'android';
 
       const result = await openAppSettings();
       expect(result).toBe(true);
@@ -264,8 +262,7 @@ describe('permissions utilities', () => {
     });
 
     it('returns false on unsupported platform', async () => {
-      const Platform = require('react-native').Platform;
-      Platform.OS = 'web';
+      (Platform as unknown as { OS: string }).OS = 'web';
 
       const result = await openAppSettings();
       expect(result).toBe(false);
@@ -274,8 +271,7 @@ describe('permissions utilities', () => {
 
     it('returns false on error', async () => {
       mockOpenSettings.mockRejectedValue(new Error('Failed to open settings'));
-      const Platform = require('react-native').Platform;
-      Platform.OS = 'ios';
+      (Platform as unknown as { OS: string }).OS = 'ios';
 
       const result = await openAppSettings();
       expect(result).toBe(false);

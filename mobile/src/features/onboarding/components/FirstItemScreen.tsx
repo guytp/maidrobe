@@ -15,7 +15,6 @@ import {
 } from '../utils/onboardingAnalytics';
 import { useWardrobeItemCount } from '../utils/wardrobeUtils';
 import { CameraPlaceholder } from './CameraPlaceholder';
-import { checkCameraPermission } from '../utils/cameraPermissions';
 import { logError } from '../../../core/telemetry';
 import { ItemMetadataForm } from './ItemMetadataForm';
 import { ItemMetadata } from '../types/itemMetadata';
@@ -176,7 +175,7 @@ export function FirstItemScreen(): React.JSX.Element {
       // Advance to next step
       onSkipStep();
     }
-  }, [isNavigating, router, onSkipStep]);
+  }, [isNavigating, router, onSkipStep, setIsNavigating]);
 
   /**
    * Handle successful photo capture from camera.

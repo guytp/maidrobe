@@ -252,10 +252,12 @@ function mapAuthSeverityToSentry(severity: AuthErrorSeverity): SentrySeverity {
       return 'warning';
     case 'info':
       return 'info';
-    default:
+    default: {
       // Exhaustive check
       const _exhaustive: never = severity;
+      void _exhaustive;
       return 'error';
+    }
   }
 }
 

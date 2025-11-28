@@ -9,15 +9,18 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, View, Text } from 'react-native';
 import { CaptureCameraScreen } from '../../../src/features/wardrobe/components/CaptureCameraScreen';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { trackCaptureEvent } from '../../../src/core/telemetry';
+import { useStore } from '../../../src/core/state/store';
+import { useCapturePermissions } from '../../../src/features/wardrobe/hooks/useCapturePermissions';
+import { useGalleryPicker } from '../../../src/features/wardrobe/hooks/useGalleryPicker';
+import { validateCapturedImage } from '../../../src/core/utils/imageValidation';
 
 // Mock CameraView
-const mockTakePictureAsync = jest.fn();
 jest.mock('expo-camera', () => ({
-  CameraView: ({ onCameraReady, onMountError, ...props }: any) => {
-    const React = require('react');
-    const { View, Text } = require('react-native');
+  CameraView: ({ onCameraReady, onMountError, ...props }: { onCameraReady?: () => void; onMountError?: () => void }) => {
     return (
       <View testID="camera-view">
         <Text>Camera Preview</Text>
@@ -52,16 +55,13 @@ jest.mock('../../../src/core/theme', () => ({
   }),
 }));
 
-const mockUseRouter = require('expo-router').useRouter;
-const mockUseLocalSearchParams = require('expo-router').useLocalSearchParams;
-const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
-const mockUseStore = require('../../../src/core/state/store').useStore;
-const mockUseCapturePermissions =
-  require('../../../src/features/wardrobe/hooks/useCapturePermissions').useCapturePermissions;
-const mockUseGalleryPicker =
-  require('../../../src/features/wardrobe/hooks/useGalleryPicker').useGalleryPicker;
-const mockValidateCapturedImage =
-  require('../../../src/core/utils/imageValidation').validateCapturedImage;
+const mockUseRouter = useRouter as jest.Mock;
+const mockUseLocalSearchParams = useLocalSearchParams as jest.Mock;
+const mockTrackCaptureEvent = trackCaptureEvent as jest.Mock;
+const mockUseStore = useStore as unknown as jest.Mock;
+const mockUseCapturePermissions = useCapturePermissions as jest.Mock;
+const mockUseGalleryPicker = useGalleryPicker as jest.Mock;
+const mockValidateCapturedImage = validateCapturedImage as jest.Mock;
 
 describe('CaptureCameraScreen', () => {
   let mockRouter: any;
