@@ -20,7 +20,6 @@ import {
   useBatchWardrobeItems,
   wardrobeItemsQueryKey,
 } from '../../wardrobe/api';
-import type { BatchWardrobeItem } from '../../wardrobe/types';
 import {
   resolveOutfitItems,
   extractAllItemIds,
@@ -244,10 +243,11 @@ export function useResolvedOutfitItems(
     return { resolvedCount: resolved, missingCount: missing };
   }, [resolution.resolvedOutfits]);
 
-  // Memoized refetch function
+  // Memoized refetch function - using batchQuery.refetch directly as it's stable
   const refetch = useCallback(() => {
     batchQuery.refetch();
-  }, [batchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchQuery.refetch]);
 
   return {
     resolvedOutfits: resolution.resolvedOutfits,
