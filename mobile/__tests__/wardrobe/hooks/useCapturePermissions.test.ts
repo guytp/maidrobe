@@ -9,6 +9,8 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useCapturePermissions } from '../../../src/features/wardrobe/hooks/useCapturePermissions';
+import * as permissions from '../../../src/core/utils/permissions';
+import { trackCaptureEvent } from '../../../src/core/telemetry';
 
 // Mock dependencies
 jest.mock('../../../src/core/utils/permissions');
@@ -23,8 +25,8 @@ jest.mock('../../../src/core/state/store', () => ({
   ),
 }));
 
-const mockPermissions = require('../../../src/core/utils/permissions');
-const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
+const mockPermissions = permissions as jest.Mocked<typeof permissions>;
+const mockTrackCaptureEvent = trackCaptureEvent as jest.Mock;
 
 describe('useCapturePermissions', () => {
   beforeEach(() => {

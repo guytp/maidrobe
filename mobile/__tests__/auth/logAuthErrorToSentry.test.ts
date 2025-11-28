@@ -1,6 +1,9 @@
 import { logAuthErrorToSentry, isAuthErrorLoggingAvailable } from '../../src/features/auth/utils/logAuthErrorToSentry';
 import type { NormalizedAuthError } from '../../src/features/auth/utils/authErrorTypes';
 import type { AuthErrorLoggingContext } from '../../src/features/auth/utils/logAuthErrorToSentry';
+import { getFlagConfig } from '../../src/core/featureFlags/config';
+import { captureException, getSentryClient } from '../../src/core/telemetry/sentry';
+import { sanitizeAuthMetadata } from '../../src/core/telemetry';
 
 // Mock dependencies
 jest.mock('../../../src/core/featureFlags/config', () => ({
@@ -25,10 +28,6 @@ jest.mock('react-native', () => ({
     OS: 'ios',
   },
 }));
-
-import { getFlagConfig } from '../../src/core/featureFlags/config';
-import { captureException, getSentryClient } from '../../src/core/telemetry/sentry';
-import { sanitizeAuthMetadata } from '../../src/core/telemetry';
 
 describe('logAuthErrorToSentry', () => {
   beforeEach(() => {
