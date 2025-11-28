@@ -155,7 +155,7 @@ function classifyError(error: unknown): string {
  * Supports GET requests only. Returns the current state of all wardrobe
  * feature flags for client-side UI adjustments.
  */
-export async function handler(req: Request): Promise<Response> {
+export function handler(req: Request): Response {
   // Handle CORS preflight (no logging needed for preflight)
   if (req.method === 'OPTIONS') {
     return new Response(null, {
