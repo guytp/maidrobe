@@ -346,7 +346,11 @@ export type CaptureEventType =
   | 'item_created'
   | 'item_creation_failed'
   | 'item_edit_cancelled'
-  | 'item_search_used';
+  | 'item_search_used'
+  // Recommendation item resolution events
+  | 'recommendations_items_resolved'
+  | 'recommendations_items_resolution_failed'
+  | 'recommendations_high_missing_rate';
 
 /**
  * Metadata for authentication event logging.

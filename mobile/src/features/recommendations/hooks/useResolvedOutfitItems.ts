@@ -13,9 +13,10 @@
  * @module features/recommendations/hooks/useResolvedOutfitItems
  */
 
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
+import { trackCaptureEvent, logError } from '../../../core/telemetry';
 import {
   useBatchWardrobeItems,
   wardrobeItemsQueryKey,
@@ -31,6 +32,12 @@ import type {
   OutfitItemViewModel,
   ItemResolutionResult,
 } from '../types';
+
+/**
+ * Threshold for logging high missing item rate warning.
+ * If more than 20% of items are missing, we log a telemetry event.
+ */
+const HIGH_MISSING_RATE_THRESHOLD = 0.2;
 
 /**
  * Parameters for useResolvedOutfitItems hook.
@@ -242,6 +249,95 @@ export function useResolvedOutfitItems(
 
     return { resolvedCount: resolved, missingCount: missing };
   }, [resolution.resolvedOutfits]);
+
+  // Track whether we've logged telemetry for this resolution cycle
+  const hasLoggedResolution = useRef(false);
+
+  // Log telemetry when resolution completes (success or error)
+  useEffect(() => {
+    // Skip if not enabled or still loading
+    if (!enabled || batchQuery.isLoading) {
+      hasLoggedResolution.current = false;
+      return;
+    }
+
+    // Skip if already logged for this resolution cycle
+    if (hasLoggedResolution.current) {
+      return;
+    }
+
+    const totalItems = resolvedCount + missingCount;
+
+    // Skip telemetry if no items to resolve
+    if (totalItems === 0) {
+      return;
+    }
+
+    hasLoggedResolution.current = true;
+
+    // Log error if batch fetch failed
+    if (batchQuery.isError && batchQuery.error) {
+      logError(batchQuery.error, 'server', {
+        feature: 'recommendations',
+        operation: 'resolveOutfitItems',
+        metadata: {
+          outfitCount: outfits.length,
+          requestedItemCount: allItemIds.length,
+          uncachedCount: uncachedIds.length,
+          errorCode: batchQuery.error.code,
+        },
+      });
+
+      trackCaptureEvent('recommendations_items_resolution_failed', {
+        userId,
+        errorCode: batchQuery.error.code,
+        errorMessage: batchQuery.error.message,
+        metadata: {
+          outfitCount: outfits.length,
+          requestedItemCount: allItemIds.length,
+        },
+      });
+      return;
+    }
+
+    // Log successful resolution
+    trackCaptureEvent('recommendations_items_resolved', {
+      userId,
+      metadata: {
+        outfitCount: outfits.length,
+        totalItems,
+        resolvedCount,
+        missingCount,
+        cacheHitCount: allItemIds.length - uncachedIds.length,
+        fetchedCount: uncachedIds.length,
+      },
+    });
+
+    // Log warning if high missing rate (potential data integrity issue)
+    const missingRate = totalItems > 0 ? missingCount / totalItems : 0;
+    if (missingRate > HIGH_MISSING_RATE_THRESHOLD && missingCount > 0) {
+      trackCaptureEvent('recommendations_high_missing_rate', {
+        userId,
+        metadata: {
+          outfitCount: outfits.length,
+          totalItems,
+          missingCount,
+          missingRate: Math.round(missingRate * 100),
+        },
+      });
+    }
+  }, [
+    enabled,
+    batchQuery.isLoading,
+    batchQuery.isError,
+    batchQuery.error,
+    outfits.length,
+    allItemIds.length,
+    uncachedIds.length,
+    resolvedCount,
+    missingCount,
+    userId,
+  ]);
 
   // Memoized refetch function - using batchQuery.refetch directly as it's stable
   const refetch = useCallback(() => {

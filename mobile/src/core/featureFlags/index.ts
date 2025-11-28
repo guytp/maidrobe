@@ -92,6 +92,7 @@ export interface FeatureFlagResult {
  * - auth.errorLogging: Auth error logging
  * - onboarding.gate: Onboarding gate routing (routes new users to onboarding flow)
  * - capture.cropScreen: Crop & adjust experience for wardrobe item images
+ * - recommendations.itemResolution: Item resolution with thumbnails for outfit suggestions
  *
  * Server-side wardrobe flags (fetched remotely, cannot be overridden locally):
  * - wardrobe.imageCleanup: Whether image cleanup/background removal is enabled
@@ -106,7 +107,8 @@ export type FeatureFlagName =
   | 'onboarding.gate'
   | 'capture.cropScreen'
   | 'wardrobe.imageCleanup'
-  | 'wardrobe.aiAttributes';
+  | 'wardrobe.aiAttributes'
+  | 'recommendations.itemResolution';
 
 /**
  * Client version information for compatibility checks.
