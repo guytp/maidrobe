@@ -90,26 +90,6 @@ export interface OutfitRecommendationsResponse {
 }
 
 // ============================================================================
-// Request Types
-// ============================================================================
-
-/**
- * Request body for get-outfit-recommendations.
- *
- * In the stub implementation (story #362), the request body is empty
- * or ignored. Future stories may add parameters for context selection,
- * filters, or pagination.
- *
- * IMPORTANT: userId is NEVER accepted from the request body.
- * It must be derived from the JWT claims server-side.
- */
-export interface OutfitRecommendationsRequest {
-  // Reserved for future use (story #365: user context selection)
-  // context?: string;
-  // occasion?: string;
-}
-
-// ============================================================================
 // Logging Types
 // ============================================================================
 
