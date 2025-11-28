@@ -30,12 +30,14 @@ import {
   ActivityIndicator,
   FlatList,
   ListRenderItemInfo,
+  Platform,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
+import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
 import { useResolvedOutfitItems } from '../hooks';
@@ -221,13 +223,19 @@ export function SuggestionsSection({
 }: SuggestionsSectionProps): React.JSX.Element {
   const { spacing, fontSize, colors } = useTheme();
 
-  // Resolve outfit items to view-models
+  // Check if item resolution feature is enabled
+  const itemResolutionEnabled = useMemo(
+    () => checkFeatureFlagSync('recommendations.itemResolution').enabled,
+    []
+  );
+
+  // Resolve outfit items to view-models (only if feature flag enabled)
   const {
     resolvedOutfits,
     isLoading: isResolvingItems,
   } = useResolvedOutfitItems({
     outfits,
-    enabled: outfits.length > 0,
+    enabled: itemResolutionEnabled && outfits.length > 0,
   });
 
   const styles = useMemo(
@@ -324,11 +332,20 @@ export function SuggestionsSection({
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          // Performance optimizations for up to 10 cards
-          removeClippedSubviews={false}
-          maxToRenderPerBatch={5}
-          windowSize={5}
-          initialNumToRender={5}
+          // Performance optimizations for 30-50 outfit cards
+          // windowSize: 11 = 5 screens above + 1 visible + 5 screens below
+          // Larger window for smooth scrolling with rich cards
+          windowSize={11}
+          // maxToRenderPerBatch: Render 8 items per batch for balance between
+          // initial render speed and scroll smoothness with rich content
+          maxToRenderPerBatch={8}
+          // initialNumToRender: Start with 6 items (typical viewport + buffer)
+          initialNumToRender={6}
+          // removeClippedSubviews: Enable on Android for memory efficiency,
+          // disable on iOS where it can cause rendering issues
+          removeClippedSubviews={Platform.OS === 'android'}
+          // updateCellsBatchingPeriod: 50ms batching for smooth updates
+          updateCellsBatchingPeriod={50}
           // Force re-render when items resolve
           extraData={resolvedOutfits}
           // Accessibility
