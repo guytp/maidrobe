@@ -225,10 +225,11 @@ export function useBatchWardrobeItems(
     }
   }, [query.error, userId, itemIds.length]);
 
-  // Memoized refetch
+  // Memoized refetch - using query.refetch directly as it's stable
   const refetch = useCallback(() => {
     query.refetch();
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.refetch]);
 
   return {
     items: query.data?.items ?? new Map(),
