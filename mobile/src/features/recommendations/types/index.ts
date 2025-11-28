@@ -248,3 +248,115 @@ export function parseOutfitRecommendationsResponse(
   }
   return { success: false, error: result.error };
 }
+
+// ============================================================================
+// Item Resolution Types (Story #363)
+// ============================================================================
+
+/**
+ * Resolution status for an item within an outfit suggestion.
+ *
+ * - 'resolved': Item was found in cache or fetched successfully
+ * - 'missing': Item could not be resolved (deleted, invalid ID, or not found)
+ */
+export type ResolvedItemStatus = 'resolved' | 'missing';
+
+/**
+ * View-model for a single item chip in an outfit suggestion card.
+ *
+ * This type is used by UI components to render item chips without needing
+ * to handle raw item IDs or cache lookups. Contains all data needed for:
+ * - Display (name, thumbnail)
+ * - Accessibility labels (type, colour)
+ * - Conditional styling (resolved vs missing status)
+ *
+ * @example
+ * ```typescript
+ * const itemViewModel: OutfitItemViewModel = {
+ *   id: '018e1234-5678-7abc-def0-123456789abc',
+ *   displayName: 'Navy Blazer',
+ *   thumbnailUrl: 'https://cdn.example.com/thumb/abc123.jpg',
+ *   status: 'resolved',
+ *   type: 'blazer',
+ *   colour: ['navy'],
+ * };
+ * ```
+ */
+export interface OutfitItemViewModel {
+  /** Original item ID from the outfit suggestion */
+  id: string;
+
+  /**
+   * User-facing display name for the item.
+   * Falls back to type or generic text for missing/unnamed items.
+   */
+  displayName: string;
+
+  /**
+   * Thumbnail URL for the item image.
+   * Null if no image available or item is missing.
+   */
+  thumbnailUrl: string | null;
+
+  /** Whether the item was successfully resolved or is missing */
+  status: ResolvedItemStatus;
+
+  /**
+   * AI-detected item type (e.g., 'shirt', 'pants').
+   * Used for accessibility labels. Null if unavailable.
+   */
+  type: string | null;
+
+  /**
+   * AI-detected colours for accessibility labels.
+   * Null if unavailable.
+   */
+  colour: string[] | null;
+}
+
+/**
+ * Resolved items for a single outfit suggestion.
+ *
+ * Maps an outfit ID to its list of resolved item view-models,
+ * preserving the original order from `itemIds`.
+ */
+export interface ResolvedOutfitItems {
+  /** The outfit suggestion ID */
+  outfitId: string;
+
+  /** Resolved item view-models in original order */
+  items: OutfitItemViewModel[];
+}
+
+/**
+ * Result of the item resolution process.
+ *
+ * Contains both the resolved items (with placeholders for missing ones)
+ * and a list of IDs that need to be fetched from the server.
+ *
+ * @example
+ * ```typescript
+ * const result = resolveOutfitItems(outfits, cacheAccessor);
+ *
+ * // Check if any items need fetching
+ * if (result.uncachedIds.length > 0) {
+ *   await batchFetchItems(result.uncachedIds);
+ * }
+ *
+ * // Access resolved items by outfit ID
+ * const outfitItems = result.resolvedOutfits.get(outfit.id);
+ * ```
+ */
+export interface ItemResolutionResult {
+  /**
+   * Map of outfit ID to resolved item view-models.
+   * Items that couldn't be resolved have status: 'missing'.
+   */
+  resolvedOutfits: Map<string, OutfitItemViewModel[]>;
+
+  /**
+   * De-duplicated list of item IDs not found in cache.
+   * Empty if all items were cached.
+   */
+  uncachedIds: string[];
+}
