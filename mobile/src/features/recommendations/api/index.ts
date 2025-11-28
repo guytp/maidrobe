@@ -11,4 +11,5 @@ export {
   fetchOutfitRecommendations,
   FetchRecommendationsError,
   type FetchRecommendationsErrorCode,
+  type FetchOutfitRecommendationsOptions,
 } from './fetchOutfitRecommendations';

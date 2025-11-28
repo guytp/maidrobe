@@ -281,7 +281,13 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
           );
         }
 
-        const response = await fetchOutfitRecommendations();
+        // Pass the timeout controller's signal to enable request cancellation.
+        // This signal is aborted when either:
+        // - The timeout fires (REQUEST_TIMEOUT_MS exceeded)
+        // - React Query cancels the request (component unmount, query invalidation)
+        const response = await fetchOutfitRecommendations({
+          signal: timeoutController.signal,
+        });
 
         // Clear timeout on success
         clearTimeout(timeoutId);
