@@ -104,6 +104,69 @@ function isAuthError(message: string | undefined): boolean {
 }
 
 /**
+ * Checks if an error is an AbortError from an aborted fetch request.
+ *
+ * AbortError occurs when:
+ * - The AbortController.abort() is called
+ * - A timeout signal fires
+ * - React Query cancels the request (e.g., component unmount)
+ */
+function isAbortError(error: unknown): boolean {
+  if (error instanceof Error) {
+    // Standard AbortError from fetch API
+    if (error.name === 'AbortError') {
+      return true;
+    }
+    // Some environments use DOMException with 'AbortError' name
+    if (error.name === 'DOMException' && error.message.includes('abort')) {
+      return true;
+    }
+    // Check message for abort-related keywords
+    const lowerMessage = error.message.toLowerCase();
+    if (lowerMessage.includes('aborted') || lowerMessage.includes('abort')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Options for fetchOutfitRecommendations.
+ */
+export interface FetchOutfitRecommendationsOptions {
+  /**
+   * AbortSignal for request cancellation.
+   *
+   * When the signal is aborted, the underlying fetch request will be
+   * cancelled and a FetchRecommendationsError with code 'network' will
+   * be thrown. This allows the request to be cancelled on:
+   * - Component unmount (React Query passes signal automatically)
+   * - Timeout (via AbortController.abort())
+   * - Manual cancellation
+   *
+   * @example
+   * ```typescript
+   * const controller = new AbortController();
+   *
+   * // Set a 5 second timeout
+   * const timeoutId = setTimeout(() => controller.abort(), 5000);
+   *
+   * try {
+   *   const response = await fetchOutfitRecommendations({
+   *     signal: controller.signal,
+   *   });
+   *   clearTimeout(timeoutId);
+   * } catch (error) {
+   *   if (error instanceof FetchRecommendationsError && error.code === 'network') {
+   *     // Request was aborted or timed out
+   *   }
+   * }
+   * ```
+   */
+  signal?: AbortSignal;
+}
+
+/**
  * Fetches outfit recommendations from the Edge Function.
  *
  * The Edge Function handles:
@@ -115,11 +178,20 @@ function isAuthError(message: string | undefined): boolean {
  * Requires an active Supabase session. The JWT is automatically
  * included by the Supabase client.
  *
+ * CANCELLATION:
+ * Supports request cancellation via AbortSignal. When aborted, throws
+ * a FetchRecommendationsError with code 'network'. This integrates with
+ * React Query's automatic cancellation on component unmount and allows
+ * for timeout implementation via AbortController.
+ *
+ * @param options - Optional configuration including AbortSignal
+ * @param options.signal - AbortSignal for request cancellation
  * @returns Promise resolving to OutfitRecommendationsResponse
  * @throws FetchRecommendationsError with appropriate error code
  *
  * @example
  * ```typescript
+ * // Basic usage
  * try {
  *   const response = await fetchOutfitRecommendations();
  *   // Display response.outfits in UI
@@ -130,7 +202,7 @@ function isAuthError(message: string | undefined): boolean {
  *         // Redirect to login
  *         break;
  *       case 'network':
- *         // Show offline state
+ *         // Show offline state (also covers aborted requests)
  *         break;
  *       case 'schema':
  *         // Log and show generic error
@@ -141,15 +213,46 @@ function isAuthError(message: string | undefined): boolean {
  *   }
  * }
  * ```
+ *
+ * @example
+ * ```typescript
+ * // With timeout cancellation
+ * const controller = new AbortController();
+ * const timeoutId = setTimeout(() => controller.abort(), 5000);
+ *
+ * try {
+ *   const response = await fetchOutfitRecommendations({
+ *     signal: controller.signal,
+ *   });
+ *   clearTimeout(timeoutId);
+ * } catch (error) {
+ *   clearTimeout(timeoutId);
+ *   // Handle error
+ * }
+ * ```
  */
-export async function fetchOutfitRecommendations(): Promise<OutfitRecommendationsResponse> {
+export async function fetchOutfitRecommendations(
+  options: FetchOutfitRecommendationsOptions = {}
+): Promise<OutfitRecommendationsResponse> {
+  const { signal } = options;
   // Generate correlation ID for request tracing
   const correlationId = generateCorrelationId();
 
+  // Check if already aborted before making the request
+  if (signal?.aborted) {
+    const fetchError = new FetchRecommendationsError(
+      'Request was cancelled',
+      'network',
+      correlationId
+    );
+    throw fetchError;
+  }
+
   try {
-    // Invoke the Edge Function with correlation ID header
+    // Invoke the Edge Function with correlation ID header and abort signal
     const { data, error } = await supabase.functions.invoke<unknown>('get-outfit-recommendations', {
       headers: getCorrelationHeaders(correlationId),
+      signal,
     });
 
     // Handle invocation errors (network issues, function errors, etc.)
@@ -238,6 +341,21 @@ export async function fetchOutfitRecommendations(): Promise<OutfitRecommendation
     // Re-throw FetchRecommendationsError as-is
     if (error instanceof FetchRecommendationsError) {
       throw error;
+    }
+
+    // Handle abort errors (from AbortController/signal cancellation)
+    if (isAbortError(error)) {
+      const fetchError = new FetchRecommendationsError(
+        'Request was cancelled',
+        'network',
+        correlationId,
+        error
+      );
+
+      // Don't log abort errors as they're intentional cancellations
+      // (e.g., component unmount, timeout, user navigation)
+
+      throw fetchError;
     }
 
     // Handle network errors from fetch
