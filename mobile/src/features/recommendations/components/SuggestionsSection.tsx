@@ -228,6 +228,10 @@ export function SuggestionsSection({
         listContent: {
           paddingBottom: spacing.xl,
         },
+        refreshIndicator: {
+          alignItems: 'center',
+          marginBottom: spacing.md,
+        },
       }),
     [spacing, fontSize, colors]
   );
@@ -281,7 +285,7 @@ export function SuggestionsSection({
 
       {/* Show loading indicator when refreshing with existing data */}
       {isLoading && hasData && (
-        <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
+        <View style={styles.refreshIndicator}>
           <ActivityIndicator size="small" color={colors.textPrimary} />
         </View>
       )}
