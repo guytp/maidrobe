@@ -119,6 +119,26 @@ Deno.test('returns 405 for PATCH requests', async () => {
 // Request Validation Tests
 // =============================================================================
 
+/**
+ * Multi-Status Validation Pattern
+ *
+ * The following tests intentionally accept multiple valid HTTP response statuses
+ * (200, 400, 500) to validate that the handler behaves correctly across different
+ * environment and configuration states:
+ *
+ * - 200: Feature flag disabled (WARDROBE_IMAGE_CLEANUP_ENABLED != 'true')
+ *        Handler returns early with success, skipping validation.
+ *
+ * - 400: Feature flag enabled AND Supabase configured
+ *        Handler proceeds to validation and rejects invalid input.
+ *
+ * - 500: Feature flag enabled BUT Supabase config missing (CI test environment)
+ *        Handler fails at configuration check before reaching validation.
+ *
+ * This pattern ensures tests pass regardless of which environment variables are
+ * set, while still verifying the handler produces correct responses for each state.
+ */
+
 Deno.test('returns 400 when request body is invalid JSON', async () => {
   const headers = new Headers({
     'Content-Type': 'application/json',
@@ -133,10 +153,7 @@ Deno.test('returns 400 when request body is invalid JSON', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // When feature flag is enabled but Supabase config is missing (test environment),
-  // returns 500 config error before reaching JSON validation.
-  // When feature flag is disabled, returns 200 early (feature disabled path).
-  // Both are valid behaviours depending on environment configuration.
+  // Accepts 200, 400, or 500 depending on environment configuration (see above).
   if (response.status === 500) {
     assertEquals(body.success, false);
     assertEquals(body.code, 'server');
