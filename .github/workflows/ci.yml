@@ -142,6 +142,13 @@ jobs:
         run: deno test --allow-all
         working-directory: edge-functions
         env:
+          # Enable the image cleanup feature flag for tests.
+          # When this flag is OFF, the process-item-image handler returns early
+          # with a "feature disabled" success response, bypassing validation logic
+          # that tests need to exercise. Setting it to 'true' ensures the handler
+          # proceeds to validate inputs and check Supabase configuration, which
+          # allows tests to verify expected error responses (400, 500) for various
+          # invalid input scenarios.
           WARDROBE_IMAGE_CLEANUP_ENABLED: 'true'
 
   # Placeholder for future Expo EAS build job
