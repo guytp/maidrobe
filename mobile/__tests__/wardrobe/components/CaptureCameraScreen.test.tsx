@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, View, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { CaptureCameraScreen } from '../../../src/features/wardrobe/components/CaptureCameraScreen';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { trackCaptureEvent } from '../../../src/core/telemetry';
@@ -19,15 +19,18 @@ import { useGalleryPicker } from '../../../src/features/wardrobe/hooks/useGaller
 import { validateCapturedImage } from '../../../src/core/utils/imageValidation';
 
 // Mock CameraView
-jest.mock('expo-camera', () => ({
-  CameraView: ({ onCameraReady, onMountError, ...props }: { onCameraReady?: () => void; onMountError?: () => void }) => {
-    return (
-      <View testID="camera-view">
-        <Text>Camera Preview</Text>
-      </View>
-    );
-  },
-}));
+jest.mock('expo-camera', () => {
+  const { View, Text } = require('react-native');
+  return {
+    CameraView: ({ onCameraReady, onMountError, ...props }: { onCameraReady?: () => void; onMountError?: () => void }) => {
+      return (
+        <View testID="camera-view">
+          <Text>Camera Preview</Text>
+        </View>
+      );
+    },
+  };
+});
 
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
