@@ -11,10 +11,7 @@
 export type { OutfitSuggestion, OutfitRecommendationsResponse } from './types';
 
 // Schemas (for direct validation use cases)
-export {
-  OutfitSuggestionSchema,
-  OutfitRecommendationsResponseSchema,
-} from './types';
+export { OutfitSuggestionSchema, OutfitRecommendationsResponseSchema } from './types';
 
 // Type guards
 export { isOutfitSuggestion, isOutfitRecommendationsResponse } from './types';

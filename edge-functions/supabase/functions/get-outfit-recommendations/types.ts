@@ -236,9 +236,7 @@ export function validateOutfit(outfit: unknown): OutfitValidationResult {
  * @param response - Response object to validate
  * @returns Validation result with error message if invalid
  */
-export function validateOutfitRecommendationsResponse(
-  response: unknown
-): OutfitValidationResult {
+export function validateOutfitRecommendationsResponse(response: unknown): OutfitValidationResult {
   if (typeof response !== 'object' || response === null) {
     return { valid: false, error: 'Response must be an object' };
   }
