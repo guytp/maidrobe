@@ -4,8 +4,13 @@
  * Renders different states based on React Query status:
  * - Empty: Initial state before any request
  * - Loading: Spinner with status text during fetch
- * - Success: Scrollable list of outfit cards
+ * - Success: Scrollable list of outfit cards with resolved items
  * - Error: Inline error with retry button (preserves previous results)
+ *
+ * ITEM RESOLUTION:
+ * This component integrates with useResolvedOutfitItems to resolve
+ * raw itemIds to view-models with thumbnails and display names.
+ * Items are resolved in batch for efficiency.
  *
  * PERFORMANCE:
  * - Uses FlatList for efficient rendering of up to 10 cards
@@ -33,7 +38,8 @@ import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
-import type { OutfitSuggestion } from '../types';
+import { useResolvedOutfitItems } from '../hooks';
+import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 import type { RecommendationErrorType } from '../hooks';
 
 /**
@@ -198,6 +204,9 @@ function ErrorState({
  * When an error occurs with existing data, shows error message above
  * the existing results.
  *
+ * Integrates with useResolvedOutfitItems to resolve item IDs to
+ * view-models with thumbnails and display names.
+ *
  * @param props - Component props
  * @returns Suggestions section component
  */
@@ -211,6 +220,15 @@ export function SuggestionsSection({
   onRetry,
 }: SuggestionsSectionProps): React.JSX.Element {
   const { spacing, fontSize, colors } = useTheme();
+
+  // Resolve outfit items to view-models
+  const {
+    resolvedOutfits,
+    isLoading: isResolvingItems,
+  } = useResolvedOutfitItems({
+    outfits,
+    enabled: outfits.length > 0,
+  });
 
   const styles = useMemo(
     () =>
@@ -236,12 +254,20 @@ export function SuggestionsSection({
     [spacing, fontSize, colors]
   );
 
-  // Render individual outfit card
+  // Render individual outfit card with resolved items
   const renderItem = useCallback(
-    ({ item }: ListRenderItemInfo<OutfitSuggestion>) => (
-      <OutfitSuggestionCard suggestion={item} testID={`outfit-suggestion-${item.id}`} />
-    ),
-    []
+    ({ item }: ListRenderItemInfo<OutfitSuggestion>) => {
+      const items: OutfitItemViewModel[] = resolvedOutfits.get(item.id) ?? [];
+      return (
+        <OutfitSuggestionCard
+          suggestion={item}
+          items={items}
+          isLoadingItems={isResolvingItems && items.length === 0}
+          testID={`outfit-suggestion-${item.id}`}
+        />
+      );
+    },
+    [resolvedOutfits, isResolvingItems]
   );
 
   // Key extractor for FlatList
@@ -303,6 +329,8 @@ export function SuggestionsSection({
           maxToRenderPerBatch={5}
           windowSize={5}
           initialNumToRender={5}
+          // Force re-render when items resolve
+          extraData={resolvedOutfits}
           // Accessibility
           accessibilityRole="list"
           accessibilityLabel={t('screens.home.recommendations.listLabel').replace(

@@ -59,8 +59,10 @@ export {
 
 // Components
 export {
+  OutfitItemChip,
   OutfitSuggestionCard,
   SuggestionsSection,
+  type OutfitItemChipProps,
   type OutfitSuggestionCardProps,
   type SuggestionsSectionProps,
 } from './components';
