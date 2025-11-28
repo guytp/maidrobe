@@ -117,6 +117,18 @@ function OutfitSuggestionCardComponent({
           color: colors.textPrimary,
           lineHeight: fontSize.sm * 1.5,
         },
+        placeholderChip: {
+          backgroundColor: colors.textSecondary + '20',
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.sm,
+          marginRight: spacing.xs,
+          marginBottom: spacing.xs,
+        },
+        placeholderText: {
+          fontSize: fontSize.xs,
+          color: colors.textSecondary,
+        },
       }),
     [colors, spacing, radius, fontSize]
   );
@@ -163,19 +175,9 @@ function OutfitSuggestionCardComponent({
         ) : (
           // Fallback to showing item count if no items resolved yet
           suggestion.itemIds.map((itemId, index) => (
-            <View
-              key={itemId}
-              style={{
-                backgroundColor: colors.textSecondary + '20',
-                paddingHorizontal: spacing.sm,
-                paddingVertical: spacing.xs,
-                borderRadius: radius.sm,
-                marginRight: spacing.xs,
-                marginBottom: spacing.xs,
-              }}
-            >
+            <View key={itemId} style={styles.placeholderChip}>
               <Text
-                style={{ fontSize: fontSize.xs, color: colors.textSecondary }}
+                style={styles.placeholderText}
                 allowFontScaling={true}
                 maxFontSizeMultiplier={1.5}
               >
