@@ -8,8 +8,9 @@
  * @module __tests__/wardrobe/components/ReviewDetailsScreen
  */
 
-import React from 'react';
+import React, { type ReactNode } from 'react';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReviewDetailsScreen } from '../../../src/features/wardrobe/components/ReviewDetailsScreen';
 
 // Mock dependencies
@@ -117,6 +118,10 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+jest.mock('../../../src/features/wardrobe/api', () => ({
+  useInvalidateWardrobeItems: () => jest.fn(),
+}));
+
 const mockUseRouter = jest.requireMock('expo-router').useRouter;
 const mockUseStore = jest.requireMock('../../../src/core/state/store').useStore;
 const mockUseCreateItemWithImage = jest.requireMock(
@@ -127,6 +132,7 @@ const mockIsCaptureImagePayload = jest.requireMock(
 ).isCaptureImagePayload;
 
 describe('ReviewDetailsScreen', () => {
+  let queryClient: QueryClient;
   let mockRouter: {
     push: jest.Mock;
     replace: jest.Mock;
@@ -143,6 +149,13 @@ describe('ReviewDetailsScreen', () => {
   };
 
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
     jest.clearAllMocks();
 
     mockRouter = {
@@ -172,22 +185,40 @@ describe('ReviewDetailsScreen', () => {
     );
   });
 
+  afterEach(() => {
+    queryClient.clear();
+  });
+
+  /**
+   * Wrapper component providing QueryClientProvider for tests.
+   */
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  /**
+   * Helper to render ReviewDetailsScreen with required providers.
+   */
+  const renderScreen = () => {
+    return render(<ReviewDetailsScreen />, { wrapper });
+  };
+
   describe('Name Input Rendering', () => {
     it('should render name input field', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       expect(screen.getByText('Name (optional)')).toBeTruthy();
       expect(screen.getByPlaceholderText('e.g., Blue Summer Dress')).toBeTruthy();
     });
 
     it('should display character counter with initial value', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       expect(screen.getByText('0/80')).toBeTruthy();
     });
 
     it('should render helper text', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       expect(screen.getByText('Add a name to help you find this item later')).toBeTruthy();
     });
@@ -195,7 +226,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('Name Input Character Limit', () => {
     it('should accept names under 80 characters', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const testName = 'My Summer T-Shirt';
@@ -208,7 +239,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should accept names exactly 80 characters', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const testName = 'A'.repeat(80);
@@ -220,7 +251,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should show error when name exceeds 80 characters', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const testName = 'A'.repeat(81);
@@ -232,7 +263,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should update character counter as user types', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -247,7 +278,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should clear error when name is reduced to valid length', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -262,7 +293,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should count characters based on trimmed length', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -276,7 +307,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('Whitespace Trimming', () => {
     it('should trim leading whitespace on blur', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -289,7 +320,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should trim trailing whitespace on blur', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -302,7 +333,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should trim both leading and trailing whitespace on blur', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -315,7 +346,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should preserve internal whitespace', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -328,7 +359,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle whitespace-only input on blur', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -342,7 +373,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should revalidate after trimming on blur', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -365,7 +396,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should not trigger validation error for whitespace before trim', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -380,7 +411,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('Validation Feedback', () => {
     it('should show error message when exceeding character limit', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -390,7 +421,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should clear error message when input becomes valid', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -404,7 +435,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should show character counter in error state when over limit', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -416,7 +447,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should not show error for empty input', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -427,7 +458,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should have error styling on input when validation fails', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -439,7 +470,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('Form Submission with Name Validation', () => {
     it('should allow save with valid name', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       fireEvent.changeText(input, 'Test Item');
@@ -457,7 +488,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should allow save with empty name (optional field)', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const saveButton = screen.getByText('Save');
       fireEvent.press(saveButton);
@@ -472,7 +503,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should trim name before saving', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       fireEvent.changeText(input, '   Test Item   ');
@@ -490,7 +521,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should block save when name exceeds limit', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       fireEvent.changeText(input, 'A'.repeat(85));
@@ -506,7 +537,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should save with name at exactly 80 characters', async () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const exactName = 'A'.repeat(80);
@@ -527,7 +558,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('User Interactions', () => {
     it('should update display value as user types', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -542,7 +573,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should allow clearing input', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -556,7 +587,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should clear validation error when input is cleared', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -570,7 +601,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle rapid typing and validation updates', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -600,14 +631,14 @@ describe('ReviewDetailsScreen', () => {
         reset: mockReset,
       });
 
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       expect(input.props.editable).toBe(false);
     });
 
     it('should disable save button when name exceeds limit', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       fireEvent.changeText(input, 'A'.repeat(85));
@@ -622,7 +653,7 @@ describe('ReviewDetailsScreen', () => {
 
   describe('Edge Cases', () => {
     it('should handle very long input gracefully', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const veryLongName = 'A'.repeat(200);
@@ -633,7 +664,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle special characters in name', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const specialName = "Test's Item - #123 (2024)";
@@ -645,7 +676,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle emoji characters in name', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
       const emojiName = 'Summer Dress 👗☀️';
@@ -656,7 +687,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle multiple spaces between words', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -668,7 +699,7 @@ describe('ReviewDetailsScreen', () => {
     });
 
     it('should handle input at boundary before exceeding limit', () => {
-      render(<ReviewDetailsScreen />);
+      renderScreen();
 
       const input = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -689,7 +720,7 @@ describe('ReviewDetailsScreen', () => {
   describe('Tag Input and Validation', () => {
     describe('Tag Length Validation (30 char limit)', () => {
       it('should accept tags under 30 characters', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -702,7 +733,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should accept tags exactly 30 characters', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -716,7 +747,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should reject tags over 30 characters', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -730,7 +761,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show feedback for very long tags', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -743,7 +774,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should clear feedback when valid tag added', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -762,7 +793,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag Count Limit (20 tags maximum)', () => {
       it('should accept adding tags up to 20', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -778,7 +809,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should block adding 21st tag', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -795,7 +826,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show tag count indicator', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -813,7 +844,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should disable tag input when at 20 tags', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -828,7 +859,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should enable tag input after removing tag from limit', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -850,7 +881,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should update placeholder when at limit', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -867,7 +898,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag Deduplication', () => {
       it('should block duplicate tags with exact match', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -884,7 +915,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should detect duplicates case-insensitively', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -905,7 +936,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should allow adding tag after duplicate removed', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -933,7 +964,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should clear duplicate feedback when typing', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -955,7 +986,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag Normalization (lowercase)', () => {
       it('should convert tags to lowercase on add', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -970,7 +1001,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should normalize mixed case tags', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -984,7 +1015,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should store multiple tags in lowercase', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1003,7 +1034,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should submit tags in lowercase', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1029,7 +1060,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag UI Rendering', () => {
       it('should display tags as chips', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1041,7 +1072,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should display multiple tag chips', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1058,7 +1089,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show remove button (x) on each tag chip', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1073,7 +1104,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should remove correct tag when remove button clicked', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1099,7 +1130,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should update tag count when tags removed', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1122,7 +1153,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag Input Interactions', () => {
       it('should add tag with Add button', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1134,7 +1165,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should add tag with Enter key', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
 
@@ -1145,7 +1176,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should add tag with space delimiter', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
 
@@ -1156,7 +1187,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should clear input after successful add', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1168,7 +1199,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should keep input if add fails validation', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1181,7 +1212,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should ignore empty input on Add', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1193,7 +1224,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should ignore whitespace-only input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1205,7 +1236,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should trim leading and trailing whitespace from tags', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1220,7 +1251,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Tag Feedback Messages', () => {
       it('should show feedback for tag too long', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1232,7 +1263,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show feedback for duplicate tag', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1247,7 +1278,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show tag limit in placeholder when at limit', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1263,7 +1294,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should clear feedback when user types in input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1279,7 +1310,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should clear feedback when valid tag added', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1302,7 +1333,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Form Submission with Tags', () => {
       it('should submit with no tags (optional field)', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -1317,7 +1348,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should submit with single tag', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1338,7 +1369,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should submit with multiple tags', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1362,7 +1393,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should submit with 20 tags (maximum)', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1388,7 +1419,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should submit all tags in lowercase', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -1417,7 +1448,7 @@ describe('ReviewDetailsScreen', () => {
   describe('Save Flow and Error Handling', () => {
     describe('Successful Save', () => {
       it('should invoke save with correct data', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
@@ -1449,7 +1480,7 @@ describe('ReviewDetailsScreen', () => {
 
         mockSave.mockReturnValueOnce(savePromise);
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -1463,7 +1494,7 @@ describe('ReviewDetailsScreen', () => {
         });
 
         // Re-render with loading state
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Saving...')).toBeTruthy();
 
@@ -1472,7 +1503,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should navigate after successful save', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -1494,20 +1525,20 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should show Saving text on button during load', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Saving...')).toBeTruthy();
       });
 
       it('should disable name input during load', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         expect(nameInput.props.editable).toBe(false);
       });
 
       it('should disable tag input during load', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         expect(tagInput.props.editable).toBe(false);
@@ -1528,7 +1559,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
       });
@@ -1546,7 +1577,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Your session has expired. Please log in again.')).toBeTruthy();
       });
@@ -1564,7 +1595,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Failed to save item. Please try again.')).toBeTruthy();
       });
@@ -1582,7 +1613,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('Please check your information and try again.')).toBeTruthy();
       });
@@ -1600,7 +1631,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         // Error message should be displayed
         expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
@@ -1625,7 +1656,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         // Error should be displayed
         expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
@@ -1666,7 +1697,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
 
@@ -1696,7 +1727,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         // Mock loading state during retry
         mockUseCreateItemWithImage.mockReturnValueOnce({
@@ -1725,7 +1756,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         const retryButton = screen.getByText('Retry');
         fireEvent.press(retryButton);
@@ -1773,7 +1804,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'Test Item');
@@ -1825,7 +1856,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(mockRouter.push).not.toHaveBeenCalled();
         expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -1846,7 +1877,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         expect(screen.getByText('Network error. Please try again.')).toBeTruthy();
 
@@ -1869,7 +1900,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         expect(nameInput.props.editable).not.toBe(false);
@@ -1891,7 +1922,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const retryButton = screen.getByText('Retry');
         expect(retryButton).toBeTruthy();
@@ -1900,7 +1931,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Save with Validation Errors', () => {
       it('should not save when name exceeds limit', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -1912,7 +1943,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should allow save with empty name and tags', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -1932,7 +1963,7 @@ describe('ReviewDetailsScreen', () => {
   describe('Navigation Behaviors', () => {
     describe('Cancel Navigation', () => {
       it('should navigate to crop screen when cancel button is pressed', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const cancelButton = screen.getByText('Cancel');
         fireEvent.press(cancelButton);
@@ -1942,7 +1973,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should use router.push for cancel to preserve back stack', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const cancelButton = screen.getByText('Cancel');
         fireEvent.press(cancelButton);
@@ -1957,7 +1988,7 @@ describe('ReviewDetailsScreen', () => {
           '../../../src/core/telemetry'
         ).trackCaptureEvent;
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const cancelButton = screen.getByText('Cancel');
         fireEvent.press(cancelButton);
@@ -1970,7 +2001,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should preserve payload when canceling', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         // Add some form data
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
@@ -1986,7 +2017,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Successful Save Navigation (AC10)', () => {
       it('should use router.replace to navigate to wardrobe after successful save', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -1997,7 +2028,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should not use router.push for successful save', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2011,7 +2042,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should navigate with router.replace to clear capture/review stack', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2030,7 +2061,7 @@ describe('ReviewDetailsScreen', () => {
           })
         );
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2048,7 +2079,7 @@ describe('ReviewDetailsScreen', () => {
           })
         );
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2066,7 +2097,7 @@ describe('ReviewDetailsScreen', () => {
 
         mockSave.mockReturnValueOnce(savePromise);
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2083,7 +2114,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should navigate exactly once after successful save', async () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2108,7 +2139,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(mockRouter.push).not.toHaveBeenCalled();
         expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -2127,7 +2158,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const retryButton = screen.getByText('Retry');
 
@@ -2162,7 +2193,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { rerender } = render(<ReviewDetailsScreen />);
+        const { rerender } = renderScreen();
 
         // Verify no navigation in error state
         expect(mockRouter.replace).not.toHaveBeenCalled();
@@ -2190,7 +2221,7 @@ describe('ReviewDetailsScreen', () => {
       it('should show error state when payload is invalid', () => {
         mockIsCaptureImagePayload.mockReturnValue(false);
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('No image to review')).toBeTruthy();
       });
@@ -2198,7 +2229,7 @@ describe('ReviewDetailsScreen', () => {
       it('should navigate to capture screen when go back is pressed with invalid payload', () => {
         mockIsCaptureImagePayload.mockReturnValue(false);
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const goBackButton = screen.getByText('Go back');
         fireEvent.press(goBackButton);
@@ -2216,7 +2247,7 @@ describe('ReviewDetailsScreen', () => {
 
         mockIsCaptureImagePayload.mockReturnValue(false);
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('No image to review')).toBeTruthy();
       });
@@ -2224,7 +2255,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Route Protection Consistency', () => {
       it('should maintain store state on cancel navigation', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const cancelButton = screen.getByText('Cancel');
         fireEvent.press(cancelButton);
@@ -2237,7 +2268,7 @@ describe('ReviewDetailsScreen', () => {
       it('should navigate to wardrobe assuming authenticated user', async () => {
         // ReviewDetailsScreen is a protected route
         // Navigation to /wardrobe assumes user is authenticated
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2253,7 +2284,7 @@ describe('ReviewDetailsScreen', () => {
       it('should use consistent navigation pattern with other flows', async () => {
         // AC10: router.replace clears navigation stack
         // This is consistent with onboarding completion and other flows
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const saveButton = screen.getByText('Save');
         fireEvent.press(saveButton);
@@ -2270,7 +2301,7 @@ describe('ReviewDetailsScreen', () => {
   describe('Accessibility', () => {
     describe('Interactive Element Roles and Labels', () => {
       it('should have appropriate accessibility properties on name input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -2279,7 +2310,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have appropriate accessibility properties on tag input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
 
@@ -2288,7 +2319,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have correct accessibility role and label on add tag button', () => {
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const addButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
 
@@ -2298,7 +2329,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have correct accessibility role on save button', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
         const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
@@ -2309,7 +2340,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have correct accessibility role on cancel button', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
         const cancelButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Cancel');
@@ -2320,7 +2351,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have appropriate accessibility labels on tag remove buttons', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         fireEvent.changeText(tagInput, 'summer');
@@ -2341,7 +2372,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have appropriate accessibility properties on image preview', () => {
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const image = UNSAFE_getByProps({ accessibilityRole: 'image' });
 
@@ -2350,7 +2381,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have appropriate accessibility labels on screen container', () => {
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const scrollView = UNSAFE_getByProps({ accessibilityLabel: 'Review and add details' });
 
@@ -2363,7 +2394,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Validation Error Announcements', () => {
       it('should have alert role on name validation errors', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -2373,7 +2404,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should associate name validation error with input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -2384,7 +2415,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have alert role on tag feedback messages', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         fireEvent.changeText(tagInput, 'A'.repeat(35));
@@ -2409,14 +2440,14 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const errorBanner = UNSAFE_getByProps({ accessibilityRole: 'alert' });
         expect(errorBanner).toBeTruthy();
       });
 
       it('should make tag limit feedback accessible', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -2433,7 +2464,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should distinguish multiple validation errors', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         // Trigger name error
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
@@ -2456,7 +2487,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Disabled State Accessibility', () => {
       it('should communicate save button disabled state when name too long', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -2468,14 +2499,14 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should communicate add tag button disabled state when input empty', () => {
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const addButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
         expect(addButton.props.accessibilityState.disabled).toBe(true);
       });
 
       it('should communicate add tag button disabled state at tag limit', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         const addButton = screen.getByText('Add');
@@ -2486,7 +2517,7 @@ describe('ReviewDetailsScreen', () => {
           fireEvent.press(addButton);
         }
 
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
         const disabledAddButton = UNSAFE_getByProps({ accessibilityLabel: 'Add tag' });
 
         expect(disabledAddButton.props.accessibilityState.disabled).toBe(true);
@@ -2500,7 +2531,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         expect(nameInput.props.editable).toBe(false);
@@ -2517,7 +2548,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const buttons = UNSAFE_getAllByProps({ accessibilityRole: 'button' });
         const saveButton = buttons.find((btn) => btn.props.accessibilityLabel === 'Save item');
@@ -2535,7 +2566,7 @@ describe('ReviewDetailsScreen', () => {
           reset: mockReset,
         });
 
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
@@ -2549,7 +2580,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Dynamic Content Accessibility', () => {
       it('should make character counter accessible', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('0/80')).toBeTruthy();
 
@@ -2560,7 +2591,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should make tag count indicator accessible', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         expect(screen.getByText('0/20 tags')).toBeTruthy();
 
@@ -2574,7 +2605,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should make tag chips accessible with labels', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         fireEvent.changeText(tagInput, 'summer');
@@ -2593,7 +2624,7 @@ describe('ReviewDetailsScreen', () => {
         };
 
         // Normal state
-        const { rerender, UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { rerender, UNSAFE_getByProps } = renderScreen();
         const saveButton = UNSAFE_getByProps({ accessibilityLabel: 'Save item' });
         expect(saveButton).toBeTruthy();
 
@@ -2625,7 +2656,7 @@ describe('ReviewDetailsScreen', () => {
             reset: mockReset,
           });
 
-          const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+          const { UNSAFE_getByProps } = renderScreen();
           const errorBanner = UNSAFE_getByProps({ accessibilityRole: 'alert' });
 
           expect(errorBanner).toBeTruthy();
@@ -2635,7 +2666,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Focus Management and Navigation', () => {
       it('should have logical tab order with inputs before buttons', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         // Verify all interactive elements are present in expected order
         expect(screen.getByPlaceholderText('e.g., Blue Summer Dress')).toBeTruthy();
@@ -2646,7 +2677,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should maintain tag input availability after adding tag', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         fireEvent.changeText(tagInput, 'summer');
@@ -2660,7 +2691,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should allow keyboard navigation on tag input', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
 
@@ -2672,7 +2703,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should maintain focus management during validation errors', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -2685,7 +2716,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Screen Reader Announcements', () => {
       it('should provide context to screen readers via screen label', () => {
-        const { UNSAFE_getByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getByProps } = renderScreen();
 
         const scrollView = UNSAFE_getByProps({ accessibilityLabel: 'Review and add details' });
 
@@ -2695,7 +2726,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should have logically grouped form sections', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         // Name section
         expect(screen.getByText('Name (optional)')).toBeTruthy();
@@ -2709,7 +2740,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should associate helper text with inputs', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         // Helper text should be near/before inputs
         expect(screen.getByText('Add a name to help you find this item later')).toBeTruthy();
@@ -2720,7 +2751,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should provide timely feedback for validation', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
 
@@ -2735,7 +2766,7 @@ describe('ReviewDetailsScreen', () => {
 
     describe('Accessibility Standards Compliance', () => {
       it('should make all interactive elements keyboard accessible', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         // All interactive elements should have proper roles
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
@@ -2754,7 +2785,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should not rely solely on color for error indication', () => {
-        render(<ReviewDetailsScreen />);
+        renderScreen();
 
         const nameInput = screen.getByPlaceholderText('e.g., Blue Summer Dress');
         fireEvent.changeText(nameInput, 'A'.repeat(85));
@@ -2770,7 +2801,7 @@ describe('ReviewDetailsScreen', () => {
       });
 
       it('should provide appropriate touch targets for tag remove buttons', () => {
-        const { UNSAFE_getAllByProps } = render(<ReviewDetailsScreen />);
+        const { UNSAFE_getAllByProps } = renderScreen();
 
         const tagInput = screen.getByPlaceholderText('e.g., casual, summer');
         fireEvent.changeText(tagInput, 'summer');
