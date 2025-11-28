@@ -325,8 +325,10 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         clearTimeout(timeoutId);
         signal?.removeEventListener('abort', abortHandler);
 
-        // Update last successful outfits
+        // Update last successful outfits and reset offline state.
+        // Resetting isOfflineRef ensures consumers receive accurate connectivity status.
         lastSuccessfulOutfitsRef.current = response.outfits;
+        isOfflineRef.current = false;
 
         return response.outfits;
       } catch (error) {
