@@ -29,3 +29,14 @@ export {
   FetchRecommendationsError,
   type FetchRecommendationsErrorCode,
 } from './api';
+
+// Hooks
+export {
+  useOutfitRecommendations,
+  useInvalidateOutfitRecommendations,
+  outfitRecommendationsQueryKey,
+  type UseOutfitRecommendationsResult,
+  type RecommendationErrorType,
+} from './hooks';
+
+export { useNetworkStatus, checkIsOffline, type NetworkStatus } from './hooks';
