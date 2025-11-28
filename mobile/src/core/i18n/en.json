@@ -23,6 +23,9 @@
         "ctaButton": "Get outfit ideas button",
         "ctaButtonHint": "Tap to get AI-powered outfit suggestions based on your wardrobe",
         "suggestionsSection": "Outfit suggestions section"
+      },
+      "serverStatus": {
+        "label": "Server Status"
       }
     },
     "auth": {
