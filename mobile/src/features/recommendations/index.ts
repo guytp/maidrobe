@@ -8,7 +8,14 @@
  */
 
 // Types
-export type { OutfitSuggestion, OutfitRecommendationsResponse } from './types';
+export type {
+  OutfitSuggestion,
+  OutfitRecommendationsResponse,
+  ResolvedItemStatus,
+  OutfitItemViewModel,
+  ResolvedOutfitItems,
+  ItemResolutionResult,
+} from './types';
 
 // Schemas (for direct validation use cases)
 export { OutfitSuggestionSchema, OutfitRecommendationsResponseSchema } from './types';
@@ -49,3 +56,13 @@ export {
   type OutfitSuggestionCardProps,
   type SuggestionsSectionProps,
 } from './components';
+
+// Item Resolution Utilities (Story #363)
+export {
+  resolveOutfitItems,
+  extractAllItemIds,
+  normalizeItemIds,
+  createEmptyCacheAccessor,
+  type CacheableItem,
+  type ItemCacheAccessor,
+} from './utils';
