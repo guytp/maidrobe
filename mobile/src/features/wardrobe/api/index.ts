@@ -19,6 +19,14 @@ export {
   type FetchWardrobeItemParams,
 } from './fetchWardrobeItem';
 
+// Data fetching - batch operations (Story #363)
+export {
+  fetchWardrobeItemsBatch,
+  FetchBatchItemsError,
+  MAX_BATCH_SIZE,
+  type FetchBatchItemsErrorCode,
+} from './fetchWardrobeItemsBatch';
+
 // React Query hooks - list operations
 export {
   useWardrobeItems,
@@ -35,6 +43,14 @@ export {
   type UseWardrobeItemParams,
   type UseWardrobeItemResult,
 } from './useWardrobeItem';
+
+// React Query hooks - batch operations (Story #363)
+export {
+  useBatchWardrobeItems,
+  useGetCachedItem,
+  type UseBatchWardrobeItemsParams,
+  type UseBatchWardrobeItemsResult,
+} from './useBatchWardrobeItems';
 
 // Data mutation - single item operations
 export {

@@ -58,6 +58,20 @@ export const wardrobeItemsQueryKey = {
    */
   detail: (userId: string, itemId: string) =>
     [...wardrobeItemsQueryKey.user(userId), 'detail', itemId] as const,
+
+  /**
+   * Key for batch item fetch queries.
+   *
+   * Uses a 'batch' segment with sorted item IDs to ensure consistent cache keys
+   * regardless of the order items were requested. Sorting ensures cache hits
+   * when the same set of items is requested in different orders.
+   *
+   * @param userId - User ID for RLS compliance
+   * @param itemIds - Array of item IDs to fetch (will be sorted for cache key)
+   * @returns Query key array: ['wardrobe', 'items', userId, 'batch', ...sortedIds]
+   */
+  batch: (userId: string, itemIds: string[]) =>
+    [...wardrobeItemsQueryKey.user(userId), 'batch', ...itemIds.slice().sort()] as const,
 };
 
 /**

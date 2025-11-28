@@ -259,3 +259,81 @@ export const GRID_GAP = 8;
  * Per AC11: ~300ms debounce to avoid request per keystroke.
  */
 export const SEARCH_DEBOUNCE_MS = 300;
+
+// ============================================================================
+// Batch Item Types (Story #363)
+// ============================================================================
+
+/**
+ * Minimal projection of a wardrobe item for batch resolution.
+ *
+ * Contains only the fields needed for outfit suggestion item chips:
+ * - Core identification (id, user_id)
+ * - Display fields (name, thumbnails)
+ * - Accessibility fields (type, colour)
+ *
+ * This projection is optimised for the outfit recommendation flow where
+ * we need to resolve multiple item IDs efficiently without fetching
+ * full item details.
+ *
+ * Uses snake_case to match Supabase column names directly.
+ */
+export interface BatchWardrobeItem {
+  /** Unique item identifier (UUIDv7) */
+  id: string;
+
+  /** User who owns this item (UUID foreign key to auth.users) */
+  user_id: string;
+
+  /** Optional user-provided name/label for the item */
+  name: string | null;
+
+  /** Storage key for thumbnail image (preferred, ~200x200) */
+  thumb_key: string | null;
+
+  /** Storage key for background-removed image (fallback 1) */
+  clean_key: string | null;
+
+  /** Storage key for original uploaded image (fallback 2) */
+  original_key: string | null;
+
+  /** AI-detected item type (e.g., shirt, pants, dress) - for accessibility */
+  type: string | null;
+
+  /** AI-detected colours (array allows multi-colour items) - for accessibility */
+  colour: string[] | null;
+}
+
+/**
+ * Supabase projection string for batch item queries.
+ *
+ * Projects only the fields needed for outfit suggestion item chips.
+ * Optimised for minimal payload size while including all fields
+ * required for display names, thumbnails, and accessibility labels.
+ *
+ * Use with: supabase.from('items').select(BATCH_ITEM_PROJECTION).in('id', itemIds)
+ */
+export const BATCH_ITEM_PROJECTION =
+  'id, user_id, name, thumb_key, clean_key, original_key, type, colour' as const;
+
+/**
+ * Parameters for batch fetching wardrobe items by ID.
+ */
+export interface FetchBatchItemsParams {
+  /** User ID for RLS compliance (must match authenticated user) */
+  userId: string;
+
+  /** Array of item IDs to fetch (should be de-duplicated) */
+  itemIds: string[];
+}
+
+/**
+ * Response from batch wardrobe items fetch operation.
+ */
+export interface FetchBatchItemsResponse {
+  /** Map of item ID to item data for successfully fetched items */
+  items: Map<string, BatchWardrobeItem>;
+
+  /** Array of item IDs that were requested but not found */
+  missingIds: string[];
+}
