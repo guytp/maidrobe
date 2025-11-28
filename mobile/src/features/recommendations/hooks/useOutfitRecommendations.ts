@@ -257,19 +257,21 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         timeoutController.abort();
       }, REQUEST_TIMEOUT_MS);
 
+      // Handler to propagate React Query's abort signal to the timeout controller.
+      // Defined outside try block so it's accessible in both success and error cleanup.
+      const abortHandler = () => {
+        if (!timeoutController.signal.aborted) {
+          timeoutController.abort();
+        }
+      };
+
       try {
-        // Combine query signal with timeout signal
-        const combinedSignal = signal;
-        if (combinedSignal?.aborted) {
+        // Check if React Query's signal is already aborted
+        if (signal?.aborted) {
           throw new FetchRecommendationsError('Request was cancelled', 'network', 'cancelled');
         }
 
-        // Add abort listener for timeout
-        const abortHandler = () => {
-          if (!timeoutController.signal.aborted) {
-            timeoutController.abort();
-          }
-        };
+        // Link React Query's signal to the timeout controller
         signal?.addEventListener('abort', abortHandler);
 
         // Check timeout before fetch
@@ -298,7 +300,9 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
 
         return response.outfits;
       } catch (error) {
+        // Clean up timeout and event listener
         clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', abortHandler);
 
         // Check if aborted due to timeout
         if (timeoutController.signal.aborted && !(error instanceof FetchRecommendationsError)) {
