@@ -7,3 +7,13 @@
  */
 
 export * from './api/useHealthcheck';
+
+// Re-export recommendation hooks for Home screen convenience
+export {
+  useOutfitRecommendations,
+  useInvalidateOutfitRecommendations,
+  useNetworkStatus,
+  type UseOutfitRecommendationsResult,
+  type RecommendationErrorType,
+  type NetworkStatus,
+} from '../recommendations';
