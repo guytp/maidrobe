@@ -372,13 +372,14 @@ describe('CropScreen', () => {
       });
     });
 
-    it('navigates to item creation on success', async () => {
+    it('navigates to review details on success for wardrobe flow', async () => {
       const { getByText } = render(<CropScreen />);
 
       fireEvent.press(getByText('Confirm'));
 
       await waitFor(() => {
-        expect(mockRouter.push).toHaveBeenCalledWith('/onboarding/first-item');
+        // validPayload has origin: 'wardrobe', so navigates to review-details
+        expect(mockRouter.push).toHaveBeenCalledWith('/review-details');
       });
     });
 
