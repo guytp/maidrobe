@@ -40,3 +40,11 @@ export {
 } from './hooks';
 
 export { useNetworkStatus, checkIsOffline, type NetworkStatus } from './hooks';
+
+// Components
+export {
+  OutfitSuggestionCard,
+  SuggestionsSection,
+  type OutfitSuggestionCardProps,
+  type SuggestionsSectionProps,
+} from './components';
