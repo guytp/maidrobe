@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Platform } from 'react-native';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../../services/supabase';
 import { logSuccess } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
@@ -237,7 +238,7 @@ export function useSignUp() {
       // Some Supabase configurations require email confirmation before auto-login
       if (data.session) {
         // Cast to Session type - we know this comes from Supabase signUp
-        saveSessionFromSupabase(data.session as any, new Date().toISOString()).catch((error) => {
+        saveSessionFromSupabase(data.session as Session, new Date().toISOString()).catch((error) => {
           // Log error but don't throw - session save failures are non-critical
           // eslint-disable-next-line no-console
           console.error('[SignUp] Failed to save session bundle:', error);

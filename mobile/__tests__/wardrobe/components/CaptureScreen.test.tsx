@@ -51,8 +51,17 @@ const mockUseStore = useStore as unknown as jest.Mock;
 const mockUseCapturePermissions = useCapturePermissions as jest.Mock;
 const mockUseGalleryPicker = useGalleryPicker as jest.Mock;
 
+// Type for mock router
+interface MockRouter {
+  push: jest.Mock;
+  replace: jest.Mock;
+}
+
+// Type for Zustand store selector
+type StoreSelector<T> = (state: Record<string, unknown>) => T;
+
 describe('CaptureScreen', () => {
-  let mockRouter: any;
+  let mockRouter: MockRouter;
   let mockSetOrigin: jest.Mock;
   let mockSetSource: jest.Mock;
   let mockSetPayload: jest.Mock;
@@ -75,7 +84,7 @@ describe('CaptureScreen', () => {
     mockSetIsNavigating = jest.fn();
     mockResetCapture = jest.fn();
 
-    mockUseStore.mockImplementation((selector: any) =>
+    mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
       selector({
         user: { id: 'test-user-id' },
         isNavigating: false,
@@ -419,7 +428,7 @@ describe('CaptureScreen', () => {
   describe('navigation debouncing', () => {
     it('prevents double navigation when isNavigating is true', () => {
       mockUseLocalSearchParams.mockReturnValue({ origin: 'wardrobe' });
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           isNavigating: true,

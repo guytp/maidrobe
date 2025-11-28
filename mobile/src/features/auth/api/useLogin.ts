@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../../services/supabase';
 import { logAuthEvent, logError } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
@@ -536,7 +537,7 @@ export function useLogin() {
       // This enables auth state restoration and offline trust window logic
       // Include hasOnboarded in bundle for offline resilience (Story #95)
       // Cast to Session type - we know this comes from Supabase signInWithPassword
-      saveSessionFromSupabase(data.session as any, new Date().toISOString(), hasOnboarded).catch(
+      saveSessionFromSupabase(data.session as Session, new Date().toISOString(), hasOnboarded).catch(
         (error) => {
           // Log error but don't throw - session save failures are non-critical
           // User is still authenticated in current session

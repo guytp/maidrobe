@@ -171,8 +171,8 @@ describe('capture type guards', () => {
     });
 
     it('rejects payload with missing uri', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).uri;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.uri;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
@@ -182,13 +182,13 @@ describe('capture type guards', () => {
     });
 
     it('rejects payload with non-string uri', () => {
-      const payload = { ...validPayload, uri: 123 as any };
+      const payload = { ...validPayload, uri: 123 as unknown as string };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with missing width', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).width;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.width;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
@@ -203,13 +203,13 @@ describe('capture type guards', () => {
     });
 
     it('rejects payload with non-number width', () => {
-      const payload = { ...validPayload, width: '1920' as any };
+      const payload = { ...validPayload, width: '1920' as unknown as number };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with missing height', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).height;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.height;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
@@ -224,35 +224,35 @@ describe('capture type guards', () => {
     });
 
     it('rejects payload with non-number height', () => {
-      const payload = { ...validPayload, height: '1080' as any };
+      const payload = { ...validPayload, height: '1080' as unknown as number };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with missing origin', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).origin;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.origin;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with invalid origin', () => {
-      const payload = { ...validPayload, origin: 'invalid' as any };
+      const payload = { ...validPayload, origin: 'invalid' as unknown as CaptureOrigin };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with missing source', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).source;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.source;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with invalid source', () => {
-      const payload = { ...validPayload, source: 'invalid' as any };
+      const payload = { ...validPayload, source: 'invalid' as unknown as CaptureSource };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
     it('rejects payload with missing createdAt', () => {
-      const payload = { ...validPayload };
-      delete (payload as any).createdAt;
+      const payload: Record<string, unknown> = { ...validPayload };
+      delete payload.createdAt;
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 
@@ -262,7 +262,7 @@ describe('capture type guards', () => {
     });
 
     it('rejects payload with non-string createdAt', () => {
-      const payload = { ...validPayload, createdAt: 123 as any };
+      const payload = { ...validPayload, createdAt: 123 as unknown as string };
       expect(isCaptureImagePayload(payload)).toBe(false);
     });
 

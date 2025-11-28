@@ -13,6 +13,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { trackCaptureEvent } from '../../../src/core/telemetry';
 import { validateCapturedImage } from '../../../src/core/utils/imageValidation';
 
+// Type alias for ImagePicker result to allow partial mocking in tests
+type MockImagePickerResult = ImagePicker.ImagePickerResult;
+
+// Type for pick result from hook
+interface PickResult {
+  success: boolean;
+  uri?: string;
+  width?: number;
+  height?: number;
+  type?: string;
+  error?: string;
+}
+
 // Mock dependencies
 jest.mock('expo-image-picker');
 jest.mock('../../../src/core/telemetry', () => ({
@@ -64,7 +77,7 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({
         isValid: true,
@@ -72,7 +85,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -94,7 +107,7 @@ describe('useGalleryPicker', () => {
             height: 1080,
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
@@ -121,7 +134,7 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
@@ -149,7 +162,7 @@ describe('useGalleryPicker', () => {
                 resolve({
                   canceled: false,
                   assets: [{ uri: 'file:///image.jpg', width: 1920, height: 1080 }],
-                } as any),
+                } as unknown as MockImagePickerResult),
               100
             )
           )
@@ -177,11 +190,11 @@ describe('useGalleryPicker', () => {
     it('returns cancelled result when user cancels picker', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: true,
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -193,7 +206,7 @@ describe('useGalleryPicker', () => {
     it('tracks gallery_picker_cancelled event', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: true,
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
@@ -210,7 +223,7 @@ describe('useGalleryPicker', () => {
     it('resets loading state after cancellation', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: true,
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
@@ -233,7 +246,7 @@ describe('useGalleryPicker', () => {
             height: 100,
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({
         isValid: false,
@@ -243,7 +256,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -263,7 +276,7 @@ describe('useGalleryPicker', () => {
             height: 100,
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({
         isValid: false,
@@ -292,11 +305,11 @@ describe('useGalleryPicker', () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: false,
         assets: [],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -310,7 +323,7 @@ describe('useGalleryPicker', () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: false,
         assets: undefined,
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
@@ -332,7 +345,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -365,7 +378,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -396,7 +409,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -416,13 +429,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -443,13 +456,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -470,13 +483,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -497,13 +510,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -524,13 +537,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -551,13 +564,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -578,13 +591,13 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -605,7 +618,7 @@ describe('useGalleryPicker', () => {
             type: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
@@ -635,13 +648,13 @@ describe('useGalleryPicker', () => {
             mimeType: 'image/jpeg',
           },
         ],
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       mockValidateCapturedImage.mockReturnValue({ isValid: true });
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: any;
+      let pickResult: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -654,7 +667,7 @@ describe('useGalleryPicker', () => {
     it('handles null origin in telemetry', async () => {
       mockLaunchImageLibraryAsync.mockResolvedValue({
         canceled: true,
-      } as any);
+      } as unknown as MockImagePickerResult);
 
       const { result } = renderHook(() => useGalleryPicker(null));
 

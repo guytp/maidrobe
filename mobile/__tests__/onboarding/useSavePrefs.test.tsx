@@ -6,6 +6,9 @@ import { supabase } from '../../src/services/supabase';
 import { logError, logSuccess } from '../../src/core/telemetry';
 import type { PrefsRow, PrefsFormData } from '../../src/features/onboarding/utils/prefsTypes';
 
+// Type helper for partial Supabase mock returns in tests
+type MockSupabaseFrom = ReturnType<typeof supabase.from>;
+
 // Mock dependencies
 jest.mock('../../src/services/supabase', () => ({
   supabase: {
@@ -100,7 +103,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -137,7 +140,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -191,7 +194,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -230,7 +233,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -266,7 +269,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -299,7 +302,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -332,7 +335,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -369,7 +372,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -400,7 +403,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const invalidateQueriesSpy = jest.spyOn(queryClient, 'invalidateQueries');
 
@@ -433,7 +436,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -492,7 +495,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -537,7 +540,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -579,7 +582,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -621,7 +624,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -666,7 +669,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -707,7 +710,7 @@ describe('useSavePrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         upsert: mockUpsert,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
@@ -736,7 +739,7 @@ describe('useSavePrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useSavePrefs(), { wrapper });
 
