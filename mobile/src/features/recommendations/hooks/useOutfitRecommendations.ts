@@ -147,18 +147,44 @@ function mapErrorCodeToType(code: FetchRecommendationsErrorCode): Recommendation
 }
 
 /**
+ * Checks if an error represents an intentional cancellation that should not be retried.
+ *
+ * Cancellations include:
+ * - Timeout errors (REQUEST_TIMEOUT_MS exceeded)
+ * - Component unmount (React Query cancels the query)
+ * - Query invalidation (user triggered a new fetch)
+ *
+ * These are identified by the correlationId field which we use as a marker.
+ */
+function isCancellationError(error: unknown): boolean {
+  if (error instanceof FetchRecommendationsError) {
+    return (
+      error.correlationId === 'timeout' ||
+      error.correlationId === 'cancelled'
+    );
+  }
+  return false;
+}
+
+/**
  * Determines if an error is transient and should be retried.
  *
  * Retries:
- * - Network errors (connectivity issues)
+ * - Network errors (connectivity issues, but NOT cancellations/timeouts)
  * - Server errors (5xx, might recover)
  *
  * Does NOT retry:
  * - Auth errors (401/403 - interceptor handles)
  * - Schema errors (response format issue)
  * - Unknown errors (might be permanent)
+ * - Cancellation errors (timeout, unmount - intentional)
  */
 function isRetryableError(error: unknown): boolean {
+  // Never retry intentional cancellations
+  if (isCancellationError(error)) {
+    return false;
+  }
+
   if (error instanceof FetchRecommendationsError) {
     return error.code === 'network' || error.code === 'server';
   }
@@ -251,14 +277,18 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         );
       }
 
-      // Create timeout controller
+      // Create timeout controller and track whether timeout specifically fired.
+      // This flag distinguishes timeout aborts from other aborts (e.g., component unmount).
+      let didTimeout = false;
       const timeoutController = new AbortController();
       const timeoutId = setTimeout(() => {
+        didTimeout = true;
         timeoutController.abort();
       }, REQUEST_TIMEOUT_MS);
 
       // Handler to propagate React Query's abort signal to the timeout controller.
       // Defined outside try block so it's accessible in both success and error cleanup.
+      // Note: When this fires, didTimeout remains false, distinguishing it from timeout.
       const abortHandler = () => {
         if (!timeoutController.signal.aborted) {
           timeoutController.abort();
@@ -304,8 +334,17 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         clearTimeout(timeoutId);
         signal?.removeEventListener('abort', abortHandler);
 
-        // Check if aborted due to timeout
-        if (timeoutController.signal.aborted && !(error instanceof FetchRecommendationsError)) {
+        // Handle the error based on what caused the abort:
+        // 1. Timeout: didTimeout is true - throw a timeout error
+        // 2. React Query abort (unmount): signal?.aborted is true but didTimeout is false
+        // 3. Other errors: neither of the above, just re-throw
+
+        // If the timeout fired, throw a timeout-specific error
+        if (didTimeout) {
+          // Don't wrap if already a FetchRecommendationsError (avoid double-handling)
+          if (error instanceof FetchRecommendationsError) {
+            throw error;
+          }
           throw new FetchRecommendationsError(
             'Request timed out. Please try again.',
             'network',
@@ -313,6 +352,18 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
           );
         }
 
+        // If React Query cancelled (component unmount, query invalidation),
+        // throw a cancellation error. This won't be retried and won't show
+        // an error to the user since the component is unmounting anyway.
+        if (signal?.aborted && !(error instanceof FetchRecommendationsError)) {
+          throw new FetchRecommendationsError(
+            'Request was cancelled',
+            'network',
+            'cancelled'
+          );
+        }
+
+        // For all other errors, re-throw as-is
         throw error;
       }
     },
