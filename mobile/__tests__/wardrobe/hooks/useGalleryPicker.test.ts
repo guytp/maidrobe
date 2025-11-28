@@ -24,6 +24,7 @@ interface PickResult {
   height?: number;
   type?: string;
   error?: string;
+  reason?: string;
 }
 
 // Mock dependencies
@@ -85,7 +86,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -194,7 +195,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -256,7 +257,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -309,7 +310,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -345,7 +346,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -378,7 +379,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -409,7 +410,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -435,7 +436,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -462,7 +463,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -489,7 +490,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -516,7 +517,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -543,7 +544,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -570,7 +571,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -597,7 +598,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });
@@ -654,7 +655,7 @@ describe('useGalleryPicker', () => {
 
       const { result } = renderHook(() => useGalleryPicker('wardrobe'));
 
-      let pickResult: PickResult;
+      let pickResult!: PickResult;
       await act(async () => {
         pickResult = await result.current.pickImage();
       });

@@ -15,14 +15,8 @@ import { CaptureImagePayload } from '../../../src/core/types/capture';
 import * as telemetry from '../../../src/core/telemetry';
 import * as imageValidation from '../../../src/core/utils/imageValidation';
 
-// Type for mock router
-interface MockRouter {
-  push: jest.Mock;
-  replace: jest.Mock;
-  back: jest.Mock;
-  canGoBack: jest.Mock;
-  setParams: jest.Mock;
-}
+// Type for mock router - uses UseGallerySelectionOptions['router'] to ensure compatibility
+type MockRouter = UseGallerySelectionOptions['router'];
 
 // Type for Alert action button
 interface AlertAction {
