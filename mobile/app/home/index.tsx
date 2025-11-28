@@ -224,7 +224,7 @@ export default function HomeScreen(): React.JSX.Element {
           accessibilityRole="text"
         >
           <Text style={styles.healthcheckLabel} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
-            Server Status
+            {t('screens.home.serverStatus.label')}
           </Text>
           {isHealthcheckLoading ? (
             <ActivityIndicator size="small" color={colors.textPrimary} />
