@@ -6,7 +6,7 @@ import { captureException, getSentryClient } from '../../src/core/telemetry/sent
 import { sanitizeAuthMetadata } from '../../src/core/telemetry';
 
 // Mock dependencies
-jest.mock('../../../src/core/featureFlags/config', () => ({
+jest.mock('../../src/core/featureFlags/config', () => ({
   getFlagConfig: jest.fn(() => ({
     enabled: true,
     minVersion: '0.0.0',
@@ -14,12 +14,12 @@ jest.mock('../../../src/core/featureFlags/config', () => ({
   })),
 }));
 
-jest.mock('../../../src/core/telemetry/sentry', () => ({
+jest.mock('../../src/core/telemetry/sentry', () => ({
   captureException: jest.fn(),
   getSentryClient: jest.fn(() => ({ enabled: true, dsn: undefined, environment: 'development' })),
 }));
 
-jest.mock('../../../src/core/telemetry', () => ({
+jest.mock('../../src/core/telemetry', () => ({
   sanitizeAuthMetadata: jest.fn((metadata) => metadata),
 }));
 
