@@ -15,7 +15,8 @@
  * the UI to control when recommendations are fetched (e.g., on CTA tap).
  *
  * ERROR HANDLING:
- * - Auth errors (401): Supabase interceptor handles logout automatically
+ * - Auth errors (401): Invokes central auth error handler, triggers session
+ *   recovery via markUnauthenticated, and routes to login screen
  * - Network/offline: Fast-fail with specific offline message
  * - Server errors (5xx): Retry up to 2 times with backoff
  * - Schema errors: No retry, show generic error
@@ -28,10 +29,11 @@
  * @module features/recommendations/hooks/useOutfitRecommendations
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
 import { logError } from '../../../core/telemetry';
+import { handleAuthError } from '../../auth/utils/authErrorHandler';
 import {
   fetchOutfitRecommendations,
   FetchRecommendationsError,
@@ -214,8 +216,10 @@ function isRetryableError(error: unknown): boolean {
  *
  * AUTHENTICATION:
  * Requires authenticated user. The hook is disabled when no user is present.
- * Auth errors (401) are handled by the Supabase interceptor which triggers
- * the session recovery flow automatically.
+ * Auth errors (401) are handled at two levels:
+ * 1. Supabase interceptor: Attempts token refresh and retries
+ * 2. Hook level: If auth error persists, invokes central auth error handler
+ *    and triggers session recovery via markUnauthenticated
  *
  * @returns Object with outfits, loading/error states, and control functions
  *
@@ -252,6 +256,7 @@ function isRetryableError(error: unknown): boolean {
 export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   const queryClient = useQueryClient();
   const user = useStore((state) => state.user);
+  const markUnauthenticated = useStore((state) => state.markUnauthenticated);
   const userId = user?.id;
 
   // Track last successful outfits across failures
@@ -397,6 +402,45 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
     // Cache for 5 minutes
     gcTime: 5 * 60 * 1000,
   });
+
+  // Handle auth errors by invoking central auth error handler and triggering session recovery.
+  // This effect runs when query.error changes and detects auth-related failures (401).
+  // It complements the Supabase interceptor's handling by ensuring auth errors at the
+  // application layer also trigger proper session cleanup and logout.
+  useEffect(() => {
+    if (!query.error) return;
+
+    // Check if this is an auth error from the recommendations fetch
+    const isAuthError =
+      query.error instanceof FetchRecommendationsError && query.error.code === 'auth';
+
+    if (!isAuthError) return;
+
+    // Invoke the central auth error handler to normalize the error and log appropriately.
+    // Using 'refresh' flow context since this is a data fetch that failed due to auth,
+    // similar to how token refresh failures are handled.
+    const normalizedError = handleAuthError(query.error, {
+      flow: 'refresh',
+      supabaseOperation: 'get-outfit-recommendations',
+    });
+
+    // Log the auth error for observability
+    logError(query.error, 'user', {
+      feature: 'recommendations',
+      operation: 'auth_error_recovery',
+      metadata: {
+        category: normalizedError.category,
+        severity: normalizedError.severity,
+        correlationId:
+          query.error instanceof FetchRecommendationsError ? query.error.correlationId : undefined,
+      },
+    });
+
+    // Trigger session recovery by marking user as unauthenticated.
+    // This clears auth state and sets a logout reason for the login screen.
+    // The auth routing logic will then navigate to the login screen.
+    markUnauthenticated('Your session has expired. Please sign in again.');
+  }, [query.error, markUnauthenticated]);
 
   // Derive error type from query error
   const errorType: RecommendationErrorType = (() => {
