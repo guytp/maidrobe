@@ -13,3 +13,11 @@ export {
 } from './useOutfitRecommendations';
 
 export { useNetworkStatus, checkIsOffline, type NetworkStatus } from './useNetworkStatus';
+
+// Item resolution hooks (Story #363)
+export {
+  useResolvedOutfitItems,
+  useResolvedOutfitItemsSingle,
+  type UseResolvedOutfitItemsParams,
+  type UseResolvedOutfitItemsResult,
+} from './useResolvedOutfitItems';
