@@ -3,7 +3,7 @@
  *
  * Displays a single outfit recommendation with:
  * - Context label (occasion/setting)
- * - Row of item placeholder chips
+ * - Row of resolved item chips (with thumbnails)
  * - Natural-language reason text
  *
  * PERFORMANCE:
@@ -14,14 +14,17 @@
  * - Proper semantic structure
  * - Font scaling support
  * - Sufficient color contrast
+ * - Item availability announced via accessibility label
  *
  * @module features/recommendations/components/OutfitSuggestionCard
  */
 
 import React, { memo, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../../core/theme';
-import type { OutfitSuggestion } from '../types';
+import { t } from '../../../core/i18n';
+import { OutfitItemChip } from './OutfitItemChip';
+import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 
 /**
  * Props for OutfitSuggestionCard component.
@@ -29,72 +32,47 @@ import type { OutfitSuggestion } from '../types';
 export interface OutfitSuggestionCardProps {
   /** The outfit suggestion to display */
   suggestion: OutfitSuggestion;
+  /** Resolved item view-models for this outfit */
+  items: OutfitItemViewModel[];
+  /** Whether items are currently being resolved */
+  isLoadingItems?: boolean;
   /** Optional test ID for testing */
   testID?: string;
 }
 
 /**
- * Renders a single item chip placeholder.
+ * Builds accessibility label for items row.
  *
- * Displays a shortened item ID as a chip, representing an item
- * in the outfit. In production, this would show actual item
- * thumbnails or names.
+ * @param items - Array of item view-models
+ * @returns Accessibility label describing item availability
  */
-function ItemChip({ itemId, index }: { itemId: string; index: number }): React.JSX.Element {
-  const { colors, spacing, radius, fontSize } = useTheme();
+function buildItemsAccessibilityLabel(items: OutfitItemViewModel[]): string {
+  const total = items.length;
+  const resolved = items.filter((item) => item.status === 'resolved').length;
 
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        chip: {
-          backgroundColor: colors.textSecondary + '20',
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.xs,
-          borderRadius: radius.sm,
-          marginRight: spacing.xs,
-          marginBottom: spacing.xs,
-        },
-        chipText: {
-          fontSize: fontSize.xs,
-          color: colors.textSecondary,
-        },
-      }),
-    [colors, spacing, radius, fontSize]
-  );
-
-  // Display shortened item ID or "Item N" for readability
-  const displayLabel = `Item ${index + 1}`;
-
-  return (
-    <View style={styles.chip}>
-      <Text
-        style={styles.chipText}
-        allowFontScaling={true}
-        maxFontSizeMultiplier={1.5}
-        numberOfLines={1}
-      >
-        {displayLabel}
-      </Text>
-    </View>
-  );
+  return t('screens.home.recommendations.itemChip.accessibility.itemCount')
+    .replace('{resolved}', resolved.toString())
+    .replace('{total}', total.toString());
 }
 
 /**
  * Outfit suggestion card displaying context, items, and reason.
  *
  * Layout:
- * ┌─────────────────────────────────┐
- * │ CONTEXT LABEL                   │
- * │ [Item 1] [Item 2] [Item 3] ...  │
- * │ Reason text explaining why this │
- * │ outfit was suggested...         │
- * └─────────────────────────────────┘
+ * ┌─────────────────────────────────────────────┐
+ * │ CONTEXT LABEL                               │
+ * │ [Thumb] Name  [Thumb] Name  [!] Missing...  │
+ * │ Reason text explaining why this outfit      │
+ * │ was suggested...                            │
+ * └─────────────────────────────────────────────┘
  *
  * @param props - Component props
  * @returns Memoized card component
  */
 function OutfitSuggestionCardComponent({
   suggestion,
+  items,
+  isLoadingItems = false,
   testID,
 }: OutfitSuggestionCardProps): React.JSX.Element {
   const { colors, spacing, radius, fontSize } = useTheme();
@@ -122,6 +100,17 @@ function OutfitSuggestionCardComponent({
           flexDirection: 'row',
           flexWrap: 'wrap',
           marginBottom: spacing.sm,
+          minHeight: 40,
+        },
+        loadingContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: spacing.xs,
+        },
+        loadingText: {
+          fontSize: fontSize.xs,
+          color: colors.textSecondary,
+          marginLeft: spacing.xs,
         },
         reasonText: {
           fontSize: fontSize.sm,
@@ -130,6 +119,11 @@ function OutfitSuggestionCardComponent({
         },
       }),
     [colors, spacing, radius, fontSize]
+  );
+
+  const itemsAccessibilityLabel = useMemo(
+    () => (items.length > 0 ? buildItemsAccessibilityLabel(items) : undefined),
+    [items]
   );
 
   return (
@@ -150,10 +144,46 @@ function OutfitSuggestionCardComponent({
       </Text>
 
       {/* Item chips row */}
-      <View style={styles.itemsRow} accessibilityLabel={`${suggestion.itemIds.length} items`}>
-        {suggestion.itemIds.map((itemId, index) => (
-          <ItemChip key={itemId} itemId={itemId} index={index} />
-        ))}
+      <View style={styles.itemsRow} accessibilityLabel={itemsAccessibilityLabel}>
+        {isLoadingItems ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text style={styles.loadingText} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
+              {t('screens.home.recommendations.itemChip.loadingItems')}
+            </Text>
+          </View>
+        ) : items.length > 0 ? (
+          items.map((item) => (
+            <OutfitItemChip
+              key={item.id}
+              item={item}
+              testID={`${testID}-item-${item.id}`}
+            />
+          ))
+        ) : (
+          // Fallback to showing item count if no items resolved yet
+          suggestion.itemIds.map((itemId, index) => (
+            <View
+              key={itemId}
+              style={{
+                backgroundColor: colors.textSecondary + '20',
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+                borderRadius: radius.sm,
+                marginRight: spacing.xs,
+                marginBottom: spacing.xs,
+              }}
+            >
+              <Text
+                style={{ fontSize: fontSize.xs, color: colors.textSecondary }}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.5}
+              >
+                {`Item ${index + 1}`}
+              </Text>
+            </View>
+          ))
+        )}
       </View>
 
       {/* Reason text */}

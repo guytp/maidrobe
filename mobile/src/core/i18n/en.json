@@ -15,7 +15,18 @@
         "errorNetwork": "Unable to connect. Please try again.",
         "retry": "Try again",
         "retryHint": "Tap to retry getting outfit suggestions",
-        "listLabel": "{count} outfit suggestions"
+        "listLabel": "{count} outfit suggestions",
+        "itemChip": {
+          "missingItem": "Item unavailable",
+          "unnamedItem": "Unnamed item",
+          "loadingItems": "Loading items...",
+          "accessibility": {
+            "resolvedItem": "{name}, {type}",
+            "resolvedItemNoType": "{name}",
+            "missingItem": "Item no longer available",
+            "itemCount": "{resolved} of {total} items available"
+          }
+        }
       },
       "accessibility": {
         "screenLabel": "Home screen",
