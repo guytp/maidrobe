@@ -533,7 +533,7 @@ export function trackOnboardingCompletedAllSteps(
   } catch (error) {
     // Silently fail - analytics should never block user flow
     // eslint-disable-next-line no-console
-    console.warn('[Onboarding Analytics] Failed to track prefs_saved:', error);
+    console.warn('[Onboarding Analytics] Failed to track completed_all_steps:', error);
   }
 }
 

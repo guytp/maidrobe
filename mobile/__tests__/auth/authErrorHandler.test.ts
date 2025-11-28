@@ -264,7 +264,7 @@ describe('authErrorHandler', () => {
     });
 
     it('should handle reset context', () => {
-      const error = new Error('Invalid token');
+      const error = new Error('token invalid');
       const context: AuthErrorContext = {
         flow: 'reset',
         supabaseOperation: 'updateUser',

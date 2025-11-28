@@ -32,6 +32,17 @@ jest.mock('react-native', () => ({
 describe('logAuthErrorToSentry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset default mock implementations after clearing
+    (getFlagConfig as jest.Mock).mockReturnValue({
+      enabled: true,
+      minVersion: '0.0.0',
+      message: '',
+    });
+    (getSentryClient as jest.Mock).mockReturnValue({
+      enabled: true,
+      dsn: 'test-dsn',
+      environment: 'development',
+    });
   });
 
   describe('Feature flag control', () => {

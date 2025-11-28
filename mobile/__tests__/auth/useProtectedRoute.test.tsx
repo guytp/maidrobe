@@ -32,22 +32,22 @@ describe('useProtectedRoute', () => {
   it('should return false initially while not initialized', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
-        isInitialized: false,
+        isHydrating: true,
+        deriveRoute: () => 'home',
       })
     );
 
     const { result } = renderHook(() => useProtectedRoute());
 
-    // Initial state should be false (not initialized)
+    // Initial state should be false (still hydrating)
     expect(result.current).toBe(false);
   });
 
   it('should return true for authenticated and verified user after initialization', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'home',
       })
     );
 
@@ -64,8 +64,8 @@ describe('useProtectedRoute', () => {
   it('should redirect to login when no user exists', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: null,
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'login',
       })
     );
 
@@ -81,8 +81,8 @@ describe('useProtectedRoute', () => {
   it('should redirect to verify when user exists but email not verified', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'verify',
       })
     );
 
@@ -98,8 +98,8 @@ describe('useProtectedRoute', () => {
   it('should not redirect when already on auth screen and no user', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: null,
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'login',
       })
     );
 
@@ -120,8 +120,8 @@ describe('useProtectedRoute', () => {
   it('should not redirect when already on verify screen and email not verified', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'verify',
       })
     );
 
@@ -142,8 +142,8 @@ describe('useProtectedRoute', () => {
   it('should return false for unverified user even on verify screen', async () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: false },
-        isInitialized: true,
+        isHydrating: false,
+        deriveRoute: () => 'verify',
       })
     );
 
@@ -161,14 +161,14 @@ describe('useProtectedRoute', () => {
   it('should return false when not yet initialized', () => {
     (useStore as unknown as jest.Mock).mockImplementation((selector) =>
       selector({
-        user: { id: 'user-123', email: 'test@example.com', emailVerified: true },
-        isInitialized: false,
+        isHydrating: true,
+        deriveRoute: () => 'home',
       })
     );
 
     const { result } = renderHook(() => useProtectedRoute());
 
-    // Should return false immediately while not initialized
+    // Should return false immediately while hydrating
     expect(result.current).toBe(false);
   });
 });
