@@ -139,7 +139,7 @@ Deno.test('returns 405 for PATCH requests', async () => {
  * set, while still verifying the handler produces correct responses for each state.
  */
 
-Deno.test('returns 400 when request body is invalid JSON', async () => {
+Deno.test('rejects invalid JSON body or returns config/feature response', async () => {
   const headers = new Headers({
     'Content-Type': 'application/json',
   });
@@ -168,7 +168,7 @@ Deno.test('returns 400 when request body is invalid JSON', async () => {
   }
 });
 
-Deno.test('returns 400 when itemId has invalid UUID format', async () => {
+Deno.test('rejects invalid UUID format or returns config/feature response', async () => {
   const request = createRequest({
     body: { itemId: 'not-a-uuid' },
   });
@@ -176,17 +176,22 @@ Deno.test('returns 400 when itemId has invalid UUID format', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
-  // Config check happens before UUID validation in current implementation
+  // Accepts 200, 400, or 500 depending on environment configuration (see above).
   if (response.status === 500) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'server');
-  } else {
-    assertEquals(response.status, 400);
+  } else if (response.status === 400) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'validation');
     assertEquals(body.error, 'Invalid itemId format');
+  } else {
+    // Feature disabled path returns 200 (invalid UUID is ignored)
+    assertEquals(response.status, 200);
+    assertEquals(body.success, true);
   }
 });
 
-Deno.test('returns 400 when itemId has invalid UUID characters', async () => {
+Deno.test('rejects invalid UUID characters or returns config/feature response', async () => {
   const request = createRequest({
     body: { itemId: 'ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ' },
   });
@@ -194,15 +199,21 @@ Deno.test('returns 400 when itemId has invalid UUID characters', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
+  // Accepts 200, 400, or 500 depending on environment configuration (see above).
   if (response.status === 500) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'server');
-  } else {
-    assertEquals(response.status, 400);
+  } else if (response.status === 400) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'validation');
+  } else {
+    // Feature disabled path returns 200 (invalid UUID is ignored)
+    assertEquals(response.status, 200);
+    assertEquals(body.success, true);
   }
 });
 
-Deno.test('returns 400 when itemId has wrong UUID length', async () => {
+Deno.test('rejects wrong UUID length or returns config/feature response', async () => {
   const request = createRequest({
     body: { itemId: '12345678-1234-1234-1234-12345678901' },
   });
@@ -210,11 +221,17 @@ Deno.test('returns 400 when itemId has wrong UUID length', async () => {
   const response = await handler(request);
   const body = await parseResponse(response);
 
+  // Accepts 200, 400, or 500 depending on environment configuration (see above).
   if (response.status === 500) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'server');
-  } else {
-    assertEquals(response.status, 400);
+  } else if (response.status === 400) {
+    assertEquals(body.success, false);
     assertEquals(body.code, 'validation');
+  } else {
+    // Feature disabled path returns 200 (invalid UUID is ignored)
+    assertEquals(response.status, 200);
+    assertEquals(body.success, true);
   }
 });
 
