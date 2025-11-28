@@ -23,8 +23,9 @@
           "accessibility": {
             "resolvedItem": "{name}, {type}",
             "resolvedItemNoType": "{name}",
-            "missingItem": "Item no longer available",
-            "itemCount": "{resolved} of {total} items available"
+            "missingItem": "Item no longer in your wardrobe, previously part of this outfit suggestion",
+            "itemCount": "{resolved} of {total} items available",
+            "outfitContext": "part of suggested outfit"
           }
         }
       },
