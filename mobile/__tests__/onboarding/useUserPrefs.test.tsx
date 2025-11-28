@@ -7,6 +7,9 @@ import { useStore } from '../../src/core/state/store';
 import { logError } from '../../src/core/telemetry';
 import type { PrefsRow } from '../../src/features/onboarding/utils/prefsTypes';
 
+// Type helper for partial Supabase mock returns in tests
+type MockSupabaseFrom = ReturnType<typeof supabase.from>;
+
 // Mock dependencies
 jest.mock('../../src/services/supabase', () => ({
   supabase: {
@@ -99,7 +102,7 @@ describe('useUserPrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         select: mockSelect,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -145,7 +148,7 @@ describe('useUserPrefs', () => {
 
       mockSupabase.from.mockReturnValue({
         select: mockSelect,
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -178,7 +181,7 @@ describe('useUserPrefs', () => {
             maybeSingle: mockMaybeSingle,
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -203,7 +206,7 @@ describe('useUserPrefs', () => {
             maybeSingle: jest.fn().mockResolvedValue({ data: validRow, error: null }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -226,7 +229,7 @@ describe('useUserPrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -254,7 +257,7 @@ describe('useUserPrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -286,7 +289,7 @@ describe('useUserPrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -312,7 +315,7 @@ describe('useUserPrefs', () => {
             maybeSingle: jest.fn().mockRejectedValue('string error'),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -331,7 +334,7 @@ describe('useUserPrefs', () => {
             maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       renderHook(() => useUserPrefs(), { wrapper });
 
@@ -364,7 +367,7 @@ describe('useUserPrefs', () => {
             maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -387,7 +390,7 @@ describe('useUserPrefs', () => {
             ),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -406,7 +409,7 @@ describe('useUserPrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 
@@ -427,7 +430,7 @@ describe('useUserPrefs', () => {
             }),
           }),
         }),
-      } as any);
+      } as unknown as MockSupabaseFrom);
 
       const { result } = renderHook(() => useUserPrefs(), { wrapper });
 

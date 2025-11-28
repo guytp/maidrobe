@@ -15,6 +15,22 @@ import { CaptureImagePayload } from '../../../src/core/types/capture';
 import * as telemetry from '../../../src/core/telemetry';
 import * as imageValidation from '../../../src/core/utils/imageValidation';
 
+// Type for mock router
+interface MockRouter {
+  push: jest.Mock;
+  replace: jest.Mock;
+  back: jest.Mock;
+  canGoBack: jest.Mock;
+  setParams: jest.Mock;
+}
+
+// Type for Alert action button
+interface AlertAction {
+  text: string;
+  onPress?: () => void | Promise<void>;
+  style?: 'default' | 'cancel' | 'destructive';
+}
+
 // Mock dependencies
 jest.mock('../../../src/core/i18n', () => ({
   t: (key: string) => key,
@@ -75,7 +91,7 @@ describe('useGallerySelection', () => {
         back: jest.fn(),
         canGoBack: jest.fn(),
         setParams: jest.fn(),
-      } as any,
+      } as unknown as MockRouter,
       user: { id: 'user-123' },
     };
   });
@@ -415,7 +431,7 @@ describe('useGallerySelection', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const actions = alertCall[2];
       const hasUseCamera = actions.some(
-        (action: any) => action.text === 'screens.capture.permissions.actions.useCamera'
+        (action: AlertAction) => action.text === 'screens.capture.permissions.actions.useCamera'
       );
 
       expect(hasUseCamera).toBe(false);
@@ -503,7 +519,7 @@ describe('useGallerySelection', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const actions = alertCall[2];
       const allowAction = actions.find(
-        (action: any) => action.text === 'screens.capture.permissions.actions.allowAccess'
+        (action: AlertAction) => action.text === 'screens.capture.permissions.actions.allowAccess'
       );
 
       // Simulate pressing "Allow Access"
@@ -538,7 +554,7 @@ describe('useGallerySelection', () => {
       const alertCall = (Alert.alert as jest.Mock).mock.calls[0];
       const actions = alertCall[2];
       const allowAction = actions.find(
-        (action: any) => action.text === 'screens.capture.permissions.actions.allowAccess'
+        (action: AlertAction) => action.text === 'screens.capture.permissions.actions.allowAccess'
       );
 
       // Simulate pressing "Allow Access"

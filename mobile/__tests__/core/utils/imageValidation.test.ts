@@ -11,7 +11,6 @@
 import {
   validateCapturedImage,
   getValidationErrorMessage,
-  ImageValidationResult,
 } from '../../../src/core/utils/imageValidation';
 
 describe('imageValidation', () => {
@@ -327,7 +326,9 @@ describe('imageValidation', () => {
     });
 
     it('returns default message for invalid error code', () => {
-      const message = getValidationErrorMessage('not_a_real_error' as any);
+      const message = getValidationErrorMessage(
+        'not_a_real_error' as unknown as 'invalid_uri'
+      );
       expect(message).toContain('validation failed');
     });
   });

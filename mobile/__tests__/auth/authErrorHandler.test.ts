@@ -214,7 +214,7 @@ describe('authErrorHandler', () => {
       ];
 
       inputs.forEach((input) => {
-        expect(() => handleAuthError(input as any, context)).not.toThrow();
+        expect(() => handleAuthError(input as unknown as Error, context)).not.toThrow();
       });
     });
 

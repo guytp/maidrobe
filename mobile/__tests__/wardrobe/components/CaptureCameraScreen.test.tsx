@@ -67,8 +67,16 @@ const mockUseCapturePermissions = useCapturePermissions as jest.Mock;
 const mockUseGalleryPicker = useGalleryPicker as jest.Mock;
 const mockValidateCapturedImage = validateCapturedImage as jest.Mock;
 
+// Type for mock router
+interface MockRouter {
+  push: jest.Mock;
+}
+
+// Type for Zustand store selector
+type StoreSelector<T> = (state: Record<string, unknown>) => T;
+
 describe('CaptureCameraScreen', () => {
-  let mockRouter: any;
+  let mockRouter: MockRouter;
   let mockSetPayload: jest.Mock;
   let mockSetSource: jest.Mock;
   let mockSetErrorMessage: jest.Mock;
@@ -89,7 +97,7 @@ describe('CaptureCameraScreen', () => {
     mockSetErrorMessage = jest.fn();
     mockSetIsNavigating = jest.fn();
 
-    mockUseStore.mockImplementation((selector: any) =>
+    mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
       selector({
         user: { id: 'test-user-id' },
         origin: 'wardrobe',
@@ -154,7 +162,7 @@ describe('CaptureCameraScreen', () => {
   describe('cancel navigation', () => {
     it('navigates to wardrobe when origin is wardrobe', () => {
       mockUseLocalSearchParams.mockReturnValue({ origin: 'wardrobe' });
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           origin: 'wardrobe',
@@ -175,7 +183,7 @@ describe('CaptureCameraScreen', () => {
 
     it('navigates to onboarding when origin is onboarding', () => {
       mockUseLocalSearchParams.mockReturnValue({ origin: 'onboarding' });
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           origin: 'onboarding',
@@ -289,7 +297,7 @@ describe('CaptureCameraScreen', () => {
 
   describe('error states', () => {
     it('displays error message when camera fails', () => {
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           origin: 'wardrobe',
@@ -307,7 +315,7 @@ describe('CaptureCameraScreen', () => {
     });
 
     it('provides retry option on error', () => {
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           origin: 'wardrobe',
@@ -325,7 +333,7 @@ describe('CaptureCameraScreen', () => {
     });
 
     it('provides gallery fallback option on error', () => {
-      mockUseStore.mockImplementation((selector: any) =>
+      mockUseStore.mockImplementation((selector: StoreSelector<unknown>) =>
         selector({
           user: { id: 'test-user-id' },
           origin: 'wardrobe',

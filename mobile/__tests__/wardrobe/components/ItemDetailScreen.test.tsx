@@ -410,7 +410,7 @@ describe('ItemDetailScreen', () => {
     });
 
     it('allows adding new tags', async () => {
-      const { getByLabelText, getByText, queryByText } = renderScreen();
+      const { getByLabelText, queryByText } = renderScreen();
 
       const tagsInput = getByLabelText('Tags input');
       const addButton = getByLabelText('Add tag button');

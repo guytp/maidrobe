@@ -234,7 +234,7 @@ describe('authErrorMessages', () => {
   });
 
   describe('All categories covered', () => {
-    const allCategories: Array<NormalizedAuthError['category']> = [
+    const allCategories: NormalizedAuthError['category'][] = [
       'network',
       'invalid_credentials',
       'unverified_email',
@@ -264,7 +264,7 @@ describe('authErrorMessages', () => {
   });
 
   describe('All flows supported', () => {
-    const allFlows: Array<'login' | 'signup' | 'reset' | 'refresh' | 'logout'> = [
+    const allFlows: ('login' | 'signup' | 'reset' | 'refresh' | 'logout')[] = [
       'login',
       'signup',
       'reset',

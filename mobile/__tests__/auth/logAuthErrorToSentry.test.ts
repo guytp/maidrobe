@@ -338,7 +338,7 @@ describe('logAuthErrorToSentry', () => {
   });
 
   describe('All flows supported', () => {
-    const allFlows: Array<'login' | 'signup' | 'reset' | 'refresh' | 'logout'> = [
+    const allFlows: ('login' | 'signup' | 'reset' | 'refresh' | 'logout')[] = [
       'login',
       'signup',
       'reset',
