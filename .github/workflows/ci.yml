@@ -141,6 +141,8 @@ jobs:
       - name: Run tests
         run: deno test --allow-all
         working-directory: edge-functions
+        env:
+          WARDROBE_IMAGE_CLEANUP_ENABLED: 'true'
 
   # Placeholder for future Expo EAS build job
   # Uncomment and configure when ready to build mobile app
