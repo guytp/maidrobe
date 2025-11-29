@@ -514,7 +514,10 @@ describe('useBatchWardrobeItems', () => {
         createSuccessResponse([createMockBatchItem({ id: 'item-a' })])
       );
 
-      const { result, rerender } = renderHook(
+      const { result, rerender } = renderHook<
+        ReturnType<typeof useBatchWardrobeItems>,
+        { enabled: boolean }
+      >(
         ({ enabled }) => useBatchWardrobeItems({ itemIds: ['item-a'], enabled }),
         { wrapper, initialProps: { enabled: false } }
       );
