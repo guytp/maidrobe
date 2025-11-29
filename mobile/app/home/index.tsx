@@ -51,7 +51,8 @@ export default function HomeScreen(): React.JSX.Element {
 
   // Context selector state (Step 1: local state only, Step 2 will add persistence)
   const [occasion, setOccasion] = useState<OccasionKey>(DEFAULT_OCCASION);
-  const [temperatureBand, setTemperatureBand] = useState<TemperatureBandKey>(DEFAULT_TEMPERATURE_BAND);
+  const [temperatureBand, setTemperatureBand] =
+    useState<TemperatureBandKey>(DEFAULT_TEMPERATURE_BAND);
 
   // Handle occasion selection change
   const handleOccasionChange = useCallback((newOccasion: OccasionKey) => {

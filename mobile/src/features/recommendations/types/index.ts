@@ -70,10 +70,7 @@ export const TEMPERATURE_BAND_OPTIONS: readonly TemperatureBandKey[] = [
  * @returns True if value is a valid OccasionKey
  */
 export function isOccasionKey(value: unknown): value is OccasionKey {
-  return (
-    typeof value === 'string' &&
-    (OCCASION_OPTIONS as readonly string[]).includes(value)
-  );
+  return typeof value === 'string' && (OCCASION_OPTIONS as readonly string[]).includes(value);
 }
 
 /**
@@ -84,8 +81,7 @@ export function isOccasionKey(value: unknown): value is OccasionKey {
  */
 export function isTemperatureBandKey(value: unknown): value is TemperatureBandKey {
   return (
-    typeof value === 'string' &&
-    (TEMPERATURE_BAND_OPTIONS as readonly string[]).includes(value)
+    typeof value === 'string' && (TEMPERATURE_BAND_OPTIONS as readonly string[]).includes(value)
   );
 }
 

@@ -119,14 +119,14 @@ export function ContextSelector({
    * Gets the translated label for an occasion key.
    */
   const getOccasionLabel = (key: OccasionKey): string => {
-    return t(`screens.home.recommendations.contextSelector.occasions.${key}`);
+    return t(`screens.home.contextSelector.occasions.${key}`);
   };
 
   /**
    * Gets the translated label for a temperature band key.
    */
   const getTemperatureLabel = (key: TemperatureBandKey): string => {
-    return t(`screens.home.recommendations.contextSelector.temperatures.${key}`);
+    return t(`screens.home.contextSelector.temperatures.${key}`);
   };
 
   return (
@@ -134,19 +134,11 @@ export function ContextSelector({
       {/* Occasion Selector */}
       <View
         style={styles.selectorRow}
-        accessibilityLabel={t(
-          'screens.home.recommendations.contextSelector.accessibility.occasionSelector'
-        )}
-        accessibilityHint={t(
-          'screens.home.recommendations.contextSelector.accessibility.occasionSelectorHint'
-        )}
+        accessibilityLabel={t('screens.home.contextSelector.accessibility.occasionSelector')}
+        accessibilityHint={t('screens.home.contextSelector.accessibility.occasionSelectorHint')}
       >
-        <Text
-          style={styles.selectorLabel}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
-          {t('screens.home.recommendations.contextSelector.occasionLabel')}
+        <Text style={styles.selectorLabel} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          {t('screens.home.contextSelector.occasionLabel')}
         </Text>
         <ScrollView
           horizontal
@@ -171,7 +163,7 @@ export function ContextSelector({
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 accessibilityHint={t(
-                  'screens.home.recommendations.contextSelector.accessibility.selectOccasion'
+                  'screens.home.contextSelector.accessibility.selectOccasion'
                 ).replace('{label}', label)}
                 accessibilityState={{ selected: isSelected, disabled }}
               >
@@ -191,19 +183,11 @@ export function ContextSelector({
       {/* Temperature Band Selector */}
       <View
         style={styles.selectorRow}
-        accessibilityLabel={t(
-          'screens.home.recommendations.contextSelector.accessibility.temperatureSelector'
-        )}
-        accessibilityHint={t(
-          'screens.home.recommendations.contextSelector.accessibility.temperatureSelectorHint'
-        )}
+        accessibilityLabel={t('screens.home.contextSelector.accessibility.temperatureSelector')}
+        accessibilityHint={t('screens.home.contextSelector.accessibility.temperatureSelectorHint')}
       >
-        <Text
-          style={styles.selectorLabel}
-          allowFontScaling={true}
-          maxFontSizeMultiplier={2}
-        >
-          {t('screens.home.recommendations.contextSelector.temperatureLabel')}
+        <Text style={styles.selectorLabel} allowFontScaling={true} maxFontSizeMultiplier={2}>
+          {t('screens.home.contextSelector.temperatureLabel')}
         </Text>
         <ScrollView
           horizontal
@@ -228,7 +212,7 @@ export function ContextSelector({
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 accessibilityHint={t(
-                  'screens.home.recommendations.contextSelector.accessibility.selectTemperature'
+                  'screens.home.contextSelector.accessibility.selectTemperature'
                 ).replace('{label}', label)}
                 accessibilityState={{ selected: isSelected, disabled }}
               >
