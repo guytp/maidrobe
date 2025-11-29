@@ -393,9 +393,7 @@ export interface AuthEventMetadata {
  * // { userId: '123', email: 'use***@example.com' }
  * ```
  */
-export function sanitizeAuthMetadata(
-  metadata: Record<string, unknown>
-): Record<string, unknown> {
+export function sanitizeAuthMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   // List of PII fields to exclude
@@ -643,9 +641,7 @@ export function trackOnboardingGateEvent(
   metadata: OnboardingGateMetadata
 ): void {
   // Sanitize metadata to remove PII
-  const sanitizedMetadata = sanitizeAuthMetadata(
-    metadata as unknown as Record<string, unknown>
-  );
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata as unknown as Record<string, unknown>);
 
   // Structure the event for consistent querying
   const event = {
