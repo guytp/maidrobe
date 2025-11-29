@@ -28,7 +28,7 @@
  * @module features/recommendations/components/OutfitItemChip
  */
 
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
   StyleSheet,
@@ -132,6 +132,13 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
 
   // Track image load errors to show placeholder fallback
   const [imageError, setImageError] = useState(false);
+
+  // Reset error state when thumbnail URL changes, allowing retry with new URL.
+  // This handles the case where an item initially has no thumbnail (placeholder shown),
+  // then later receives a valid URL after batch resolution completes.
+  useEffect(() => {
+    setImageError(false);
+  }, [item.thumbnailUrl]);
 
   const isMissing = item.status === 'missing';
 
