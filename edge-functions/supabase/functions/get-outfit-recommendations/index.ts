@@ -49,6 +49,8 @@ import {
   type RequestOutcome,
   createOutfit,
   validateOutfitRecommendationsResponse,
+  MIN_OUTFITS_PER_RESPONSE,
+  MAX_OUTFITS_PER_RESPONSE,
 } from './types.ts';
 
 // ============================================================================
@@ -159,6 +161,8 @@ interface NoRepeatPrefsResult {
 interface WearHistoryResult {
   /** Set of item IDs that have been worn within the no-repeat window. */
   recentlyWornItemIds: Set<string>;
+  /** Map of item ID to most recent worn_at timestamp (ISO 8601). */
+  itemWornAtMap: Map<string, string>;
   /** Whether the history lookup failed or timed out. */
   historyLookupFailed: boolean;
   /** Whether the row limit was reached (may have incomplete data). */
@@ -173,6 +177,20 @@ interface NoRepeatFilterResult {
   eligible: Outfit[];
   /** Outfits that were excluded (all items worn within the window). */
   excluded: Outfit[];
+}
+
+/**
+ * Result of applying MIN/MAX selection with fallback logic.
+ */
+interface SelectionResult {
+  /** Final list of outfits to return (between 0 and MAX_OUTFITS). */
+  outfits: Outfit[];
+  /** Number of outfits added back from excluded list via fallback. */
+  fallbackCount: number;
+  /** Whether a configuration warning was triggered (pool too small). */
+  configWarning: boolean;
+  /** Whether a configuration error was triggered (pool empty). */
+  configError: boolean;
 }
 
 // ============================================================================
@@ -340,44 +358,73 @@ function computeWearHistoryCutoff(noRepeatDays: number): string {
 }
 
 /**
- * Extracts item IDs from wear history rows into a Set.
+ * Result of extracting item IDs and timestamps from wear history rows.
+ */
+interface WearHistoryExtraction {
+  /** Set of all unique item IDs found in the rows. */
+  itemIds: Set<string>;
+  /** Map of item ID to most recent worn_at timestamp. */
+  itemWornAtMap: Map<string, string>;
+}
+
+/**
+ * Extracts item IDs and worn_at timestamps from wear history rows.
  *
- * Each wear history row contains an `item_ids` array of item UUIDs.
- * This function flattens all arrays into a single Set for O(1) lookups.
+ * Each wear history row contains an `item_ids` array of item UUIDs and
+ * a `worn_at` timestamp. This function:
+ * - Flattens all item_ids into a single Set for O(1) lookups
+ * - Builds a map from item ID to its most recent worn_at timestamp
+ *
+ * For the timestamp map, if an item appears in multiple rows, we keep
+ * the most recent (lexicographically largest) ISO 8601 timestamp.
  *
  * @param rows - Array of wear history rows from the database
- * @returns Set of all unique item IDs found in the rows
+ * @returns Object with itemIds Set and itemWornAtMap
  */
-function extractItemIdsFromWearHistory(rows: Record<string, unknown>[]): Set<string> {
+function extractWearHistoryData(rows: Record<string, unknown>[]): WearHistoryExtraction {
   const itemIds = new Set<string>();
+  const itemWornAtMap = new Map<string, string>();
 
   for (const row of rows) {
     const rowItemIds = row.item_ids;
+    const wornAt = row.worn_at;
 
     // Validate that item_ids is an array
     if (!Array.isArray(rowItemIds)) {
       continue;
     }
 
-    // Add each valid string item ID to the set
+    // Validate worn_at is a string (ISO 8601 timestamp)
+    const wornAtStr = typeof wornAt === 'string' ? wornAt : null;
+
+    // Process each item ID in this row
     for (const itemId of rowItemIds) {
       if (typeof itemId === 'string' && itemId.length > 0) {
         itemIds.add(itemId);
+
+        // Update the worn_at map if this is more recent
+        if (wornAtStr !== null) {
+          const existing = itemWornAtMap.get(itemId);
+          // ISO 8601 strings can be compared lexicographically
+          if (existing === undefined || wornAtStr > existing) {
+            itemWornAtMap.set(itemId, wornAtStr);
+          }
+        }
       }
     }
   }
 
-  return itemIds;
+  return { itemIds, itemWornAtMap };
 }
 
 /**
  * Fetches the user's recent wear history within the no-repeat window.
  *
  * Queries the wear_history table for entries where worn_at >= cutoff,
- * then extracts all item IDs into a Set for efficient lookups.
+ * then extracts item IDs and timestamps for filtering and recency scoring.
  *
  * Implements degraded-mode behaviour:
- * - If the query fails, logs an error and returns an empty set
+ * - If the query fails, logs an error and returns empty collections
  * - If the row limit is reached, logs a warning but continues with available data
  * - The request proceeds even if history cannot be loaded
  *
@@ -388,13 +435,13 @@ function extractItemIdsFromWearHistory(rows: Record<string, unknown>[]): Set<str
  * Performance:
  * - Uses (user_id, worn_at) index for efficient range queries
  * - Bounded by WEAR_HISTORY_ROW_LIMIT to prevent unbounded reads
- * - Only selects item_ids column to minimize data transfer
+ * - Selects item_ids and worn_at columns for filtering and recency scoring
  *
  * @param supabase - Supabase client authenticated as the user
  * @param userId - The authenticated user's ID
  * @param noRepeatDays - Number of days in the no-repeat window (must be > 0)
  * @param logger - Structured logger for observability
- * @returns Promise resolving to WearHistoryResult with item IDs set and status flags
+ * @returns Promise resolving to WearHistoryResult with item IDs, timestamps, and status flags
  */
 async function fetchRecentWearHistory(
   supabase: SupabaseClient,
@@ -418,9 +465,10 @@ async function fetchRecentWearHistory(
     // RLS policies also enforce user_id = auth.uid(), but we add explicit
     // filtering as a defence-in-depth measure.
     // Order by worn_at descending to get most recent entries first if limit is hit.
+    // Select both item_ids and worn_at for filtering and recency scoring.
     const { data, error } = await supabase
       .from('wear_history')
-      .select('item_ids')
+      .select('item_ids, worn_at')
       .eq('user_id', userId)
       .gte('worn_at', cutoff)
       .order('worn_at', { ascending: false })
@@ -439,6 +487,7 @@ async function fetchRecentWearHistory(
 
       return {
         recentlyWornItemIds: new Set<string>(),
+        itemWornAtMap: new Map<string, string>(),
         historyLookupFailed: true,
         rowLimitReached: false,
       };
@@ -455,6 +504,7 @@ async function fetchRecentWearHistory(
 
       return {
         recentlyWornItemIds: new Set<string>(),
+        itemWornAtMap: new Map<string, string>(),
         historyLookupFailed: true,
         rowLimitReached: false,
       };
@@ -474,8 +524,8 @@ async function fetchRecentWearHistory(
       });
     }
 
-    // Extract item IDs from the wear history rows
-    const recentlyWornItemIds = extractItemIdsFromWearHistory(data);
+    // Extract item IDs and timestamps from the wear history rows
+    const { itemIds: recentlyWornItemIds, itemWornAtMap } = extractWearHistoryData(data);
 
     logger.debug('wear_history_loaded', {
       user_id: userId,
@@ -488,6 +538,7 @@ async function fetchRecentWearHistory(
 
     return {
       recentlyWornItemIds,
+      itemWornAtMap,
       historyLookupFailed: false,
       rowLimitReached,
     };
@@ -505,6 +556,7 @@ async function fetchRecentWearHistory(
 
     return {
       recentlyWornItemIds: new Set<string>(),
+      itemWornAtMap: new Map<string, string>(),
       historyLookupFailed: true,
       rowLimitReached: false,
     };
@@ -577,6 +629,175 @@ export function applyNoRepeatFilter(
   }
 
   return { eligible, excluded };
+}
+
+// ============================================================================
+// Fallback Selection
+// ============================================================================
+
+/**
+ * Sentinel value for outfits with no recency score.
+ * Using empty string ensures these sort before any valid ISO 8601 timestamp
+ * when sorting in ascending order (least recently worn first).
+ */
+const NO_RECENCY_SCORE = '';
+
+/**
+ * Computes the recency score for an outfit based on its items' wear history.
+ *
+ * The recency score is the most recent (maximum) worn_at timestamp among
+ * all items in the outfit. This represents when the outfit was "last fully
+ * represented in a wear event."
+ *
+ * Items not found in the map are treated as having no wear history,
+ * which returns the NO_RECENCY_SCORE sentinel.
+ *
+ * @param outfit - The outfit to score
+ * @param itemWornAtMap - Map of item ID to most recent worn_at timestamp
+ * @returns The most recent worn_at timestamp, or NO_RECENCY_SCORE if none found
+ */
+function computeOutfitRecencyScore(outfit: Outfit, itemWornAtMap: Map<string, string>): string {
+  let maxTimestamp = NO_RECENCY_SCORE;
+
+  for (const itemId of outfit.itemIds) {
+    const timestamp = itemWornAtMap.get(itemId);
+    if (timestamp !== undefined && timestamp > maxTimestamp) {
+      maxTimestamp = timestamp;
+    }
+  }
+
+  return maxTimestamp;
+}
+
+/**
+ * Sorts outfits by recency score (ascending) with stable tie-breaking by ID.
+ *
+ * Outfits with no recency score (NO_RECENCY_SCORE) sort first, meaning
+ * they are considered "least recently worn" and preferred for fallback.
+ *
+ * This is a pure function that returns a new sorted array.
+ *
+ * @param outfits - Array of outfits to sort
+ * @param itemWornAtMap - Map of item ID to most recent worn_at timestamp
+ * @returns New array sorted by ascending recency, then by outfit.id
+ */
+function sortOutfitsByRecency(outfits: Outfit[], itemWornAtMap: Map<string, string>): Outfit[] {
+  // Compute scores once to avoid repeated calculations during sort
+  const scored = outfits.map((outfit) => ({
+    outfit,
+    score: computeOutfitRecencyScore(outfit, itemWornAtMap),
+  }));
+
+  // Sort by ascending recency score, then by outfit.id for stability
+  scored.sort((a, b) => {
+    // Primary: ascending recency score (empty string sorts first)
+    if (a.score !== b.score) {
+      return a.score < b.score ? -1 : 1;
+    }
+    // Secondary: stable sort by outfit.id
+    return a.outfit.id < b.outfit.id ? -1 : a.outfit.id > b.outfit.id ? 1 : 0;
+  });
+
+  return scored.map((s) => s.outfit);
+}
+
+/**
+ * Applies deterministic ordering to outfits for consistent responses.
+ *
+ * The stub engine uses outfit.id as the sort key for deterministic ordering.
+ * This ensures that the same set of outfits always returns in the same order.
+ *
+ * @param outfits - Array of outfits to sort
+ * @returns New array sorted by outfit.id
+ */
+function applyDeterministicOrdering(outfits: Outfit[]): Outfit[] {
+  return [...outfits].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/**
+ * Applies MIN/MAX selection with fallback logic to outfit candidates.
+ *
+ * This function implements the full selection pipeline:
+ *
+ * 1. If staticPool is empty → configError, return empty array
+ * 2. If staticPool < MIN_OUTFITS → configWarning, return all static outfits
+ * 3. If eligible ≥ MIN_OUTFITS → use eligible list
+ * 4. If eligible < MIN_OUTFITS → add excluded outfits by ascending recency
+ *    until reaching MIN_OUTFITS or exhausting excluded list
+ * 5. Apply deterministic ordering
+ * 6. Truncate to MAX_OUTFITS
+ *
+ * This is a pure function that can be reused by future AI engines.
+ *
+ * @param staticPool - The full pool of outfit candidates before filtering
+ * @param eligible - Outfits that passed the no-repeat filter
+ * @param excluded - Outfits that were excluded by the no-repeat filter
+ * @param itemWornAtMap - Map of item ID to worn_at timestamp for recency scoring
+ * @returns SelectionResult with final outfits and status flags
+ */
+export function applyMinMaxSelection(
+  staticPool: Outfit[],
+  eligible: Outfit[],
+  excluded: Outfit[],
+  itemWornAtMap: Map<string, string>
+): SelectionResult {
+  // Case 1: Empty static pool - configuration error
+  if (staticPool.length === 0) {
+    return {
+      outfits: [],
+      fallbackCount: 0,
+      configWarning: false,
+      configError: true,
+    };
+  }
+
+  // Case 2: Static pool smaller than MIN_OUTFITS - configuration warning
+  // Skip all filtering and fallback logic, return full pool
+  if (staticPool.length < MIN_OUTFITS_PER_RESPONSE) {
+    const ordered = applyDeterministicOrdering(staticPool);
+    return {
+      outfits: ordered,
+      fallbackCount: 0,
+      configWarning: true,
+      configError: false,
+    };
+  }
+
+  // Case 3 & 4: Normal operation with MIN_OUTFITS threshold
+  let candidates: Outfit[];
+  let fallbackCount = 0;
+
+  if (eligible.length >= MIN_OUTFITS_PER_RESPONSE) {
+    // Case 3: Enough eligible outfits - use them directly
+    candidates = eligible;
+  } else {
+    // Case 4: Not enough eligible - add from excluded by recency
+    candidates = [...eligible];
+    const needed = MIN_OUTFITS_PER_RESPONSE - candidates.length;
+
+    if (needed > 0 && excluded.length > 0) {
+      // Sort excluded by ascending recency (least recently worn first)
+      const sortedExcluded = sortOutfitsByRecency(excluded, itemWornAtMap);
+
+      // Add outfits until we reach MIN_OUTFITS or exhaust excluded
+      const toAdd = sortedExcluded.slice(0, needed);
+      candidates = candidates.concat(toAdd);
+      fallbackCount = toAdd.length;
+    }
+  }
+
+  // Step 5: Apply deterministic ordering
+  const ordered = applyDeterministicOrdering(candidates);
+
+  // Step 6: Truncate to MAX_OUTFITS
+  const truncated = ordered.slice(0, MAX_OUTFITS_PER_RESPONSE);
+
+  return {
+    outfits: truncated,
+    fallbackCount,
+    configWarning: false,
+    configError: false,
+  };
 }
 
 // ============================================================================
@@ -879,8 +1100,9 @@ export async function handler(req: Request): Promise<Response> {
     // Step 4: Fetch Recent Wear History (if no-repeat enabled)
     // ========================================================================
 
-    // Track wear history state for filtering and observability
+    // Track wear history state for filtering, recency scoring, and observability
     let recentlyWornItemIds = new Set<string>();
+    let itemWornAtMap = new Map<string, string>();
     let historyLookupFailed = false;
 
     // Only fetch wear history if noRepeatDays > 0 (no-repeat filtering enabled)
@@ -894,6 +1116,7 @@ export async function handler(req: Request): Promise<Response> {
       );
 
       recentlyWornItemIds = historyResult.recentlyWornItemIds;
+      itemWornAtMap = historyResult.itemWornAtMap;
       historyLookupFailed = historyResult.historyLookupFailed;
 
       // If history lookup failed, log that we're proceeding in degraded mode
@@ -919,7 +1142,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 5: Generate and Filter Outfit Recommendations
+    // Step 5: Generate, Filter, and Select Outfit Recommendations
     // ========================================================================
 
     // Note: We intentionally ignore any request body or query parameters.
@@ -934,28 +1157,29 @@ export async function handler(req: Request): Promise<Response> {
     // Filtering is skipped when:
     // - noRepeatDays = 0 (feature disabled by user or default)
     // - historyLookupFailed = true (degraded mode - treat as no filtering)
-    let outfits: Outfit[];
-    let excludedCount = 0;
-
     const shouldApplyFiltering = noRepeatDays > 0 && !historyLookupFailed;
+
+    let eligible: Outfit[];
+    let excluded: Outfit[];
 
     if (shouldApplyFiltering) {
       const filterResult = applyNoRepeatFilter(candidateOutfits, recentlyWornItemIds);
-      outfits = filterResult.eligible;
-      excludedCount = filterResult.excluded.length;
+      eligible = filterResult.eligible;
+      excluded = filterResult.excluded;
 
       logger.debug('no_repeat_filter_applied', {
         user_id: userId,
         metadata: {
           candidates_count: candidateOutfits.length,
-          eligible_count: filterResult.eligible.length,
-          excluded_count: excludedCount,
+          eligible_count: eligible.length,
+          excluded_count: excluded.length,
           recently_worn_item_count: recentlyWornItemIds.size,
         },
       });
     } else {
-      // No filtering - use full candidate pool
-      outfits = candidateOutfits;
+      // No filtering - all candidates are eligible, none excluded
+      eligible = candidateOutfits;
+      excluded = [];
 
       logger.debug('no_repeat_filter_skipped', {
         user_id: userId,
@@ -966,6 +1190,66 @@ export async function handler(req: Request): Promise<Response> {
       });
     }
 
+    // Apply MIN/MAX selection with fallback logic
+    const selectionResult = applyMinMaxSelection(
+      candidateOutfits,
+      eligible,
+      excluded,
+      itemWornAtMap
+    );
+
+    // Handle configuration error (empty static pool)
+    if (selectionResult.configError) {
+      logger.error('outfit_pool_empty', {
+        user_id: userId,
+        error_message: 'Static outfit pool is empty - configuration error',
+        error_code: 'server_error',
+        metadata: {
+          static_pool_size: candidateOutfits.length,
+        },
+      });
+
+      // Return empty array per requirements (not a 500 error)
+      const durationMs = Date.now() - startTime;
+      logger.info('request_completed', {
+        user_id: userId,
+        duration_ms: durationMs,
+        status_code: 200,
+        metadata: {
+          outcome: 'success' as RequestOutcome,
+          outfit_count: 0,
+          config_error: true,
+        },
+      });
+
+      return jsonResponse({ outfits: [] }, 200);
+    }
+
+    // Handle configuration warning (pool smaller than MIN_OUTFITS)
+    if (selectionResult.configWarning) {
+      logger.warn('outfit_pool_below_minimum', {
+        user_id: userId,
+        metadata: {
+          static_pool_size: candidateOutfits.length,
+          min_outfits_required: MIN_OUTFITS_PER_RESPONSE,
+        },
+      });
+    }
+
+    // Log fallback usage if any excluded outfits were added back
+    if (selectionResult.fallbackCount > 0) {
+      logger.debug('fallback_outfits_added', {
+        user_id: userId,
+        metadata: {
+          fallback_count: selectionResult.fallbackCount,
+          eligible_count: eligible.length,
+          final_count: selectionResult.outfits.length,
+        },
+      });
+    }
+
+    const outfits = selectionResult.outfits;
+
     // ========================================================================
     // Step 6: Construct and Validate Response
     // ========================================================================
@@ -973,23 +1257,29 @@ export async function handler(req: Request): Promise<Response> {
     const response: OutfitRecommendationsResponse = { outfits };
 
     // Validate response against contract (catches programming errors)
-    const validation = validateOutfitRecommendationsResponse(response);
-    if (!validation.valid) {
-      const durationMs = Date.now() - startTime;
-      logger.error('response_validation_failed', {
-        user_id: userId,
-        error_message: validation.error,
-        error_code: 'server_error',
-        duration_ms: durationMs,
-      });
-      return errorResponse(
-        logger,
-        'response_validation_failed',
-        'Failed to generate valid recommendations',
-        'server_error',
-        500,
-        durationMs
-      );
+    // Note: Validation is skipped for config edge cases (empty pool, small pool)
+    // which legitimately return fewer than MIN_OUTFITS
+    const skipValidation = selectionResult.configError || selectionResult.configWarning;
+
+    if (!skipValidation) {
+      const validation = validateOutfitRecommendationsResponse(response);
+      if (!validation.valid) {
+        const durationMs = Date.now() - startTime;
+        logger.error('response_validation_failed', {
+          user_id: userId,
+          error_message: validation.error,
+          error_code: 'server_error',
+          duration_ms: durationMs,
+        });
+        return errorResponse(
+          logger,
+          'response_validation_failed',
+          'Failed to generate valid recommendations',
+          'server_error',
+          500,
+          durationMs
+        );
+      }
     }
 
     // ========================================================================
