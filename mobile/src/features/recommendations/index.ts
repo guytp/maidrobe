@@ -15,6 +15,18 @@ export type {
   OutfitItemViewModel,
   ResolvedOutfitItems,
   ItemResolutionResult,
+  OccasionKey,
+  TemperatureBandKey,
+} from './types';
+
+// Context Constants (Story #365)
+export {
+  DEFAULT_OCCASION,
+  DEFAULT_TEMPERATURE_BAND,
+  OCCASION_OPTIONS,
+  TEMPERATURE_BAND_OPTIONS,
+  isOccasionKey,
+  isTemperatureBandKey,
 } from './types';
 
 // Schemas (for direct validation use cases)
@@ -59,9 +71,11 @@ export {
 
 // Components
 export {
+  ContextSelector,
   OutfitItemChip,
   OutfitSuggestionCard,
   SuggestionsSection,
+  type ContextSelectorProps,
   type OutfitItemChipProps,
   type OutfitSuggestionCardProps,
   type SuggestionsSectionProps,

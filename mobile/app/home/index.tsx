@@ -1,12 +1,21 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
 import { Button } from '../../src/core/components/Button';
+import { checkFeatureFlagSync } from '../../src/core/featureFlags';
 import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
-import { useOutfitRecommendations, SuggestionsSection } from '../../src/features/recommendations';
+import {
+  useOutfitRecommendations,
+  SuggestionsSection,
+  ContextSelector,
+  DEFAULT_OCCASION,
+  DEFAULT_TEMPERATURE_BAND,
+  type OccasionKey,
+  type TemperatureBandKey,
+} from '../../src/features/recommendations';
 
 /**
  * Home screen component displaying app title, CTA, and outfit suggestions.
@@ -36,6 +45,23 @@ export default function HomeScreen(): React.JSX.Element {
     isLoading: isHealthcheckLoading,
     error: healthcheckError,
   } = useHealthcheck();
+
+  // Check if context selector feature flag is enabled
+  const isContextSelectorEnabled = checkFeatureFlagSync('recommendations.contextSelector').enabled;
+
+  // Context selector state (Step 1: local state only, Step 2 will add persistence)
+  const [occasion, setOccasion] = useState<OccasionKey>(DEFAULT_OCCASION);
+  const [temperatureBand, setTemperatureBand] = useState<TemperatureBandKey>(DEFAULT_TEMPERATURE_BAND);
+
+  // Handle occasion selection change
+  const handleOccasionChange = useCallback((newOccasion: OccasionKey) => {
+    setOccasion(newOccasion);
+  }, []);
+
+  // Handle temperature band selection change
+  const handleTemperatureBandChange = useCallback((newTemperatureBand: TemperatureBandKey) => {
+    setTemperatureBand(newTemperatureBand);
+  }, []);
 
   // Outfit recommendations hook
   const {
@@ -187,6 +213,17 @@ export default function HomeScreen(): React.JSX.Element {
             {t('screens.home.description')}
           </Text>
         </View>
+
+        {/* Context Selector (gated by feature flag) */}
+        {isContextSelectorEnabled && (
+          <ContextSelector
+            occasion={occasion}
+            temperatureBand={temperatureBand}
+            onOccasionChange={handleOccasionChange}
+            onTemperatureBandChange={handleTemperatureBandChange}
+            disabled={isRecommendationsLoading}
+          />
+        )}
 
         {/* Get Outfit Ideas CTA */}
         <View style={styles.ctaContainer}>
