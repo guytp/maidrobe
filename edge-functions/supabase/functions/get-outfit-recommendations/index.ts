@@ -239,6 +239,43 @@ export function clampNoRepeatDays(value: unknown): number {
 }
 
 /**
+ * Valid bucket values for noRepeatDays observability logging.
+ * These buckets provide enough granularity for analysis while
+ * avoiding exposure of exact user preference values.
+ */
+type NoRepeatDaysBucket = '0' | '1-7' | '8-30' | '31-90';
+
+/**
+ * Buckets a noRepeatDays value into privacy-safe ranges for logging.
+ *
+ * This function converts exact noRepeatDays values into bucketed
+ * representations suitable for observability logging. The buckets
+ * provide enough granularity for operational analysis while avoiding
+ * exposure of exact user preference values.
+ *
+ * Bucket ranges:
+ * - '0': No-repeat filtering disabled
+ * - '1-7': Short window (up to 1 week)
+ * - '8-30': Medium window (up to 1 month)
+ * - '31-90': Long window (over 1 month)
+ *
+ * @param days - The noRepeatDays value (expected to be already clamped 0-90)
+ * @returns A bucketed string representation
+ */
+export function bucketNoRepeatDays(days: number): NoRepeatDaysBucket {
+  if (days === 0) {
+    return '0';
+  }
+  if (days <= 7) {
+    return '1-7';
+  }
+  if (days <= 30) {
+    return '8-30';
+  }
+  return '31-90';
+}
+
+/**
  * Fetches the user's noRepeatDays preference from the prefs table.
  *
  * Implements degraded-mode behaviour:
@@ -1210,6 +1247,7 @@ export async function handler(req: Request): Promise<Response> {
       });
 
       // Return empty array per requirements (not a 500 error)
+      // Include full no-repeat observability for consistency
       const durationMs = Date.now() - startTime;
       logger.info('request_completed', {
         user_id: userId,
@@ -1219,6 +1257,14 @@ export async function handler(req: Request): Promise<Response> {
           outcome: 'success' as RequestOutcome,
           outfit_count: 0,
           config_error: true,
+          // No-repeat observability fields (privacy-safe, bucketed)
+          no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+          static_pool_size: candidateOutfits.length,
+          filtered_pool_size: eligible.length,
+          final_pool_size: 0,
+          fallback_applied: false,
+          prefs_lookup_failed: prefsLookupFailed,
+          degraded_mode: historyLookupFailed,
         },
       });
 
@@ -1289,6 +1335,9 @@ export async function handler(req: Request): Promise<Response> {
     const durationMs = Date.now() - startTime;
 
     // Log successful completion with all required observability fields
+    // This log entry includes privacy-safe, bucketed no-repeat metrics
+    // that integrate with OpenTelemetry/Honeycomb for analysis without
+    // exposing raw wear history, specific timestamps, or exact prefs values.
     logger.info('request_completed', {
       user_id: userId,
       duration_ms: durationMs,
@@ -1296,6 +1345,14 @@ export async function handler(req: Request): Promise<Response> {
       metadata: {
         outcome: 'success' as RequestOutcome,
         outfit_count: outfits.length,
+        // No-repeat observability fields (privacy-safe, bucketed)
+        no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+        static_pool_size: candidateOutfits.length,
+        filtered_pool_size: eligible.length,
+        final_pool_size: outfits.length,
+        fallback_applied: selectionResult.fallbackCount > 0,
+        prefs_lookup_failed: prefsLookupFailed,
+        degraded_mode: historyLookupFailed,
       },
     });
 
