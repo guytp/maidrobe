@@ -165,6 +165,16 @@ interface WearHistoryResult {
   rowLimitReached: boolean;
 }
 
+/**
+ * Result of applying no-repeat filtering to outfit candidates.
+ */
+interface NoRepeatFilterResult {
+  /** Outfits that passed the filter (at least one item not recently worn). */
+  eligible: Outfit[];
+  /** Outfits that were excluded (all items worn within the window). */
+  excluded: Outfit[];
+}
+
 // ============================================================================
 // No-Repeat Preferences
 // ============================================================================
@@ -499,6 +509,74 @@ async function fetchRecentWearHistory(
       rowLimitReached: false,
     };
   }
+}
+
+// ============================================================================
+// No-Repeat Filtering
+// ============================================================================
+
+/**
+ * Checks whether ALL items in an outfit have been worn recently.
+ *
+ * An outfit is considered "fully recent" (and should be excluded) if
+ * every item in its itemIds array exists in the recentlyWornItemIds set.
+ * An outfit with at least one unworn item is considered eligible.
+ *
+ * Edge cases:
+ * - Empty itemIds array → returns false (eligible, not filtered out)
+ * - Empty recentlyWornItemIds → returns false (no history = all eligible)
+ *
+ * @param outfit - The outfit to check
+ * @param recentlyWornItemIds - Set of item IDs worn within the no-repeat window
+ * @returns true if all items were worn recently (should exclude), false otherwise
+ */
+function isOutfitFullyRecent(outfit: Outfit, recentlyWornItemIds: Set<string>): boolean {
+  // Edge case: empty itemIds → treat as eligible (not filtered)
+  if (outfit.itemIds.length === 0) {
+    return false;
+  }
+
+  // Edge case: no wear history → all outfits are eligible
+  if (recentlyWornItemIds.size === 0) {
+    return false;
+  }
+
+  // Check if ALL items are in the recently worn set
+  // If we find any item NOT in the set, the outfit is eligible
+  return outfit.itemIds.every((itemId) => recentlyWornItemIds.has(itemId));
+}
+
+/**
+ * Applies no-repeat filtering to a list of outfit candidates.
+ *
+ * Separates outfits into two lists:
+ * - eligible: Outfits where at least one item has NOT been worn recently
+ * - excluded: Outfits where ALL items have been worn within the window
+ *
+ * This is a pure function that can be reused by future AI engines.
+ * The filtering logic follows the rule: "exclude outfits where EVERY item
+ * has at least one wear event within the window."
+ *
+ * @param outfits - Array of outfit candidates to filter
+ * @param recentlyWornItemIds - Set of item IDs worn within the no-repeat window
+ * @returns NoRepeatFilterResult with eligible and excluded lists
+ */
+export function applyNoRepeatFilter(
+  outfits: Outfit[],
+  recentlyWornItemIds: Set<string>
+): NoRepeatFilterResult {
+  const eligible: Outfit[] = [];
+  const excluded: Outfit[] = [];
+
+  for (const outfit of outfits) {
+    if (isOutfitFullyRecent(outfit, recentlyWornItemIds)) {
+      excluded.push(outfit);
+    } else {
+      eligible.push(outfit);
+    }
+  }
+
+  return { eligible, excluded };
 }
 
 // ============================================================================
@@ -841,19 +919,52 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 5: Generate Stubbed Outfit Recommendations
+    // Step 5: Generate and Filter Outfit Recommendations
     // ========================================================================
 
     // Note: We intentionally ignore any request body or query parameters.
     // The userId comes exclusively from the JWT, preventing any client override.
     // Future stories (#365) may add context parameters, but for the stub,
     // we return the same static outfits for all requests.
-    //
-    // TODO (Story #364): Apply no-repeat filtering using recentlyWornItemIds.
-    // The filtering logic will be added in subsequent steps.
-    // For now, we have: noRepeatDays, recentlyWornItemIds, historyLookupFailed
 
-    const outfits = generateStubbedOutfits(userId);
+    // Generate the full candidate pool from static templates
+    const candidateOutfits = generateStubbedOutfits(userId);
+
+    // Apply no-repeat filtering based on user preferences and wear history
+    // Filtering is skipped when:
+    // - noRepeatDays = 0 (feature disabled by user or default)
+    // - historyLookupFailed = true (degraded mode - treat as no filtering)
+    let outfits: Outfit[];
+    let excludedCount = 0;
+
+    const shouldApplyFiltering = noRepeatDays > 0 && !historyLookupFailed;
+
+    if (shouldApplyFiltering) {
+      const filterResult = applyNoRepeatFilter(candidateOutfits, recentlyWornItemIds);
+      outfits = filterResult.eligible;
+      excludedCount = filterResult.excluded.length;
+
+      logger.debug('no_repeat_filter_applied', {
+        user_id: userId,
+        metadata: {
+          candidates_count: candidateOutfits.length,
+          eligible_count: filterResult.eligible.length,
+          excluded_count: excludedCount,
+          recently_worn_item_count: recentlyWornItemIds.size,
+        },
+      });
+    } else {
+      // No filtering - use full candidate pool
+      outfits = candidateOutfits;
+
+      logger.debug('no_repeat_filter_skipped', {
+        user_id: userId,
+        metadata: {
+          reason: noRepeatDays === 0 ? 'feature_disabled' : 'degraded_mode',
+          candidates_count: candidateOutfits.length,
+        },
+      });
+    }
 
     // ========================================================================
     // Step 6: Construct and Validate Response
