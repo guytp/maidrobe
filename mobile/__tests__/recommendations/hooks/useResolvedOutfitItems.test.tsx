@@ -25,6 +25,7 @@ jest.mock('../../../src/core/telemetry', () => ({
 }));
 
 // Import mocks to use in tests after jest.mock is set up
+// eslint-disable-next-line import/first -- Must import after jest.mock to get mocked version
 import * as telemetry from '../../../src/core/telemetry';
 const mockLogError = telemetry.logError as jest.Mock;
 const mockTrackCaptureEvent = telemetry.trackCaptureEvent as jest.Mock;
@@ -62,6 +63,7 @@ jest.mock('../../../src/features/wardrobe/api', () => ({
 }));
 
 // Import the hook after mocks are set up
+// eslint-disable-next-line import/first -- Must import after jest.mock to get mocked dependencies
 import {
   useResolvedOutfitItems,
   useResolvedOutfitItemsSingle,
