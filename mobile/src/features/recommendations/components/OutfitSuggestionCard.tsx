@@ -56,6 +56,38 @@ function buildItemsAccessibilityLabel(items: OutfitItemViewModel[]): string {
 }
 
 /**
+ * Gets the display context with fallback for missing/empty values.
+ *
+ * @param context - Context from the outfit suggestion (may be undefined, null, or empty)
+ * @returns Display-safe context string
+ */
+function getDisplayContext(context: string | undefined | null): string {
+  if (context && context.trim().length > 0) {
+    return context;
+  }
+  return t('screens.home.recommendations.fallbackContext');
+}
+
+/**
+ * Builds accessibility label for the outfit card with null-safe context handling.
+ *
+ * @param context - Context from the outfit suggestion
+ * @param reason - Reason explanation from the outfit suggestion
+ * @returns Accessibility label for the card
+ */
+function buildCardAccessibilityLabel(context: string | undefined | null, reason: string): string {
+  if (context && context.trim().length > 0) {
+    return t('screens.home.recommendations.accessibility.cardLabel')
+      .replace('{context}', context)
+      .replace('{reason}', reason);
+  }
+  return t('screens.home.recommendations.accessibility.cardLabelNoContext').replace(
+    '{reason}',
+    reason
+  );
+}
+
+/**
  * Outfit suggestion card displaying context, items, and reason.
  *
  * Layout:
@@ -140,14 +172,16 @@ function OutfitSuggestionCardComponent({
     [items]
   );
 
+  // Get display-safe context with fallback
+  const displayContext = getDisplayContext(suggestion.context);
+  const cardAccessibilityLabel = buildCardAccessibilityLabel(suggestion.context, suggestion.reason);
+
   return (
     <View
       style={styles.card}
       testID={testID}
       accessible={true}
-      accessibilityLabel={t('screens.home.recommendations.accessibility.cardLabel')
-        .replace('{context}', suggestion.context)
-        .replace('{reason}', suggestion.reason)}
+      accessibilityLabel={cardAccessibilityLabel}
     >
       {/* Context label */}
       <Text
@@ -156,7 +190,7 @@ function OutfitSuggestionCardComponent({
         maxFontSizeMultiplier={1.5}
         numberOfLines={1}
       >
-        {suggestion.context}
+        {displayContext}
       </Text>
 
       {/* Item chips row */}

@@ -60,15 +60,25 @@ export default function HomeScreen(): React.JSX.Element {
     fetchRecommendations,
   } = useOutfitRecommendations();
 
-  // Handle CTA button press
+  // Handle CTA button press - pass current context params when feature flag is on
   const handleGetOutfitIdeas = useCallback(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+    if (isContextSelectorEnabled) {
+      // Send context params when feature is enabled
+      fetchRecommendations({ occasion, temperatureBand });
+    } else {
+      // Preserve existing behaviour when feature flag is off
+      fetchRecommendations();
+    }
+  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand]);
 
-  // Handle retry from error state
+  // Handle retry from error state - use same context handling as CTA
   const handleRetry = useCallback(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
+    if (isContextSelectorEnabled) {
+      fetchRecommendations({ occasion, temperatureBand });
+    } else {
+      fetchRecommendations();
+    }
+  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand]);
 
   // Exit app on back press from home screen
   // Prevents navigation back to login/loading screens which would be confusing

@@ -26,7 +26,11 @@
 import { supabase } from '../../../services/supabase';
 import { generateCorrelationId, getCorrelationHeaders } from '../../../core/utils/correlationId';
 import { logError, logSuccess, type ErrorClassification } from '../../../core/telemetry';
-import { parseOutfitRecommendationsResponse, type OutfitRecommendationsResponse } from '../types';
+import {
+  parseOutfitRecommendationsResponse,
+  type OutfitRecommendationsResponse,
+  type ContextParams,
+} from '../types';
 
 /**
  * Error codes for recommendation fetch operation.
@@ -164,6 +168,28 @@ export interface FetchOutfitRecommendationsOptions {
    * ```
    */
   signal?: AbortSignal;
+
+  /**
+   * Context parameters for outfit recommendations.
+   *
+   * When provided, these parameters are included in the request body and
+   * influence the outfit suggestions returned by the Edge Function.
+   *
+   * The Edge Function applies defaults for missing/invalid values:
+   * - occasion defaults to 'everyday'
+   * - temperatureBand defaults to 'auto'
+   *
+   * @example
+   * ```typescript
+   * const response = await fetchOutfitRecommendations({
+   *   contextParams: {
+   *     occasion: 'work_meeting',
+   *     temperatureBand: 'mild',
+   *   },
+   * });
+   * ```
+   */
+  contextParams?: ContextParams;
 }
 
 /**
@@ -234,7 +260,7 @@ export interface FetchOutfitRecommendationsOptions {
 export async function fetchOutfitRecommendations(
   options: FetchOutfitRecommendationsOptions = {}
 ): Promise<OutfitRecommendationsResponse> {
-  const { signal } = options;
+  const { signal, contextParams } = options;
   // Generate correlation ID for request tracing
   const correlationId = generateCorrelationId();
 
@@ -249,10 +275,14 @@ export async function fetchOutfitRecommendations(
   }
 
   try {
-    // Invoke the Edge Function with correlation ID header and abort signal
+    // Build request body with context parameters if provided
+    const body = contextParams ? { contextParams } : undefined;
+
+    // Invoke the Edge Function with correlation ID header, abort signal, and body
     const { data, error } = await supabase.functions.invoke<unknown>('get-outfit-recommendations', {
       headers: getCorrelationHeaders(correlationId),
       signal,
+      body,
     });
 
     // Handle invocation errors (network issues, function errors, etc.)
@@ -333,6 +363,9 @@ export async function fetchOutfitRecommendations(
       data: {
         correlationId,
         outfitCount: parseResult.data.outfits.length,
+        hasContextParams: contextParams !== undefined,
+        occasion: contextParams?.occasion,
+        temperatureBand: contextParams?.temperatureBand,
       },
     });
 
