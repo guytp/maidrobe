@@ -146,6 +146,174 @@ Deno.test('clampNoRepeatDays: handles Infinity values', () => {
   assertEquals(clampNoRepeatDays(-Infinity), 0);
 });
 
+// ---------------------------------------------------------------------------
+// Extended clampNoRepeatDays Tests - Purity, Determinism, and Edge Cases
+// ---------------------------------------------------------------------------
+
+Deno.test('clampNoRepeatDays: is deterministic - same input always produces same output', () => {
+  // Test multiple calls with same input produce identical results
+  const inputs = [0, 45, 90, -5, 100, 7.5, null, undefined, NaN, 'invalid'];
+
+  for (const input of inputs) {
+    const result1 = clampNoRepeatDays(input);
+    const result2 = clampNoRepeatDays(input);
+    const result3 = clampNoRepeatDays(input);
+
+    assertEquals(result1, result2, `Determinism failed for input: ${input}`);
+    assertEquals(result2, result3, `Determinism failed for input: ${input}`);
+  }
+});
+
+Deno.test('clampNoRepeatDays: is pure - does not modify input objects', () => {
+  // Test with mutable object input
+  const objectInput = { value: 30 };
+  const originalKeys = Object.keys(objectInput);
+  const originalValue = objectInput.value;
+
+  clampNoRepeatDays(objectInput);
+
+  // Verify object was not mutated
+  assertEquals(Object.keys(objectInput), originalKeys);
+  assertEquals(objectInput.value, originalValue);
+
+  // Test with array input
+  const arrayInput = [45];
+  const originalLength = arrayInput.length;
+  const originalElement = arrayInput[0];
+
+  clampNoRepeatDays(arrayInput);
+
+  // Verify array was not mutated
+  assertEquals(arrayInput.length, originalLength);
+  assertEquals(arrayInput[0], originalElement);
+});
+
+Deno.test('clampNoRepeatDays: handles extreme numeric values', () => {
+  // JavaScript's maximum and minimum values
+  assertEquals(clampNoRepeatDays(Number.MAX_VALUE), 90);
+  assertEquals(clampNoRepeatDays(Number.MIN_VALUE), 0); // Very small positive, floors to 0
+  assertEquals(clampNoRepeatDays(Number.MAX_SAFE_INTEGER), 90);
+  assertEquals(clampNoRepeatDays(Number.MIN_SAFE_INTEGER), 0);
+
+  // Very large negative
+  assertEquals(clampNoRepeatDays(-Number.MAX_VALUE), 0);
+
+  // Epsilon (smallest difference from 1)
+  assertEquals(clampNoRepeatDays(Number.EPSILON), 0); // Floors to 0
+});
+
+Deno.test('clampNoRepeatDays: handles near-boundary floating point values', () => {
+  // Just below 0 (negative approaching zero)
+  assertEquals(clampNoRepeatDays(-0.001), 0);
+  assertEquals(clampNoRepeatDays(-0.0001), 0);
+  assertEquals(clampNoRepeatDays(-1e-10), 0);
+
+  // Just above 0 (positive but less than 1)
+  assertEquals(clampNoRepeatDays(0.001), 0); // Floors to 0
+  assertEquals(clampNoRepeatDays(0.999), 0); // Floors to 0
+
+  // Just below 90
+  assertEquals(clampNoRepeatDays(89.9999), 89); // Floors to 89
+
+  // Just above 90
+  assertEquals(clampNoRepeatDays(90.001), 90); // Clamps to 90
+  assertEquals(clampNoRepeatDays(90.999), 90); // Clamps to 90
+});
+
+Deno.test('clampNoRepeatDays: handles scientific notation', () => {
+  assertEquals(clampNoRepeatDays(1e2), 90); // 100 -> clamps to 90
+  assertEquals(clampNoRepeatDays(9e1), 90); // 90
+  assertEquals(clampNoRepeatDays(3e1), 30); // 30
+  assertEquals(clampNoRepeatDays(1e-5), 0); // 0.00001 -> floors to 0
+  assertEquals(clampNoRepeatDays(1e10), 90); // Very large -> clamps to 90
+  assertEquals(clampNoRepeatDays(-1e5), 0); // Large negative -> clamps to 0
+});
+
+Deno.test('clampNoRepeatDays: handles objects with valueOf method', () => {
+  // Object that coerces to a number via valueOf
+  const objectWithValueOf = { valueOf: () => 45 };
+  assertEquals(clampNoRepeatDays(objectWithValueOf), 45);
+
+  // Object with valueOf returning out-of-range value
+  const objectWithLargeValue = { valueOf: () => 200 };
+  assertEquals(clampNoRepeatDays(objectWithLargeValue), 90);
+
+  // Object with valueOf returning negative
+  const objectWithNegative = { valueOf: () => -10 };
+  assertEquals(clampNoRepeatDays(objectWithNegative), 0);
+});
+
+Deno.test('clampNoRepeatDays: handles whitespace-padded numeric strings', () => {
+  assertEquals(clampNoRepeatDays('  30  '), 30);
+  assertEquals(clampNoRepeatDays('\t45'), 45);
+  assertEquals(clampNoRepeatDays('\n60\n'), 60);
+  assertEquals(clampNoRepeatDays('   0   '), 0);
+  assertEquals(clampNoRepeatDays('  90  '), 90);
+});
+
+Deno.test('clampNoRepeatDays: handles string edge cases', () => {
+  // Strings with leading zeros
+  assertEquals(clampNoRepeatDays('007'), 7);
+  assertEquals(clampNoRepeatDays('090'), 90);
+  assertEquals(clampNoRepeatDays('000'), 0);
+
+  // Strings with signs
+  assertEquals(clampNoRepeatDays('+30'), 30);
+  assertEquals(clampNoRepeatDays('-30'), 0); // Negative clamps to 0
+
+  // Hex strings (JavaScript's Number() parses these)
+  assertEquals(clampNoRepeatDays('0x1E'), 30); // 0x1E = 30
+
+  // Binary/octal-like strings (not parsed as such by Number())
+  assertEquals(clampNoRepeatDays('0b101'), 0); // NaN -> 0
+});
+
+Deno.test('clampNoRepeatDays: handles special function and symbol types gracefully', () => {
+  // Function input
+  const fn = () => 30;
+  assertEquals(clampNoRepeatDays(fn), 0); // NaN -> 0
+
+  // Nested arrays
+  assertEquals(clampNoRepeatDays([[30]]), 30); // Coerces via toString -> "30"
+  assertEquals(clampNoRepeatDays([[[45]]]), 45);
+  assertEquals(clampNoRepeatDays([1, 2, 3]), 0); // "1,2,3" -> NaN -> 0
+});
+
+Deno.test('clampNoRepeatDays: always returns an integer', () => {
+  const testCases = [
+    0, 45, 90, // Normal integers
+    7.1, 7.5, 7.9, // Floats
+    '30.5', // Float string
+    { valueOf: () => 22.7 }, // Object with float valueOf
+  ];
+
+  for (const input of testCases) {
+    const result = clampNoRepeatDays(input);
+    assertEquals(Number.isInteger(result), true, `Result for ${input} should be integer`);
+  }
+});
+
+Deno.test('clampNoRepeatDays: result is always within [0, 90] range', () => {
+  // Comprehensive range test with various edge case inputs
+  const edgeCases = [
+    -Infinity, -1e10, -1000, -100, -1, -0.5,
+    0, 0.5, 1, 45, 89, 90,
+    90.5, 91, 100, 1000, 1e10, Infinity,
+    null, undefined, NaN,
+    'invalid', '', '  ', '-50', '150',
+    {}, [], true, false,
+  ];
+
+  for (const input of edgeCases) {
+    const result = clampNoRepeatDays(input);
+    assertEquals(
+      result >= 0 && result <= 90,
+      true,
+      `Result ${result} for input ${input} should be in [0, 90]`
+    );
+  }
+});
+
 // ============================================================================
 // bucketNoRepeatDays Tests
 // ============================================================================
