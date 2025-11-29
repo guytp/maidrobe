@@ -37,6 +37,7 @@ import {
   type ImageErrorEventData,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import type { OutfitItemViewModel } from '../types';
@@ -57,11 +58,11 @@ const THUMBNAIL_SIZE = 32;
 /** Minimum chip height for WCAG AA touch target compliance */
 const MIN_CHIP_HEIGHT = 44;
 
-/** Placeholder emoji for items without images */
-const PLACEHOLDER_ICON = '👔';
+/** Icon size for placeholder - visually balanced within thumbnail container */
+const PLACEHOLDER_ICON_SIZE = 18;
 
-/** Warning icon for missing/deleted items */
-const MISSING_ICON = '⚠️';
+/** Icon size for missing indicator - slightly smaller for less aggressive appearance */
+const MISSING_ICON_SIZE = 16;
 
 /**
  * Builds a comprehensive accessibility label for an item chip.
@@ -116,12 +117,12 @@ function buildAccessibilityLabel(item: OutfitItemViewModel): string {
  *
  * Layout for resolved items without thumbnail (placeholder):
  * ┌──────────────────────────────┐
- * │ [👔] Display Name            │  ← neutral placeholder
+ * │ [icon] Display Name          │  ← checkroom icon placeholder
  * └──────────────────────────────┘
  *
  * Layout for missing/deleted items:
  * ┌──────────────────────────────┐
- * │ [⚠️] Item unavailable        │  ← error styling
+ * │ [!] Item unavailable         │  ← error-outline icon styling
  * └──────────────────────────────┘
  *
  * @param props - Component props
@@ -182,10 +183,6 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
           justifyContent: 'center',
           alignItems: 'center',
         },
-        placeholderIcon: {
-          fontSize: fontSize.base,
-          opacity: 0.6,
-        },
         missingPlaceholder: {
           width: THUMBNAIL_SIZE,
           height: THUMBNAIL_SIZE,
@@ -194,9 +191,6 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
           backgroundColor: colors.error + '15',
           justifyContent: 'center',
           alignItems: 'center',
-        },
-        missingIcon: {
-          fontSize: fontSize.xs,
         },
         chipText: {
           fontSize: fontSize.xs,
@@ -226,18 +220,18 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
     >
       {/* Thumbnail, placeholder, or missing indicator */}
       {isMissing ? (
-        // Missing item - show warning icon
-        <View style={styles.missingPlaceholder}>
-          <Text style={styles.missingIcon} accessibilityElementsHidden={true}>
-            {MISSING_ICON}
-          </Text>
+        // Missing item - show error icon
+        <View style={styles.missingPlaceholder} accessibilityElementsHidden={true}>
+          <MaterialIcons name="error-outline" size={MISSING_ICON_SIZE} color={colors.error} />
         </View>
       ) : showPlaceholder ? (
         // No image available or failed to load - show neutral placeholder
-        <View style={styles.thumbnailPlaceholder}>
-          <Text style={styles.placeholderIcon} accessibilityElementsHidden={true}>
-            {PLACEHOLDER_ICON}
-          </Text>
+        <View style={styles.thumbnailPlaceholder} accessibilityElementsHidden={true}>
+          <MaterialIcons
+            name="checkroom"
+            size={PLACEHOLDER_ICON_SIZE}
+            color={colors.textSecondary}
+          />
         </View>
       ) : (
         // Image available - render with error handling
