@@ -17,21 +17,14 @@ import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
 import { trackCaptureEvent, logError } from '../../../core/telemetry';
-import {
-  useBatchWardrobeItems,
-  wardrobeItemsQueryKey,
-} from '../../wardrobe/api';
+import { useBatchWardrobeItems, wardrobeItemsQueryKey } from '../../wardrobe/api';
 import {
   resolveOutfitItems,
   extractAllItemIds,
   type CacheableItem,
   type ItemCacheAccessor,
 } from '../utils';
-import type {
-  OutfitSuggestion,
-  OutfitItemViewModel,
-  ItemResolutionResult,
-} from '../types';
+import type { OutfitSuggestion, OutfitItemViewModel, ItemResolutionResult } from '../types';
 
 /**
  * Threshold for logging high missing item rate warning.

@@ -230,10 +230,7 @@ export function SuggestionsSection({
   );
 
   // Resolve outfit items to view-models (only if feature flag enabled)
-  const {
-    resolvedOutfits,
-    isLoading: isResolvingItems,
-  } = useResolvedOutfitItems({
+  const { resolvedOutfits, isLoading: isResolvingItems } = useResolvedOutfitItems({
     outfits,
     enabled: itemResolutionEnabled && outfits.length > 0,
   });

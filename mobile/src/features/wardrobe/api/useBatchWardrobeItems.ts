@@ -20,10 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useCallback } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
-import {
-  fetchWardrobeItemsBatch,
-  FetchBatchItemsError,
-} from './fetchWardrobeItemsBatch';
+import { fetchWardrobeItemsBatch, FetchBatchItemsError } from './fetchWardrobeItemsBatch';
 import { wardrobeItemsQueryKey } from './useWardrobeItems';
 import type { BatchWardrobeItem, FetchBatchItemsResponse } from '../types';
 
@@ -193,10 +190,7 @@ export function useBatchWardrobeItems(
 
       // Push each item into the detail cache
       items.forEach((item, itemId) => {
-        queryClient.setQueryData(
-          wardrobeItemsQueryKey.detail(userId, itemId),
-          item
-        );
+        queryClient.setQueryData(wardrobeItemsQueryKey.detail(userId, itemId), item);
       });
     }
   }, [query.data, userId, queryClient]);

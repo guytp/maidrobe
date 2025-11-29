@@ -42,11 +42,7 @@ jest.mock('../../../src/features/wardrobe/api/fetchWardrobeItemsBatch', () => ({
     public readonly mockCode: string;
     public readonly mockOriginalError?: unknown;
 
-    constructor(
-      message: string,
-      mockCode: string,
-      mockOriginalError?: unknown
-    ) {
+    constructor(message: string, mockCode: string, mockOriginalError?: unknown) {
       super(message);
       this.name = 'FetchBatchItemsError';
       this.mockCode = mockCode;
@@ -72,9 +68,7 @@ jest.mock('../../../src/features/wardrobe/api/fetchWardrobeItemsBatch', () => ({
 /**
  * Creates a valid BatchWardrobeItem for testing.
  */
-function createMockBatchItem(
-  overrides: Partial<BatchWardrobeItem> = {}
-): BatchWardrobeItem {
+function createMockBatchItem(overrides: Partial<BatchWardrobeItem> = {}): BatchWardrobeItem {
   return {
     id: 'item-a',
     user_id: 'test-user-123',
@@ -91,10 +85,7 @@ function createMockBatchItem(
 /**
  * Creates a successful fetch response.
  */
-function createSuccessResponse(
-  items: BatchWardrobeItem[],
-  missingIds: string[] = []
-) {
+function createSuccessResponse(items: BatchWardrobeItem[], missingIds: string[] = []) {
   const itemsMap = new Map<string, BatchWardrobeItem>();
   items.forEach((item) => itemsMap.set(item.id, item));
   return { items: itemsMap, missingIds };
@@ -161,14 +152,9 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('returns empty missingIds when all items are found', async () => {
-      const items = [
-        createMockBatchItem({ id: 'item-a' }),
-        createMockBatchItem({ id: 'item-b' }),
-      ];
+      const items = [createMockBatchItem({ id: 'item-a' }), createMockBatchItem({ id: 'item-b' })];
 
-      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(
-        createSuccessResponse(items)
-      );
+      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(createSuccessResponse(items));
 
       const { result } = renderHook(
         () => useBatchWardrobeItems({ itemIds: ['item-a', 'item-b'] }),
@@ -183,9 +169,7 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('passes correct params to fetchWardrobeItemsBatch', async () => {
-      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(
-        createSuccessResponse([])
-      );
+      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(createSuccessResponse([]));
 
       const { result } = renderHook(
         () => useBatchWardrobeItems({ itemIds: ['item-a', 'item-b'] }),
@@ -205,14 +189,11 @@ describe('useBatchWardrobeItems', () => {
     it('populates individual item cache on success', async () => {
       const itemA = createMockBatchItem({ id: 'item-a' });
 
-      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(
-        createSuccessResponse([itemA])
-      );
+      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(createSuccessResponse([itemA]));
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -280,10 +261,9 @@ describe('useBatchWardrobeItems', () => {
         createSuccessResponse([], ['item-a'])
       );
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -309,17 +289,13 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('handles network errors with retry', async () => {
-      const networkError = new mockFetchModule.FetchBatchItemsError(
-        'Network error',
-        'network'
-      );
+      const networkError = new mockFetchModule.FetchBatchItemsError('Network error', 'network');
       // Mock rejection for all retries
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValue(networkError);
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       // Fast-forward through retry delays (retry 3 times + initial)
       for (let i = 0; i < 4; i++) {
@@ -337,16 +313,12 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('handles server errors with retry', async () => {
-      const serverError = new mockFetchModule.FetchBatchItemsError(
-        'Server unavailable',
-        'server'
-      );
+      const serverError = new mockFetchModule.FetchBatchItemsError('Server unavailable', 'server');
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValue(serverError);
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       // Fast-forward through retry delays
       for (let i = 0; i < 4; i++) {
@@ -364,16 +336,12 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('handles auth errors without retry', async () => {
-      const authError = new mockFetchModule.FetchBatchItemsError(
-        'Unauthorized',
-        'auth'
-      );
+      const authError = new mockFetchModule.FetchBatchItemsError('Unauthorized', 'auth');
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValueOnce(authError);
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -387,16 +355,10 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('logs error telemetry on failure', async () => {
-      const networkError = new mockFetchModule.FetchBatchItemsError(
-        'Network error',
-        'network'
-      );
+      const networkError = new mockFetchModule.FetchBatchItemsError('Network error', 'network');
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValue(networkError);
 
-      renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a', 'item-b'] }),
-        { wrapper }
-      );
+      renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a', 'item-b'] }), { wrapper });
 
       // Fast-forward through retry delays
       for (let i = 0; i < 4; i++) {
@@ -420,16 +382,10 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('sets correct error classification for network errors', async () => {
-      const networkError = new mockFetchModule.FetchBatchItemsError(
-        'Failed to fetch',
-        'network'
-      );
+      const networkError = new mockFetchModule.FetchBatchItemsError('Failed to fetch', 'network');
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValue(networkError);
 
-      renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), { wrapper });
 
       for (let i = 0; i < 4; i++) {
         await act(async () => {
@@ -447,23 +403,13 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('sets correct error classification for auth errors', async () => {
-      const authError = new mockFetchModule.FetchBatchItemsError(
-        'Unauthorized',
-        'auth'
-      );
+      const authError = new mockFetchModule.FetchBatchItemsError('Unauthorized', 'auth');
       mockFetchModule.fetchWardrobeItemsBatch.mockRejectedValueOnce(authError);
 
-      renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), { wrapper });
 
       await waitFor(() => {
-        expect(mockTelemetry.logError).toHaveBeenCalledWith(
-          authError,
-          'user',
-          expect.any(Object)
-        );
+        expect(mockTelemetry.logError).toHaveBeenCalledWith(authError, 'user', expect.any(Object));
       });
     });
   });
@@ -487,10 +433,7 @@ describe('useBatchWardrobeItems', () => {
     });
 
     it('does not fetch when itemIds is empty', async () => {
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: [] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: [] }), { wrapper });
 
       // Wait a bit to ensure no fetch happens
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -517,10 +460,10 @@ describe('useBatchWardrobeItems', () => {
       const { result, rerender } = renderHook<
         ReturnType<typeof useBatchWardrobeItems>,
         { enabled: boolean }
-      >(
-        ({ enabled }) => useBatchWardrobeItems({ itemIds: ['item-a'], enabled }),
-        { wrapper, initialProps: { enabled: false } }
-      );
+      >(({ enabled }) => useBatchWardrobeItems({ itemIds: ['item-a'], enabled }), {
+        wrapper,
+        initialProps: { enabled: false },
+      });
 
       expect(mockFetchModule.fetchWardrobeItemsBatch).not.toHaveBeenCalled();
 
@@ -544,10 +487,9 @@ describe('useBatchWardrobeItems', () => {
         createSuccessResponse([createMockBatchItem({ id: 'item-a' })])
       );
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -572,9 +514,7 @@ describe('useBatchWardrobeItems', () => {
   describe('caching', () => {
     it('uses cached data on subsequent renders', async () => {
       const item = createMockBatchItem({ id: 'item-a', name: 'Test Item' });
-      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(
-        createSuccessResponse([item])
-      );
+      mockFetchModule.fetchWardrobeItemsBatch.mockResolvedValueOnce(createSuccessResponse([item]));
 
       // First render
       const { result: result1, unmount } = renderHook(
@@ -589,10 +529,9 @@ describe('useBatchWardrobeItems', () => {
       unmount();
 
       // Second render - should use cache
-      const { result: result2 } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result: result2 } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       // Should have data immediately from cache (or shortly after)
       await waitFor(() => {
@@ -611,16 +550,21 @@ describe('useBatchWardrobeItems', () => {
   describe('loading states', () => {
     it('sets isLoading true during initial fetch', async () => {
       // Create a promise that doesn't resolve immediately
-      let resolvePromise: (value: { items: Map<string, BatchWardrobeItem>; missingIds: string[] }) => void;
-      const pendingPromise = new Promise<{ items: Map<string, BatchWardrobeItem>; missingIds: string[] }>((resolve) => {
+      let resolvePromise: (value: {
+        items: Map<string, BatchWardrobeItem>;
+        missingIds: string[];
+      }) => void;
+      const pendingPromise = new Promise<{
+        items: Map<string, BatchWardrobeItem>;
+        missingIds: string[];
+      }>((resolve) => {
         resolvePromise = resolve;
       });
       mockFetchModule.fetchWardrobeItemsBatch.mockReturnValueOnce(pendingPromise);
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       expect(result.current.isLoading).toBe(true);
       expect(result.current.isFetching).toBe(true);
@@ -640,10 +584,9 @@ describe('useBatchWardrobeItems', () => {
         createSuccessResponse([createMockBatchItem({ id: 'item-a' })])
       );
 
-      const { result } = renderHook(
-        () => useBatchWardrobeItems({ itemIds: ['item-a'] }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useBatchWardrobeItems({ itemIds: ['item-a'] }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);

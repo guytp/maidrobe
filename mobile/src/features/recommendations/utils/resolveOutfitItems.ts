@@ -16,11 +16,7 @@
 
 import { getItemImageUrl } from '../../wardrobe/utils/getItemImageUrl';
 import type { WardrobeGridItem, ItemDetail, BatchWardrobeItem } from '../../wardrobe/types';
-import type {
-  OutfitSuggestion,
-  OutfitItemViewModel,
-  ItemResolutionResult,
-} from '../types';
+import type { OutfitSuggestion, OutfitItemViewModel, ItemResolutionResult } from '../types';
 
 // ============================================================================
 // Types
@@ -180,10 +176,7 @@ function getItemType(item: CacheableItem): string | null {
  * @param item - Cached wardrobe item data
  * @returns Resolved item view-model
  */
-function createResolvedViewModel(
-  itemId: string,
-  item: CacheableItem
-): OutfitItemViewModel {
+function createResolvedViewModel(itemId: string, item: CacheableItem): OutfitItemViewModel {
   return {
     id: itemId,
     displayName: getItemDisplayName(item),

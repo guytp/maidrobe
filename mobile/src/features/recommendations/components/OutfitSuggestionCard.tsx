@@ -166,11 +166,7 @@ function OutfitSuggestionCardComponent({
           </View>
         ) : items.length > 0 ? (
           items.map((item) => (
-            <OutfitItemChip
-              key={item.id}
-              item={item}
-              testID={`${testID}-item-${item.id}`}
-            />
+            <OutfitItemChip key={item.id} item={item} testID={`${testID}-item-${item.id}`} />
           ))
         ) : (
           // Fallback to showing item count if no items resolved yet
