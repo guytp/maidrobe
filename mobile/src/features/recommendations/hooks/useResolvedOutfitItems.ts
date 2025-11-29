@@ -335,7 +335,7 @@ export function useResolvedOutfitItems(
   // Memoized refetch function - using batchQuery.refetch directly as it's stable
   const refetch = useCallback(() => {
     batchQuery.refetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- batchQuery.refetch is stable per React Query; including full batchQuery object would cause unnecessary re-creations on every render
   }, [batchQuery.refetch]);
 
   return {
