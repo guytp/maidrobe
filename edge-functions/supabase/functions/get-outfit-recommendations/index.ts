@@ -47,10 +47,16 @@ import {
   type Outfit,
   type OutfitRecommendationsResponse,
   type RequestOutcome,
+  type OccasionKey,
+  type EffectiveContext,
   createOutfit,
   validateOutfitRecommendationsResponse,
+  isValidOccasion,
+  isValidTemperatureBand,
   MIN_OUTFITS_PER_RESPONSE,
   MAX_OUTFITS_PER_RESPONSE,
+  DEFAULT_OCCASION,
+  DEFAULT_TEMPERATURE_BAND,
 } from './types.ts';
 
 // ============================================================================
@@ -97,6 +103,118 @@ const WEAR_HISTORY_ROW_LIMIT = 2000;
  * Used for computing the wear history cutoff timestamp.
  */
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Human-readable context phrases for each occasion type.
+ *
+ * These phrases are used to populate the `context` field of outfit
+ * suggestions based on the effective occasion derived from client
+ * context parameters.
+ */
+const OCCASION_CONTEXT_PHRASES: Record<OccasionKey, string> = {
+  everyday: 'A comfortable, versatile look for your day.',
+  work_meeting: 'Smart-casual for a client meeting.',
+  date: 'Relaxed but polished for a date or drinks.',
+  weekend: 'Effortlessly casual for weekend plans.',
+  event: 'Dressed to impress for a special occasion.',
+};
+
+// ============================================================================
+// Context Parameter Parsing
+// ============================================================================
+
+/**
+ * Parses and validates context parameters from the request body.
+ *
+ * Implements backwards-compatible validation with defaulting:
+ * - If body is null/undefined, returns defaults
+ * - If contextParams is missing, returns defaults
+ * - If occasion is invalid/wrong type, coerces to default
+ * - If temperatureBand is invalid/wrong type, coerces to default
+ * - Valid sibling fields are preserved when one field is invalid
+ *
+ * @param body - The parsed request body (may be null/undefined)
+ * @returns EffectiveContext with validated occasion and temperatureBand
+ */
+export function parseContextParams(body: unknown): EffectiveContext {
+  // Handle null/undefined body
+  if (body === null || body === undefined) {
+    return {
+      occasion: DEFAULT_OCCASION,
+      temperatureBand: DEFAULT_TEMPERATURE_BAND,
+      wasProvided: false,
+    };
+  }
+
+  // Handle non-object body
+  if (typeof body !== 'object') {
+    return {
+      occasion: DEFAULT_OCCASION,
+      temperatureBand: DEFAULT_TEMPERATURE_BAND,
+      wasProvided: false,
+    };
+  }
+
+  const bodyObj = body as Record<string, unknown>;
+
+  // Handle missing contextParams
+  if (!('contextParams' in bodyObj) || bodyObj.contextParams === null || bodyObj.contextParams === undefined) {
+    return {
+      occasion: DEFAULT_OCCASION,
+      temperatureBand: DEFAULT_TEMPERATURE_BAND,
+      wasProvided: false,
+    };
+  }
+
+  // Handle non-object contextParams
+  if (typeof bodyObj.contextParams !== 'object') {
+    return {
+      occasion: DEFAULT_OCCASION,
+      temperatureBand: DEFAULT_TEMPERATURE_BAND,
+      wasProvided: true,
+    };
+  }
+
+  const contextParams = bodyObj.contextParams as Record<string, unknown>;
+
+  // Validate and default occasion
+  const occasion = isValidOccasion(contextParams.occasion)
+    ? contextParams.occasion
+    : DEFAULT_OCCASION;
+
+  // Validate and default temperatureBand
+  const temperatureBand = isValidTemperatureBand(contextParams.temperatureBand)
+    ? contextParams.temperatureBand
+    : DEFAULT_TEMPERATURE_BAND;
+
+  return {
+    occasion,
+    temperatureBand,
+    wasProvided: true,
+  };
+}
+
+/**
+ * Safely parses the request body as JSON.
+ *
+ * Returns null if the body is empty or not valid JSON.
+ * This allows backwards compatibility with clients that don't send a body.
+ *
+ * @param req - The HTTP request
+ * @returns Parsed body or null if empty/invalid
+ */
+async function safeParseRequestBody(req: Request): Promise<unknown> {
+  try {
+    const text = await req.text();
+    if (!text || text.trim().length === 0) {
+      return null;
+    }
+    return JSON.parse(text);
+  } catch {
+    // Invalid JSON is treated as no body (backwards compatibility)
+    return null;
+  }
+}
 
 // ============================================================================
 // Types
@@ -944,13 +1062,20 @@ function errorResponse(
  * - Unique UUID for each outfit
  * - User ID from authenticated JWT
  * - Current timestamp for createdAt
+ * - Context phrase derived from effectiveOccasion
  * - Rating as null (placeholder for future use)
  *
+ * The context phrase is determined by the effective occasion from
+ * client context parameters, ensuring all outfits have consistent
+ * context messaging aligned with the user's intent.
+ *
  * @param userId - Authenticated user's ID from JWT
+ * @param effectiveContext - Validated context with occasion and temperatureBand
  * @returns Array of validated Outfit objects
  */
-function generateStubbedOutfits(userId: string): Outfit[] {
+function generateStubbedOutfits(userId: string, effectiveContext: EffectiveContext): Outfit[] {
   const createdAt = new Date().toISOString();
+  const contextPhrase = OCCASION_CONTEXT_PHRASES[effectiveContext.occasion];
 
   return OUTFIT_TEMPLATES.map((template) =>
     createOutfit({
@@ -958,7 +1083,7 @@ function generateStubbedOutfits(userId: string): Outfit[] {
       userId,
       itemIds: template.itemIds,
       reason: template.reason,
-      context: template.context,
+      context: contextPhrase,
       createdAt,
       rating: null,
     })
@@ -1088,7 +1213,26 @@ export async function handler(req: Request): Promise<Response> {
     });
 
     // ========================================================================
-    // Step 3: Fetch User Preferences (No-Repeat Window)
+    // Step 3: Parse Context Parameters (Story #365)
+    // ========================================================================
+
+    // Parse request body for context parameters (backwards-compatible)
+    // If body is missing/invalid or contextParams is absent, defaults are used
+    const requestBody = await safeParseRequestBody(req);
+    const effectiveContext = parseContextParams(requestBody);
+
+    // Log context parameter parsing for observability
+    logger.debug('context_params_parsed', {
+      user_id: userId,
+      metadata: {
+        context_provided: effectiveContext.wasProvided,
+        effective_occasion: effectiveContext.occasion,
+        effective_temperature_band: effectiveContext.temperatureBand,
+      },
+    });
+
+    // ========================================================================
+    // Step 4: Fetch User Preferences (No-Repeat Window)
     // ========================================================================
 
     // Fetch the user's noRepeatDays preference for filtering.
@@ -1115,7 +1259,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 4: Fetch Recent Wear History (if no-repeat enabled)
+    // Step 5: Fetch Recent Wear History (if no-repeat enabled)
     // ========================================================================
 
     // Track wear history state for filtering, recency scoring, and observability
@@ -1160,16 +1304,13 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 5: Generate, Filter, and Select Outfit Recommendations
+    // Step 6: Generate, Filter, and Select Outfit Recommendations
     // ========================================================================
 
-    // Note: We intentionally ignore any request body or query parameters.
-    // The userId comes exclusively from the JWT, preventing any client override.
-    // Future stories (#365) may add context parameters, but for the stub,
-    // we return the same static outfits for all requests.
-
     // Generate the full candidate pool from static templates
-    const candidateOutfits = generateStubbedOutfits(userId);
+    // Context phrase is derived from effectiveContext.occasion
+    // The userId comes exclusively from the JWT, preventing any client override
+    const candidateOutfits = generateStubbedOutfits(userId, effectiveContext);
 
     // Apply no-repeat filtering based on user preferences and wear history
     // Filtering is skipped when:
@@ -1238,6 +1379,10 @@ export async function handler(req: Request): Promise<Response> {
           outcome: 'success' as RequestOutcome,
           outfit_count: 0,
           config_error: true,
+          // Context parameter observability (Story #365)
+          context_provided: effectiveContext.wasProvided,
+          effective_occasion: effectiveContext.occasion,
+          effective_temperature_band: effectiveContext.temperatureBand,
           // No-repeat observability fields (privacy-safe, bucketed)
           no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
           static_pool_size: candidateOutfits.length,
@@ -1278,7 +1423,7 @@ export async function handler(req: Request): Promise<Response> {
     const outfits = selectionResult.outfits;
 
     // ========================================================================
-    // Step 6: Construct and Validate Response
+    // Step 7: Construct and Validate Response
     // ========================================================================
 
     const response: OutfitRecommendationsResponse = { outfits };
@@ -1310,7 +1455,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 7: Return Success Response with Logging
+    // Step 8: Return Success Response with Logging
     // ========================================================================
 
     const durationMs = Date.now() - startTime;
@@ -1326,6 +1471,10 @@ export async function handler(req: Request): Promise<Response> {
       metadata: {
         outcome: 'success' as RequestOutcome,
         outfit_count: outfits.length,
+        // Context parameter observability (Story #365)
+        context_provided: effectiveContext.wasProvided,
+        effective_occasion: effectiveContext.occasion,
+        effective_temperature_band: effectiveContext.temperatureBand,
         // No-repeat observability fields (privacy-safe, bucketed)
         no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
         static_pool_size: candidateOutfits.length,
