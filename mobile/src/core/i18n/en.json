@@ -33,6 +33,31 @@
           "cardLabel": "Outfit suggestion for {context}. {reason}"
         }
       },
+      "contextSelector": {
+        "occasionLabel": "Occasion",
+        "temperatureLabel": "Temperature",
+        "occasions": {
+          "everyday": "Everyday",
+          "work_meeting": "Work / client meeting",
+          "date": "Date / drinks",
+          "weekend": "Weekend / casual",
+          "event": "Event / party"
+        },
+        "temperatures": {
+          "cool": "Cool / cold",
+          "mild": "Mild",
+          "warm": "Warm / hot",
+          "auto": "Auto"
+        },
+        "accessibility": {
+          "occasionSelector": "Occasion selector",
+          "occasionSelectorHint": "Select an occasion for your outfit",
+          "temperatureSelector": "Temperature selector",
+          "temperatureSelectorHint": "Select a temperature for your outfit",
+          "selectOccasion": "Select {label} as occasion",
+          "selectTemperature": "Select {label} as temperature"
+        }
+      },
       "accessibility": {
         "screenLabel": "Home screen",
         "screenHint": "Main screen showing app introduction",

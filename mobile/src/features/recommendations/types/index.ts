@@ -1,5 +1,94 @@
 import { z } from 'zod';
 
+// ============================================================================
+// Context Parameter Types (Story #365)
+// ============================================================================
+
+/**
+ * Occasion keys for outfit context selection.
+ *
+ * These keys are used in the client-side UI and sent to the Edge Function
+ * in the `contextParams.occasion` field.
+ *
+ * @example
+ * ```typescript
+ * const occasion: OccasionKey = 'work_meeting';
+ * ```
+ */
+export type OccasionKey = 'everyday' | 'work_meeting' | 'date' | 'weekend' | 'event';
+
+/**
+ * Temperature band keys for outfit context selection.
+ *
+ * These keys are used in the client-side UI and sent to the Edge Function
+ * in the `contextParams.temperatureBand` field.
+ *
+ * - 'auto': Reserved for future weather integration
+ *
+ * @example
+ * ```typescript
+ * const temp: TemperatureBandKey = 'warm';
+ * ```
+ */
+export type TemperatureBandKey = 'cool' | 'mild' | 'warm' | 'auto';
+
+/**
+ * Default occasion value for first-time users or when no selection is stored.
+ */
+export const DEFAULT_OCCASION: OccasionKey = 'everyday';
+
+/**
+ * Default temperature band value for first-time users or when no selection is stored.
+ */
+export const DEFAULT_TEMPERATURE_BAND: TemperatureBandKey = 'auto';
+
+/**
+ * All available occasion options in display order.
+ */
+export const OCCASION_OPTIONS: readonly OccasionKey[] = [
+  'everyday',
+  'work_meeting',
+  'date',
+  'weekend',
+  'event',
+] as const;
+
+/**
+ * All available temperature band options in display order.
+ */
+export const TEMPERATURE_BAND_OPTIONS: readonly TemperatureBandKey[] = [
+  'cool',
+  'mild',
+  'warm',
+  'auto',
+] as const;
+
+/**
+ * Type guard to check if a value is a valid OccasionKey.
+ *
+ * @param value - Unknown value to check
+ * @returns True if value is a valid OccasionKey
+ */
+export function isOccasionKey(value: unknown): value is OccasionKey {
+  return (
+    typeof value === 'string' &&
+    (OCCASION_OPTIONS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Type guard to check if a value is a valid TemperatureBandKey.
+ *
+ * @param value - Unknown value to check
+ * @returns True if value is a valid TemperatureBandKey
+ */
+export function isTemperatureBandKey(value: unknown): value is TemperatureBandKey {
+  return (
+    typeof value === 'string' &&
+    (TEMPERATURE_BAND_OPTIONS as readonly string[]).includes(value)
+  );
+}
+
 /**
  * Recommendations feature type definitions.
  *
