@@ -58,7 +58,13 @@ jest.mock('../../../src/features/wardrobe/api', () => ({
     all: ['wardrobe', 'items'],
     user: (userId: string) => ['wardrobe', 'items', userId],
     detail: (userId: string, itemId: string) => ['wardrobe', 'items', userId, 'detail', itemId],
-    batch: (userId: string, itemIds: string[]) => ['wardrobe', 'items', userId, 'batch', ...itemIds.slice().sort()],
+    batch: (userId: string, itemIds: string[]) => [
+      'wardrobe',
+      'items',
+      userId,
+      'batch',
+      ...itemIds.slice().sort(),
+    ],
   },
 }));
 
@@ -76,9 +82,7 @@ import {
 /**
  * Creates a valid OutfitSuggestion for testing.
  */
-function createMockOutfit(
-  overrides: Partial<OutfitSuggestion> = {}
-): OutfitSuggestion {
+function createMockOutfit(overrides: Partial<OutfitSuggestion> = {}): OutfitSuggestion {
   return {
     id: 'outfit-001',
     userId: 'user-123',
@@ -94,9 +98,7 @@ function createMockOutfit(
 /**
  * Creates a valid BatchWardrobeItem for testing.
  */
-function createMockBatchItem(
-  overrides: Partial<BatchWardrobeItem> = {}
-): BatchWardrobeItem {
+function createMockBatchItem(overrides: Partial<BatchWardrobeItem> = {}): BatchWardrobeItem {
   return {
     id: 'item-a',
     user_id: 'user-123',
@@ -152,9 +154,7 @@ describe('useResolvedOutfitItems', () => {
     jest.clearAllMocks();
 
     // Default mock implementation - no items in batch
-    mockUseBatchWardrobeItems.mockReturnValue(
-      createMockBatchResult()
-    );
+    mockUseBatchWardrobeItems.mockReturnValue(createMockBatchResult());
   });
 
   afterEach(() => {
@@ -173,10 +173,9 @@ describe('useResolvedOutfitItems', () => {
     it('returns empty map when enabled is false', () => {
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits, enabled: false }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits, enabled: false }), {
+        wrapper,
+      });
 
       expect(result.current.resolvedOutfits.size).toBe(0);
       expect(result.current.isLoading).toBe(false);
@@ -184,10 +183,9 @@ describe('useResolvedOutfitItems', () => {
     });
 
     it('returns empty map when outfits array is empty', () => {
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits: [], enabled: true }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits: [], enabled: true }), {
+        wrapper,
+      });
 
       expect(result.current.resolvedOutfits.size).toBe(0);
       expect(result.current.isLoading).toBe(false);
@@ -196,10 +194,7 @@ describe('useResolvedOutfitItems', () => {
     it('does not trigger batch fetch when disabled', () => {
       const outfits = [createMockOutfit()];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits, enabled: false }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits, enabled: false }), { wrapper });
 
       expect(mockUseBatchWardrobeItems).toHaveBeenCalledWith(
         expect.objectContaining({ enabled: false })
@@ -222,10 +217,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit({ itemIds: ['item-a'] })];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       // Should have resolved the cached item
       await waitFor(() => {
@@ -248,10 +240,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit({ itemIds: ['item-a', 'item-b'] })];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       // Should only request the uncached item
       expect(mockUseBatchWardrobeItems).toHaveBeenCalledWith(
@@ -278,16 +267,11 @@ describe('useResolvedOutfitItems', () => {
       // Mock batch returning the other item
       const batchedItem = createMockBatchItem({ id: 'item-b', name: 'Batched Item' });
       const batchItems = new Map([['item-b', batchedItem]]);
-      mockUseBatchWardrobeItems.mockReturnValue(
-        createMockBatchResult(batchItems)
-      );
+      mockUseBatchWardrobeItems.mockReturnValue(createMockBatchResult(batchItems));
 
       const outfits = [createMockOutfit({ itemIds: ['item-a', 'item-b'] })];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         const items = result.current.resolvedOutfits.get('outfit-001');
@@ -309,10 +293,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit({ itemIds: ['item-a'] })];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.resolvedOutfits.size).toBe(1);
@@ -336,10 +317,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       expect(result.current.isLoading).toBe(true);
     });
@@ -356,10 +334,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit({ itemIds: ['item-a', 'item-b', 'item-c'] })];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       expect(result.current.isLoading).toBe(false);
     });
@@ -372,10 +347,9 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result, rerender } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result, rerender } = renderHook(() => useResolvedOutfitItems({ outfits }), {
+        wrapper,
+      });
 
       expect(result.current.isLoading).toBe(true);
 
@@ -410,10 +384,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       expect(result.current.isError).toBe(true);
     });
@@ -426,10 +397,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       expect(result.current.error).toBe('Server unavailable');
     });
@@ -442,10 +410,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(mockLogError).toHaveBeenCalled();
@@ -472,16 +437,11 @@ describe('useResolvedOutfitItems', () => {
         ['item-b', createMockBatchItem({ id: 'item-b' })],
         ['item-c', createMockBatchItem({ id: 'item-c' })],
       ]);
-      mockUseBatchWardrobeItems.mockReturnValue(
-        createMockBatchResult(batchedItems)
-      );
+      mockUseBatchWardrobeItems.mockReturnValue(createMockBatchResult(batchedItems));
 
       const outfits = [createMockOutfit()];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(mockTrackCaptureEvent).toHaveBeenCalledWith(
@@ -501,19 +461,14 @@ describe('useResolvedOutfitItems', () => {
 
     it('tracks recommendations_high_missing_rate when missing rate exceeds threshold', async () => {
       // Mock 3 items, 2 missing (66% missing rate > 20% threshold)
-      const batchedItems = new Map([
-        ['item-a', createMockBatchItem({ id: 'item-a' })],
-      ]);
+      const batchedItems = new Map([['item-a', createMockBatchItem({ id: 'item-a' })]]);
       mockUseBatchWardrobeItems.mockReturnValue(
         createMockBatchResult(batchedItems, { missingIds: ['item-b', 'item-c'] })
       );
 
       const outfits = [createMockOutfit({ itemIds: ['item-a', 'item-b', 'item-c'] })];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(mockTrackCaptureEvent).toHaveBeenCalledWith(
@@ -539,10 +494,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit({ itemIds })];
 
-      renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(mockTrackCaptureEvent).toHaveBeenCalledWith(
@@ -575,10 +527,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.resolvedCount).toBe(2);
@@ -601,10 +550,7 @@ describe('useResolvedOutfitItems', () => {
 
       const outfits = [createMockOutfit()];
 
-      const { result } = renderHook(
-        () => useResolvedOutfitItems({ outfits }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useResolvedOutfitItems({ outfits }), { wrapper });
 
       act(() => {
         result.current.refetch();
@@ -633,9 +579,7 @@ describe('useResolvedOutfitItemsSingle', () => {
 
     jest.clearAllMocks();
 
-    mockUseBatchWardrobeItems.mockReturnValue(
-      createMockBatchResult()
-    );
+    mockUseBatchWardrobeItems.mockReturnValue(createMockBatchResult());
   });
 
   afterEach(() => {
@@ -647,10 +591,7 @@ describe('useResolvedOutfitItemsSingle', () => {
   );
 
   it('returns empty items array when outfit is null', () => {
-    const { result } = renderHook(
-      () => useResolvedOutfitItemsSingle(null),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useResolvedOutfitItemsSingle(null), { wrapper });
 
     expect(result.current.items).toEqual([]);
     expect(result.current.isLoading).toBe(false);
@@ -660,16 +601,11 @@ describe('useResolvedOutfitItemsSingle', () => {
     const batchedItems = new Map([
       ['item-a', createMockBatchItem({ id: 'item-a', name: 'Test Item' })],
     ]);
-    mockUseBatchWardrobeItems.mockReturnValue(
-      createMockBatchResult(batchedItems)
-    );
+    mockUseBatchWardrobeItems.mockReturnValue(createMockBatchResult(batchedItems));
 
     const outfit = createMockOutfit({ itemIds: ['item-a'] });
 
-    const { result } = renderHook(
-      () => useResolvedOutfitItemsSingle(outfit),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useResolvedOutfitItemsSingle(outfit), { wrapper });
 
     await waitFor(() => {
       expect(result.current.items).toHaveLength(1);
@@ -681,10 +617,7 @@ describe('useResolvedOutfitItemsSingle', () => {
   it('respects enabled parameter', () => {
     const outfit = createMockOutfit();
 
-    renderHook(
-      () => useResolvedOutfitItemsSingle(outfit, false),
-      { wrapper }
-    );
+    renderHook(() => useResolvedOutfitItemsSingle(outfit, false), { wrapper });
 
     expect(mockUseBatchWardrobeItems).toHaveBeenCalledWith(
       expect.objectContaining({ enabled: false })

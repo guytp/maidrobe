@@ -160,10 +160,7 @@ function mapErrorCodeToType(code: FetchRecommendationsErrorCode): Recommendation
  */
 function isCancellationError(error: unknown): boolean {
   if (error instanceof FetchRecommendationsError) {
-    return (
-      error.correlationId === 'timeout' ||
-      error.correlationId === 'cancelled'
-    );
+    return error.correlationId === 'timeout' || error.correlationId === 'cancelled';
   }
   return false;
 }
@@ -363,11 +360,7 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         // throw a cancellation error. This won't be retried and won't show
         // an error to the user since the component is unmounting anyway.
         if (signal?.aborted && !(error instanceof FetchRecommendationsError)) {
-          throw new FetchRecommendationsError(
-            'Request was cancelled',
-            'network',
-            'cancelled'
-          );
+          throw new FetchRecommendationsError('Request was cancelled', 'network', 'cancelled');
         }
 
         // For all other errors, re-throw as-is

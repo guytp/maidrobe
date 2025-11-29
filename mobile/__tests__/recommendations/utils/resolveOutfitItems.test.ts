@@ -36,9 +36,7 @@ jest.mock('../../../src/features/wardrobe/utils/getItemImageUrl', () => ({
 /**
  * Creates a valid OutfitSuggestion for testing.
  */
-function createMockOutfit(
-  overrides: Partial<OutfitSuggestion> = {}
-): OutfitSuggestion {
+function createMockOutfit(overrides: Partial<OutfitSuggestion> = {}): OutfitSuggestion {
   return {
     id: 'outfit-001',
     userId: 'user-123',
@@ -54,9 +52,7 @@ function createMockOutfit(
 /**
  * Creates a valid BatchWardrobeItem for testing.
  */
-function createMockBatchItem(
-  overrides: Partial<BatchWardrobeItem> = {}
-): BatchWardrobeItem {
+function createMockBatchItem(overrides: Partial<BatchWardrobeItem> = {}): BatchWardrobeItem {
   return {
     id: 'item-a',
     user_id: 'user-123',
@@ -73,9 +69,7 @@ function createMockBatchItem(
 /**
  * Creates a valid ItemDetail for testing.
  */
-function createMockItemDetail(
-  overrides: Partial<ItemDetail> = {}
-): ItemDetail {
+function createMockItemDetail(overrides: Partial<ItemDetail> = {}): ItemDetail {
   return {
     id: 'item-a',
     user_id: 'user-123',
@@ -250,7 +244,10 @@ describe('extractAllItemIds', () => {
 
   it('handles outfits with malformed itemIds by filtering them out', () => {
     const outfits = [
-      createMockOutfit({ id: 'outfit-1', itemIds: ['item-a', null as unknown as string, 'item-b'] }),
+      createMockOutfit({
+        id: 'outfit-1',
+        itemIds: ['item-a', null as unknown as string, 'item-b'],
+      }),
       createMockOutfit({ id: 'outfit-2', itemIds: undefined as unknown as string[] }),
     ];
     const result = extractAllItemIds(outfits);
@@ -273,9 +270,7 @@ describe('extractAllItemIds', () => {
 describe('resolveOutfitItems', () => {
   describe('with all items in cache', () => {
     it('returns resolved view-models for all cached items', () => {
-      const outfits = [
-        createMockOutfit({ id: 'outfit-1', itemIds: ['item-a', 'item-b'] }),
-      ];
+      const outfits = [createMockOutfit({ id: 'outfit-1', itemIds: ['item-a', 'item-b'] })];
 
       const itemA = createMockBatchItem({ id: 'item-a', name: 'Navy Blazer' });
       const itemB = createMockBatchItem({ id: 'item-b', name: 'White Shirt' });
@@ -322,9 +317,7 @@ describe('resolveOutfitItems', () => {
 
   describe('with no items in cache', () => {
     it('returns missing view-models for all uncached items', () => {
-      const outfits = [
-        createMockOutfit({ id: 'outfit-1', itemIds: ['item-a', 'item-b'] }),
-      ];
+      const outfits = [createMockOutfit({ id: 'outfit-1', itemIds: ['item-a', 'item-b'] })];
 
       const emptyCacheAccessor = createEmptyCacheAccessor();
       const result = resolveOutfitItems(outfits, emptyCacheAccessor);
@@ -493,9 +486,7 @@ describe('resolveOutfitItems', () => {
 
   describe('order preservation', () => {
     it('preserves order of items within each outfit', () => {
-      const outfits = [
-        createMockOutfit({ id: 'outfit-1', itemIds: ['third', 'first', 'second'] }),
-      ];
+      const outfits = [createMockOutfit({ id: 'outfit-1', itemIds: ['third', 'first', 'second'] })];
 
       const items: Record<string, BatchWardrobeItem> = {
         third: createMockBatchItem({ id: 'third', name: 'Third Item' }),
@@ -539,7 +530,9 @@ describe('resolveOutfitItems', () => {
     });
 
     it('handles outfit with undefined itemIds', () => {
-      const outfits = [createMockOutfit({ id: 'outfit-1', itemIds: undefined as unknown as string[] })];
+      const outfits = [
+        createMockOutfit({ id: 'outfit-1', itemIds: undefined as unknown as string[] }),
+      ];
       const result = resolveOutfitItems(outfits, createEmptyCacheAccessor());
 
       expect(result.resolvedOutfits.size).toBe(1);

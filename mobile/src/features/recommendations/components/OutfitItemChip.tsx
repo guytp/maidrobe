@@ -139,12 +139,9 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
   const showPlaceholder = !item.thumbnailUrl || imageError || isMissing;
 
   // Handle image load error - switch to placeholder
-  const handleImageError = useCallback(
-    (_event: NativeSyntheticEvent<ImageErrorEventData>) => {
-      setImageError(true);
-    },
-    []
-  );
+  const handleImageError = useCallback((_event: NativeSyntheticEvent<ImageErrorEventData>) => {
+    setImageError(true);
+  }, []);
 
   const styles = useMemo(
     () =>
