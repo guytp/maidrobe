@@ -1221,8 +1221,11 @@ export async function handler(req: Request): Promise<Response> {
     const requestBody = await safeParseRequestBody(req);
     const effectiveContext = parseContextParams(requestBody);
 
-    // Log context parameter parsing for observability
-    logger.debug('context_params_parsed', {
+    // Log context parameter parsing for observability (Story #365)
+    // This info-level log enables tracking of context adoption rates and
+    // default fallback frequency in production dashboards. The correlation_id
+    // is automatically included via the logger instance for request tracing.
+    logger.info('context_params_parsed', {
       user_id: userId,
       metadata: {
         context_provided: effectiveContext.wasProvided,
