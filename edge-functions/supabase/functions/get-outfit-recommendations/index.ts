@@ -71,6 +71,200 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+/**
+ * Minimum allowed value for noRepeatDays.
+ * 0 means no-repeat filtering is disabled.
+ */
+const NO_REPEAT_DAYS_MIN = 0;
+
+/**
+ * Maximum allowed value for noRepeatDays.
+ * Capped at 90 days per business requirements.
+ */
+const NO_REPEAT_DAYS_MAX = 90;
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Supabase client type for dependency injection.
+ * Using a minimal interface to avoid importing the full Supabase types.
+ */
+interface SupabaseClient {
+  from(table: string): {
+    select(columns: string): {
+      eq(
+        column: string,
+        value: string
+      ): {
+        maybeSingle(): Promise<{
+          data: Record<string, unknown> | null;
+          error: { message: string; code?: string } | null;
+        }>;
+      };
+    };
+  };
+}
+
+/**
+ * Result of fetching user's no-repeat preferences.
+ */
+interface NoRepeatPrefsResult {
+  /** The clamped noRepeatDays value (0-90). */
+  noRepeatDays: number;
+  /** Whether the prefs lookup failed or was missing. */
+  prefsLookupFailed: boolean;
+}
+
+// ============================================================================
+// No-Repeat Preferences
+// ============================================================================
+
+/**
+ * Clamps a noRepeatDays value into the valid range [0, 90].
+ *
+ * This is a pure function that handles all edge cases:
+ * - null/undefined → 0 (no-repeat disabled)
+ * - Negative values → 0
+ * - Values > 90 → 90
+ * - Non-integer values → floored then clamped
+ * - NaN → 0
+ *
+ * @param value - The raw noRepeatDays value from the database
+ * @returns A valid integer in the range [0, 90]
+ */
+export function clampNoRepeatDays(value: unknown): number {
+  // Handle null, undefined, or non-number types
+  if (value === null || value === undefined) {
+    return NO_REPEAT_DAYS_MIN;
+  }
+
+  // Coerce to number if it's not already
+  const numValue = typeof value === 'number' ? value : Number(value);
+
+  // Handle NaN (from failed coercion or actual NaN)
+  if (Number.isNaN(numValue)) {
+    return NO_REPEAT_DAYS_MIN;
+  }
+
+  // Floor to handle any floating point values
+  const intValue = Math.floor(numValue);
+
+  // Clamp to valid range
+  if (intValue < NO_REPEAT_DAYS_MIN) {
+    return NO_REPEAT_DAYS_MIN;
+  }
+  if (intValue > NO_REPEAT_DAYS_MAX) {
+    return NO_REPEAT_DAYS_MAX;
+  }
+
+  return intValue;
+}
+
+/**
+ * Fetches the user's noRepeatDays preference from the prefs table.
+ *
+ * Implements degraded-mode behaviour:
+ * - If the query fails, logs a warning and returns noRepeatDays = 0
+ * - If no prefs record exists, logs a warning and returns noRepeatDays = 0
+ * - Successfully retrieved values are clamped to [0, 90]
+ *
+ * Security:
+ * - Uses RLS via user JWT (automatic filtering by auth.uid())
+ * - Defensive userId filter as belt-and-suspenders protection
+ *
+ * @param supabase - Supabase client authenticated as the user
+ * @param userId - The authenticated user's ID
+ * @param logger - Structured logger for observability
+ * @returns Promise resolving to NoRepeatPrefsResult with clamped value and failure flag
+ */
+async function fetchUserNoRepeatDays(
+  supabase: SupabaseClient,
+  userId: string,
+  logger: StructuredLogger
+): Promise<NoRepeatPrefsResult> {
+  try {
+    // Query prefs table with defensive userId filter
+    // RLS policies also enforce user_id = auth.uid(), but we add explicit
+    // filtering as a defence-in-depth measure
+    const { data, error } = await supabase
+      .from('prefs')
+      .select('no_repeat_days')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Handle query errors
+    if (error) {
+      logger.warn('prefs_lookup_failed', {
+        user_id: userId,
+        error_message: error.message,
+        error_code: error.code,
+        metadata: {
+          degraded_mode: true,
+          default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+        },
+      });
+
+      return {
+        noRepeatDays: NO_REPEAT_DAYS_MIN,
+        prefsLookupFailed: true,
+      };
+    }
+
+    // Handle missing prefs record (user hasn't set preferences yet)
+    if (data === null) {
+      logger.warn('prefs_not_found', {
+        user_id: userId,
+        metadata: {
+          degraded_mode: true,
+          default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+        },
+      });
+
+      return {
+        noRepeatDays: NO_REPEAT_DAYS_MIN,
+        prefsLookupFailed: true,
+      };
+    }
+
+    // Successfully retrieved prefs - clamp the value
+    const rawValue = data.no_repeat_days;
+    const clampedValue = clampNoRepeatDays(rawValue);
+
+    logger.debug('prefs_loaded', {
+      user_id: userId,
+      metadata: {
+        no_repeat_days_clamped: clampedValue,
+        // Log whether clamping was applied (without exposing raw value)
+        was_clamped: rawValue !== clampedValue,
+      },
+    });
+
+    return {
+      noRepeatDays: clampedValue,
+      prefsLookupFailed: false,
+    };
+  } catch (err) {
+    // Handle unexpected errors (network issues, etc.)
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+    logger.warn('prefs_lookup_unexpected_error', {
+      user_id: userId,
+      error_message: errorMessage,
+      metadata: {
+        degraded_mode: true,
+        default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+      },
+    });
+
+    return {
+      noRepeatDays: NO_REPEAT_DAYS_MIN,
+      prefsLookupFailed: true,
+    };
+  }
+}
+
 // ============================================================================
 // Stubbed Outfit Data
 // ============================================================================
@@ -228,8 +422,9 @@ function generateStubbedOutfits(userId: string): Outfit[] {
  * Handles:
  * 1. CORS preflight requests
  * 2. Authentication validation
- * 3. Outfit generation
- * 4. Response construction with logging
+ * 3. User preferences loading (with degraded-mode fallback)
+ * 4. Outfit generation
+ * 5. Response construction with logging
  *
  * Exported for unit testing.
  *
@@ -339,18 +534,49 @@ export async function handler(req: Request): Promise<Response> {
     });
 
     // ========================================================================
-    // Step 3: Generate Stubbed Outfit Recommendations
+    // Step 3: Fetch User Preferences (No-Repeat Window)
+    // ========================================================================
+
+    // Fetch the user's noRepeatDays preference for filtering.
+    // This call implements degraded-mode behaviour: if prefs cannot be
+    // retrieved, it returns noRepeatDays = 0 (no-repeat filtering disabled)
+    // and logs a warning. The request continues without failing.
+    const { noRepeatDays, prefsLookupFailed } = await fetchUserNoRepeatDays(
+      supabase as unknown as SupabaseClient,
+      userId,
+      logger
+    );
+
+    // Log the preference state for observability
+    // Note: The actual noRepeatDays value will be logged in bucketed form
+    // in the final observability step (Step 5 of the user story)
+    if (prefsLookupFailed) {
+      logger.info('using_default_prefs', {
+        user_id: userId,
+        metadata: {
+          no_repeat_days: noRepeatDays,
+          reason: 'prefs_unavailable',
+        },
+      });
+    }
+
+    // ========================================================================
+    // Step 4: Generate Stubbed Outfit Recommendations
     // ========================================================================
 
     // Note: We intentionally ignore any request body or query parameters.
     // The userId comes exclusively from the JWT, preventing any client override.
     // Future stories (#365) may add context parameters, but for the stub,
     // we return the same static outfits for all requests.
+    //
+    // TODO (Story #364): Apply no-repeat filtering using noRepeatDays value.
+    // For now, noRepeatDays is fetched but not yet used for filtering.
+    // The filtering logic will be added in subsequent steps.
 
     const outfits = generateStubbedOutfits(userId);
 
     // ========================================================================
-    // Step 4: Construct and Validate Response
+    // Step 5: Construct and Validate Response
     // ========================================================================
 
     const response: OutfitRecommendationsResponse = { outfits };
@@ -376,7 +602,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 5: Return Success Response with Logging
+    // Step 6: Return Success Response with Logging
     // ========================================================================
 
     const durationMs = Date.now() - startTime;
