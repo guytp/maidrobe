@@ -345,12 +345,21 @@ async function fetchUserNoRepeatDays(
     const rawValue = data.no_repeat_days;
     const clampedValue = clampNoRepeatDays(rawValue);
 
+    // Determine if actual range clamping was applied (value was outside [0, 90]).
+    // We normalise the raw value to an integer first (matching clampNoRepeatDays behaviour)
+    // to avoid false positives from type coercion (e.g., string "30" vs number 30) or
+    // floating point differences (e.g., 30.5 floored to 30 is not "clamping").
+    // was_clamped should only be true when the floored value fell outside the valid range.
+    const numericRaw = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    const flooredRaw = Number.isNaN(numericRaw) ? 0 : Math.floor(numericRaw);
+    const wasClamped = flooredRaw < NO_REPEAT_DAYS_MIN || flooredRaw > NO_REPEAT_DAYS_MAX;
+
     logger.debug('prefs_loaded', {
       user_id: userId,
       metadata: {
         no_repeat_days_clamped: clampedValue,
-        // Log whether clamping was applied (without exposing raw value)
-        was_clamped: rawValue !== clampedValue,
+        // Log whether range clamping was applied (value was outside [0, 90])
+        was_clamped: wasClamped,
       },
     });
 
