@@ -151,8 +151,8 @@ interface SupabaseClient {
 interface NoRepeatPrefsResult {
   /** The clamped noRepeatDays value (0-90). */
   noRepeatDays: number;
-  /** Whether the prefs lookup failed or was missing. */
-  prefsLookupFailed: boolean;
+  /** Whether default preferences are being used (due to missing record or lookup error). */
+  usingDefaultPrefs: boolean;
 }
 
 /**
@@ -321,7 +321,7 @@ async function fetchUserNoRepeatDays(
 
       return {
         noRepeatDays: NO_REPEAT_DAYS_MIN,
-        prefsLookupFailed: true,
+        usingDefaultPrefs: true,
       };
     }
 
@@ -337,7 +337,7 @@ async function fetchUserNoRepeatDays(
 
       return {
         noRepeatDays: NO_REPEAT_DAYS_MIN,
-        prefsLookupFailed: true,
+        usingDefaultPrefs: true,
       };
     }
 
@@ -356,7 +356,7 @@ async function fetchUserNoRepeatDays(
 
     return {
       noRepeatDays: clampedValue,
-      prefsLookupFailed: false,
+      usingDefaultPrefs: false,
     };
   } catch (err) {
     // Handle unexpected errors (network issues, etc.)
@@ -373,7 +373,7 @@ async function fetchUserNoRepeatDays(
 
     return {
       noRepeatDays: NO_REPEAT_DAYS_MIN,
-      prefsLookupFailed: true,
+      usingDefaultPrefs: true,
     };
   }
 }
@@ -1117,7 +1117,7 @@ export async function handler(req: Request): Promise<Response> {
     // This call implements degraded-mode behaviour: if prefs cannot be
     // retrieved, it returns noRepeatDays = 0 (no-repeat filtering disabled)
     // and logs a warning. The request continues without failing.
-    const { noRepeatDays, prefsLookupFailed } = await fetchUserNoRepeatDays(
+    const { noRepeatDays, usingDefaultPrefs } = await fetchUserNoRepeatDays(
       supabase as unknown as SupabaseClient,
       userId,
       logger
@@ -1126,7 +1126,7 @@ export async function handler(req: Request): Promise<Response> {
     // Log the preference state for observability
     // Note: The actual noRepeatDays value will be logged in bucketed form
     // in the final observability step (Step 5 of the user story)
-    if (prefsLookupFailed) {
+    if (usingDefaultPrefs) {
       logger.info('using_default_prefs', {
         user_id: userId,
         metadata: {
@@ -1266,7 +1266,7 @@ export async function handler(req: Request): Promise<Response> {
           filtered_pool_size: eligible.length,
           final_pool_size: 0,
           fallback_applied: false,
-          prefs_lookup_failed: prefsLookupFailed,
+          using_default_prefs: usingDefaultPrefs,
           degraded_mode: historyLookupFailed,
         },
       });
@@ -1354,7 +1354,7 @@ export async function handler(req: Request): Promise<Response> {
         filtered_pool_size: eligible.length,
         final_pool_size: outfits.length,
         fallback_applied: selectionResult.fallbackCount > 0,
-        prefs_lookup_failed: prefsLookupFailed,
+        using_default_prefs: usingDefaultPrefs,
         degraded_mode: historyLookupFailed,
       },
     });
