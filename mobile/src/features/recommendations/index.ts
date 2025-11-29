@@ -17,6 +17,7 @@ export type {
   ItemResolutionResult,
   OccasionKey,
   TemperatureBandKey,
+  ContextParams,
 } from './types';
 
 // Context Constants (Story #365)

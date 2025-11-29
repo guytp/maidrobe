@@ -39,7 +39,7 @@ import {
   FetchRecommendationsError,
   type FetchRecommendationsErrorCode,
 } from '../api/fetchOutfitRecommendations';
-import { type OutfitSuggestion } from '../types';
+import { type OutfitSuggestion, type ContextParams } from '../types';
 import { checkIsOffline } from './useNetworkStatus';
 
 /**
@@ -119,8 +119,14 @@ export interface UseOutfitRecommendationsResult {
   /** Whether data has been successfully fetched at least once */
   hasData: boolean;
 
-  /** Trigger a recommendation fetch */
-  fetchRecommendations: () => Promise<void>;
+  /**
+   * Trigger a recommendation fetch with optional context parameters.
+   *
+   * @param contextParams - Optional context parameters (occasion, temperatureBand)
+   *                        to include in the request. When provided, these influence
+   *                        the outfit suggestions returned by the Edge Function.
+   */
+  fetchRecommendations: (contextParams?: ContextParams) => Promise<void>;
 
   /** Clear cached recommendations and error state */
   reset: () => void;
@@ -262,6 +268,11 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // Track offline state for fast-fail
   const isOfflineRef = useRef<boolean>(false);
 
+  // Track context params for the current/next request
+  // This ref captures the params at the time of fetch, ensuring in-flight
+  // requests use the params that were active when the request started
+  const contextParamsRef = useRef<ContextParams | undefined>(undefined);
+
   // Query configuration
   const query = useQuery<OutfitSuggestion[], FetchRecommendationsError>({
     queryKey: outfitRecommendationsQueryKey.user(userId ?? ''),
@@ -319,8 +330,10 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         // This signal is aborted when either:
         // - The timeout fires (REQUEST_TIMEOUT_MS exceeded)
         // - React Query cancels the request (component unmount, query invalidation)
+        // Also include contextParams captured at fetch time
         const response = await fetchOutfitRecommendations({
           signal: timeoutController.signal,
+          contextParams: contextParamsRef.current,
         });
 
         // Clear timeout on success
@@ -471,21 +484,28 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   })();
 
   // Fetch recommendations function
-  const fetchRecommendations = useCallback(async () => {
-    if (!userId) {
-      logError(new Error('Cannot fetch recommendations: user not authenticated'), 'user', {
-        feature: 'recommendations',
-        operation: 'fetch_attempt_unauthenticated',
-      });
-      return;
-    }
+  const fetchRecommendations = useCallback(
+    async (contextParams?: ContextParams) => {
+      if (!userId) {
+        logError(new Error('Cannot fetch recommendations: user not authenticated'), 'user', {
+          feature: 'recommendations',
+          operation: 'fetch_attempt_unauthenticated',
+        });
+        return;
+      }
 
-    try {
-      await query.refetch();
-    } catch {
-      // Error is captured in query.error, no need to handle here
-    }
-  }, [userId, query]);
+      // Capture context params for this request
+      // The ref ensures the queryFn uses these params even if state changes mid-request
+      contextParamsRef.current = contextParams;
+
+      try {
+        await query.refetch();
+      } catch {
+        // Error is captured in query.error, no need to handle here
+      }
+    },
+    [userId, query]
+  );
 
   // Reset function
   const reset = useCallback(() => {

@@ -29,8 +29,10 @@
             "outfitContext": "part of suggested outfit"
           }
         },
+        "fallbackContext": "Outfit suggestion",
         "accessibility": {
-          "cardLabel": "Outfit suggestion for {context}. {reason}"
+          "cardLabel": "Outfit suggestion for {context}. {reason}",
+          "cardLabelNoContext": "Outfit suggestion. {reason}"
         }
       },
       "contextSelector": {

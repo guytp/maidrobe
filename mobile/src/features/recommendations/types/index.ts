@@ -86,6 +86,35 @@ export function isTemperatureBandKey(value: unknown): value is TemperatureBandKe
 }
 
 /**
+ * Context parameters sent with recommendation requests.
+ *
+ * Contains the user's occasion and temperature band selections that influence
+ * outfit suggestions. Both fields are optional on the wire to support:
+ * - Backward compatibility with clients that don't send context
+ * - Partial updates where only one field is changed
+ *
+ * The Edge Function applies defaults for missing/invalid values:
+ * - occasion defaults to 'everyday'
+ * - temperatureBand defaults to 'auto'
+ *
+ * @example
+ * ```typescript
+ * const contextParams: ContextParams = {
+ *   occasion: 'work_meeting',
+ *   temperatureBand: 'mild',
+ * };
+ *
+ * await fetchOutfitRecommendations({ contextParams });
+ * ```
+ */
+export interface ContextParams {
+  /** Selected occasion for outfit recommendations */
+  occasion?: OccasionKey;
+  /** Selected temperature band for outfit recommendations */
+  temperatureBand?: TemperatureBandKey;
+}
+
+/**
  * Recommendations feature type definitions.
  *
  * This module defines the stable API contract for outfit recommendations,
