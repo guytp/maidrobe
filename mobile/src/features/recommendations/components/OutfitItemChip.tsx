@@ -55,8 +55,8 @@ export interface OutfitItemChipProps {
 /** Thumbnail size in pixels - optimised for chip display */
 const THUMBNAIL_SIZE = 32;
 
-/** Minimum chip height for WCAG AA touch target compliance */
-const MIN_CHIP_HEIGHT = 44;
+/** Minimum chip height for WCAG AA touch target compliance. Exported for reuse by placeholder chips. */
+export const MIN_CHIP_HEIGHT = 44;
 
 /** Icon size for placeholder - visually balanced within thumbnail container */
 const PLACEHOLDER_ICON_SIZE = 18;
