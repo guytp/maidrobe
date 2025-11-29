@@ -21,3 +21,6 @@ export {
   type UseResolvedOutfitItemsParams,
   type UseResolvedOutfitItemsResult,
 } from './useResolvedOutfitItems';
+
+// Context parameters hook (Story #365)
+export { useContextParams, type UseContextParamsResult } from './useContextParams';
