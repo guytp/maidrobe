@@ -67,9 +67,9 @@ const MISSING_ICON_SIZE = 16;
 /**
  * Builds a comprehensive accessibility label for an item chip.
  *
- * For resolved items, includes:
- * - Item display name
- * - Item type (if available)
+ * For resolved items, uses i18n keys to build label with:
+ * - Item display name and type (resolvedItem key)
+ * - Or just name if type unknown (resolvedItemNoType key)
  * - Primary colour (if available)
  * - Context that item is part of a suggested outfit
  *
@@ -85,26 +85,30 @@ function buildAccessibilityLabel(item: OutfitItemViewModel): string {
     return t('screens.home.recommendations.itemChip.accessibility.missingItem');
   }
 
-  // Build label with available information
-  const parts: string[] = [];
+  const name = item.displayName || t('screens.home.recommendations.itemChip.unnamedItem');
 
-  // Always include the display name
-  parts.push(item.displayName || t('screens.home.recommendations.itemChip.unnamedItem'));
-
-  // Add type if available
+  // Build base label using appropriate i18n key based on type availability
+  let label: string;
   if (item.type) {
-    parts.push(item.type);
+    label = t('screens.home.recommendations.itemChip.accessibility.resolvedItem')
+      .replace('{name}', name)
+      .replace('{type}', item.type);
+  } else {
+    label = t('screens.home.recommendations.itemChip.accessibility.resolvedItemNoType').replace(
+      '{name}',
+      name
+    );
   }
 
-  // Add primary colour if available
+  // Append primary colour if available
   if (item.colour && item.colour.length > 0) {
-    parts.push(item.colour[0]);
+    label += `, ${item.colour[0]}`;
   }
 
-  // Add outfit context
-  parts.push(t('screens.home.recommendations.itemChip.accessibility.outfitContext'));
+  // Append outfit context
+  label += `, ${t('screens.home.recommendations.itemChip.accessibility.outfitContext')}`;
 
-  return parts.join(', ');
+  return label;
 }
 
 /**
