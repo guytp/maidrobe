@@ -15,7 +15,7 @@
  */
 
 import { getItemImageUrl } from '../../wardrobe/utils/getItemImageUrl';
-import type { WardrobeGridItem, ItemDetail } from '../../wardrobe/types';
+import type { WardrobeGridItem, ItemDetail, BatchWardrobeItem } from '../../wardrobe/types';
 import type {
   OutfitSuggestion,
   OutfitItemViewModel,
@@ -29,10 +29,10 @@ import type {
 /**
  * Union type for wardrobe items that can be used for resolution.
  *
- * Supports both the minimal grid projection and full detail projection,
- * allowing flexibility in what data is available in the cache.
+ * Supports the minimal batch projection, grid projection, and full detail
+ * projection, allowing flexibility in what data is available in the cache.
  */
-export type CacheableItem = WardrobeGridItem | ItemDetail;
+export type CacheableItem = WardrobeGridItem | ItemDetail | BatchWardrobeItem;
 
 /**
  * Function type for accessing cached wardrobe items.

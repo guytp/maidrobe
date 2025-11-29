@@ -165,14 +165,14 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
         thumbnail: {
           width: THUMBNAIL_SIZE,
           height: THUMBNAIL_SIZE,
-          borderRadius: radius.xs,
+          borderRadius: radius.sm,
           marginRight: spacing.sm,
           backgroundColor: colors.textSecondary + '20',
         },
         thumbnailPlaceholder: {
           width: THUMBNAIL_SIZE,
           height: THUMBNAIL_SIZE,
-          borderRadius: radius.xs,
+          borderRadius: radius.sm,
           marginRight: spacing.sm,
           backgroundColor: colors.textSecondary + '15',
           justifyContent: 'center',
@@ -185,7 +185,7 @@ function OutfitItemChipComponent({ item, testID }: OutfitItemChipProps): React.J
         missingPlaceholder: {
           width: THUMBNAIL_SIZE,
           height: THUMBNAIL_SIZE,
-          borderRadius: radius.xs,
+          borderRadius: radius.sm,
           marginRight: spacing.sm,
           backgroundColor: colors.error + '15',
           justifyContent: 'center',
