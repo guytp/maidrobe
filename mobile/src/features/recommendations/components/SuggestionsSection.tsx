@@ -223,7 +223,12 @@ export function SuggestionsSection({
 }: SuggestionsSectionProps): React.JSX.Element {
   const { spacing, fontSize, colors } = useTheme();
 
-  // Check if item resolution feature is enabled
+  // Check if item resolution feature is enabled.
+  // DESIGN NOTE: The empty dependency array deliberately evaluates this flag only
+  // once on component mount. This matches current requirements where feature flags
+  // are static for the duration of a user session. If future work requires real-time
+  // flag updates (e.g., remote config push), this pattern would need to change to
+  // either remove the useMemo or subscribe to flag changes via a context/event mechanism.
   const itemResolutionEnabled = useMemo(
     () => checkFeatureFlagSync('recommendations.itemResolution').enabled,
     []
