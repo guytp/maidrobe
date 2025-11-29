@@ -35,6 +35,115 @@ export const MAX_OUTFITS_PER_RESPONSE = 10;
 export const TARGET_OUTFITS_COUNT = 5;
 
 // ============================================================================
+// Context Parameter Types (Story #365)
+// ============================================================================
+
+/**
+ * Valid occasion keys for outfit context selection.
+ *
+ * These keys are sent by the client in the `contextParams.occasion` field
+ * and determine the context phrase used in outfit suggestions.
+ */
+export type OccasionKey = 'everyday' | 'work_meeting' | 'date' | 'weekend' | 'event';
+
+/**
+ * Valid temperature band keys for outfit context selection.
+ *
+ * These keys are sent by the client in the `contextParams.temperatureBand` field.
+ * - 'auto': Reserved for future weather integration
+ */
+export type TemperatureBandKey = 'cool' | 'mild' | 'warm' | 'auto';
+
+/**
+ * Default occasion value when not provided or invalid.
+ */
+export const DEFAULT_OCCASION: OccasionKey = 'everyday';
+
+/**
+ * Default temperature band value when not provided or invalid.
+ */
+export const DEFAULT_TEMPERATURE_BAND: TemperatureBandKey = 'auto';
+
+/**
+ * All valid occasion keys for validation.
+ */
+export const VALID_OCCASIONS: readonly OccasionKey[] = [
+  'everyday',
+  'work_meeting',
+  'date',
+  'weekend',
+  'event',
+] as const;
+
+/**
+ * All valid temperature band keys for validation.
+ */
+export const VALID_TEMPERATURE_BANDS: readonly TemperatureBandKey[] = [
+  'cool',
+  'mild',
+  'warm',
+  'auto',
+] as const;
+
+/**
+ * Type guard to check if a value is a valid OccasionKey.
+ *
+ * @param value - Unknown value to check
+ * @returns True if value is a valid OccasionKey
+ */
+export function isValidOccasion(value: unknown): value is OccasionKey {
+  return typeof value === 'string' && (VALID_OCCASIONS as readonly string[]).includes(value);
+}
+
+/**
+ * Type guard to check if a value is a valid TemperatureBandKey.
+ *
+ * @param value - Unknown value to check
+ * @returns True if value is a valid TemperatureBandKey
+ */
+export function isValidTemperatureBand(value: unknown): value is TemperatureBandKey {
+  return typeof value === 'string' && (VALID_TEMPERATURE_BANDS as readonly string[]).includes(value);
+}
+
+/**
+ * Context parameters from the request body.
+ *
+ * Both fields are optional and accept unknown types for validation.
+ * Invalid values are coerced to defaults rather than rejected.
+ */
+export interface ContextParams {
+  /** Occasion selection (validated server-side) */
+  occasion?: unknown;
+  /** Temperature band selection (validated server-side) */
+  temperatureBand?: unknown;
+}
+
+/**
+ * Validated and effective context after applying defaults.
+ *
+ * Both fields are guaranteed to be valid after parsing.
+ */
+export interface EffectiveContext {
+  /** Validated occasion (defaults to 'everyday' if invalid) */
+  occasion: OccasionKey;
+  /** Validated temperature band (defaults to 'auto' if invalid) */
+  temperatureBand: TemperatureBandKey;
+  /** Whether contextParams was provided in the request body */
+  wasProvided: boolean;
+}
+
+/**
+ * Expected shape of the request body.
+ *
+ * The body is optional for backwards compatibility with clients
+ * that don't send context parameters.
+ */
+export interface RequestBody {
+  /** Optional context parameters for outfit recommendations */
+  contextParams?: ContextParams;
+}
+
+// ============================================================================
 // Core Types
 // ============================================================================
 
