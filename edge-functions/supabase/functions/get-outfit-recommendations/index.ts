@@ -83,13 +83,35 @@ const NO_REPEAT_DAYS_MIN = 0;
  */
 const NO_REPEAT_DAYS_MAX = 90;
 
+/**
+ * Maximum rows to fetch from wear history per request.
+ * Prevents unbounded queries for users with extensive history.
+ * If this limit is reached, a warning is logged but processing continues.
+ */
+const WEAR_HISTORY_ROW_LIMIT = 2000;
+
+/**
+ * Number of milliseconds in one day.
+ * Used for computing the wear history cutoff timestamp.
+ */
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
+ * Standard Supabase query error shape.
+ */
+interface SupabaseError {
+  message: string;
+  code?: string;
+}
+
+/**
  * Supabase client type for dependency injection.
  * Using a minimal interface to avoid importing the full Supabase types.
+ * Supports both single-row (maybeSingle) and multi-row queries with filters.
  */
 interface SupabaseClient {
   from(table: string): {
@@ -100,8 +122,22 @@ interface SupabaseClient {
       ): {
         maybeSingle(): Promise<{
           data: Record<string, unknown> | null;
-          error: { message: string; code?: string } | null;
+          error: SupabaseError | null;
         }>;
+        gte(
+          column: string,
+          value: string
+        ): {
+          order(
+            column: string,
+            options: { ascending: boolean }
+          ): {
+            limit(count: number): Promise<{
+              data: Record<string, unknown>[] | null;
+              error: SupabaseError | null;
+            }>;
+          };
+        };
       };
     };
   };
@@ -115,6 +151,18 @@ interface NoRepeatPrefsResult {
   noRepeatDays: number;
   /** Whether the prefs lookup failed or was missing. */
   prefsLookupFailed: boolean;
+}
+
+/**
+ * Result of fetching user's recent wear history.
+ */
+interface WearHistoryResult {
+  /** Set of item IDs that have been worn within the no-repeat window. */
+  recentlyWornItemIds: Set<string>;
+  /** Whether the history lookup failed or timed out. */
+  historyLookupFailed: boolean;
+  /** Whether the row limit was reached (may have incomplete data). */
+  rowLimitReached: boolean;
 }
 
 // ============================================================================
@@ -261,6 +309,194 @@ async function fetchUserNoRepeatDays(
     return {
       noRepeatDays: NO_REPEAT_DAYS_MIN,
       prefsLookupFailed: true,
+    };
+  }
+}
+
+// ============================================================================
+// Wear History
+// ============================================================================
+
+/**
+ * Computes the UTC cutoff timestamp for wear history queries.
+ *
+ * @param noRepeatDays - Number of days in the no-repeat window (1-90)
+ * @returns ISO 8601 timestamp string representing the cutoff
+ */
+function computeWearHistoryCutoff(noRepeatDays: number): string {
+  const now = Date.now();
+  const cutoffMs = now - noRepeatDays * MS_PER_DAY;
+  return new Date(cutoffMs).toISOString();
+}
+
+/**
+ * Extracts item IDs from wear history rows into a Set.
+ *
+ * Each wear history row contains an `item_ids` array of item UUIDs.
+ * This function flattens all arrays into a single Set for O(1) lookups.
+ *
+ * @param rows - Array of wear history rows from the database
+ * @returns Set of all unique item IDs found in the rows
+ */
+function extractItemIdsFromWearHistory(rows: Record<string, unknown>[]): Set<string> {
+  const itemIds = new Set<string>();
+
+  for (const row of rows) {
+    const rowItemIds = row.item_ids;
+
+    // Validate that item_ids is an array
+    if (!Array.isArray(rowItemIds)) {
+      continue;
+    }
+
+    // Add each valid string item ID to the set
+    for (const itemId of rowItemIds) {
+      if (typeof itemId === 'string' && itemId.length > 0) {
+        itemIds.add(itemId);
+      }
+    }
+  }
+
+  return itemIds;
+}
+
+/**
+ * Fetches the user's recent wear history within the no-repeat window.
+ *
+ * Queries the wear_history table for entries where worn_at >= cutoff,
+ * then extracts all item IDs into a Set for efficient lookups.
+ *
+ * Implements degraded-mode behaviour:
+ * - If the query fails, logs an error and returns an empty set
+ * - If the row limit is reached, logs a warning but continues with available data
+ * - The request proceeds even if history cannot be loaded
+ *
+ * Security:
+ * - Uses RLS via user JWT (automatic filtering by auth.uid())
+ * - Defensive userId filter as belt-and-suspenders protection
+ *
+ * Performance:
+ * - Uses (user_id, worn_at) index for efficient range queries
+ * - Bounded by WEAR_HISTORY_ROW_LIMIT to prevent unbounded reads
+ * - Only selects item_ids column to minimize data transfer
+ *
+ * @param supabase - Supabase client authenticated as the user
+ * @param userId - The authenticated user's ID
+ * @param noRepeatDays - Number of days in the no-repeat window (must be > 0)
+ * @param logger - Structured logger for observability
+ * @returns Promise resolving to WearHistoryResult with item IDs set and status flags
+ */
+async function fetchRecentWearHistory(
+  supabase: SupabaseClient,
+  userId: string,
+  noRepeatDays: number,
+  logger: StructuredLogger
+): Promise<WearHistoryResult> {
+  // Compute the cutoff timestamp
+  const cutoff = computeWearHistoryCutoff(noRepeatDays);
+
+  logger.debug('wear_history_query_start', {
+    user_id: userId,
+    metadata: {
+      cutoff_timestamp: cutoff,
+      row_limit: WEAR_HISTORY_ROW_LIMIT,
+    },
+  });
+
+  try {
+    // Query wear_history table with defensive userId filter
+    // RLS policies also enforce user_id = auth.uid(), but we add explicit
+    // filtering as a defence-in-depth measure.
+    // Order by worn_at descending to get most recent entries first if limit is hit.
+    const { data, error } = await supabase
+      .from('wear_history')
+      .select('item_ids')
+      .eq('user_id', userId)
+      .gte('worn_at', cutoff)
+      .order('worn_at', { ascending: false })
+      .limit(WEAR_HISTORY_ROW_LIMIT);
+
+    // Handle query errors
+    if (error) {
+      logger.error('wear_history_lookup_failed', {
+        user_id: userId,
+        error_message: error.message,
+        error_code: error.code,
+        metadata: {
+          degraded_mode: true,
+        },
+      });
+
+      return {
+        recentlyWornItemIds: new Set<string>(),
+        historyLookupFailed: true,
+        rowLimitReached: false,
+      };
+    }
+
+    // Handle null data (shouldn't happen with valid query, but be defensive)
+    if (data === null) {
+      logger.warn('wear_history_null_response', {
+        user_id: userId,
+        metadata: {
+          degraded_mode: true,
+        },
+      });
+
+      return {
+        recentlyWornItemIds: new Set<string>(),
+        historyLookupFailed: true,
+        rowLimitReached: false,
+      };
+    }
+
+    // Check if we hit the row limit
+    const rowLimitReached = data.length >= WEAR_HISTORY_ROW_LIMIT;
+
+    if (rowLimitReached) {
+      logger.warn('wear_history_row_limit_reached', {
+        user_id: userId,
+        metadata: {
+          rows_returned: data.length,
+          row_limit: WEAR_HISTORY_ROW_LIMIT,
+          cutoff_timestamp: cutoff,
+        },
+      });
+    }
+
+    // Extract item IDs from the wear history rows
+    const recentlyWornItemIds = extractItemIdsFromWearHistory(data);
+
+    logger.debug('wear_history_loaded', {
+      user_id: userId,
+      metadata: {
+        rows_fetched: data.length,
+        unique_item_count: recentlyWornItemIds.size,
+        row_limit_reached: rowLimitReached,
+      },
+    });
+
+    return {
+      recentlyWornItemIds,
+      historyLookupFailed: false,
+      rowLimitReached,
+    };
+  } catch (err) {
+    // Handle unexpected errors (network issues, timeouts, etc.)
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+    logger.error('wear_history_lookup_unexpected_error', {
+      user_id: userId,
+      error_message: errorMessage,
+      metadata: {
+        degraded_mode: true,
+      },
+    });
+
+    return {
+      recentlyWornItemIds: new Set<string>(),
+      historyLookupFailed: true,
+      rowLimitReached: false,
     };
   }
 }
@@ -423,8 +659,9 @@ function generateStubbedOutfits(userId: string): Outfit[] {
  * 1. CORS preflight requests
  * 2. Authentication validation
  * 3. User preferences loading (with degraded-mode fallback)
- * 4. Outfit generation
- * 5. Response construction with logging
+ * 4. Wear history loading (conditional, with degraded-mode fallback)
+ * 5. Outfit generation
+ * 6. Response construction with logging
  *
  * Exported for unit testing.
  *
@@ -561,7 +798,50 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 4: Generate Stubbed Outfit Recommendations
+    // Step 4: Fetch Recent Wear History (if no-repeat enabled)
+    // ========================================================================
+
+    // Track wear history state for filtering and observability
+    let recentlyWornItemIds = new Set<string>();
+    let historyLookupFailed = false;
+
+    // Only fetch wear history if noRepeatDays > 0 (no-repeat filtering enabled)
+    // When noRepeatDays = 0, skip the query entirely to save latency
+    if (noRepeatDays > 0) {
+      const historyResult = await fetchRecentWearHistory(
+        supabase as unknown as SupabaseClient,
+        userId,
+        noRepeatDays,
+        logger
+      );
+
+      recentlyWornItemIds = historyResult.recentlyWornItemIds;
+      historyLookupFailed = historyResult.historyLookupFailed;
+
+      // If history lookup failed, log that we're proceeding in degraded mode
+      // (treating as if noRepeatDays = 0, i.e., no filtering)
+      if (historyLookupFailed) {
+        logger.info('using_degraded_mode', {
+          user_id: userId,
+          metadata: {
+            reason: 'wear_history_unavailable',
+            effective_no_repeat_days: 0,
+          },
+        });
+      }
+    } else {
+      // No-repeat filtering is disabled, skip wear history query
+      logger.debug('wear_history_skipped', {
+        user_id: userId,
+        metadata: {
+          reason: 'no_repeat_disabled',
+          no_repeat_days: noRepeatDays,
+        },
+      });
+    }
+
+    // ========================================================================
+    // Step 5: Generate Stubbed Outfit Recommendations
     // ========================================================================
 
     // Note: We intentionally ignore any request body or query parameters.
@@ -569,14 +849,14 @@ export async function handler(req: Request): Promise<Response> {
     // Future stories (#365) may add context parameters, but for the stub,
     // we return the same static outfits for all requests.
     //
-    // TODO (Story #364): Apply no-repeat filtering using noRepeatDays value.
-    // For now, noRepeatDays is fetched but not yet used for filtering.
+    // TODO (Story #364): Apply no-repeat filtering using recentlyWornItemIds.
     // The filtering logic will be added in subsequent steps.
+    // For now, we have: noRepeatDays, recentlyWornItemIds, historyLookupFailed
 
     const outfits = generateStubbedOutfits(userId);
 
     // ========================================================================
-    // Step 5: Construct and Validate Response
+    // Step 6: Construct and Validate Response
     // ========================================================================
 
     const response: OutfitRecommendationsResponse = { outfits };
@@ -602,7 +882,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // ========================================================================
-    // Step 6: Return Success Response with Logging
+    // Step 7: Return Success Response with Logging
     // ========================================================================
 
     const durationMs = Date.now() - startTime;
