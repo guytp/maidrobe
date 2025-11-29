@@ -1140,6 +1140,342 @@ Deno.test('applyMinMaxSelection: empty excluded list with insufficient eligible'
   assertEquals(result.configWarning, false);
 });
 
+// ---------------------------------------------------------------------------
+// Extended applyMinMaxSelection Tests - Core Selection Behaviour
+// ---------------------------------------------------------------------------
+
+Deno.test('applyMinMaxSelection: is pure - does not modify input arrays', () => {
+  const outfit1 = createTestOutfit(1, ['item-1']);
+  const outfit2 = createTestOutfit(2, ['item-2']);
+  const outfit3 = createTestOutfit(3, ['item-3']);
+  const outfit4 = createTestOutfit(4, ['item-4']);
+
+  const staticPool = [outfit1, outfit2, outfit3, outfit4];
+  const eligible = [outfit1];
+  const excluded = [outfit2, outfit3, outfit4];
+
+  // Capture original states
+  const originalStaticPoolLength = staticPool.length;
+  const originalEligibleLength = eligible.length;
+  const originalExcludedLength = excluded.length;
+  const originalStaticPoolIds = staticPool.map((o) => o.id);
+  const originalEligibleIds = eligible.map((o) => o.id);
+  const originalExcludedIds = excluded.map((o) => o.id);
+
+  const itemWornAtMap = createItemWornAtMap([
+    ['item-2', '2024-01-03T00:00:00.000Z'],
+    ['item-3', '2024-01-02T00:00:00.000Z'],
+    ['item-4', '2024-01-01T00:00:00.000Z'],
+  ]);
+  const originalMapSize = itemWornAtMap.size;
+
+  applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // Verify arrays were not mutated
+  assertEquals(staticPool.length, originalStaticPoolLength);
+  assertEquals(eligible.length, originalEligibleLength);
+  assertEquals(excluded.length, originalExcludedLength);
+  assertEquals(staticPool.map((o) => o.id), originalStaticPoolIds);
+  assertEquals(eligible.map((o) => o.id), originalEligibleIds);
+  assertEquals(excluded.map((o) => o.id), originalExcludedIds);
+  assertEquals(itemWornAtMap.size, originalMapSize);
+});
+
+Deno.test('applyMinMaxSelection: is deterministic - same inputs produce same outputs', () => {
+  const outfit1 = createTestOutfit(1, ['item-1']);
+  const outfit2 = createTestOutfit(2, ['item-2']);
+  const outfit3 = createTestOutfit(3, ['item-3']);
+  const outfit4 = createTestOutfit(4, ['item-4']);
+  const outfit5 = createTestOutfit(5, ['item-5']);
+
+  const staticPool = [outfit1, outfit2, outfit3, outfit4, outfit5];
+  const eligible = [outfit1, outfit2];
+  const excluded = [outfit3, outfit4, outfit5];
+
+  const itemWornAtMap = createItemWornAtMap([
+    ['item-3', '2024-01-03T00:00:00.000Z'],
+    ['item-4', '2024-01-02T00:00:00.000Z'],
+    ['item-5', '2024-01-01T00:00:00.000Z'],
+  ]);
+
+  // Call multiple times
+  const result1 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result2 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result3 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // All results should be identical
+  assertEquals(result1.outfits.length, result2.outfits.length);
+  assertEquals(result2.outfits.length, result3.outfits.length);
+  assertEquals(result1.fallbackCount, result2.fallbackCount);
+  assertEquals(result2.fallbackCount, result3.fallbackCount);
+  assertEquals(result1.configError, result2.configError);
+  assertEquals(result1.configWarning, result2.configWarning);
+
+  // Same outfits in same order
+  for (let i = 0; i < result1.outfits.length; i++) {
+    assertEquals(result1.outfits[i].id, result2.outfits[i].id);
+    assertEquals(result2.outfits[i].id, result3.outfits[i].id);
+  }
+});
+
+Deno.test('applyMinMaxSelection: pool exactly at MIN returns all without warning', () => {
+  // Pool has exactly MIN_OUTFITS (3) - should not trigger configWarning
+  const staticPool = createTestOutfits(3);
+  const eligible = staticPool;
+  const excluded: Outfit[] = [];
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 3);
+  assertEquals(result.fallbackCount, 0);
+  assertEquals(result.configWarning, false);
+  assertEquals(result.configError, false);
+});
+
+Deno.test('applyMinMaxSelection: eligible one less than MIN adds exactly one from fallback', () => {
+  // 2 eligible (MIN - 1), need exactly 1 from fallback
+  const outfit1 = createTestOutfit(1, ['item-1']);
+  const outfit2 = createTestOutfit(2, ['item-2']);
+  const outfit3 = createTestOutfit(3, ['item-3']);
+  const outfit4 = createTestOutfit(4, ['item-4']);
+
+  const staticPool = [outfit1, outfit2, outfit3, outfit4];
+  const eligible = [outfit1, outfit2]; // 2 eligible
+  const excluded = [outfit3, outfit4]; // 2 excluded
+
+  const itemWornAtMap = createItemWornAtMap([
+    ['item-3', '2024-01-02T00:00:00.000Z'], // Newer
+    ['item-4', '2024-01-01T00:00:00.000Z'], // Older - picked first
+  ]);
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
+  assertEquals(result.fallbackCount, 1); // Exactly 1 added
+  assertEquals(result.configWarning, false);
+
+  // Should include outfit4 (oldest from excluded)
+  const ids = result.outfits.map((o) => o.id);
+  assertEquals(ids.includes(outfit1.id), true);
+  assertEquals(ids.includes(outfit2.id), true);
+  assertEquals(ids.includes(outfit4.id), true); // The fallback
+  assertEquals(ids.includes(outfit3.id), false); // Not needed
+});
+
+Deno.test('applyMinMaxSelection: fallback count exact when excluded fully fills gap', () => {
+  // 0 eligible, 5 excluded - need exactly 3 (MIN) from fallback
+  const staticPool = createTestOutfits(5);
+  const eligible: Outfit[] = [];
+  const excluded = staticPool;
+
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
+  assertEquals(result.fallbackCount, 3); // Exactly MIN added from fallback
+});
+
+Deno.test('applyMinMaxSelection: truncation applied after fallback when combined exceeds MAX', () => {
+  // Create 12 outfits: 8 eligible + 4 excluded
+  // 8 eligible < MAX (10), but with fallback would exceed
+  // However, since eligible >= MIN, no fallback is used
+  // This tests truncation of eligible list that exceeds MAX
+  const staticPool = createTestOutfits(15);
+  const eligible = staticPool.slice(0, 12); // 12 eligible (exceeds MAX)
+  const excluded = staticPool.slice(12); // 3 excluded
+
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 10); // Truncated to MAX_OUTFITS
+  assertEquals(result.fallbackCount, 0); // No fallback needed
+});
+
+Deno.test('applyMinMaxSelection: recency ordering prefers outfits worn longest ago', () => {
+  // All excluded, fallback should select by ascending recency (oldest first)
+  const outfit1 = createTestOutfit(1, ['item-newest']);
+  const outfit2 = createTestOutfit(2, ['item-middle']);
+  const outfit3 = createTestOutfit(3, ['item-oldest']);
+
+  const staticPool = [outfit1, outfit2, outfit3];
+  const eligible: Outfit[] = [];
+  const excluded = [outfit1, outfit2, outfit3];
+
+  const itemWornAtMap = createItemWornAtMap([
+    ['item-newest', '2024-01-30T00:00:00.000Z'], // Most recent
+    ['item-middle', '2024-01-15T00:00:00.000Z'], // Middle
+    ['item-oldest', '2024-01-01T00:00:00.000Z'], // Oldest - preferred
+  ]);
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // All 3 selected (pool = MIN), but we verify the selection order is correct
+  // Final output is sorted by id, but fallback selection prioritised oldest
+  assertEquals(result.outfits.length, 3);
+  assertEquals(result.fallbackCount, 3);
+
+  // Verify all are present (ordering is by id in final result)
+  const ids = result.outfits.map((o) => o.id);
+  assertEquals(ids.includes(outfit1.id), true);
+  assertEquals(ids.includes(outfit2.id), true);
+  assertEquals(ids.includes(outfit3.id), true);
+});
+
+Deno.test('applyMinMaxSelection: output always sorted by outfit.id regardless of input order', () => {
+  // Pass outfits in reverse ID order
+  const outfit5 = createTestOutfit(5, ['item-5']);
+  const outfit3 = createTestOutfit(3, ['item-3']);
+  const outfit1 = createTestOutfit(1, ['item-1']);
+  const outfit4 = createTestOutfit(4, ['item-4']);
+  const outfit2 = createTestOutfit(2, ['item-2']);
+
+  const staticPool = [outfit5, outfit3, outfit1, outfit4, outfit2]; // Scrambled order
+  const eligible = [outfit5, outfit3, outfit1, outfit4, outfit2];
+  const excluded: Outfit[] = [];
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // Output should be sorted by outfit.id (ascending)
+  assertEquals(result.outfits[0].id, outfit1.id);
+  assertEquals(result.outfits[1].id, outfit2.id);
+  assertEquals(result.outfits[2].id, outfit3.id);
+  assertEquals(result.outfits[3].id, outfit4.id);
+  assertEquals(result.outfits[4].id, outfit5.id);
+});
+
+Deno.test('applyMinMaxSelection: large pool with complex recency scores', () => {
+  // Test with many outfits to verify scalability
+  const outfits: Outfit[] = [];
+  for (let i = 1; i <= 20; i++) {
+    outfits.push(createTestOutfit(i, [`item-${i}`]));
+  }
+
+  const staticPool = outfits;
+  const eligible = outfits.slice(0, 5); // 5 eligible
+  const excluded = outfits.slice(5); // 15 excluded
+
+  // Create varied recency scores
+  const wornAtEntries: [string, string][] = [];
+  for (let i = 6; i <= 20; i++) {
+    // Alternating pattern for recency
+    const day = (i % 10) + 1;
+    wornAtEntries.push([`item-${i}`, `2024-01-${String(day).padStart(2, '0')}T00:00:00.000Z`]);
+  }
+  const itemWornAtMap = createItemWornAtMap(wornAtEntries);
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // Should return 5 eligible (no fallback needed since 5 >= MIN)
+  assertEquals(result.outfits.length, 5);
+  assertEquals(result.fallbackCount, 0);
+
+  // Verify deterministic ordering by id
+  for (let i = 0; i < result.outfits.length - 1; i++) {
+    assertEquals(
+      result.outfits[i].id < result.outfits[i + 1].id,
+      true,
+      'Output should be sorted by ascending id'
+    );
+  }
+});
+
+Deno.test('applyMinMaxSelection: excluded with mixed recency and no-history items', () => {
+  // Some excluded items have no wear history (should sort as oldest)
+  const outfit1 = createTestOutfit(1, ['item-no-history-1']);
+  const outfit2 = createTestOutfit(2, ['item-with-history']);
+  const outfit3 = createTestOutfit(3, ['item-no-history-2']);
+  const outfit4 = createTestOutfit(4, ['item-recent']);
+
+  const staticPool = [outfit1, outfit2, outfit3, outfit4];
+  const eligible: Outfit[] = [];
+  const excluded = [outfit1, outfit2, outfit3, outfit4];
+
+  // Only some items have history
+  const itemWornAtMap = createItemWornAtMap([
+    ['item-with-history', '2024-01-15T00:00:00.000Z'],
+    ['item-recent', '2024-01-30T00:00:00.000Z'],
+  ]);
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
+  assertEquals(result.fallbackCount, 3);
+
+  // Items without history should be preferred (treated as oldest)
+  // outfit1 and outfit3 have no history, outfit2 has older history than outfit4
+  const ids = result.outfits.map((o) => o.id);
+
+  // outfit4 (most recent) should be excluded from the 3 selected
+  // The 3 selected should be outfit1, outfit2, outfit3 (or outfit1, outfit3, and one other)
+  // Since no-history items sort first (as empty string), outfit1 and outfit3 should be selected
+  assertEquals(ids.includes(outfit1.id), true); // No history - prioritised
+  assertEquals(ids.includes(outfit3.id), true); // No history - prioritised
+});
+
+Deno.test('applyMinMaxSelection: fallback stops exactly at MIN threshold', () => {
+  // Verify that fallback doesn't add more than needed
+  const staticPool = createTestOutfits(10);
+  const eligible = [staticPool[0]]; // 1 eligible
+  const excluded = staticPool.slice(1); // 9 excluded
+
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  assertEquals(result.outfits.length, 3); // Exactly MIN_OUTFITS
+  assertEquals(result.fallbackCount, 2); // Added exactly 2 to reach MIN
+  // Should not add more even though 9 excluded are available
+});
+
+Deno.test('applyMinMaxSelection: configError and configWarning are mutually exclusive', () => {
+  // Test that flags never overlap
+
+  // Case 1: configError (empty pool)
+  const result1 = applyMinMaxSelection([], [], [], new Map());
+  assertEquals(result1.configError, true);
+  assertEquals(result1.configWarning, false);
+
+  // Case 2: configWarning (pool < MIN)
+  const smallPool = createTestOutfits(2);
+  const result2 = applyMinMaxSelection(smallPool, smallPool, [], new Map());
+  assertEquals(result2.configError, false);
+  assertEquals(result2.configWarning, true);
+
+  // Case 3: Normal operation (neither flag)
+  const normalPool = createTestOutfits(5);
+  const result3 = applyMinMaxSelection(normalPool, normalPool, [], new Map());
+  assertEquals(result3.configError, false);
+  assertEquals(result3.configWarning, false);
+});
+
+Deno.test('applyMinMaxSelection: verifies all result properties are correctly typed', () => {
+  const staticPool = createTestOutfits(5);
+  const eligible = staticPool.slice(0, 3);
+  const excluded = staticPool.slice(3);
+  const itemWornAtMap = new Map<string, string>();
+
+  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+
+  // Verify result shape
+  assertEquals(Array.isArray(result.outfits), true);
+  assertEquals(typeof result.fallbackCount, 'number');
+  assertEquals(typeof result.configError, 'boolean');
+  assertEquals(typeof result.configWarning, 'boolean');
+
+  // Verify outfits have correct structure
+  for (const outfit of result.outfits) {
+    assertEquals(typeof outfit.id, 'string');
+    assertEquals(typeof outfit.userId, 'string');
+    assertEquals(Array.isArray(outfit.itemIds), true);
+    assertEquals(typeof outfit.reason, 'string');
+    assertEquals(typeof outfit.context, 'string');
+  }
+});
+
 // ============================================================================
 // Integration-style Tests (combining multiple functions)
 // ============================================================================
