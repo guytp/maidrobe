@@ -20,6 +20,7 @@
           "missingItem": "Item unavailable",
           "unnamedItem": "Unnamed item",
           "loadingItems": "Loading items...",
+          "placeholderItem": "Item {number}",
           "accessibility": {
             "resolvedItem": "{name}, {type}",
             "resolvedItemNoType": "{name}",
@@ -27,6 +28,9 @@
             "itemCount": "{resolved} of {total} items available",
             "outfitContext": "part of suggested outfit"
           }
+        },
+        "accessibility": {
+          "cardLabel": "Outfit suggestion for {context}. {reason}"
         }
       },
       "accessibility": {
