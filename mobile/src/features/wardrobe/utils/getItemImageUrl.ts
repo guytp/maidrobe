@@ -12,7 +12,7 @@
  */
 
 import { WARDROBE_BUCKET_NAME } from './imageUpload';
-import type { ItemDetail, WardrobeGridItem } from '../types';
+import type { BatchWardrobeItem, ItemDetail, WardrobeGridItem } from '../types';
 
 /**
  * Supabase project URL from environment.
@@ -83,7 +83,7 @@ export function getStoragePublicUrl(
  *
  * This follows the AC12 specification for image fallback order.
  *
- * @param item - Wardrobe grid item or item detail containing image storage keys
+ * @param item - Wardrobe item containing image storage keys (grid, batch, or detail)
  * @returns Public image URL or null if no image available
  *
  * @example
@@ -95,7 +95,9 @@ export function getStoragePublicUrl(
  * return <PlaceholderImage />;
  * ```
  */
-export function getItemImageUrl(item: WardrobeGridItem | ItemDetail): string | null {
+export function getItemImageUrl(
+  item: WardrobeGridItem | ItemDetail | BatchWardrobeItem
+): string | null {
   const storageKey = getItemStorageKey(item);
 
   if (!storageKey) {
