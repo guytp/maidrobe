@@ -651,6 +651,235 @@ Deno.test('applyNoRepeatFilter: preserves outfit order in results', () => {
   assertEquals(result.excluded[0], outfit2);
 });
 
+// ---------------------------------------------------------------------------
+// Extended applyNoRepeatFilter Tests - Deterministic Sets and Edge Cases
+// ---------------------------------------------------------------------------
+
+Deno.test('applyNoRepeatFilter: single-item outfit - item worn → excluded', () => {
+  // Minimal case: one outfit with one item, that item is in wear history
+  const outfit = createTestOutfit(1, ['single-item']);
+  const recentlyWornItemIds = new Set(['single-item']);
+
+  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
+
+  assertEquals(result.eligible.length, 0);
+  assertEquals(result.excluded.length, 1);
+  assertEquals(result.excluded[0], outfit);
+});
+
+Deno.test('applyNoRepeatFilter: single-item outfit - item not worn → eligible', () => {
+  // Minimal case: one outfit with one item, that item is NOT in wear history
+  const outfit = createTestOutfit(1, ['fresh-item']);
+  const recentlyWornItemIds = new Set(['other-item']);
+
+  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
+
+  assertEquals(result.eligible.length, 1);
+  assertEquals(result.excluded.length, 0);
+  assertEquals(result.eligible[0], outfit);
+});
+
+Deno.test('applyNoRepeatFilter: two-item outfit classification matrix', () => {
+  // Test all combinations of two items being worn/not-worn
+  // Format: [item1-worn, item2-worn] → expected result
+
+  // Case 1: Neither worn → eligible
+  const outfit1 = createTestOutfit(1, ['fresh-a', 'fresh-b']);
+  const result1 = applyNoRepeatFilter([outfit1], new Set(['other']));
+  assertEquals(result1.eligible.length, 1, 'Neither worn → eligible');
+  assertEquals(result1.excluded.length, 0);
+
+  // Case 2: Only first worn → eligible (one fresh item)
+  const outfit2 = createTestOutfit(2, ['worn-a', 'fresh-b']);
+  const result2 = applyNoRepeatFilter([outfit2], new Set(['worn-a']));
+  assertEquals(result2.eligible.length, 1, 'Only first worn → eligible');
+  assertEquals(result2.excluded.length, 0);
+
+  // Case 3: Only second worn → eligible (one fresh item)
+  const outfit3 = createTestOutfit(3, ['fresh-a', 'worn-b']);
+  const result3 = applyNoRepeatFilter([outfit3], new Set(['worn-b']));
+  assertEquals(result3.eligible.length, 1, 'Only second worn → eligible');
+  assertEquals(result3.excluded.length, 0);
+
+  // Case 4: Both worn → excluded
+  const outfit4 = createTestOutfit(4, ['worn-a', 'worn-b']);
+  const result4 = applyNoRepeatFilter([outfit4], new Set(['worn-a', 'worn-b']));
+  assertEquals(result4.eligible.length, 0, 'Both worn → excluded');
+  assertEquals(result4.excluded.length, 1);
+});
+
+Deno.test('applyNoRepeatFilter: shared item across multiple outfits', () => {
+  // When the same item appears in multiple outfits
+  const sharedItem = 'shared-blazer';
+
+  const outfit1 = createTestOutfit(1, [sharedItem, 'item-1b']); // shared + fresh
+  const outfit2 = createTestOutfit(2, [sharedItem, 'item-2b']); // shared + fresh
+  const outfit3 = createTestOutfit(3, [sharedItem, 'item-3b']); // shared + worn
+
+  const outfits = [outfit1, outfit2, outfit3];
+  // Shared item is worn, plus item-3b is worn
+  const recentlyWornItemIds = new Set([sharedItem, 'item-3b']);
+
+  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
+
+  // outfit1: shared(worn) + item-1b(fresh) → eligible
+  // outfit2: shared(worn) + item-2b(fresh) → eligible
+  // outfit3: shared(worn) + item-3b(worn) → excluded (all items worn)
+  assertEquals(result.eligible.length, 2);
+  assertEquals(result.excluded.length, 1);
+  assertEquals(result.excluded[0], outfit3);
+});
+
+Deno.test('applyNoRepeatFilter: large wear history with few matches', () => {
+  // Many items in wear history, but outfit items don't overlap much
+  const outfit = createTestOutfit(1, ['target-item-1', 'target-item-2', 'target-item-3']);
+
+  // Large set of worn items, but only one matches the outfit
+  const largeWornSet = new Set([
+    'worn-1', 'worn-2', 'worn-3', 'worn-4', 'worn-5',
+    'worn-6', 'worn-7', 'worn-8', 'worn-9', 'worn-10',
+    'target-item-1', // Only this matches
+  ]);
+
+  const result = applyNoRepeatFilter([outfit], largeWornSet);
+
+  // Only 1 of 3 items worn → eligible
+  assertEquals(result.eligible.length, 1);
+  assertEquals(result.excluded.length, 0);
+});
+
+Deno.test('applyNoRepeatFilter: large wear history covering all items', () => {
+  // Outfit items are subset of large wear history
+  const outfit = createTestOutfit(1, ['item-a', 'item-b', 'item-c']);
+
+  const largeWornSet = new Set([
+    'item-a', 'item-b', 'item-c', // All outfit items
+    'extra-1', 'extra-2', 'extra-3', 'extra-4', 'extra-5',
+  ]);
+
+  const result = applyNoRepeatFilter([outfit], largeWornSet);
+
+  assertEquals(result.eligible.length, 0);
+  assertEquals(result.excluded.length, 1);
+});
+
+Deno.test('applyNoRepeatFilter: is pure - does not modify input arrays', () => {
+  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']);
+  const outfit2 = createTestOutfit(2, ['item-c', 'item-d']);
+  const outfits = [outfit1, outfit2];
+  const originalOutfitsLength = outfits.length;
+  const originalOutfit1Items = [...outfit1.itemIds];
+
+  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
+  const originalSetSize = recentlyWornItemIds.size;
+
+  applyNoRepeatFilter(outfits, recentlyWornItemIds);
+
+  // Verify inputs were not mutated
+  assertEquals(outfits.length, originalOutfitsLength);
+  assertEquals(outfit1.itemIds, originalOutfit1Items);
+  assertEquals(recentlyWornItemIds.size, originalSetSize);
+});
+
+Deno.test('applyNoRepeatFilter: is deterministic - same inputs produce same outputs', () => {
+  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']);
+  const outfit2 = createTestOutfit(2, ['item-a', 'item-c']);
+  const outfit3 = createTestOutfit(3, ['item-d', 'item-e']);
+
+  const outfits = [outfit1, outfit2, outfit3];
+  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
+
+  // Call multiple times
+  const result1 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
+  const result2 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
+  const result3 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
+
+  // All results should be identical
+  assertEquals(result1.eligible.length, result2.eligible.length);
+  assertEquals(result2.eligible.length, result3.eligible.length);
+  assertEquals(result1.excluded.length, result2.excluded.length);
+  assertEquals(result2.excluded.length, result3.excluded.length);
+
+  // Same outfits in same positions
+  assertEquals(result1.eligible[0], result2.eligible[0]);
+  assertEquals(result1.excluded[0], result2.excluded[0]);
+});
+
+Deno.test('applyNoRepeatFilter: progressive filtering demonstration', () => {
+  // Shows how adding items to wear history progressively filters outfits
+  const outfit1 = createTestOutfit(1, ['item-a']);
+  const outfit2 = createTestOutfit(2, ['item-a', 'item-b']);
+  const outfit3 = createTestOutfit(3, ['item-b', 'item-c']);
+  const outfits = [outfit1, outfit2, outfit3];
+
+  // Stage 1: Empty history - all eligible
+  const result1 = applyNoRepeatFilter(outfits, new Set());
+  assertEquals(result1.eligible.length, 3, 'Empty history: all eligible');
+  assertEquals(result1.excluded.length, 0);
+
+  // Stage 2: Only item-a worn
+  // outfit1: [a] → excluded (all worn)
+  // outfit2: [a,b] → eligible (b not worn)
+  // outfit3: [b,c] → eligible (neither worn)
+  const result2 = applyNoRepeatFilter(outfits, new Set(['item-a']));
+  assertEquals(result2.eligible.length, 2, 'item-a worn: 2 eligible');
+  assertEquals(result2.excluded.length, 1);
+  assertEquals(result2.excluded[0], outfit1);
+
+  // Stage 3: item-a and item-b worn
+  // outfit1: [a] → excluded
+  // outfit2: [a,b] → excluded (all worn)
+  // outfit3: [b,c] → eligible (c not worn)
+  const result3 = applyNoRepeatFilter(outfits, new Set(['item-a', 'item-b']));
+  assertEquals(result3.eligible.length, 1, 'item-a+b worn: 1 eligible');
+  assertEquals(result3.excluded.length, 2);
+
+  // Stage 4: All items worn
+  const result4 = applyNoRepeatFilter(outfits, new Set(['item-a', 'item-b', 'item-c']));
+  assertEquals(result4.eligible.length, 0, 'All worn: none eligible');
+  assertEquals(result4.excluded.length, 3);
+});
+
+Deno.test('applyNoRepeatFilter: outfit with many items - partial overlap', () => {
+  // Outfit with 5 items, only 4 are worn → still eligible
+  const outfit = createTestOutfit(1, [
+    'item-1', 'item-2', 'item-3', 'item-4', 'item-5',
+  ]);
+
+  const recentlyWornItemIds = new Set([
+    'item-1', 'item-2', 'item-3', 'item-4', // 4 of 5 worn
+  ]);
+
+  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
+
+  // One item (item-5) not worn → eligible
+  assertEquals(result.eligible.length, 1);
+  assertEquals(result.excluded.length, 0);
+});
+
+Deno.test('applyNoRepeatFilter: multiple outfits with overlapping items', () => {
+  // Complex scenario with overlapping item usage
+  const outfit1 = createTestOutfit(1, ['shirt-a', 'pants-a']);
+  const outfit2 = createTestOutfit(2, ['shirt-a', 'pants-b']);
+  const outfit3 = createTestOutfit(3, ['shirt-b', 'pants-a']);
+  const outfit4 = createTestOutfit(4, ['shirt-b', 'pants-b']);
+
+  const outfits = [outfit1, outfit2, outfit3, outfit4];
+
+  // Wear shirt-a and pants-a
+  const recentlyWornItemIds = new Set(['shirt-a', 'pants-a']);
+
+  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
+
+  // outfit1: shirt-a(worn) + pants-a(worn) → excluded
+  // outfit2: shirt-a(worn) + pants-b(fresh) → eligible
+  // outfit3: shirt-b(fresh) + pants-a(worn) → eligible
+  // outfit4: shirt-b(fresh) + pants-b(fresh) → eligible
+  assertEquals(result.eligible.length, 3);
+  assertEquals(result.excluded.length, 1);
+  assertEquals(result.excluded[0], outfit1);
+});
+
 // ============================================================================
 // applyMinMaxSelection Tests
 // ============================================================================
