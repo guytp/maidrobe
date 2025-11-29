@@ -547,8 +547,11 @@ async function fetchRecentWearHistory(
       };
     }
 
-    // Check if we hit the row limit
-    const rowLimitReached = data.length >= WEAR_HISTORY_ROW_LIMIT;
+    // Check if we hit the row limit.
+    // Using strict equality (===) because the query uses .limit(WEAR_HISTORY_ROW_LIMIT),
+    // so data.length can never exceed the limit. When data.length equals the limit,
+    // there may be additional rows that were not returned.
+    const rowLimitReached = data.length === WEAR_HISTORY_ROW_LIMIT;
 
     if (rowLimitReached) {
       logger.warn('wear_history_row_limit_reached', {
