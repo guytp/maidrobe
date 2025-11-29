@@ -37,7 +37,7 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import {
   createLogger,
   getOrGenerateCorrelationId,
@@ -104,46 +104,15 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Standard Supabase query error shape.
+ * Used to type error responses from Supabase queries.
  */
 interface SupabaseError {
   message: string;
   code?: string;
 }
 
-/**
- * Supabase client type for dependency injection.
- * Using a minimal interface to avoid importing the full Supabase types.
- * Supports both single-row (maybeSingle) and multi-row queries with filters.
- */
-interface SupabaseClient {
-  from(table: string): {
-    select(columns: string): {
-      eq(
-        column: string,
-        value: string
-      ): {
-        maybeSingle(): Promise<{
-          data: Record<string, unknown> | null;
-          error: SupabaseError | null;
-        }>;
-        gte(
-          column: string,
-          value: string
-        ): {
-          order(
-            column: string,
-            options: { ascending: boolean }
-          ): {
-            limit(count: number): Promise<{
-              data: Record<string, unknown>[] | null;
-              error: SupabaseError | null;
-            }>;
-          };
-        };
-      };
-    };
-  };
-}
+// Note: SupabaseClient type is imported from '@supabase/supabase-js' SDK.
+// This provides full type safety without needing custom interface definitions.
 
 /**
  * Result of fetching user's no-repeat preferences.
@@ -1127,7 +1096,7 @@ export async function handler(req: Request): Promise<Response> {
     // retrieved, it returns noRepeatDays = 0 (no-repeat filtering disabled)
     // and logs a warning. The request continues without failing.
     const { noRepeatDays, usingDefaultPrefs } = await fetchUserNoRepeatDays(
-      supabase as unknown as SupabaseClient,
+      supabase,
       userId,
       logger
     );
@@ -1158,7 +1127,7 @@ export async function handler(req: Request): Promise<Response> {
     // When noRepeatDays = 0, skip the query entirely to save latency
     if (noRepeatDays > 0) {
       const historyResult = await fetchRecentWearHistory(
-        supabase as unknown as SupabaseClient,
+        supabase,
         userId,
         noRepeatDays,
         logger
