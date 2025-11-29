@@ -361,6 +361,166 @@ Deno.test('bucketNoRepeatDays: buckets are stable for same input', () => {
   assertEquals(bucketNoRepeatDays(value), '8-30');
 });
 
+// ---------------------------------------------------------------------------
+// Extended bucketNoRepeatDays Tests - Full Range and Edge Cases
+// ---------------------------------------------------------------------------
+
+Deno.test('bucketNoRepeatDays: complete coverage of all integers 0-90', () => {
+  // Bucket '0' - only value 0
+  assertEquals(bucketNoRepeatDays(0), '0');
+
+  // Bucket '1-7' - values 1 through 7
+  for (let i = 1; i <= 7; i++) {
+    assertEquals(bucketNoRepeatDays(i), '1-7', `Day ${i} should be in bucket '1-7'`);
+  }
+
+  // Bucket '8-30' - values 8 through 30
+  for (let i = 8; i <= 30; i++) {
+    assertEquals(bucketNoRepeatDays(i), '8-30', `Day ${i} should be in bucket '8-30'`);
+  }
+
+  // Bucket '31-90' - values 31 through 90
+  for (let i = 31; i <= 90; i++) {
+    assertEquals(bucketNoRepeatDays(i), '31-90', `Day ${i} should be in bucket '31-90'`);
+  }
+});
+
+Deno.test('bucketNoRepeatDays: typical user-configured values', () => {
+  // Common user preferences map to expected buckets
+  const typicalValues: [number, string][] = [
+    [0, '0'],      // Disabled
+    [1, '1-7'],    // Minimal window
+    [3, '1-7'],    // Few days
+    [7, '1-7'],    // One week (common choice)
+    [14, '8-30'],  // Two weeks (common choice)
+    [21, '8-30'],  // Three weeks
+    [30, '8-30'],  // One month (common choice)
+    [45, '31-90'], // Six weeks
+    [60, '31-90'], // Two months
+    [90, '31-90'], // Maximum / three months
+  ];
+
+  for (const [days, expectedBucket] of typicalValues) {
+    assertEquals(
+      bucketNoRepeatDays(days),
+      expectedBucket,
+      `${days} days should map to bucket '${expectedBucket}'`
+    );
+  }
+});
+
+Deno.test('bucketNoRepeatDays: handles non-integer values (floats)', () => {
+  // Function expects clamped integers, but should handle floats gracefully
+  // These test the actual behavior when floats are passed
+
+  // Values in '1-7' range with decimals
+  assertEquals(bucketNoRepeatDays(1.5), '1-7');
+  assertEquals(bucketNoRepeatDays(6.9), '1-7');
+  assertEquals(bucketNoRepeatDays(7.0), '1-7');
+
+  // Values just above 7 - 7.1 > 7, so falls to '8-30' bucket
+  assertEquals(bucketNoRepeatDays(7.1), '8-30');
+  assertEquals(bucketNoRepeatDays(8.5), '8-30');
+  assertEquals(bucketNoRepeatDays(29.9), '8-30');
+
+  // Values near boundaries
+  assertEquals(bucketNoRepeatDays(0.5), '1-7'); // 0.5 !== 0, and 0.5 <= 7
+  assertEquals(bucketNoRepeatDays(30.5), '31-90'); // 30.5 > 30, falls through to '31-90'
+});
+
+Deno.test('bucketNoRepeatDays: handles out-of-range values', () => {
+  // Values below valid range (function expects pre-clamped input)
+  // Negative values: -1 !== 0, but -1 <= 7, so returns '1-7'
+  assertEquals(bucketNoRepeatDays(-1), '1-7');
+  assertEquals(bucketNoRepeatDays(-10), '1-7');
+
+  // Values above valid range - all fall through to '31-90'
+  assertEquals(bucketNoRepeatDays(91), '31-90');
+  assertEquals(bucketNoRepeatDays(100), '31-90');
+  assertEquals(bucketNoRepeatDays(365), '31-90');
+  assertEquals(bucketNoRepeatDays(1000), '31-90');
+});
+
+Deno.test('bucketNoRepeatDays: returns only valid bucket strings', () => {
+  // Valid buckets per the NoRepeatDaysBucket type
+  const validBuckets = ['0', '1-7', '8-30', '31-90'];
+
+  // Test a wide range of inputs
+  const testValues = [
+    0, 1, 2, 3, 4, 5, 6, 7,
+    8, 15, 20, 25, 30,
+    31, 45, 60, 75, 90,
+    -5, 100, 0.5, 7.5, 30.5,
+  ];
+
+  for (const value of testValues) {
+    const bucket = bucketNoRepeatDays(value);
+    assertEquals(
+      validBuckets.includes(bucket),
+      true,
+      `Bucket '${bucket}' for value ${value} should be a valid bucket`
+    );
+  }
+});
+
+Deno.test('bucketNoRepeatDays: privacy-safe - buckets hide exact values', () => {
+  // Verify that different exact values map to the same bucket
+  // This confirms the privacy-safe design where exact preferences aren't exposed
+
+  // Multiple values should produce identical bucket output
+  assertEquals(bucketNoRepeatDays(1), bucketNoRepeatDays(7));  // Both '1-7'
+  assertEquals(bucketNoRepeatDays(2), bucketNoRepeatDays(5));  // Both '1-7'
+  assertEquals(bucketNoRepeatDays(8), bucketNoRepeatDays(30)); // Both '8-30'
+  assertEquals(bucketNoRepeatDays(15), bucketNoRepeatDays(25)); // Both '8-30'
+  assertEquals(bucketNoRepeatDays(31), bucketNoRepeatDays(90)); // Both '31-90'
+  assertEquals(bucketNoRepeatDays(45), bucketNoRepeatDays(75)); // Both '31-90'
+
+  // The only unique bucket is '0' which maps to a single value
+  assertEquals(bucketNoRepeatDays(0), '0');
+});
+
+Deno.test('bucketNoRepeatDays: deterministic across all buckets', () => {
+  // Test stability with representative values from each bucket
+  const testCases = [
+    { value: 0, bucket: '0' },
+    { value: 4, bucket: '1-7' },
+    { value: 20, bucket: '8-30' },
+    { value: 60, bucket: '31-90' },
+  ];
+
+  for (const { value, bucket } of testCases) {
+    // Multiple calls should return identical results
+    const result1 = bucketNoRepeatDays(value);
+    const result2 = bucketNoRepeatDays(value);
+    const result3 = bucketNoRepeatDays(value);
+
+    assertEquals(result1, bucket);
+    assertEquals(result2, bucket);
+    assertEquals(result3, bucket);
+    assertEquals(result1, result2);
+    assertEquals(result2, result3);
+  }
+});
+
+Deno.test('bucketNoRepeatDays: bucket boundaries align with semantic ranges', () => {
+  // Verify buckets match the documented semantic meanings:
+  // '0' = disabled
+  // '1-7' = up to 1 week
+  // '8-30' = up to 1 month
+  // '31-90' = over 1 month
+
+  // Week boundary (7 days)
+  assertEquals(bucketNoRepeatDays(7), '1-7', '7 days (1 week) should be in short window');
+  assertEquals(bucketNoRepeatDays(8), '8-30', '8 days should start medium window');
+
+  // Month boundary (30 days)
+  assertEquals(bucketNoRepeatDays(30), '8-30', '30 days (~1 month) should be in medium window');
+  assertEquals(bucketNoRepeatDays(31), '31-90', '31 days should start long window');
+
+  // Maximum (90 days = ~3 months)
+  assertEquals(bucketNoRepeatDays(90), '31-90', '90 days (max) should be in long window');
+});
+
 // ============================================================================
 // applyNoRepeatFilter Tests
 // ============================================================================
