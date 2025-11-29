@@ -23,7 +23,7 @@ import React, { memo, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
-import { OutfitItemChip } from './OutfitItemChip';
+import { OutfitItemChip, MIN_CHIP_HEIGHT } from './OutfitItemChip';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 
 /**
@@ -124,6 +124,8 @@ function OutfitSuggestionCardComponent({
           borderRadius: radius.sm,
           marginRight: spacing.xs,
           marginBottom: spacing.xs,
+          minHeight: MIN_CHIP_HEIGHT,
+          justifyContent: 'center',
         },
         placeholderText: {
           fontSize: fontSize.xs,
