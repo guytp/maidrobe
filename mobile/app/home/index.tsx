@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
@@ -9,12 +9,9 @@ import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 import {
   useOutfitRecommendations,
+  useContextParams,
   SuggestionsSection,
   ContextSelector,
-  DEFAULT_OCCASION,
-  DEFAULT_TEMPERATURE_BAND,
-  type OccasionKey,
-  type TemperatureBandKey,
 } from '../../src/features/recommendations';
 
 /**
@@ -49,20 +46,8 @@ export default function HomeScreen(): React.JSX.Element {
   // Check if context selector feature flag is enabled
   const isContextSelectorEnabled = checkFeatureFlagSync('recommendations.contextSelector').enabled;
 
-  // Context selector state (Step 1: local state only, Step 2 will add persistence)
-  const [occasion, setOccasion] = useState<OccasionKey>(DEFAULT_OCCASION);
-  const [temperatureBand, setTemperatureBand] =
-    useState<TemperatureBandKey>(DEFAULT_TEMPERATURE_BAND);
-
-  // Handle occasion selection change
-  const handleOccasionChange = useCallback((newOccasion: OccasionKey) => {
-    setOccasion(newOccasion);
-  }, []);
-
-  // Handle temperature band selection change
-  const handleTemperatureBandChange = useCallback((newTemperatureBand: TemperatureBandKey) => {
-    setTemperatureBand(newTemperatureBand);
-  }, []);
+  // Context selector state - persisted to AsyncStorage via Zustand
+  const { occasion, temperatureBand, setOccasion, setTemperatureBand } = useContextParams();
 
   // Outfit recommendations hook
   const {
@@ -220,8 +205,8 @@ export default function HomeScreen(): React.JSX.Element {
           <ContextSelector
             occasion={occasion}
             temperatureBand={temperatureBand}
-            onOccasionChange={handleOccasionChange}
-            onTemperatureBandChange={handleTemperatureBandChange}
+            onOccasionChange={setOccasion}
+            onTemperatureBandChange={setTemperatureBand}
             disabled={isRecommendationsLoading}
           />
         )}

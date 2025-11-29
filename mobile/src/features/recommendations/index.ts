@@ -69,6 +69,9 @@ export {
   type UseResolvedOutfitItemsResult,
 } from './hooks';
 
+// Context parameters hook (Story #365)
+export { useContextParams, type UseContextParamsResult } from './hooks';
+
 // Components
 export {
   ContextSelector,

@@ -4,6 +4,7 @@ import {
   OnboardingSlice,
   createOnboardingSlice,
 } from '../../features/onboarding/store/onboardingSlice';
+import { ContextSlice, createContextSlice } from '../../features/recommendations/store';
 import { CaptureSlice, createCaptureSlice } from './captureSlice';
 import { WardrobeSlice, createWardrobeSlice } from './wardrobeSlice';
 
@@ -16,15 +17,20 @@ import { WardrobeSlice, createWardrobeSlice } from './wardrobeSlice';
  * Currently includes:
  * - SessionSlice: User authentication state (user, setUser, clearUser)
  * - OnboardingSlice: Onboarding progress state (currentStep, completedSteps, skippedSteps)
+ * - ContextSlice: Outfit context parameters (occasion, temperatureBand) - persisted
  * - CaptureSlice: Capture flow state (origin, source, isNavigating, errorMessage, payload)
  * - WardrobeSlice: Wardrobe UI state (searchQuery, scrollOffset)
  *
  * Future slices can be added using intersection types:
  * ```
- * type RootState = SessionSlice & OnboardingSlice & CaptureSlice & WardrobeSlice & OtherSlice;
+ * type RootState = SessionSlice & OnboardingSlice & ContextSlice & CaptureSlice & WardrobeSlice & OtherSlice;
  * ```
  */
-export type RootState = SessionSlice & OnboardingSlice & CaptureSlice & WardrobeSlice;
+export type RootState = SessionSlice &
+  OnboardingSlice &
+  ContextSlice &
+  CaptureSlice &
+  WardrobeSlice;
 
 /**
  * Typed Zustand store hook for accessing local application state.
@@ -48,6 +54,7 @@ export type RootState = SessionSlice & OnboardingSlice & CaptureSlice & Wardrobe
 export const useStore = create<RootState>()((...args) => ({
   ...createSessionSlice(...args),
   ...createOnboardingSlice(...args),
+  ...createContextSlice(...args),
   ...createCaptureSlice(...args),
   ...createWardrobeSlice(...args),
 }));
