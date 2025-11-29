@@ -143,7 +143,9 @@ function OutfitSuggestionCardComponent({
       style={styles.card}
       testID={testID}
       accessible={true}
-      accessibilityLabel={`Outfit suggestion for ${suggestion.context}. ${suggestion.reason}`}
+      accessibilityLabel={t('screens.home.recommendations.accessibility.cardLabel')
+        .replace('{context}', suggestion.context)
+        .replace('{reason}', suggestion.reason)}
     >
       {/* Context label */}
       <Text
@@ -177,7 +179,10 @@ function OutfitSuggestionCardComponent({
                 allowFontScaling={true}
                 maxFontSizeMultiplier={1.5}
               >
-                {`Item ${index + 1}`}
+                {t('screens.home.recommendations.itemChip.placeholderItem').replace(
+                  '{number}',
+                  (index + 1).toString()
+                )}
               </Text>
             </View>
           ))
