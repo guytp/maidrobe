@@ -363,6 +363,12 @@ export async function initializeOutfitRecommendationStubFlagFromCache(
  * Makes a request to the get-feature-flags Edge Function with the user's
  * role as a query parameter for cohort-based targeting.
  *
+ * ERROR HANDLING:
+ * - Network errors: Logged and return null (will trigger fallback)
+ * - Timeout (400ms): Logged as timeout and return null
+ * - Invalid response: Logged and return null
+ * - All errors are tracked via telemetry for observability
+ *
  * @param userRole - User's role for cohort targeting
  * @param userId - User ID for logging (not used for targeting)
  * @returns Flag value from server, or null if fetch failed/timed out
@@ -374,6 +380,8 @@ async function fetchRemoteFlagValue(
   // Create abort controller for timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
+  const startTime = Date.now();
+  const environment = getAppEnvironment();
 
   try {
     // Build query params for cohort targeting
@@ -396,12 +404,46 @@ async function fetchRemoteFlagValue(
     if (error) {
       // eslint-disable-next-line no-console
       console.warn('[OutfitRecommendationStubFlag] Remote fetch error:', error.message);
+
+      // Track error event
+      trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.error', {
+        userId,
+        flagKey: FLAG_KEY,
+        enabled: false,
+        source: 'fallback',
+        environment,
+        userRole,
+        latencyMs: Date.now() - startTime,
+        errorCode: 'supabase_error',
+        metadata: {
+          errorMessage: error.message,
+        },
+      });
+
       return null;
     }
 
     if (!data || !data.success || !data.flags) {
       // eslint-disable-next-line no-console
       console.warn('[OutfitRecommendationStubFlag] Invalid response:', data);
+
+      // Track invalid response
+      trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.error', {
+        userId,
+        flagKey: FLAG_KEY,
+        enabled: false,
+        source: 'fallback',
+        environment,
+        userRole,
+        latencyMs: Date.now() - startTime,
+        errorCode: 'invalid_response',
+        metadata: {
+          hasData: !!data,
+          success: data?.success,
+          hasFlags: !!data?.flags,
+        },
+      });
+
       return null;
     }
 
@@ -409,14 +451,45 @@ async function fetchRemoteFlagValue(
     return data.flags.outfit_recommendation_stub_enabled;
   } catch (err) {
     clearTimeout(timeoutId);
+    const latencyMs = Date.now() - startTime;
 
     // Check if it was an abort (timeout)
     if (err instanceof Error && err.name === 'AbortError') {
       // eslint-disable-next-line no-console
       console.warn('[OutfitRecommendationStubFlag] Remote fetch timed out');
+
+      // Track timeout event
+      trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.timeout', {
+        userId,
+        flagKey: FLAG_KEY,
+        enabled: false,
+        source: 'fallback',
+        environment,
+        userRole,
+        latencyMs,
+        errorCode: 'timeout',
+        metadata: {
+          timeoutMs: REMOTE_FETCH_TIMEOUT_MS,
+        },
+      });
     } else {
       // eslint-disable-next-line no-console
       console.warn('[OutfitRecommendationStubFlag] Remote fetch failed:', err);
+
+      // Track error event
+      trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.error', {
+        userId,
+        flagKey: FLAG_KEY,
+        enabled: false,
+        source: 'fallback',
+        environment,
+        userRole,
+        latencyMs,
+        errorCode: 'fetch_error',
+        metadata: {
+          errorMessage: err instanceof Error ? err.message : String(err),
+        },
+      });
     }
 
     return null;
