@@ -951,6 +951,23 @@ export type FeatureFlagEventType =
   | 'feature_flag.outfit_recommendation_stub.navigation_blocked';
 
 /**
+ * Recommendation event types for tracking outfit recommendation operations.
+ *
+ * These events track user interactions with the outfit recommendation feature,
+ * including CTA clicks and API request outcomes. Used for:
+ * - Conversion funnel analysis (CTA click → request → success)
+ * - Error rate monitoring
+ * - Performance tracking (latency)
+ * - Feature adoption metrics
+ *
+ * Event naming convention: snake_case with outfit_recommendation_ prefix
+ */
+export type RecommendationEventType =
+  | 'outfit_recommendation_cta_clicked'
+  | 'outfit_recommendation_request_succeeded'
+  | 'outfit_recommendation_request_failed';
+
+/**
  * Metadata for feature flag event logging.
  *
  * SECURITY: Never include passwords, tokens, or other sensitive PII.
@@ -1094,6 +1111,182 @@ export function trackFeatureFlagEvent(
   const spanAttributes: Record<string, string | number | boolean> = {};
   if (metadata.latencyMs !== undefined) {
     spanAttributes.latency = metadata.latencyMs;
+  }
+  endSpan(spanId, status, spanAttributes, metadata.errorCode);
+}
+
+/**
+ * Metadata for recommendation event logging.
+ *
+ * SECURITY: Never include passwords, tokens, or other sensitive PII.
+ * Context parameters (occasion, temperatureBand) are safe to log as they
+ * are user-selected enum values, not free-form text.
+ */
+export interface RecommendationEventMetadata {
+  /** User ID if available (safe to log - pseudonymous identifier) */
+  userId?: string;
+  /** App environment (development, staging, production) */
+  environment: string;
+  /** Whether the feature flag is enabled */
+  flagEnabled: boolean;
+  /** Source of the flag value (remote, cached, fallback) */
+  flagSource?: 'remote' | 'cached' | 'fallback';
+  /** User role/cohort for targeting */
+  userRole?: string;
+  /** Number of outfits returned (for success events) */
+  outfitCount?: number;
+  /** Request latency in milliseconds */
+  latencyMs?: number;
+  /** High-level error type (for failure events) */
+  errorType?: 'auth' | 'network' | 'offline' | 'server' | 'schema' | 'timeout' | 'unknown';
+  /** Error code if request failed */
+  errorCode?: string;
+  /** Endpoint label for identifying the API call */
+  endpoint?: string;
+  /** Selected occasion context (enum value, not PII) */
+  occasion?: string;
+  /** Selected temperature band context (enum value, not PII) */
+  temperatureBand?: string;
+  /** Correlation ID for request tracing */
+  correlationId?: string;
+  /** Additional non-PII metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Logs a structured recommendation event to telemetry system.
+ *
+ * This function provides standardized logging for outfit recommendation
+ * operations including CTA clicks and API request outcomes. It ensures:
+ * - All recommendation events use consistent structure
+ * - No PII is ever logged (only pseudonymous user IDs and enum values)
+ * - Events include environment, flag state, and performance metrics
+ * - Events can be queried in Sentry/Honeycomb dashboards
+ *
+ * USE CASES:
+ * - CTA click tracking for conversion funnel analysis
+ * - API success/failure monitoring for reliability metrics
+ * - Latency tracking for performance monitoring
+ * - Error rate tracking by error type
+ *
+ * DASHBOARD VERIFICATION:
+ * After deployment, verify these events in analytics dashboards:
+ * - Sentry: Check breadcrumbs under 'recommendations' category
+ * - OpenTelemetry: Verify spans with recommendations.* attributes
+ * - Funnel: CTA clicks → requests → successes
+ *
+ * @param eventType - Type of recommendation event
+ * @param metadata - Event metadata (userId, environment, flag state, etc.)
+ *
+ * @example
+ * ```ts
+ * // CTA clicked
+ * trackRecommendationEvent('outfit_recommendation_cta_clicked', {
+ *   userId: 'abc-123',
+ *   environment: 'production',
+ *   flagEnabled: true,
+ *   flagSource: 'remote',
+ *   userRole: 'beta',
+ *   occasion: 'casual',
+ *   temperatureBand: 'mild'
+ * });
+ *
+ * // Request succeeded
+ * trackRecommendationEvent('outfit_recommendation_request_succeeded', {
+ *   userId: 'abc-123',
+ *   environment: 'production',
+ *   flagEnabled: true,
+ *   endpoint: 'get-outfit-recommendations',
+ *   outfitCount: 5,
+ *   latencyMs: 450,
+ *   correlationId: 'corr-xyz-789'
+ * });
+ *
+ * // Request failed
+ * trackRecommendationEvent('outfit_recommendation_request_failed', {
+ *   userId: 'abc-123',
+ *   environment: 'production',
+ *   flagEnabled: true,
+ *   endpoint: 'get-outfit-recommendations',
+ *   errorType: 'network',
+ *   errorCode: 'timeout',
+ *   latencyMs: 5000
+ * });
+ * ```
+ */
+export function trackRecommendationEvent(
+  eventType: RecommendationEventType,
+  metadata: RecommendationEventMetadata
+): void {
+  // Sanitize metadata to remove any potential PII
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata as unknown as Record<string, unknown>);
+
+  // Determine if this is an error event
+  const isError = eventType === 'outfit_recommendation_request_failed';
+
+  // Structure the event for consistent querying
+  const event = {
+    type: 'recommendation-event',
+    eventType,
+    userId: metadata.userId,
+    environment: metadata.environment,
+    flagEnabled: metadata.flagEnabled,
+    flagSource: metadata.flagSource,
+    userRole: metadata.userRole,
+    endpoint: metadata.endpoint,
+    outfitCount: metadata.outfitCount,
+    latencyMs: metadata.latencyMs,
+    errorType: metadata.errorType,
+    errorCode: metadata.errorCode,
+    occasion: metadata.occasion,
+    temperatureBand: metadata.temperatureBand,
+    correlationId: metadata.correlationId,
+    metadata: sanitizedMetadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Always log to console for development visibility
+  if (isError) {
+    // eslint-disable-next-line no-console
+    console.error('[Recommendation Event]', event);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[Recommendation Event]', event);
+  }
+
+  // Send to Sentry when enabled (as breadcrumb for context)
+  addBreadcrumb({
+    category: 'recommendations',
+    message: eventType,
+    level: isError ? 'error' : 'info',
+    data: sanitizedMetadata,
+  });
+
+  // Send to OpenTelemetry when enabled
+  // Create span for recommendation operation with recommendations.* attributes
+  const spanId = startSpan(`recommendations.${eventType}`, {
+    'recommendations.event_type': eventType,
+    'recommendations.user_id': metadata.userId || 'anonymous',
+    'recommendations.environment': metadata.environment,
+    'recommendations.flag_enabled': metadata.flagEnabled,
+    'recommendations.flag_source': metadata.flagSource || 'unknown',
+    'recommendations.user_role': metadata.userRole || 'unknown',
+    'recommendations.endpoint': metadata.endpoint || '',
+    'recommendations.occasion': metadata.occasion || '',
+    'recommendations.temperature_band': metadata.temperatureBand || '',
+  });
+
+  // End span with appropriate status
+  const status = isError ? SpanStatusCode.ERROR : SpanStatusCode.OK;
+  const spanAttributes: Record<string, string | number | boolean> = {};
+  if (metadata.latencyMs !== undefined) {
+    spanAttributes.latency = metadata.latencyMs;
+  }
+  if (metadata.outfitCount !== undefined) {
+    spanAttributes.outfit_count = metadata.outfitCount;
+  }
+  if (metadata.correlationId) {
+    spanAttributes.correlation_id = metadata.correlationId;
   }
   endSpan(spanId, status, spanAttributes, metadata.errorCode);
 }
