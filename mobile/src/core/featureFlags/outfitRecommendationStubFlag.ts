@@ -33,7 +33,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { checkIsOffline } from '../../features/recommendations/hooks/useNetworkStatus';
-import { useStore } from '../../core/state/store';
+import { useStore } from '../state/store';
 import { useProfile } from '../../features/auth/api/useProfile';
 import { getAppEnvironment, type AppEnvironment } from './config';
 import type { UserRole } from '../../features/auth/types/profile';
