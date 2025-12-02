@@ -289,12 +289,12 @@ describe('ResetPasswordScreen', () => {
 
   describe('Password Input Behavior', () => {
     it('should toggle password visibility', () => {
-      const { getByPlaceholderText, getByText } = render(<ResetPasswordScreen />, {
+      const { getByPlaceholderText, getByTestId } = render(<ResetPasswordScreen />, {
         wrapper: TestWrapper,
       });
 
       const passwordInput = getByPlaceholderText('Enter new password');
-      const toggleButton = getByText('Show password');
+      const toggleButton = getByTestId('password-toggle');
 
       // Initially password should be hidden
       expect(passwordInput.props.secureTextEntry).toBe(true);
@@ -303,20 +303,18 @@ describe('ResetPasswordScreen', () => {
       fireEvent.press(toggleButton);
       expect(passwordInput.props.secureTextEntry).toBe(false);
 
-      // Click to hide password again
-      const hideButton = getByText('Hide password');
-      fireEvent.press(hideButton);
+      // Click to hide password again (same button, now shows "Hide password")
+      fireEvent.press(toggleButton);
       expect(passwordInput.props.secureTextEntry).toBe(true);
     });
 
     it('should toggle confirm password visibility independently', () => {
-      const { getByPlaceholderText, getAllByText } = render(<ResetPasswordScreen />, {
+      const { getByPlaceholderText, getByTestId } = render(<ResetPasswordScreen />, {
         wrapper: TestWrapper,
       });
 
       const confirmPasswordInput = getByPlaceholderText('Confirm new password');
-      const showButtons = getAllByText('Show password');
-      const confirmToggleButton = showButtons[1]; // Second "Show password" is for confirm field
+      const confirmToggleButton = getByTestId('confirm-password-toggle');
 
       // Initially password should be hidden
       expect(confirmPasswordInput.props.secureTextEntry).toBe(true);
