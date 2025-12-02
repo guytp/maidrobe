@@ -283,6 +283,70 @@ export async function clearOutfitRecommendationStubFlagCache(): Promise<void> {
   }
 }
 
+/**
+ * Initializes the session cache from AsyncStorage on app launch.
+ *
+ * This function should be called early in the app lifecycle (e.g., during
+ * auth restore) to enable immediate UI decisions based on cached values
+ * before the remote flag fetch completes.
+ *
+ * After calling this function:
+ * - getOutfitRecommendationStubFlagSync() may return a cached value
+ * - A subsequent call to evaluateOutfitRecommendationStubFlag() will
+ *   perform a background refresh and update the cache if needed
+ *
+ * @param userId - Current user's ID
+ * @param userRole - User's role for fallback calculation
+ * @returns The cached result if available, or null if no valid cache exists
+ *
+ * @example
+ * ```typescript
+ * // During auth restore, after user is authenticated
+ * const cachedResult = await initializeOutfitRecommendationStubFlagFromCache(
+ *   user.id,
+ *   profile.role
+ * );
+ *
+ * if (cachedResult) {
+ *   // Can use cachedResult.enabled for immediate UI decisions
+ *   // Then trigger background refresh
+ *   evaluateOutfitRecommendationStubFlag(user.id, profile.role);
+ * }
+ * ```
+ */
+export async function initializeOutfitRecommendationStubFlagFromCache(
+  userId: string,
+  userRole: UserRole = DEFAULT_USER_ROLE
+): Promise<OutfitRecommendationStubFlagResult | null> {
+  // If session cache already exists, return it
+  if (sessionCache !== null) {
+    return sessionCache;
+  }
+
+  // Try to load from AsyncStorage
+  const cached = await loadCachedFlagValue(userId);
+
+  if (cached === null) {
+    return null;
+  }
+
+  // Check if cache is for current user (already validated in loadCachedFlagValue)
+  // Create result from cached value
+  const environment = getAppEnvironment();
+  const result: OutfitRecommendationStubFlagResult = {
+    enabled: cached.enabled,
+    source: 'cached',
+    environment,
+    userRole: cached.userRole as UserRole,
+    evaluatedAt: new Date().toISOString(),
+  };
+
+  // Populate session cache for immediate sync access
+  sessionCache = result;
+
+  return result;
+}
+
 // ============================================================================
 // Remote Flag Fetch
 // ============================================================================
@@ -658,8 +722,33 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
     () => getOutfitRecommendationStubFlagSync()
   );
   const [isLoading, setIsLoading] = useState(() => !isOutfitRecommendationStubFlagEvaluated());
+  const [hasInitializedFromCache, setHasInitializedFromCache] = useState(false);
+  const [hasTriggeredBackgroundRefresh, setHasTriggeredBackgroundRefresh] = useState(false);
 
-  // Evaluate flag when user and profile are available
+  // Step 1: Initialize from AsyncStorage cache immediately for fast UI
+  // This runs once per user to populate session cache from persisted cache
+  useEffect(() => {
+    // Skip if no user or already initialized
+    if (!user?.id || hasInitializedFromCache) {
+      return;
+    }
+
+    // Try to load from AsyncStorage for immediate UI
+    initializeOutfitRecommendationStubFlagFromCache(user.id, profile?.role ?? DEFAULT_USER_ROLE)
+      .then((cachedResult) => {
+        setHasInitializedFromCache(true);
+        if (cachedResult !== null) {
+          setResult(cachedResult);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        setHasInitializedFromCache(true);
+      });
+  }, [user?.id, profile?.role, hasInitializedFromCache]);
+
+  // Step 2: Trigger background refresh to get fresh value from server
+  // This updates the session cache with the latest server value
   useEffect(() => {
     // Skip if no user
     if (!user?.id) {
@@ -673,30 +762,49 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
       return;
     }
 
-    // Check if already evaluated for this session
-    const cached = getOutfitRecommendationStubFlagSync();
-    if (cached !== null) {
-      setResult(cached);
-      setIsLoading(false);
+    // Skip if we haven't tried cache initialization yet
+    if (!hasInitializedFromCache) {
       return;
     }
 
-    // Evaluate the flag
-    setIsLoading(true);
+    // Skip if we've already triggered background refresh this session
+    if (hasTriggeredBackgroundRefresh) {
+      // Just sync with current session cache
+      const sessionValue = getOutfitRecommendationStubFlagSync();
+      if (sessionValue !== null && sessionValue !== result) {
+        setResult(sessionValue);
+      }
+      return;
+    }
+
+    // Trigger background refresh (at most once per session)
+    setHasTriggeredBackgroundRefresh(true);
+
+    // If we already have a cached result, don't show loading
+    // (background refresh happens silently)
+    if (result === null) {
+      setIsLoading(true);
+    }
+
+    // Reset session cache to force fresh evaluation from server
+    resetSessionCache();
+
     evaluateOutfitRecommendationStubFlag(user.id, profile?.role ?? DEFAULT_USER_ROLE)
       .then((evaluated) => {
         setResult(evaluated);
         setIsLoading(false);
       })
       .catch(() => {
-        // On error, use fallback
-        const fallback = getOutfitRecommendationStubFlagWithFallback(
-          profile?.role ?? DEFAULT_USER_ROLE
-        );
-        setResult(fallback);
+        // On error, use fallback if we don't already have a result
+        if (result === null) {
+          const fallback = getOutfitRecommendationStubFlagWithFallback(
+            profile?.role ?? DEFAULT_USER_ROLE
+          );
+          setResult(fallback);
+        }
         setIsLoading(false);
       });
-  }, [user?.id, profile?.role, isProfileLoading]);
+  }, [user?.id, profile?.role, isProfileLoading, hasInitializedFromCache, hasTriggeredBackgroundRefresh, result]);
 
   // Refresh function for manual re-evaluation
   const refresh = useCallback(async () => {
