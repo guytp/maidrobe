@@ -162,9 +162,14 @@ export const MAX_OUTFITS_PER_RESPONSE = 10;
  * - userId: Must be a valid UUID string (derived from JWT on server)
  * - itemIds: Must be a non-empty array of strings
  * - reason: Must be a non-empty string (1-2 sentences explaining the outfit)
- * - context: Must be a non-empty string (usage descriptor)
+ * - context: Optional string (usage descriptor); may be missing from older servers
  * - createdAt: Must be a valid ISO 8601 datetime string
  * - rating: Optional number or null (placeholder for future use)
+ *
+ * BACKWARD COMPATIBILITY:
+ * The context field is optional to support newer clients communicating with
+ * older server deployments that don't return context-aware strings. The UI
+ * renders a fallback label when context is missing or empty.
  *
  * @example
  * ```typescript
@@ -187,8 +192,15 @@ export const OutfitSuggestionSchema = z.object({
   /** Natural-language explanation of why this outfit works (1-2 sentences) */
   reason: z.string().min(1, 'recommendations.validation.reasonRequired'),
 
-  /** Short descriptor of usage context (e.g., "Smart-casual client coffee") */
-  context: z.string().min(1, 'recommendations.validation.contextRequired'),
+  /**
+   * Short descriptor of usage context (e.g., "Smart-casual client coffee").
+   *
+   * Optional for backward compatibility: newer clients that send contextParams
+   * may receive responses from older server deployments that don't return
+   * context-aware strings. The UI handles missing/empty context gracefully
+   * with a fallback label.
+   */
+  context: z.string().optional(),
 
   /** ISO 8601 timestamp of when the suggestion was created on the server */
   createdAt: z.string().datetime({ message: 'recommendations.validation.invalidCreatedAt' }),
@@ -234,6 +246,10 @@ export const OutfitRecommendationsResponseSchema = z.object({
  * Edge Function. In the stub implementation (story #362), itemIds are
  * placeholder values; real item resolution happens in story #363.
  *
+ * NOTE: The `context` field is optional for backward compatibility with
+ * older server deployments. Always check for undefined/empty values before
+ * displaying, or use the getDisplayContext() helper in OutfitSuggestionCard.
+ *
  * @example
  * ```typescript
  * const outfit: OutfitSuggestion = {
@@ -241,7 +257,7 @@ export const OutfitRecommendationsResponseSchema = z.object({
  *   userId: '018e0000-0000-7000-8000-000000000001',
  *   itemIds: ['item-1', 'item-2', 'item-3'],
  *   reason: 'The navy blazer keeps this polished while the white tee stops it feeling too formal.',
- *   context: 'Smart-casual client coffee',
+ *   context: 'Smart-casual client coffee', // Optional - may be undefined
  *   createdAt: '2025-01-15T10:30:00.000Z',
  *   rating: null,
  * };
