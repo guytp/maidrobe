@@ -98,18 +98,44 @@ const SAFE_DEFAULT_FLAGS: WardrobeFeatureFlags = {
 };
 
 /**
+ * Options for fetching wardrobe feature flags.
+ */
+interface FetchWardrobeFlagsOptions {
+  /** User's role for cohort-based targeting */
+  userRole?: UserRole;
+  /** User ID for logging (not used for targeting) */
+  userId?: string;
+}
+
+/**
  * Fetches wardrobe feature flags from the server.
  *
  * Makes a request to the get-feature-flags Edge Function and returns the
  * current state of wardrobe feature flags. On error, returns safe defaults
- * (both flags false).
+ * (all flags false).
  *
+ * @param options - Optional user context for cohort-based targeting
  * @returns Promise resolving to wardrobe feature flags
  */
-async function fetchWardrobeFeatureFlags(): Promise<WardrobeFeatureFlags> {
+async function fetchWardrobeFeatureFlags(
+  options?: FetchWardrobeFlagsOptions
+): Promise<WardrobeFeatureFlags> {
   try {
+    // Build query params for cohort targeting if provided
+    let endpoint = 'get-feature-flags';
+    if (options?.userRole || options?.userId) {
+      const queryParams = new URLSearchParams();
+      if (options.userRole) {
+        queryParams.set('role', options.userRole);
+      }
+      if (options.userId) {
+        queryParams.set('user_id', options.userId);
+      }
+      endpoint = `get-feature-flags?${queryParams.toString()}`;
+    }
+
     const { data, error } = await supabase.functions.invoke<FeatureFlagsResponse>(
-      'get-feature-flags',
+      endpoint,
       {
         method: 'GET',
       }

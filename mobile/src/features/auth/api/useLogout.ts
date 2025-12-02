@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import { supabase } from '../../../services/supabase';
 import { logAuthEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { checkFeatureFlag } from '../../../core/featureFlags';
+import { checkFeatureFlag, clearOutfitRecommendationStubFlagCache } from '../../../core/featureFlags';
 import { resetInterceptor } from '../../../services/supabaseInterceptor';
 import { clearStoredSession } from '../storage/sessionPersistence';
 import { handleAuthError } from '../utils/authErrorHandler';
@@ -117,6 +117,9 @@ export function useLogout() {
           // Clear stored session even on API error
           await clearStoredSession();
 
+          // Clear feature flag caches
+          await clearOutfitRecommendationStubFlagCache();
+
           const userMessage = getAuthErrorMessage(normalizedError, 'logout');
           throw new Error(userMessage);
         }
@@ -129,6 +132,9 @@ export function useLogout() {
         // Clear stored session bundle from SecureStore
         // This ensures no session data persists after logout
         await clearStoredSession();
+
+        // Clear feature flag caches that may contain user-specific data
+        await clearOutfitRecommendationStubFlagCache();
 
         // Reset interceptor state to clear any in-flight refresh promises
         resetInterceptor();
@@ -146,6 +152,7 @@ export function useLogout() {
         useStore.getState().setLogoutReason(null);
         useStore.getState().resetOnboardingState();
         await clearStoredSession();
+        await clearOutfitRecommendationStubFlagCache();
         resetInterceptor();
 
         // Re-throw if already an Error
@@ -186,6 +193,7 @@ export function useLogout() {
       useStore.getState().setLogoutReason(null);
       useStore.getState().resetOnboardingState();
       clearStoredSession(); // Fire and forget - don't await in error handler
+      clearOutfitRecommendationStubFlagCache(); // Fire and forget
       resetInterceptor();
 
       // Navigate to login even on error (user is logged out locally)

@@ -387,3 +387,17 @@ export {
 
 // Re-export environment utilities
 export { getAppEnvironment, type AppEnvironment } from './config';
+
+// Re-export outfit recommendation stub flag evaluation helper
+export {
+  evaluateOutfitRecommendationStubFlag,
+  getOutfitRecommendationStubFlagSync,
+  getOutfitRecommendationStubFlagWithFallback,
+  isOutfitRecommendationStubFlagEvaluated,
+  clearOutfitRecommendationStubFlagCache,
+  resetSessionCache as resetOutfitRecommendationStubFlagSessionCache,
+  useOutfitRecommendationStubFlag,
+  type OutfitRecommendationStubFlagResult,
+  type FlagValueSource,
+  type UseOutfitRecommendationStubFlagResult,
+} from './outfitRecommendationStubFlag';
