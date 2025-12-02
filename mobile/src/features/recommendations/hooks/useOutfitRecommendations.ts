@@ -268,9 +268,11 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // Track offline state for fast-fail
   const isOfflineRef = useRef<boolean>(false);
 
-  // Track context params for the current/next request
+  // Track context params for the current/next request.
   // This ref captures the params at the time of fetch, ensuring in-flight
-  // requests use the params that were active when the request started
+  // requests use the params that were active when the request started.
+  // Explicitly set to undefined when fetchRecommendations() is called without
+  // params to prevent stale context from prior calls being reused.
   const contextParamsRef = useRef<ContextParams | undefined>(undefined);
 
   // Query configuration
@@ -494,8 +496,10 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         return;
       }
 
-      // Capture context params for this request
-      // The ref ensures the queryFn uses these params even if state changes mid-request
+      // Capture context params for this request, or explicitly clear if omitted.
+      // When contextParams is undefined (feature flag off, or caller omits it),
+      // the ref is set to undefined to prevent stale values from previous fetches
+      // being reused. The queryFn reads this ref at execution time.
       contextParamsRef.current = contextParams;
 
       try {
