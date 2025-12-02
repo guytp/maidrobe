@@ -592,6 +592,7 @@ export function ResetPasswordScreen() {
               maxFontSizeMultiplier={2}
             />
             <TouchableOpacity
+              testID="password-toggle"
               style={styles.passwordToggle}
               onPress={() => setShowPassword(!showPassword)}
               accessibilityRole="button"
@@ -768,6 +769,7 @@ export function ResetPasswordScreen() {
               maxFontSizeMultiplier={2}
             />
             <TouchableOpacity
+              testID="confirm-password-toggle"
               style={styles.passwordToggle}
               onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               accessibilityRole="button"

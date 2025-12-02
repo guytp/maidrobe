@@ -92,7 +92,7 @@ describe('ForgotPasswordScreen', () => {
       expect(getByLabelText('Forgot password screen')).toBeTruthy();
       expect(getByLabelText('Email address input field')).toBeTruthy();
       expect(getByLabelText('Send reset link button')).toBeTruthy();
-      expect(getByLabelText('Back to login')).toBeTruthy();
+      expect(getByLabelText('Back to Login')).toBeTruthy();
     });
 
     it('should initially disable submit button when email is empty', () => {
