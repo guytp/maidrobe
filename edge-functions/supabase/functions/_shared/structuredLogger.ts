@@ -348,10 +348,7 @@ export class ContextualLogger {
   private readonly logger: StructuredLogger;
   private readonly context: Partial<Omit<LogEntry, keyof BaseLogEntry>>;
 
-  constructor(
-    logger: StructuredLogger,
-    context: Partial<Omit<LogEntry, keyof BaseLogEntry>>
-  ) {
+  constructor(logger: StructuredLogger, context: Partial<Omit<LogEntry, keyof BaseLogEntry>>) {
     this.logger = logger;
     this.context = context;
   }

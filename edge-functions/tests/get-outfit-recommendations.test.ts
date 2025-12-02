@@ -281,8 +281,12 @@ Deno.test('clampNoRepeatDays: handles special function and symbol types graceful
 
 Deno.test('clampNoRepeatDays: always returns an integer', () => {
   const testCases = [
-    0, 45, 90, // Normal integers
-    7.1, 7.5, 7.9, // Floats
+    0,
+    45,
+    90, // Normal integers
+    7.1,
+    7.5,
+    7.9, // Floats
     '30.5', // Float string
     { valueOf: () => 22.7 }, // Object with float valueOf
   ];
@@ -296,12 +300,36 @@ Deno.test('clampNoRepeatDays: always returns an integer', () => {
 Deno.test('clampNoRepeatDays: result is always within [0, 90] range', () => {
   // Comprehensive range test with various edge case inputs
   const edgeCases = [
-    -Infinity, -1e10, -1000, -100, -1, -0.5,
-    0, 0.5, 1, 45, 89, 90,
-    90.5, 91, 100, 1000, 1e10, Infinity,
-    null, undefined, NaN,
-    'invalid', '', '  ', '-50', '150',
-    {}, [], true, false,
+    -Infinity,
+    -1e10,
+    -1000,
+    -100,
+    -1,
+    -0.5,
+    0,
+    0.5,
+    1,
+    45,
+    89,
+    90,
+    90.5,
+    91,
+    100,
+    1000,
+    1e10,
+    Infinity,
+    null,
+    undefined,
+    NaN,
+    'invalid',
+    '',
+    '  ',
+    '-50',
+    '150',
+    {},
+    [],
+    true,
+    false,
   ];
 
   for (const input of edgeCases) {
@@ -388,13 +416,13 @@ Deno.test('bucketNoRepeatDays: complete coverage of all integers 0-90', () => {
 Deno.test('bucketNoRepeatDays: typical user-configured values', () => {
   // Common user preferences map to expected buckets
   const typicalValues: [number, string][] = [
-    [0, '0'],      // Disabled
-    [1, '1-7'],    // Minimal window
-    [3, '1-7'],    // Few days
-    [7, '1-7'],    // One week (common choice)
-    [14, '8-30'],  // Two weeks (common choice)
-    [21, '8-30'],  // Three weeks
-    [30, '8-30'],  // One month (common choice)
+    [0, '0'], // Disabled
+    [1, '1-7'], // Minimal window
+    [3, '1-7'], // Few days
+    [7, '1-7'], // One week (common choice)
+    [14, '8-30'], // Two weeks (common choice)
+    [21, '8-30'], // Three weeks
+    [30, '8-30'], // One month (common choice)
     [45, '31-90'], // Six weeks
     [60, '31-90'], // Two months
     [90, '31-90'], // Maximum / three months
@@ -447,10 +475,7 @@ Deno.test('bucketNoRepeatDays: returns only valid bucket strings', () => {
 
   // Test a wide range of inputs
   const testValues = [
-    0, 1, 2, 3, 4, 5, 6, 7,
-    8, 15, 20, 25, 30,
-    31, 45, 60, 75, 90,
-    -5, 100, 0.5, 7.5, 30.5,
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 15, 20, 25, 30, 31, 45, 60, 75, 90, -5, 100, 0.5, 7.5, 30.5,
   ];
 
   for (const value of testValues) {
@@ -468,8 +493,8 @@ Deno.test('bucketNoRepeatDays: privacy-safe - buckets hide exact values', () => 
   // This confirms the privacy-safe design where exact preferences aren't exposed
 
   // Multiple values should produce identical bucket output
-  assertEquals(bucketNoRepeatDays(1), bucketNoRepeatDays(7));  // Both '1-7'
-  assertEquals(bucketNoRepeatDays(2), bucketNoRepeatDays(5));  // Both '1-7'
+  assertEquals(bucketNoRepeatDays(1), bucketNoRepeatDays(7)); // Both '1-7'
+  assertEquals(bucketNoRepeatDays(2), bucketNoRepeatDays(5)); // Both '1-7'
   assertEquals(bucketNoRepeatDays(8), bucketNoRepeatDays(30)); // Both '8-30'
   assertEquals(bucketNoRepeatDays(15), bucketNoRepeatDays(25)); // Both '8-30'
   assertEquals(bucketNoRepeatDays(31), bucketNoRepeatDays(90)); // Both '31-90'
@@ -620,14 +645,7 @@ Deno.test('applyNoRepeatFilter: excludes all outfits when all items fully worn',
 
   const outfits = [outfit1, outfit2, outfit3];
   // All items are recently worn
-  const recentlyWornItemIds = new Set([
-    'item-a',
-    'item-b',
-    'item-c',
-    'item-d',
-    'item-e',
-    'item-f',
-  ]);
+  const recentlyWornItemIds = new Set(['item-a', 'item-b', 'item-c', 'item-d', 'item-e', 'item-f']);
 
   const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
 
@@ -736,8 +754,16 @@ Deno.test('applyNoRepeatFilter: large wear history with few matches', () => {
 
   // Large set of worn items, but only one matches the outfit
   const largeWornSet = new Set([
-    'worn-1', 'worn-2', 'worn-3', 'worn-4', 'worn-5',
-    'worn-6', 'worn-7', 'worn-8', 'worn-9', 'worn-10',
+    'worn-1',
+    'worn-2',
+    'worn-3',
+    'worn-4',
+    'worn-5',
+    'worn-6',
+    'worn-7',
+    'worn-8',
+    'worn-9',
+    'worn-10',
     'target-item-1', // Only this matches
   ]);
 
@@ -753,8 +779,14 @@ Deno.test('applyNoRepeatFilter: large wear history covering all items', () => {
   const outfit = createTestOutfit(1, ['item-a', 'item-b', 'item-c']);
 
   const largeWornSet = new Set([
-    'item-a', 'item-b', 'item-c', // All outfit items
-    'extra-1', 'extra-2', 'extra-3', 'extra-4', 'extra-5',
+    'item-a',
+    'item-b',
+    'item-c', // All outfit items
+    'extra-1',
+    'extra-2',
+    'extra-3',
+    'extra-4',
+    'extra-5',
   ]);
 
   const result = applyNoRepeatFilter([outfit], largeWornSet);
@@ -842,12 +874,13 @@ Deno.test('applyNoRepeatFilter: progressive filtering demonstration', () => {
 
 Deno.test('applyNoRepeatFilter: outfit with many items - partial overlap', () => {
   // Outfit with 5 items, only 4 are worn → still eligible
-  const outfit = createTestOutfit(1, [
-    'item-1', 'item-2', 'item-3', 'item-4', 'item-5',
-  ]);
+  const outfit = createTestOutfit(1, ['item-1', 'item-2', 'item-3', 'item-4', 'item-5']);
 
   const recentlyWornItemIds = new Set([
-    'item-1', 'item-2', 'item-3', 'item-4', // 4 of 5 worn
+    'item-1',
+    'item-2',
+    'item-3',
+    'item-4', // 4 of 5 worn
   ]);
 
   const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
@@ -1007,9 +1040,7 @@ Deno.test('applyMinMaxSelection: fallback respects outfit.id tie-breaker', () =>
   const excluded = [outfit3, outfit1, outfit2];
 
   // Same timestamp for all - tie-breaker by outfit.id
-  const itemWornAtMap = createItemWornAtMap([
-    ['shared-item', '2024-01-15T00:00:00.000Z'],
-  ]);
+  const itemWornAtMap = createItemWornAtMap([['shared-item', '2024-01-15T00:00:00.000Z']]);
 
   const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
 
@@ -1096,9 +1127,7 @@ Deno.test('applyMinMaxSelection: items without recency score sort first (oldest)
   const excluded = [outfit2, outfit1]; // Intentionally reversed
 
   // Only outfit2 has history
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-with-history', '2024-01-15T00:00:00.000Z'],
-  ]);
+  const itemWornAtMap = createItemWornAtMap([['item-with-history', '2024-01-15T00:00:00.000Z']]);
 
   const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
 
@@ -1175,9 +1204,18 @@ Deno.test('applyMinMaxSelection: is pure - does not modify input arrays', () => 
   assertEquals(staticPool.length, originalStaticPoolLength);
   assertEquals(eligible.length, originalEligibleLength);
   assertEquals(excluded.length, originalExcludedLength);
-  assertEquals(staticPool.map((o) => o.id), originalStaticPoolIds);
-  assertEquals(eligible.map((o) => o.id), originalEligibleIds);
-  assertEquals(excluded.map((o) => o.id), originalExcludedIds);
+  assertEquals(
+    staticPool.map((o) => o.id),
+    originalStaticPoolIds
+  );
+  assertEquals(
+    eligible.map((o) => o.id),
+    originalEligibleIds
+  );
+  assertEquals(
+    excluded.map((o) => o.id),
+    originalExcludedIds
+  );
   assertEquals(itemWornAtMap.size, originalMapSize);
 });
 
@@ -1277,22 +1315,25 @@ Deno.test('applyMinMaxSelection: fallback count exact when excluded fully fills 
   assertEquals(result.fallbackCount, 3); // Exactly MIN added from fallback
 });
 
-Deno.test('applyMinMaxSelection: truncation applied after fallback when combined exceeds MAX', () => {
-  // Create 12 outfits: 8 eligible + 4 excluded
-  // 8 eligible < MAX (10), but with fallback would exceed
-  // However, since eligible >= MIN, no fallback is used
-  // This tests truncation of eligible list that exceeds MAX
-  const staticPool = createTestOutfits(15);
-  const eligible = staticPool.slice(0, 12); // 12 eligible (exceeds MAX)
-  const excluded = staticPool.slice(12); // 3 excluded
+Deno.test(
+  'applyMinMaxSelection: truncation applied after fallback when combined exceeds MAX',
+  () => {
+    // Create 12 outfits: 8 eligible + 4 excluded
+    // 8 eligible < MAX (10), but with fallback would exceed
+    // However, since eligible >= MIN, no fallback is used
+    // This tests truncation of eligible list that exceeds MAX
+    const staticPool = createTestOutfits(15);
+    const eligible = staticPool.slice(0, 12); // 12 eligible (exceeds MAX)
+    const excluded = staticPool.slice(12); // 3 excluded
 
-  const itemWornAtMap = new Map<string, string>();
+    const itemWornAtMap = new Map<string, string>();
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+    const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
 
-  assertEquals(result.outfits.length, 10); // Truncated to MAX_OUTFITS
-  assertEquals(result.fallbackCount, 0); // No fallback needed
-});
+    assertEquals(result.outfits.length, 10); // Truncated to MAX_OUTFITS
+    assertEquals(result.fallbackCount, 0); // No fallback needed
+  }
+);
 
 Deno.test('applyMinMaxSelection: recency ordering prefers outfits worn longest ago', () => {
   // All excluded, fallback should select by ascending recency (oldest first)
@@ -1324,28 +1365,31 @@ Deno.test('applyMinMaxSelection: recency ordering prefers outfits worn longest a
   assertEquals(ids.includes(outfit3.id), true);
 });
 
-Deno.test('applyMinMaxSelection: output always sorted by outfit.id regardless of input order', () => {
-  // Pass outfits in reverse ID order
-  const outfit5 = createTestOutfit(5, ['item-5']);
-  const outfit3 = createTestOutfit(3, ['item-3']);
-  const outfit1 = createTestOutfit(1, ['item-1']);
-  const outfit4 = createTestOutfit(4, ['item-4']);
-  const outfit2 = createTestOutfit(2, ['item-2']);
+Deno.test(
+  'applyMinMaxSelection: output always sorted by outfit.id regardless of input order',
+  () => {
+    // Pass outfits in reverse ID order
+    const outfit5 = createTestOutfit(5, ['item-5']);
+    const outfit3 = createTestOutfit(3, ['item-3']);
+    const outfit1 = createTestOutfit(1, ['item-1']);
+    const outfit4 = createTestOutfit(4, ['item-4']);
+    const outfit2 = createTestOutfit(2, ['item-2']);
 
-  const staticPool = [outfit5, outfit3, outfit1, outfit4, outfit2]; // Scrambled order
-  const eligible = [outfit5, outfit3, outfit1, outfit4, outfit2];
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+    const staticPool = [outfit5, outfit3, outfit1, outfit4, outfit2]; // Scrambled order
+    const eligible = [outfit5, outfit3, outfit1, outfit4, outfit2];
+    const excluded: Outfit[] = [];
+    const itemWornAtMap = new Map<string, string>();
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+    const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
 
-  // Output should be sorted by outfit.id (ascending)
-  assertEquals(result.outfits[0].id, outfit1.id);
-  assertEquals(result.outfits[1].id, outfit2.id);
-  assertEquals(result.outfits[2].id, outfit3.id);
-  assertEquals(result.outfits[3].id, outfit4.id);
-  assertEquals(result.outfits[4].id, outfit5.id);
-});
+    // Output should be sorted by outfit.id (ascending)
+    assertEquals(result.outfits[0].id, outfit1.id);
+    assertEquals(result.outfits[1].id, outfit2.id);
+    assertEquals(result.outfits[2].id, outfit3.id);
+    assertEquals(result.outfits[3].id, outfit4.id);
+    assertEquals(result.outfits[4].id, outfit5.id);
+  }
+);
 
 Deno.test('applyMinMaxSelection: large pool with complex recency scores', () => {
   // Test with many outfits to verify scalability

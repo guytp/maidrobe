@@ -46,7 +46,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 import { getWardrobeFeatureFlags, type WardrobeFeatureFlags } from '../_shared/featureFlags.ts';
-import { createLogger, getOrGenerateCorrelationId, getEnvironment } from '../_shared/structuredLogger.ts';
+import {
+  createLogger,
+  getOrGenerateCorrelationId,
+  getEnvironment,
+} from '../_shared/structuredLogger.ts';
 
 // ============================================================================
 // Types
@@ -92,10 +96,7 @@ const FUNCTION_NAME = 'get-feature-flags';
  *
  * Includes CORS headers to allow cross-origin requests from mobile clients.
  */
-function jsonResponse(
-  body: GetFeatureFlagsResponse | ErrorResponse,
-  status: number
-): Response {
+function jsonResponse(body: GetFeatureFlagsResponse | ErrorResponse, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -138,11 +139,7 @@ function classifyError(error: unknown): string {
   }
 
   // Type/parsing errors
-  if (
-    message.includes('type') ||
-    message.includes('parse') ||
-    message.includes('json')
-  ) {
+  if (message.includes('type') || message.includes('parse') || message.includes('json')) {
     return 'parse_error';
   }
 

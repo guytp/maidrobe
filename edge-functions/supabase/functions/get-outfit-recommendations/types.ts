@@ -102,7 +102,9 @@ export function isValidOccasion(value: unknown): value is OccasionKey {
  * @returns True if value is a valid TemperatureBandKey
  */
 export function isValidTemperatureBand(value: unknown): value is TemperatureBandKey {
-  return typeof value === 'string' && (VALID_TEMPERATURE_BANDS as readonly string[]).includes(value);
+  return (
+    typeof value === 'string' && (VALID_TEMPERATURE_BANDS as readonly string[]).includes(value)
+  );
 }
 
 /**

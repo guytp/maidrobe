@@ -81,7 +81,8 @@ interface ItemRecord {
  */
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-correlation-id',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-correlation-id',
 };
 
 /**
@@ -97,10 +98,7 @@ const STORAGE_BUCKET = 'wardrobe-items';
 /**
  * Creates a JSON response with CORS headers
  */
-function jsonResponse(
-  body: DeleteWardrobeItemResponse,
-  status: number
-): Response {
+function jsonResponse(body: DeleteWardrobeItemResponse, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -156,13 +154,7 @@ export async function handler(req: Request): Promise<Response> {
     // Extract authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return errorResponse(
-        logger,
-        'auth_header_missing',
-        'Not authenticated',
-        'auth',
-        401
-      );
+      return errorResponse(logger, 'auth_header_missing', 'Not authenticated', 'auth', 401);
     }
 
     const userJwt = authHeader.replace('Bearer ', '');
@@ -185,13 +177,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // Validate itemId
     if (!itemId || typeof itemId !== 'string') {
-      return errorResponse(
-        logger,
-        'invalid_item_id',
-        'Invalid itemId',
-        'validation',
-        400
-      );
+      return errorResponse(logger, 'invalid_item_id', 'Invalid itemId', 'validation', 400);
     }
 
     // Validate UUID format (basic check)
@@ -213,13 +199,7 @@ export async function handler(req: Request): Promise<Response> {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      return errorResponse(
-        logger,
-        'config_missing',
-        'Service configuration error',
-        'server',
-        500
-      );
+      return errorResponse(logger, 'config_missing', 'Service configuration error', 'server', 500);
     }
 
     // Create client authenticated as the user
@@ -232,13 +212,7 @@ export async function handler(req: Request): Promise<Response> {
     // Get the authenticated user's ID
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
-      return errorResponse(
-        logger,
-        'auth_failed',
-        'Authentication failed',
-        'auth',
-        401
-      );
+      return errorResponse(logger, 'auth_failed', 'Authentication failed', 'auth', 401);
     }
 
     const userId = userData.user.id;
@@ -290,7 +264,12 @@ export async function handler(req: Request): Promise<Response> {
         error_category: 'authorization',
       });
       return jsonResponse(
-        { success: false, error: 'Not authorized to delete this item', code: 'auth', correlationId },
+        {
+          success: false,
+          error: 'Not authorized to delete this item',
+          code: 'auth',
+          correlationId,
+        },
         403
       );
     }
@@ -324,10 +303,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // Delete the database row (hard delete)
-    const { error: deleteError } = await supabase
-      .from('items')
-      .delete()
-      .eq('id', itemId);
+    const { error: deleteError } = await supabase.from('items').delete().eq('id', itemId);
 
     if (deleteError) {
       // Check if it's a not-found error (item deleted between fetch and delete)
