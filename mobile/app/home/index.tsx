@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
 import { Button } from '../../src/core/components/Button';
-import { checkFeatureFlagSync } from '../../src/core/featureFlags';
+import { checkFeatureFlagSync, useOutfitRecommendationStubFlag } from '../../src/core/featureFlags';
 import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 import {
@@ -23,9 +23,20 @@ import {
  *
  * LAYOUT:
  * - App title and description (above the fold)
- * - "Get outfit ideas" CTA button (prominent, above the fold)
- * - Suggestions section (scrollable, shows empty/loading/success/error states)
+ * - "Get outfit ideas" CTA button (prominent, above the fold, feature-flagged)
+ * - Suggestions section (scrollable, shows empty/loading/success/error states, feature-flagged)
  * - Server status indicator (bottom)
+ *
+ * FEATURE FLAG GATING:
+ * The outfit recommendation UI (CTA button, context selector, suggestions section) is
+ * gated by the `outfit_recommendation_stub` feature flag. This flag supports:
+ * - Environment-specific defaults (dev: ON, staging: internal only, prod: OFF)
+ * - Cohort-based targeting (internal, beta, standard users)
+ * - Safe fallback behaviour when the flag service is unavailable
+ *
+ * When the flag is OFF or evaluating, these elements are hidden from the UI.
+ * The flag value is cached per-session for stability and across sessions for
+ * fast UI decisions on subsequent app launches.
  *
  * BACK NAVIGATION:
  * On Android, the hardware back button exits the app instead of navigating
@@ -45,6 +56,11 @@ export default function HomeScreen(): React.JSX.Element {
 
   // Check if context selector feature flag is enabled
   const isContextSelectorEnabled = checkFeatureFlagSync('recommendations.contextSelector').enabled;
+
+  // Check if outfit recommendation stub feature is enabled for this user
+  // This gates the entire recommendation UI (CTA, context selector, suggestions)
+  // While loading, isEnabled defaults to false so UI is hidden until flag is evaluated
+  const { isEnabled: isOutfitRecommendationEnabled } = useOutfitRecommendationStubFlag();
 
   // Context selector state - persisted to AsyncStorage via Zustand
   const { occasion, temperatureBand, isHydrated, setOccasion, setTemperatureBand } =
@@ -211,8 +227,9 @@ export default function HomeScreen(): React.JSX.Element {
           </Text>
         </View>
 
-        {/* Context Selector (gated by feature flag) */}
-        {isContextSelectorEnabled && (
+        {/* Context Selector (gated by both feature flags) */}
+        {/* Only shown when outfit recommendations AND context selector are enabled */}
+        {isOutfitRecommendationEnabled && isContextSelectorEnabled && (
           <ContextSelector
             occasion={occasion}
             temperatureBand={temperatureBand}
@@ -223,34 +240,40 @@ export default function HomeScreen(): React.JSX.Element {
         )}
 
         {/* Get Outfit Ideas CTA */}
-        {/* Disabled while loading OR while context is hydrating (feature flag on) */}
-        <View style={styles.ctaContainer}>
-          <Button
-            onPress={handleGetOutfitIdeas}
-            loading={isRecommendationsLoading}
-            disabled={isRecommendationsLoading || (isContextSelectorEnabled && !isHydrated)}
-            accessibilityLabel={t('screens.home.accessibility.ctaButton')}
-            accessibilityHint={t('screens.home.accessibility.ctaButtonHint')}
-          >
-            {t('screens.home.recommendations.ctaButton')}
-          </Button>
-        </View>
+        {/* Only shown when outfit recommendations feature is enabled */}
+        {/* Disabled while loading OR while context is hydrating (context selector on) */}
+        {isOutfitRecommendationEnabled && (
+          <View style={styles.ctaContainer}>
+            <Button
+              onPress={handleGetOutfitIdeas}
+              loading={isRecommendationsLoading}
+              disabled={isRecommendationsLoading || (isContextSelectorEnabled && !isHydrated)}
+              accessibilityLabel={t('screens.home.accessibility.ctaButton')}
+              accessibilityHint={t('screens.home.accessibility.ctaButtonHint')}
+            >
+              {t('screens.home.recommendations.ctaButton')}
+            </Button>
+          </View>
+        )}
 
         {/* Suggestions Section */}
-        <View
-          style={styles.suggestionsContainer}
-          accessibilityLabel={t('screens.home.accessibility.suggestionsSection')}
-        >
-          <SuggestionsSection
-            outfits={outfits}
-            isLoading={isRecommendationsLoading}
-            isError={isRecommendationsError}
-            errorType={errorType}
-            errorMessage={errorMessage}
-            hasData={hasData}
-            onRetry={handleRetry}
-          />
-        </View>
+        {/* Only shown when outfit recommendations feature is enabled */}
+        {isOutfitRecommendationEnabled && (
+          <View
+            style={styles.suggestionsContainer}
+            accessibilityLabel={t('screens.home.accessibility.suggestionsSection')}
+          >
+            <SuggestionsSection
+              outfits={outfits}
+              isLoading={isRecommendationsLoading}
+              isError={isRecommendationsError}
+              errorType={errorType}
+              errorMessage={errorMessage}
+              hasData={hasData}
+              onRetry={handleRetry}
+            />
+          </View>
+        )}
 
         {/* Server Status Indicator */}
         <View
