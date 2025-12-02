@@ -102,9 +102,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@v2
         with:
           deno-version: v1.x
+
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+            ~/.deno
+          key: deno-${{ runner.os }}-${{ hashFiles('edge-functions/deno.json') }}
+          restore-keys: |
+            deno-${{ runner.os }}-
 
       - name: Run lint
         run: deno lint
@@ -118,9 +128,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@v2
         with:
           deno-version: v1.x
+
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+            ~/.deno
+          key: deno-${{ runner.os }}-${{ hashFiles('edge-functions/deno.json') }}
+          restore-keys: |
+            deno-${{ runner.os }}-
 
       - name: Run type check
         run: deno check supabase/functions/**/*.ts
@@ -134,9 +154,19 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v1
+        uses: denoland/setup-deno@v2
         with:
           deno-version: v1.x
+
+      - name: Cache Deno dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/deno
+            ~/.deno
+          key: deno-${{ runner.os }}-${{ hashFiles('edge-functions/deno.json') }}
+          restore-keys: |
+            deno-${{ runner.os }}-
 
       - name: Run tests
         run: deno test --allow-all
