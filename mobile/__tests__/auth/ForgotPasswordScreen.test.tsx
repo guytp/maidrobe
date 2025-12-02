@@ -6,6 +6,12 @@ import { ThemeProvider } from '../../src/core/theme';
 import * as telemetry from '../../src/core/telemetry';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock expo-router
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({

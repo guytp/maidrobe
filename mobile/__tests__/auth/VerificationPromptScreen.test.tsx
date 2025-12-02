@@ -5,6 +5,12 @@ import { VerificationPromptScreen } from '../../src/features/auth/components/Ver
 import { ThemeProvider } from '../../src/core/theme';
 import * as useResendVerificationModule from '../../src/features/auth/api/useResendVerification';
 
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock auth store
 jest.mock('../../src/core/state/store', () => ({
   useStore: (
