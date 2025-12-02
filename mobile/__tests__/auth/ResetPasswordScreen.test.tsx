@@ -483,7 +483,9 @@ describe('ResetPasswordScreen', () => {
       });
 
       const passwordInput = getByPlaceholderText('Enter new password');
-      fireEvent.changeText(passwordInput, 'Password1');
+      // Password1! scores ~65 points (length:15 + upper:10 + lower:10 + number:10 + symbol:10 + bonus:10)
+      // This qualifies as "Medium" strength (40-69 points)
+      fireEvent.changeText(passwordInput, 'Password1!');
 
       expect(getByText('Password strength:')).toBeTruthy();
       expect(getByText('Medium')).toBeTruthy();
