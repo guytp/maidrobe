@@ -1621,7 +1621,10 @@ export async function handler(req: Request): Promise<Response> {
   const logger = createLogger(FUNCTION_NAME, correlationId);
 
   if (req.method !== 'POST') {
-    return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation', correlationId }, 405);
+    return jsonResponse(
+      { success: false, error: 'Method not allowed', code: 'validation', correlationId },
+      405
+    );
   }
 
   logger.info('request_received');
@@ -1725,7 +1728,12 @@ export async function handler(req: Request): Promise<Response> {
     if (!replicateApiKey) {
       logger.error('config_missing', { metadata: { missing: 'REPLICATE_API_KEY' } });
       return jsonResponse(
-        { success: false, error: 'Image processing service not configured', code: 'server', correlationId },
+        {
+          success: false,
+          error: 'Image processing service not configured',
+          code: 'server',
+          correlationId,
+        },
         500
       );
     }
@@ -1866,7 +1874,12 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle queue mode (default)
     const batchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
-    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config, logger);
+    const { processed, failed, results } = await processJobQueue(
+      supabase,
+      batchSize,
+      config,
+      logger
+    );
 
     return jsonResponse(
       {
@@ -1885,7 +1898,10 @@ export async function handler(req: Request): Promise<Response> {
       error_category: classifiedError.category,
       error_code: classifiedError.code,
     });
-    return jsonResponse({ success: false, error: 'Unexpected error', code: 'server', correlationId }, 500);
+    return jsonResponse(
+      { success: false, error: 'Unexpected error', code: 'server', correlationId },
+      500
+    );
   }
 }
 

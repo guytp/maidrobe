@@ -158,7 +158,11 @@ export function parseContextParams(body: unknown): EffectiveContext {
   const bodyObj = body as Record<string, unknown>;
 
   // Handle missing contextParams
-  if (!('contextParams' in bodyObj) || bodyObj.contextParams === null || bodyObj.contextParams === undefined) {
+  if (
+    !('contextParams' in bodyObj) ||
+    bodyObj.contextParams === null ||
+    bodyObj.contextParams === undefined
+  ) {
     return {
       occasion: DEFAULT_OCCASION,
       temperatureBand: DEFAULT_TEMPERATURE_BAND,
@@ -1273,12 +1277,7 @@ export async function handler(req: Request): Promise<Response> {
     // Only fetch wear history if noRepeatDays > 0 (no-repeat filtering enabled)
     // When noRepeatDays = 0, skip the query entirely to save latency
     if (noRepeatDays > 0) {
-      const historyResult = await fetchRecentWearHistory(
-        supabase,
-        userId,
-        noRepeatDays,
-        logger
-      );
+      const historyResult = await fetchRecentWearHistory(supabase, userId, noRepeatDays, logger);
 
       recentlyWornItemIds = historyResult.recentlyWornItemIds;
       itemWornAtMap = historyResult.itemWornAtMap;

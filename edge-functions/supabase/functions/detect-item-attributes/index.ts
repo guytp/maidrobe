@@ -1000,7 +1000,12 @@ async function processItem(
 
   try {
     // Step 5: Generate pre-signed URL for the image
-    const signedUrl = await generateSignedUrl(supabase, imageKey, config.signedUrlExpirySeconds, logger);
+    const signedUrl = await generateSignedUrl(
+      supabase,
+      imageKey,
+      config.signedUrlExpirySeconds,
+      logger
+    );
 
     // Step 6: Call OpenAI Vision API
     const attributes = await callOpenAIVision(
@@ -1030,17 +1035,20 @@ async function processItem(
     // Emit consolidated summary log for observability
     // Contains all required fields per FR 7.1-7.4
     // Explicitly avoids: raw image data, bucket paths, secrets, PII beyond IDs
-    emitProcessingSummary({
-      itemId,
-      userId,
-      modelProvider: 'openai',
-      modelName: config.openaiModel,
-      startTimestamp: new Date(startTime).toISOString(),
-      endTimestamp: new Date().toISOString(),
-      durationMs,
-      attributeStatus: 'succeeded',
-      attributeErrorReason: null,
-    }, logger);
+    emitProcessingSummary(
+      {
+        itemId,
+        userId,
+        modelProvider: 'openai',
+        modelName: config.openaiModel,
+        startTimestamp: new Date(startTime).toISOString(),
+        endTimestamp: new Date().toISOString(),
+        durationMs,
+        attributeStatus: 'succeeded',
+        attributeErrorReason: null,
+      },
+      logger
+    );
 
     return { userId, durationMs, attributes };
   } catch (processingError) {
@@ -1068,17 +1076,20 @@ async function processItem(
     });
 
     // Emit consolidated summary log for observability
-    emitProcessingSummary({
-      itemId,
-      userId,
-      modelProvider: 'openai',
-      modelName: config.openaiModel,
-      startTimestamp: new Date(startTime).toISOString(),
-      endTimestamp: new Date().toISOString(),
-      durationMs,
-      attributeStatus: 'failed',
-      attributeErrorReason,
-    }, logger);
+    emitProcessingSummary(
+      {
+        itemId,
+        userId,
+        modelProvider: 'openai',
+        modelName: config.openaiModel,
+        startTimestamp: new Date(startTime).toISOString(),
+        endTimestamp: new Date().toISOString(),
+        durationMs,
+        attributeStatus: 'failed',
+        attributeErrorReason,
+      },
+      logger
+    );
 
     throw classifiedError;
   }
@@ -1448,7 +1459,10 @@ export async function handler(req: Request): Promise<Response> {
   const logger = createLogger(FUNCTION_NAME, correlationId);
 
   if (req.method !== 'POST') {
-    return jsonResponse({ success: false, error: 'Method not allowed', code: 'validation', correlationId }, 405);
+    return jsonResponse(
+      { success: false, error: 'Method not allowed', code: 'validation', correlationId },
+      405
+    );
   }
 
   logger.info('request_received');
@@ -1530,7 +1544,12 @@ export async function handler(req: Request): Promise<Response> {
     if (!supabaseUrl || !supabaseServiceKey) {
       logger.error('config_missing', { metadata: { missing: 'SUPABASE_URL or SERVICE_KEY' } });
       return jsonResponse(
-        { success: false, error: 'Service configuration error', code: 'config_error', correlationId },
+        {
+          success: false,
+          error: 'Service configuration error',
+          code: 'config_error',
+          correlationId,
+        },
         500
       );
     }
@@ -1538,7 +1557,12 @@ export async function handler(req: Request): Promise<Response> {
     if (!openaiApiKey) {
       logger.error('config_missing', { metadata: { missing: 'OPENAI_API_KEY' } });
       return jsonResponse(
-        { success: false, error: 'AI provider not configured', code: 'config_error', correlationId },
+        {
+          success: false,
+          error: 'AI provider not configured',
+          code: 'config_error',
+          correlationId,
+        },
         500
       );
     }
@@ -1680,7 +1704,12 @@ export async function handler(req: Request): Promise<Response> {
 
     // Handle queue mode (default)
     const batchSize = Math.min(requestBody.batchSize || DEFAULT_BATCH_SIZE, DEFAULT_BATCH_SIZE);
-    const { processed, failed, results } = await processJobQueue(supabase, batchSize, config, logger);
+    const { processed, failed, results } = await processJobQueue(
+      supabase,
+      batchSize,
+      config,
+      logger
+    );
 
     return jsonResponse(
       {
@@ -1699,7 +1728,10 @@ export async function handler(req: Request): Promise<Response> {
       error_category: classifiedError.category,
       error_code: classifiedError.code,
     });
-    return jsonResponse({ success: false, error: 'Unexpected error', code: 'server', correlationId }, 500);
+    return jsonResponse(
+      { success: false, error: 'Unexpected error', code: 'server', correlationId },
+      500
+    );
   }
 }
 

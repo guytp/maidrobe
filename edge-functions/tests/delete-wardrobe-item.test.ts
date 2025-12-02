@@ -119,17 +119,14 @@ Deno.test('returns 401 when Authorization header does not start with Bearer', as
 Deno.test('returns 400 when request body is invalid JSON', async () => {
   const headers = new Headers({
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer fake-jwt-token',
+    Authorization: 'Bearer fake-jwt-token',
   });
 
-  const request = new Request(
-    'http://localhost:54321/functions/v1/delete-wardrobe-item',
-    {
-      method: 'POST',
-      headers,
-      body: 'not valid json{',
-    }
-  );
+  const request = new Request('http://localhost:54321/functions/v1/delete-wardrobe-item', {
+    method: 'POST',
+    headers,
+    body: 'not valid json{',
+  });
 
   const response = await handler(request);
   const body = await parseResponse(response);
