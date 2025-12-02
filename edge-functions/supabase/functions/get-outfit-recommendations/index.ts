@@ -112,7 +112,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * context parameters.
  */
 const OCCASION_CONTEXT_PHRASES: Record<OccasionKey, string> = {
-  everyday: 'A comfortable, versatile look for your day.',
+  everyday: 'Simple everyday outfit for your usual routine.',
   work_meeting: 'Smart-casual for a client meeting.',
   date: 'Relaxed but polished for a date or drinks.',
   weekend: 'Effortlessly casual for weekend plans.',
