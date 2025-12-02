@@ -224,15 +224,6 @@ async function safeParseRequestBody(req: Request): Promise<unknown> {
 // Types
 // ============================================================================
 
-/**
- * Standard Supabase query error shape.
- * Used to type error responses from Supabase queries.
- */
-interface SupabaseError {
-  message: string;
-  code?: string;
-}
-
 // Note: SupabaseClient type is imported from '@supabase/supabase-js' SDK.
 // This provides full type safety without needing custom interface definitions.
 
