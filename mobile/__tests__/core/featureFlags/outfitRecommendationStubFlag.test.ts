@@ -851,7 +851,36 @@ describe('outfitRecommendationStubFlag', () => {
     const mockUserId = 'user-telemetry';
     const mockUserRole = 'standard';
 
-    it('should track fallback event with reason when offline', async () => {
+    it('should track evaluated event with complete metadata on remote success', async () => {
+      mockedGetAppEnvironment.mockReturnValue('production');
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: {
+          success: true,
+          flags: { outfit_recommendation_stub_enabled: true },
+        },
+        error: null,
+      });
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
+      jest.runAllTimers();
+      await resultPromise;
+
+      // Validate complete FeatureFlagEventMetadata structure
+      expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
+        'feature_flag.outfit_recommendation_stub.evaluated',
+        expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          enabled: true,
+          source: 'remote',
+          environment: 'production',
+          userRole: mockUserRole,
+          latencyMs: expect.any(Number),
+        })
+      );
+    });
+
+    it('should track fallback event with complete metadata when offline', async () => {
       mockedGetAppEnvironment.mockReturnValue('production');
       mockedCheckIsOffline.mockResolvedValue(true);
 
@@ -859,10 +888,17 @@ describe('outfitRecommendationStubFlag', () => {
       jest.runAllTimers();
       await resultPromise;
 
+      // Validate complete FeatureFlagEventMetadata structure for fallback
       expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
         'feature_flag.outfit_recommendation_stub.fallback',
         expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          enabled: false, // Production default for standard user
           source: 'fallback',
+          environment: 'production',
+          userRole: mockUserRole,
+          latencyMs: expect.any(Number),
           metadata: expect.objectContaining({
             isOffline: true,
             reason: 'offline',
@@ -871,20 +907,50 @@ describe('outfitRecommendationStubFlag', () => {
       );
     });
 
-    it('should track cached event when using cached value', async () => {
+    it('should track fallback event with remote_fetch_failed reason on network error', async () => {
+      mockedGetAppEnvironment.mockReturnValue('staging');
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'Network error' },
+      });
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, 'internal');
+      jest.runAllTimers();
+      await resultPromise;
+
+      // Should track fallback after remote fetch failure (no cache available)
+      expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
+        'feature_flag.outfit_recommendation_stub.fallback',
+        expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          enabled: true, // Staging default for internal user
+          source: 'fallback',
+          environment: 'staging',
+          userRole: 'internal',
+          metadata: expect.objectContaining({
+            isOffline: false,
+            reason: 'remote_fetch_failed',
+          }),
+        })
+      );
+    });
+
+    it('should track cached event with complete metadata including cache age', async () => {
       mockedGetAppEnvironment.mockReturnValue('production');
 
-      // Set up cached value
+      // Set up cached value with known timestamp
+      const cachedAt = new Date(Date.now() - 3600000).toISOString(); // 1 hour ago
       const cachedValue = {
         enabled: true,
         userId: mockUserId,
         userRole: mockUserRole,
-        cachedAt: new Date().toISOString(),
+        cachedAt,
         environment: 'production',
       };
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(cachedValue));
 
-      // Simulate network error
+      // Simulate network error to trigger cache usage
       (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
         data: null,
         error: { message: 'Network error' },
@@ -894,20 +960,61 @@ describe('outfitRecommendationStubFlag', () => {
       jest.runAllTimers();
       await resultPromise;
 
+      // Validate cached event includes cache age metadata
       expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
         'feature_flag.outfit_recommendation_stub.cached',
         expect.objectContaining({
-          source: 'cached',
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
           enabled: true,
+          source: 'cached',
+          environment: 'production',
+          userRole: mockUserRole,
+          latencyMs: expect.any(Number),
+          metadata: expect.objectContaining({
+            cacheAgeHours: expect.any(Number),
+            isStale: false, // 1 hour is not stale (< 24 hours)
+            isOffline: false,
+          }),
         })
       );
     });
 
-    it('should track error event on supabase error', async () => {
+    it('should track timeout event with complete metadata', async () => {
       mockedGetAppEnvironment.mockReturnValue('production');
       (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
         data: null,
-        error: { message: 'Database error' },
+        error: { message: 'timeout' },
+      });
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
+      jest.runAllTimers();
+      await resultPromise;
+
+      // Validate timeout event includes all required fields
+      expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
+        'feature_flag.outfit_recommendation_stub.timeout',
+        expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          enabled: false,
+          source: 'fallback',
+          environment: 'production',
+          userRole: mockUserRole,
+          latencyMs: expect.any(Number),
+          errorCode: 'timeout',
+          metadata: expect.objectContaining({
+            timeoutMs: 400,
+          }),
+        })
+      );
+    });
+
+    it('should track error event with supabase_error code and message', async () => {
+      mockedGetAppEnvironment.mockReturnValue('production');
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: null,
+        error: { message: 'Database connection failed' },
       });
 
       const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
@@ -917,12 +1024,85 @@ describe('outfitRecommendationStubFlag', () => {
       expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
         'feature_flag.outfit_recommendation_stub.error',
         expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          enabled: false,
+          source: 'fallback',
+          environment: 'production',
+          userRole: mockUserRole,
+          latencyMs: expect.any(Number),
           errorCode: 'supabase_error',
           metadata: expect.objectContaining({
-            errorMessage: 'Database error',
+            errorMessage: 'Database connection failed',
           }),
         })
       );
+    });
+
+    it('should track error event with invalid_response code', async () => {
+      mockedGetAppEnvironment.mockReturnValue('development');
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { success: true }, // Missing flags property
+        error: null,
+      });
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
+      jest.runAllTimers();
+      await resultPromise;
+
+      expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
+        'feature_flag.outfit_recommendation_stub.error',
+        expect.objectContaining({
+          errorCode: 'invalid_response',
+          metadata: expect.objectContaining({
+            hasData: true,
+            success: true,
+            hasFlags: false,
+          }),
+        })
+      );
+    });
+
+    it('should track error event with fetch_error code on exception', async () => {
+      mockedGetAppEnvironment.mockReturnValue('production');
+      (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(
+        new Error('Connection reset by peer')
+      );
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
+      jest.runAllTimers();
+      await resultPromise;
+
+      expect(mockedTrackFeatureFlagEvent).toHaveBeenCalledWith(
+        'feature_flag.outfit_recommendation_stub.error',
+        expect.objectContaining({
+          userId: mockUserId,
+          flagKey: 'outfit_recommendation_stub',
+          errorCode: 'fetch_error',
+          metadata: expect.objectContaining({
+            errorMessage: 'Connection reset by peer',
+          }),
+        })
+      );
+    });
+
+    it('should include latencyMs in all telemetry events', async () => {
+      mockedGetAppEnvironment.mockReturnValue('development');
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: {
+          success: true,
+          flags: { outfit_recommendation_stub_enabled: true },
+        },
+        error: null,
+      });
+
+      const resultPromise = evaluateOutfitRecommendationStubFlag(mockUserId, mockUserRole);
+      jest.runAllTimers();
+      await resultPromise;
+
+      // Verify latencyMs is a non-negative number
+      const call = mockedTrackFeatureFlagEvent.mock.calls[0];
+      expect(call[1].latencyMs).toBeGreaterThanOrEqual(0);
     });
   });
 
