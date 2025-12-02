@@ -9,6 +9,9 @@ import {
   useOutfitRecommendationStubFlag,
   canAccessRecommendations,
 } from '../../src/core/featureFlags';
+import { getAppEnvironment } from '../../src/core/featureFlags/config';
+import { trackRecommendationEvent } from '../../src/core/telemetry';
+import { useStore } from '../../src/core/state/store';
 import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 import {
@@ -61,10 +64,14 @@ export default function HomeScreen(): React.JSX.Element {
   // Check if context selector feature flag is enabled
   const isContextSelectorEnabled = checkFeatureFlagSync('recommendations.contextSelector').enabled;
 
+  // Get user for telemetry
+  const user = useStore((state) => state.user);
+
   // Check if outfit recommendation stub feature is enabled for this user
   // This gates the entire recommendation UI (CTA, context selector, suggestions)
   // While loading, isEnabled defaults to false so UI is hidden until flag is evaluated
-  const { isEnabled: isOutfitRecommendationEnabled } = useOutfitRecommendationStubFlag();
+  const { isEnabled: isOutfitRecommendationEnabled, result: flagResult } =
+    useOutfitRecommendationStubFlag();
 
   // Context selector state - persisted to AsyncStorage via Zustand
   const { occasion, temperatureBand, isHydrated, setOccasion, setTemperatureBand } =
@@ -91,6 +98,17 @@ export default function HomeScreen(): React.JSX.Element {
       return;
     }
 
+    // Track CTA click event for analytics
+    trackRecommendationEvent('outfit_recommendation_cta_clicked', {
+      userId: user?.id,
+      environment: getAppEnvironment(),
+      flagEnabled: flagResult?.enabled ?? false,
+      flagSource: flagResult?.source,
+      userRole: flagResult?.userRole,
+      occasion: isContextSelectorEnabled ? occasion : undefined,
+      temperatureBand: isContextSelectorEnabled ? temperatureBand : undefined,
+    });
+
     if (isContextSelectorEnabled) {
       // Send context params when feature is enabled
       fetchRecommendations({ occasion, temperatureBand });
@@ -98,7 +116,7 @@ export default function HomeScreen(): React.JSX.Element {
       // Preserve existing behaviour when feature flag is off
       fetchRecommendations();
     }
-  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand]);
+  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand, user?.id, flagResult]);
 
   // Handle retry from error state - use same context handling as CTA
   // Includes defensive guard check for consistency with CTA handler

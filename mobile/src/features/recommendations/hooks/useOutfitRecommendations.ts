@@ -32,7 +32,12 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { logError } from '../../../core/telemetry';
+import { logError, trackRecommendationEvent } from '../../../core/telemetry';
+import { getAppEnvironment } from '../../../core/featureFlags/config';
+import {
+  getOutfitRecommendationStubFlagSync,
+  type OutfitRecommendationStubFlagResult,
+} from '../../../core/featureFlags/outfitRecommendationStubFlag';
 import { handleAuthError } from '../../auth/utils/authErrorHandler';
 import {
   fetchOutfitRecommendations,
@@ -275,6 +280,12 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // params to prevent stale context from prior calls being reused.
   const contextParamsRef = useRef<ContextParams | undefined>(undefined);
 
+  // Track request start time for latency measurement
+  const requestStartTimeRef = useRef<number>(0);
+
+  // Track flag result at time of request for telemetry
+  const flagResultRef = useRef<OutfitRecommendationStubFlagResult | null>(null);
+
   // Query configuration
   const query = useQuery<OutfitSuggestion[], FetchRecommendationsError>({
     queryKey: outfitRecommendationsQueryKey.user(userId ?? ''),
@@ -502,10 +513,85 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
       // being reused. The queryFn reads this ref at execution time.
       contextParamsRef.current = contextParams;
 
+      // Capture start time and flag result for telemetry
+      requestStartTimeRef.current = Date.now();
+      flagResultRef.current = getOutfitRecommendationStubFlagSync();
+
       try {
-        await query.refetch();
+        const result = await query.refetch();
+
+        // Track success event after query completes successfully
+        if (result.data) {
+          const latencyMs = Date.now() - requestStartTimeRef.current;
+          const flagResult = flagResultRef.current;
+
+          trackRecommendationEvent('outfit_recommendation_request_succeeded', {
+            userId,
+            environment: getAppEnvironment(),
+            flagEnabled: flagResult?.enabled ?? true,
+            flagSource: flagResult?.source,
+            userRole: flagResult?.userRole,
+            endpoint: 'get-outfit-recommendations',
+            outfitCount: result.data.length,
+            latencyMs,
+            occasion: contextParams?.occasion,
+            temperatureBand: contextParams?.temperatureBand,
+          });
+        }
       } catch {
-        // Error is captured in query.error, no need to handle here
+        // Track failure event after query completes with error
+        const latencyMs = Date.now() - requestStartTimeRef.current;
+        const flagResult = flagResultRef.current;
+
+        // Determine error type from query.error (set by React Query)
+        let errorTypeValue: 'auth' | 'network' | 'offline' | 'server' | 'schema' | 'timeout' | 'unknown' = 'unknown';
+        let errorCode: string | undefined;
+        let correlationId: string | undefined;
+
+        if (query.error instanceof FetchRecommendationsError) {
+          errorCode = query.error.code;
+          correlationId = query.error.correlationId;
+
+          // Map FetchRecommendationsErrorCode to telemetry error type
+          switch (query.error.code) {
+            case 'auth':
+              errorTypeValue = 'auth';
+              break;
+            case 'network':
+              // Check if it was specifically offline or timeout
+              if (query.error.correlationId === 'offline-preflight') {
+                errorTypeValue = 'offline';
+              } else if (query.error.correlationId === 'timeout') {
+                errorTypeValue = 'timeout';
+              } else {
+                errorTypeValue = 'network';
+              }
+              break;
+            case 'server':
+              errorTypeValue = 'server';
+              break;
+            case 'schema':
+              errorTypeValue = 'schema';
+              break;
+            default:
+              errorTypeValue = 'unknown';
+          }
+        }
+
+        trackRecommendationEvent('outfit_recommendation_request_failed', {
+          userId,
+          environment: getAppEnvironment(),
+          flagEnabled: flagResult?.enabled ?? true,
+          flagSource: flagResult?.source,
+          userRole: flagResult?.userRole,
+          endpoint: 'get-outfit-recommendations',
+          errorType: errorTypeValue,
+          errorCode,
+          latencyMs,
+          correlationId,
+          occasion: contextParams?.occasion,
+          temperatureBand: contextParams?.temperatureBand,
+        });
       }
     },
     [userId, query]
