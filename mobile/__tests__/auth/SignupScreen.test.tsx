@@ -5,6 +5,12 @@ import { SignupScreen } from '../../src/features/auth/components/SignupScreen';
 import { ThemeProvider } from '../../src/core/theme';
 import * as useSignUpModule from '../../src/features/auth/api/useSignUp';
 
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock expo-router
 jest.mock('expo-router', () => ({
   useRouter: () => ({

@@ -7,6 +7,12 @@ import * as telemetry from '../../src/core/telemetry';
 import * as resetAttemptRateLimit from '../../src/features/auth/utils/resetAttemptRateLimit';
 import * as passwordReuse from '../../src/features/auth/utils/passwordReuse';
 
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock expo-router
 const mockPush = jest.fn();
 const mockParams = {

@@ -4,6 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginScreen } from '../../src/features/auth/components/LoginScreen';
 import { ThemeProvider } from '../../src/core/theme';
 
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock expo-router
 jest.mock('expo-router', () => ({
   useRouter: () => ({
