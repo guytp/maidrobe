@@ -221,7 +221,8 @@ export function handler(req: Request): Response {
   logger.info('request_received', {
     metadata: {
       environment,
-      user_role: userContext.role,
+      // Cast UserRole to string to satisfy Record<string, string | number | boolean | null>
+      user_role: userContext.role as string,
       has_user_id: !!userContext.userId,
     },
   });
@@ -248,7 +249,8 @@ export function handler(req: Request): Response {
       },
       metadata: {
         environment,
-        user_role: userContext.role,
+        // Cast UserRole to string to satisfy Record<string, string | number | boolean | null>
+        user_role: userContext.role as string,
       },
     });
 
@@ -270,7 +272,8 @@ export function handler(req: Request): Response {
       error_message: errorMessage,
       metadata: {
         environment,
-        user_role: userContext.role,
+        // Cast UserRole to string to satisfy Record<string, string | number | boolean | null>
+        user_role: userContext.role as string,
         fallback_applied: true,
       },
     });
