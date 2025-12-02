@@ -397,8 +397,10 @@ export {
   initializeOutfitRecommendationStubFlagFromCache,
   clearOutfitRecommendationStubFlagCache,
   resetSessionCache as resetOutfitRecommendationStubFlagSessionCache,
+  canAccessRecommendations,
   useOutfitRecommendationStubFlag,
   type OutfitRecommendationStubFlagResult,
   type FlagValueSource,
   type UseOutfitRecommendationStubFlagResult,
+  type NavigationGuardResult,
 } from './outfitRecommendationStubFlag';

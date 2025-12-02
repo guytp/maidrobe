@@ -4,7 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
 import { Button } from '../../src/core/components/Button';
-import { checkFeatureFlagSync, useOutfitRecommendationStubFlag } from '../../src/core/featureFlags';
+import {
+  checkFeatureFlagSync,
+  useOutfitRecommendationStubFlag,
+  canAccessRecommendations,
+} from '../../src/core/featureFlags';
 import { useHealthcheck } from '../../src/features/home/api/useHealthcheck';
 import { useProtectedRoute } from '../../src/features/auth/hooks/useProtectedRoute';
 import {
@@ -78,7 +82,15 @@ export default function HomeScreen(): React.JSX.Element {
   } = useOutfitRecommendations();
 
   // Handle CTA button press - pass current context params when feature flag is on
+  // Includes defensive guard check even though button is hidden when flag is OFF
   const handleGetOutfitIdeas = useCallback(() => {
+    // Defensive guard: check flag before proceeding (handles race conditions)
+    const guard = canAccessRecommendations();
+    if (!guard.allowed) {
+      // Silently no-op - button should already be hidden when flag is OFF
+      return;
+    }
+
     if (isContextSelectorEnabled) {
       // Send context params when feature is enabled
       fetchRecommendations({ occasion, temperatureBand });
@@ -89,7 +101,15 @@ export default function HomeScreen(): React.JSX.Element {
   }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand]);
 
   // Handle retry from error state - use same context handling as CTA
+  // Includes defensive guard check for consistency with CTA handler
   const handleRetry = useCallback(() => {
+    // Defensive guard: check flag before proceeding
+    const guard = canAccessRecommendations();
+    if (!guard.allowed) {
+      // Silently no-op - retry button should be hidden when flag is OFF
+      return;
+    }
+
     if (isContextSelectorEnabled) {
       fetchRecommendations({ occasion, temperatureBand });
     } else {

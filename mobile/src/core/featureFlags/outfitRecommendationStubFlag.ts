@@ -782,6 +782,103 @@ export function getOutfitRecommendationStubFlagWithFallback(
 }
 
 // ============================================================================
+// Imperative Navigation Guard
+// ============================================================================
+
+/**
+ * Result of the imperative navigation guard check.
+ */
+export interface NavigationGuardResult {
+  /** Whether access to recommendation features is allowed */
+  allowed: boolean;
+  /** Reason for the decision */
+  reason: 'flag_enabled' | 'flag_disabled' | 'flag_not_evaluated' | 'no_user';
+  /** The flag result if available */
+  flagResult: OutfitRecommendationStubFlagResult | null;
+}
+
+/**
+ * Imperative guard function for checking recommendation feature access.
+ *
+ * This function provides a synchronous check for use in event handlers,
+ * navigation callbacks, and other imperative contexts where you can't use
+ * a React hook.
+ *
+ * USE CASES:
+ * - CTA button onPress handlers (defensive check even if button is hidden)
+ * - Deep link handlers before navigating to recommendation screens
+ * - Notification tap handlers
+ * - Any programmatic navigation to recommendation features
+ *
+ * BEHAVIOUR:
+ * - If flag is evaluated and enabled: returns { allowed: true }
+ * - If flag is evaluated and disabled: returns { allowed: false }
+ * - If flag is not yet evaluated: returns { allowed: false } (safe default)
+ *
+ * This function does NOT trigger evaluation - it only checks the current
+ * session cache. Ensure evaluateOutfitRecommendationStubFlag() has been
+ * called earlier in the app lifecycle (e.g., after auth restore).
+ *
+ * @returns Guard result with allowed status and reason
+ *
+ * @example
+ * ```typescript
+ * // In a CTA button handler
+ * const handleGetOutfitIdeas = () => {
+ *   const guard = canAccessRecommendations();
+ *
+ *   if (!guard.allowed) {
+ *     // Silently no-op or show appropriate feedback
+ *     console.log('Recommendations not available:', guard.reason);
+ *     return;
+ *   }
+ *
+ *   // Proceed with fetching recommendations
+ *   fetchRecommendations();
+ * };
+ *
+ * // In a deep link handler
+ * const handleDeepLink = (url: string) => {
+ *   if (url.includes('/recommendations')) {
+ *     const guard = canAccessRecommendations();
+ *     if (!guard.allowed) {
+ *       router.replace('/home');
+ *       return;
+ *     }
+ *   }
+ *   // Handle other deep links...
+ * };
+ * ```
+ */
+export function canAccessRecommendations(): NavigationGuardResult {
+  // Check if we have an evaluated flag result
+  const flagResult = getOutfitRecommendationStubFlagSync();
+
+  if (flagResult === null) {
+    // Flag not yet evaluated - deny access as safe default
+    return {
+      allowed: false,
+      reason: 'flag_not_evaluated',
+      flagResult: null,
+    };
+  }
+
+  if (flagResult.enabled) {
+    return {
+      allowed: true,
+      reason: 'flag_enabled',
+      flagResult,
+    };
+  }
+
+  return {
+    allowed: false,
+    reason: 'flag_disabled',
+    flagResult,
+  };
+}
+
+// ============================================================================
 // Session Cache Reset (for testing)
 // ============================================================================
 
