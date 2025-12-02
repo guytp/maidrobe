@@ -24,3 +24,9 @@ export {
 
 // Context parameters hook (Story #365)
 export { useContextParams, type UseContextParamsResult } from './useContextParams';
+
+// Recommendation navigation guard (Story #366)
+export {
+  useRecommendationGuard,
+  type UseRecommendationGuardResult,
+} from './useRecommendationGuard';
