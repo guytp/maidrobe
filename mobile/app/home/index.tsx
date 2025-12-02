@@ -47,7 +47,8 @@ export default function HomeScreen(): React.JSX.Element {
   const isContextSelectorEnabled = checkFeatureFlagSync('recommendations.contextSelector').enabled;
 
   // Context selector state - persisted to AsyncStorage via Zustand
-  const { occasion, temperatureBand, setOccasion, setTemperatureBand } = useContextParams();
+  const { occasion, temperatureBand, isHydrated, setOccasion, setTemperatureBand } =
+    useContextParams();
 
   // Outfit recommendations hook
   const {
@@ -217,16 +218,17 @@ export default function HomeScreen(): React.JSX.Element {
             temperatureBand={temperatureBand}
             onOccasionChange={setOccasion}
             onTemperatureBandChange={setTemperatureBand}
-            disabled={isRecommendationsLoading}
+            disabled={isRecommendationsLoading || !isHydrated}
           />
         )}
 
         {/* Get Outfit Ideas CTA */}
+        {/* Disabled while loading OR while context is hydrating (feature flag on) */}
         <View style={styles.ctaContainer}>
           <Button
             onPress={handleGetOutfitIdeas}
             loading={isRecommendationsLoading}
-            disabled={isRecommendationsLoading}
+            disabled={isRecommendationsLoading || (isContextSelectorEnabled && !isHydrated)}
             accessibilityLabel={t('screens.home.accessibility.ctaButton')}
             accessibilityHint={t('screens.home.accessibility.ctaButtonHint')}
           >
