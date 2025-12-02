@@ -36,8 +36,14 @@ import { checkIsOffline } from '../../features/recommendations/hooks/useNetworkS
 import { useStore } from '../state/store';
 import { useProfile } from '../../features/auth/api/useProfile';
 import { getAppEnvironment, type AppEnvironment } from './config';
+import { trackFeatureFlagEvent } from '../telemetry';
 import type { UserRole } from '../../features/auth/types/profile';
 import { DEFAULT_USER_ROLE } from '../../features/auth/types/profile';
+
+/**
+ * Flag key constant for consistent usage in telemetry.
+ */
+const FLAG_KEY = 'outfit_recommendation_stub';
 
 // ============================================================================
 // Types
@@ -487,6 +493,7 @@ export async function evaluateOutfitRecommendationStubFlag(
  * Internal evaluation implementation.
  *
  * Separated from main function to handle concurrency properly.
+ * Includes telemetry tracking for observability.
  */
 async function performEvaluation(
   userId: string,
@@ -494,6 +501,7 @@ async function performEvaluation(
 ): Promise<OutfitRecommendationStubFlagResult> {
   const environment = getAppEnvironment();
   const evaluatedAt = new Date().toISOString();
+  const startTime = Date.now();
 
   // Check if offline - skip remote fetch if so
   const isOffline = await checkIsOffline();
@@ -510,13 +518,26 @@ async function performEvaluation(
     // Save to cache for future sessions
     await saveCachedFlagValue(remoteValue, userId, userRole, environment);
 
-    return {
+    const result: OutfitRecommendationStubFlagResult = {
       enabled: remoteValue,
       source: 'remote',
       environment,
       userRole,
       evaluatedAt,
     };
+
+    // Track successful remote evaluation
+    trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.evaluated', {
+      userId,
+      flagKey: FLAG_KEY,
+      enabled: remoteValue,
+      source: 'remote',
+      environment,
+      userRole,
+      latencyMs: Date.now() - startTime,
+    });
+
+    return result;
   }
 
   // Remote fetch failed or we're offline - try cached value
@@ -532,25 +553,60 @@ async function performEvaluation(
       });
     }
 
-    return {
+    const result: OutfitRecommendationStubFlagResult = {
       enabled: cached.enabled,
       source: 'cached',
       environment,
       userRole,
       evaluatedAt,
     };
+
+    // Track cached value usage
+    trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.cached', {
+      userId,
+      flagKey: FLAG_KEY,
+      enabled: cached.enabled,
+      source: 'cached',
+      environment,
+      userRole,
+      latencyMs: Date.now() - startTime,
+      metadata: {
+        cacheAgeHours: Math.round(cacheAge / (60 * 60 * 1000)),
+        isStale: cacheAge > CACHE_MAX_AGE_MS,
+        isOffline,
+      },
+    });
+
+    return result;
   }
 
   // No remote value and no cache - use environment default
   const defaultValue = getEnvironmentDefault(environment, userRole);
 
-  return {
+  const result: OutfitRecommendationStubFlagResult = {
     enabled: defaultValue,
     source: 'fallback',
     environment,
     userRole,
     evaluatedAt,
   };
+
+  // Track fallback usage
+  trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.fallback', {
+    userId,
+    flagKey: FLAG_KEY,
+    enabled: defaultValue,
+    source: 'fallback',
+    environment,
+    userRole,
+    latencyMs: Date.now() - startTime,
+    metadata: {
+      isOffline,
+      reason: isOffline ? 'offline' : 'remote_fetch_failed',
+    },
+  });
+
+  return result;
 }
 
 // ============================================================================
