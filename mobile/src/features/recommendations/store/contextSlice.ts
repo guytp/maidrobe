@@ -152,7 +152,10 @@ export const createContextSlice = persist<ContextSlice>(
     storage: createJSONStorage(() => AsyncStorage),
     version: 1,
 
-    // Only persist state fields, not action functions or isHydrated
+    // Only persist state fields, not action functions or isHydrated.
+    // Type cast required: Zustand's persist middleware expects partialize to return
+    // the full slice type, but we intentionally return only PersistedContextState.
+    // This is safe because migrate() reconstructs the full state on rehydration.
     partialize: (state) =>
       ({
         occasion: state.occasion,
