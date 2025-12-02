@@ -43,7 +43,7 @@ import { mapProfileRowToProfile, ProfileRowSchema } from '../types/profile';
  * - Missing profiles return undefined (handled by caller)
  *
  * PERFORMANCE:
- * - Fetches minimal fields (id, has_onboarded, created_at, updated_at)
+ * - Fetches minimal fields (id, has_onboarded, role, created_at, updated_at)
  * - Single query with .single() for efficiency
  * - React Query cache prevents redundant fetches
  *
@@ -76,7 +76,7 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
         // RLS ensures user can only read their own profile
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, has_onboarded, created_at, updated_at')
+          .select('id, has_onboarded, role, created_at, updated_at')
           .eq('id', userId)
           .single();
 
@@ -302,7 +302,7 @@ export async function fetchProfileWithCache(
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, has_onboarded, created_at, updated_at')
+      .select('id, has_onboarded, role, created_at, updated_at')
       .eq('id', userId)
       .single();
 
@@ -486,7 +486,7 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, has_onboarded, created_at, updated_at')
+      .select('id, has_onboarded, role, created_at, updated_at')
       .eq('id', userId)
       .single();
 
