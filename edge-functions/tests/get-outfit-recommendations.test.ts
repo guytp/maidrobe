@@ -261,11 +261,12 @@ Deno.test('clampNoRepeatDays: handles string edge cases', () => {
   assertEquals(clampNoRepeatDays('+30'), 30);
   assertEquals(clampNoRepeatDays('-30'), 0); // Negative clamps to 0
 
-  // Hex strings (JavaScript's Number() parses these)
+  // Hex strings (JavaScript's Number() parses these since ES2015)
   assertEquals(clampNoRepeatDays('0x1E'), 30); // 0x1E = 30
 
-  // Binary/octal-like strings (not parsed as such by Number())
-  assertEquals(clampNoRepeatDays('0b101'), 0); // NaN -> 0
+  // Binary strings (JavaScript's Number() parses these since ES2015)
+  // Note: Number('0b101') = 5, which is valid in range [0, 90]
+  assertEquals(clampNoRepeatDays('0b101'), 5); // 0b101 = 5
 });
 
 Deno.test('clampNoRepeatDays: handles special function and symbol types gracefully', () => {
