@@ -394,6 +394,7 @@ export {
   getOutfitRecommendationStubFlagSync,
   getOutfitRecommendationStubFlagWithFallback,
   isOutfitRecommendationStubFlagEvaluated,
+  initializeOutfitRecommendationStubFlagFromCache,
   clearOutfitRecommendationStubFlagCache,
   resetSessionCache as resetOutfitRecommendationStubFlagSessionCache,
   useOutfitRecommendationStubFlag,
