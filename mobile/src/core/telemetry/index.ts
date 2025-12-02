@@ -930,3 +930,170 @@ export function trackCaptureEvent(
   const status = isError ? SpanStatusCode.ERROR : SpanStatusCode.OK;
   endSpan(spanId, status, {}, metadata?.errorCode);
 }
+
+/**
+ * Feature flag event types for tracking flag evaluation and outcomes.
+ *
+ * These events track feature flag evaluation decisions for observability
+ * and rollout monitoring. Used to understand flag coverage, performance,
+ * and fallback behaviour.
+ *
+ * Event naming convention: snake_case with feature_flag_ prefix
+ */
+export type FeatureFlagEventType =
+  // Outfit recommendation stub flag events
+  | 'feature_flag.outfit_recommendation_stub.evaluated'
+  | 'feature_flag.outfit_recommendation_stub.cached'
+  | 'feature_flag.outfit_recommendation_stub.fallback'
+  | 'feature_flag.outfit_recommendation_stub.timeout'
+  | 'feature_flag.outfit_recommendation_stub.error'
+  | 'feature_flag.outfit_recommendation_stub.ui_gated'
+  | 'feature_flag.outfit_recommendation_stub.navigation_blocked';
+
+/**
+ * Metadata for feature flag event logging.
+ *
+ * SECURITY: Never include passwords, tokens, or other sensitive PII.
+ */
+export interface FeatureFlagEventMetadata {
+  /** User ID if available (safe to log - pseudonymous identifier) */
+  userId?: string;
+  /** Flag key that was evaluated */
+  flagKey: string;
+  /** Whether the flag is enabled */
+  enabled: boolean;
+  /** Source of the flag value (remote, cached, fallback) */
+  source: 'remote' | 'cached' | 'fallback';
+  /** App environment (development, staging, production) */
+  environment: string;
+  /** User role for cohort targeting */
+  userRole?: string;
+  /** Evaluation latency in milliseconds */
+  latencyMs?: number;
+  /** Error code if evaluation failed */
+  errorCode?: string;
+  /** Additional non-PII metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Logs a structured feature flag event to telemetry system.
+ *
+ * This function provides standardized logging for feature flag evaluation
+ * events. It tracks when flags are evaluated, what values are returned,
+ * and the source of those values (remote, cached, fallback).
+ *
+ * USE CASES:
+ * - Tracking flag evaluation success/failure rates
+ * - Monitoring cache hit rates
+ * - Observing fallback behaviour patterns
+ * - Understanding rollout coverage by cohort
+ * - Measuring evaluation latency
+ *
+ * DASHBOARD VERIFICATION:
+ * After deployment, verify these events in analytics dashboards:
+ * - Sentry: Check breadcrumbs under 'feature_flag' category
+ * - OpenTelemetry: Verify spans with feature_flag.* attributes
+ * - Event volumes: Validate counts match expected evaluation patterns
+ *
+ * @param eventType - Type of feature flag event
+ * @param metadata - Event metadata (userId, flagKey, enabled, source, etc.)
+ *
+ * @example
+ * ```ts
+ * // Flag evaluated from remote
+ * trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.evaluated', {
+ *   userId: 'abc-123',
+ *   flagKey: 'outfit_recommendation_stub',
+ *   enabled: true,
+ *   source: 'remote',
+ *   environment: 'staging',
+ *   userRole: 'internal',
+ *   latencyMs: 150
+ * });
+ *
+ * // Flag loaded from cache
+ * trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.cached', {
+ *   userId: 'abc-123',
+ *   flagKey: 'outfit_recommendation_stub',
+ *   enabled: true,
+ *   source: 'cached',
+ *   environment: 'production',
+ *   userRole: 'beta'
+ * });
+ *
+ * // Flag fell back to default
+ * trackFeatureFlagEvent('feature_flag.outfit_recommendation_stub.fallback', {
+ *   userId: 'abc-123',
+ *   flagKey: 'outfit_recommendation_stub',
+ *   enabled: false,
+ *   source: 'fallback',
+ *   environment: 'production',
+ *   userRole: 'standard',
+ *   errorCode: 'timeout'
+ * });
+ * ```
+ */
+export function trackFeatureFlagEvent(
+  eventType: FeatureFlagEventType,
+  metadata: FeatureFlagEventMetadata
+): void {
+  // Sanitize metadata to remove PII
+  const sanitizedMetadata = sanitizeAuthMetadata(metadata as unknown as Record<string, unknown>);
+
+  // Determine if this is an error event
+  const isError = eventType.includes('error') || eventType.includes('timeout');
+
+  // Structure the event for consistent querying
+  const event = {
+    type: 'feature-flag-event',
+    eventType,
+    userId: metadata.userId,
+    flagKey: metadata.flagKey,
+    enabled: metadata.enabled,
+    source: metadata.source,
+    environment: metadata.environment,
+    userRole: metadata.userRole,
+    latencyMs: metadata.latencyMs,
+    errorCode: metadata.errorCode,
+    metadata: sanitizedMetadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Always log to console for development visibility
+  if (isError) {
+    // eslint-disable-next-line no-console
+    console.error('[Feature Flag Event]', event);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[Feature Flag Event]', event);
+  }
+
+  // Send to Sentry when enabled (as breadcrumb for context)
+  addBreadcrumb({
+    category: 'feature_flag',
+    message: eventType,
+    level: isError ? 'error' : 'info',
+    data: sanitizedMetadata,
+  });
+
+  // Send to OpenTelemetry when enabled
+  // Create span for flag evaluation with feature_flag.* attributes
+  const spanId = startSpan(`feature_flag.${metadata.flagKey}`, {
+    'feature_flag.event_type': eventType,
+    'feature_flag.flag_key': metadata.flagKey,
+    'feature_flag.enabled': metadata.enabled,
+    'feature_flag.source': metadata.source,
+    'feature_flag.environment': metadata.environment,
+    'feature_flag.user_role': metadata.userRole || 'unknown',
+    'feature_flag.user_id': metadata.userId || 'anonymous',
+  });
+
+  // End span with appropriate status
+  const status = isError ? SpanStatusCode.ERROR : SpanStatusCode.OK;
+  const spanAttributes: Record<string, string | number | boolean> = {};
+  if (metadata.latencyMs !== undefined) {
+    spanAttributes.latency = metadata.latencyMs;
+  }
+  endSpan(spanId, status, spanAttributes, metadata.errorCode);
+}
