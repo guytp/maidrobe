@@ -1,15 +1,15 @@
 /**
- * Unit Tests for No-Repeat Rules Engine Functions
+ * Unit Tests for get-outfit-recommendations Edge Function
  *
- * This test suite covers the pure rules-engine functions used in the
- * get-outfit-recommendations Edge Function for implementing the no-repeat
- * window feature (Story #364).
+ * This test suite covers the pure functions used in the
+ * get-outfit-recommendations Edge Function.
  *
  * Functions under test:
- * - clampNoRepeatDays: Clamps noRepeatDays to valid range [0, 90]
- * - bucketNoRepeatDays: Privacy-safe bucketing for observability
- * - applyNoRepeatFilter: Filters outfits by "all items recent" rule
- * - applyMinMaxSelection: MIN/MAX selection with fallback logic
+ * - clampNoRepeatDays: Clamps noRepeatDays to valid range [0, 90] (Story #364)
+ * - bucketNoRepeatDays: Privacy-safe bucketing for observability (Story #364)
+ * - applyNoRepeatFilter: Filters outfits by "all items recent" rule (Story #364)
+ * - applyMinMaxSelection: MIN/MAX selection with fallback logic (Story #364)
+ * - parseContextParams: Parses and validates context parameters (Story #365)
  *
  * @module tests/get-outfit-recommendations
  */
@@ -20,8 +20,13 @@ import {
   bucketNoRepeatDays,
   applyNoRepeatFilter,
   applyMinMaxSelection,
+  parseContextParams,
 } from '../supabase/functions/get-outfit-recommendations/index.ts';
 import type { Outfit } from '../supabase/functions/get-outfit-recommendations/types.ts';
+import {
+  DEFAULT_OCCASION,
+  DEFAULT_TEMPERATURE_BAND,
+} from '../supabase/functions/get-outfit-recommendations/types.ts';
 
 // ============================================================================
 // Test Helpers
@@ -1619,4 +1624,481 @@ Deno.test('integration: noRepeatDays clamping flows into bucket correctly', () =
     assertEquals(clamped, tc.expectedClamped, `clamp(${tc.raw}) should be ${tc.expectedClamped}`);
     assertEquals(bucket, tc.expectedBucket, `bucket(${clamped}) should be ${tc.expectedBucket}`);
   }
+});
+
+// ============================================================================
+// parseContextParams Tests (Story #365)
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// Empty Request Body Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: returns defaults for null body', () => {
+  const result = parseContextParams(null);
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for undefined body', () => {
+  const result = parseContextParams(undefined);
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+// ---------------------------------------------------------------------------
+// Missing contextParams Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: returns defaults for empty object body', () => {
+  const result = parseContextParams({});
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for body without contextParams key', () => {
+  const result = parseContextParams({ someOtherField: 'value' });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for body with null contextParams', () => {
+  const result = parseContextParams({ contextParams: null });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for body with undefined contextParams', () => {
+  const result = parseContextParams({ contextParams: undefined });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+// ---------------------------------------------------------------------------
+// Non-Object Body Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: returns defaults for string body', () => {
+  const result = parseContextParams('not an object');
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for number body', () => {
+  const result = parseContextParams(42);
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for boolean body', () => {
+  const result = parseContextParams(true);
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: returns defaults for array body', () => {
+  // Note: arrays are typeof 'object', but don't have contextParams property
+  const result = parseContextParams([1, 2, 3]);
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, false);
+});
+
+// ---------------------------------------------------------------------------
+// Non-Object contextParams Tests
+// ---------------------------------------------------------------------------
+
+Deno.test(
+  'parseContextParams: returns defaults with wasProvided=true for string contextParams',
+  () => {
+    const result = parseContextParams({ contextParams: 'not an object' });
+
+    assertEquals(result.occasion, DEFAULT_OCCASION);
+    assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+    assertEquals(result.wasProvided, true);
+  }
+);
+
+Deno.test(
+  'parseContextParams: returns defaults with wasProvided=true for number contextParams',
+  () => {
+    const result = parseContextParams({ contextParams: 123 });
+
+    assertEquals(result.occasion, DEFAULT_OCCASION);
+    assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+    assertEquals(result.wasProvided, true);
+  }
+);
+
+Deno.test(
+  'parseContextParams: returns defaults with wasProvided=true for boolean contextParams',
+  () => {
+    const result = parseContextParams({ contextParams: false });
+
+    assertEquals(result.occasion, DEFAULT_OCCASION);
+    assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+    assertEquals(result.wasProvided, true);
+  }
+);
+
+Deno.test(
+  'parseContextParams: returns defaults with wasProvided=true for array contextParams',
+  () => {
+    const result = parseContextParams({ contextParams: ['everyday', 'cool'] });
+
+    assertEquals(result.occasion, DEFAULT_OCCASION);
+    assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+    assertEquals(result.wasProvided, true);
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Unknown/Invalid Occasion Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: falls back to default for unknown occasion string', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'unknown_occasion', temperatureBand: 'cool' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'cool');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for numeric occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 42, temperatureBand: 'mild' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'mild');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for null occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: null, temperatureBand: 'warm' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'warm');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for object occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: { type: 'work' }, temperatureBand: 'auto' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'auto');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for empty string occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: '', temperatureBand: 'cool' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'cool');
+  assertEquals(result.wasProvided, true);
+});
+
+// ---------------------------------------------------------------------------
+// Unknown/Invalid TemperatureBand Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: falls back to default for unknown temperatureBand string', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'date', temperatureBand: 'freezing' },
+  });
+
+  assertEquals(result.occasion, 'date');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for numeric temperatureBand', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'weekend', temperatureBand: 25 },
+  });
+
+  assertEquals(result.occasion, 'weekend');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for null temperatureBand', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'event', temperatureBand: null },
+  });
+
+  assertEquals(result.occasion, 'event');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: falls back to default for object temperatureBand', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'work_meeting', temperatureBand: { temp: 'cold' } },
+  });
+
+  assertEquals(result.occasion, 'work_meeting');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+// ---------------------------------------------------------------------------
+// Partial Object Tests (only one field provided)
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: uses default temperatureBand when only occasion provided', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'date' },
+  });
+
+  assertEquals(result.occasion, 'date');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: uses default occasion when only temperatureBand provided', () => {
+  const result = parseContextParams({
+    contextParams: { temperatureBand: 'cool' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, 'cool');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: handles empty contextParams object', () => {
+  const result = parseContextParams({
+    contextParams: {},
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+// ---------------------------------------------------------------------------
+// Valid Complete Object Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: accepts valid everyday occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'everyday', temperatureBand: 'mild' },
+  });
+
+  assertEquals(result.occasion, 'everyday');
+  assertEquals(result.temperatureBand, 'mild');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: accepts valid work_meeting occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'work_meeting', temperatureBand: 'cool' },
+  });
+
+  assertEquals(result.occasion, 'work_meeting');
+  assertEquals(result.temperatureBand, 'cool');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: accepts valid date occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'date', temperatureBand: 'warm' },
+  });
+
+  assertEquals(result.occasion, 'date');
+  assertEquals(result.temperatureBand, 'warm');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: accepts valid weekend occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'weekend', temperatureBand: 'auto' },
+  });
+
+  assertEquals(result.occasion, 'weekend');
+  assertEquals(result.temperatureBand, 'auto');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: accepts valid event occasion', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'event', temperatureBand: 'mild' },
+  });
+
+  assertEquals(result.occasion, 'event');
+  assertEquals(result.temperatureBand, 'mild');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: accepts all valid temperatureBand values', () => {
+  const bands = ['cool', 'mild', 'warm', 'auto'] as const;
+
+  for (const band of bands) {
+    const result = parseContextParams({
+      contextParams: { occasion: 'everyday', temperatureBand: band },
+    });
+
+    assertEquals(result.temperatureBand, band, `Should accept temperatureBand '${band}'`);
+  }
+});
+
+Deno.test('parseContextParams: accepts all valid occasion values', () => {
+  const occasions = ['everyday', 'work_meeting', 'date', 'weekend', 'event'] as const;
+
+  for (const occasion of occasions) {
+    const result = parseContextParams({
+      contextParams: { occasion, temperatureBand: 'auto' },
+    });
+
+    assertEquals(result.occasion, occasion, `Should accept occasion '${occasion}'`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// wasProvided Flag Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: wasProvided is false when body is null', () => {
+  const result = parseContextParams(null);
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: wasProvided is false when contextParams is missing', () => {
+  const result = parseContextParams({ otherField: 123 });
+  assertEquals(result.wasProvided, false);
+});
+
+Deno.test('parseContextParams: wasProvided is true when contextParams is present but empty', () => {
+  const result = parseContextParams({ contextParams: {} });
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: wasProvided is true when contextParams has invalid values', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: 'invalid', temperatureBand: 'invalid' },
+  });
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: wasProvided is true when contextParams is a non-object type', () => {
+  const result = parseContextParams({ contextParams: 'string' });
+  assertEquals(result.wasProvided, true);
+});
+
+// ---------------------------------------------------------------------------
+// Edge Cases and Determinism Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('parseContextParams: is deterministic - same input produces same output', () => {
+  const body = { contextParams: { occasion: 'date', temperatureBand: 'cool' } };
+
+  const result1 = parseContextParams(body);
+  const result2 = parseContextParams(body);
+  const result3 = parseContextParams(body);
+
+  assertEquals(result1.occasion, result2.occasion);
+  assertEquals(result2.occasion, result3.occasion);
+  assertEquals(result1.temperatureBand, result2.temperatureBand);
+  assertEquals(result1.wasProvided, result2.wasProvided);
+});
+
+Deno.test('parseContextParams: is pure - does not modify input object', () => {
+  const body = {
+    contextParams: { occasion: 'weekend', temperatureBand: 'warm' },
+    otherField: 'preserved',
+  };
+
+  const originalContextParams = { ...body.contextParams };
+  const originalOtherField = body.otherField;
+
+  parseContextParams(body);
+
+  assertEquals(body.contextParams.occasion, originalContextParams.occasion);
+  assertEquals(body.contextParams.temperatureBand, originalContextParams.temperatureBand);
+  assertEquals(body.otherField, originalOtherField);
+});
+
+Deno.test('parseContextParams: ignores extra fields in contextParams', () => {
+  const result = parseContextParams({
+    contextParams: {
+      occasion: 'event',
+      temperatureBand: 'mild',
+      extraField: 'ignored',
+      anotherField: 123,
+    },
+  });
+
+  assertEquals(result.occasion, 'event');
+  assertEquals(result.temperatureBand, 'mild');
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: handles deeply nested invalid structures gracefully', () => {
+  const result = parseContextParams({
+    contextParams: {
+      occasion: { nested: { deep: 'value' } },
+      temperatureBand: [['array', 'of', 'arrays']],
+    },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
+  assertEquals(result.wasProvided, true);
+});
+
+Deno.test('parseContextParams: case-sensitive occasion validation', () => {
+  // Occasion values should be exact matches (case-sensitive)
+  const result = parseContextParams({
+    contextParams: { occasion: 'EVERYDAY', temperatureBand: 'cool' },
+  });
+
+  assertEquals(result.occasion, DEFAULT_OCCASION, 'EVERYDAY should not match everyday');
+  assertEquals(result.temperatureBand, 'cool');
+});
+
+Deno.test('parseContextParams: case-sensitive temperatureBand validation', () => {
+  // TemperatureBand values should be exact matches (case-sensitive)
+  const result = parseContextParams({
+    contextParams: { occasion: 'date', temperatureBand: 'COOL' },
+  });
+
+  assertEquals(result.occasion, 'date');
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND, 'COOL should not match cool');
+});
+
+Deno.test('parseContextParams: handles whitespace in string values', () => {
+  const result = parseContextParams({
+    contextParams: { occasion: ' everyday ', temperatureBand: ' cool ' },
+  });
+
+  // Whitespace-padded values should not match (exact match required)
+  assertEquals(result.occasion, DEFAULT_OCCASION);
+  assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
 });
