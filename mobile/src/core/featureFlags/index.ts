@@ -62,7 +62,7 @@
  * @module core/featureFlags
  */
 
-import { getFlagConfig, getAppEnvironment, type AppEnvironment } from './config';
+import { getFlagConfig } from './config';
 
 /**
  * Feature flag check result with version compatibility information.
