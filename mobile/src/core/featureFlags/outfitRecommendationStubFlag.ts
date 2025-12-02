@@ -25,6 +25,33 @@
  * Once a flag value is determined for a session, it remains stable.
  * No mid-session flip-flopping due to network conditions or retries.
  *
+ * STARTUP EVALUATION BEHAVIOR:
+ * The useOutfitRecommendationStubFlag hook implements a two-phase startup:
+ *
+ * Phase 1 - Cache Initialization:
+ *   On mount, the hook loads any persisted value from AsyncStorage into the
+ *   session cache. This provides immediate UI decisions based on the last
+ *   known value while waiting for the server.
+ *
+ * Phase 2 - Background Refresh:
+ *   After cache initialization, the hook triggers a background refresh to
+ *   fetch the latest value from the server. During this refresh:
+ *   - resetSessionCache() is called to clear the session cache
+ *   - evaluateOutfitRecommendationStubFlag() fetches a fresh value
+ *
+ *   IMPORTANT: There is a brief window (typically <500ms) between these calls
+ *   where synchronous accessors behave as follows:
+ *   - getOutfitRecommendationStubFlagSync() returns null
+ *   - isOutfitRecommendationStubFlagEvaluated() returns false
+ *   - canAccessRecommendations() returns { allowed: false, reason: 'flag_not_evaluated' }
+ *
+ *   This window does NOT affect consumers of the React hook, as the hook
+ *   maintains its own local state and only updates after evaluation completes.
+ *
+ *   For imperative code that uses synchronous accessors during startup:
+ *   - Use getOutfitRecommendationStubFlagWithFallback() for a value that never returns null
+ *   - Or check the source field to detect fallback values and handle accordingly
+ *
  * @module core/featureFlags/outfitRecommendationStubFlag
  * @see Story #366 - Outfit Recommendation Engine Feature Flag and Controlled Rollout
  */
@@ -704,7 +731,14 @@ async function performEvaluation(
  * has been called at least once in the current session. Call the async version
  * early in the app lifecycle to populate the session cache.
  *
- * @returns Cached result or null if not yet evaluated
+ * STARTUP BEHAVIOR:
+ * During the hook's background refresh phase (see module docs), this function
+ * temporarily returns null even if a cached value was previously loaded from
+ * AsyncStorage. This window typically lasts <500ms while the server fetch
+ * completes. If your code cannot handle null during startup, use
+ * getOutfitRecommendationStubFlagWithFallback() instead.
+ *
+ * @returns Cached result or null if not yet evaluated (or during background refresh)
  *
  * @example
  * ```typescript
@@ -815,6 +849,20 @@ export interface NavigationGuardResult {
  * - If flag is evaluated and disabled: returns { allowed: false }
  * - If flag is not yet evaluated: returns { allowed: false } (safe default)
  *
+ * STARTUP BEHAVIOR:
+ * During the hook's background refresh phase (see module docs), this function
+ * returns { allowed: false, reason: 'flag_not_evaluated' } even if a cached
+ * value was previously available. This is a safe default that prevents access
+ * during the brief window (<500ms) while fresh evaluation completes.
+ *
+ * This conservative approach ensures that:
+ * 1. No false positives occur if the server-side flag has been disabled
+ * 2. Users don't see features flash on/off during startup
+ *
+ * If your use case requires allowing access during this window based on the
+ * last known value, consider using getOutfitRecommendationStubFlagWithFallback()
+ * and implementing your own guard logic.
+ *
  * This function does NOT trigger evaluation - it only checks the current
  * session cache. Ensure evaluateOutfitRecommendationStubFlag() has been
  * called earlier in the app lifecycle (e.g., after auth restore).
@@ -879,14 +927,34 @@ export function canAccessRecommendations(): NavigationGuardResult {
 }
 
 // ============================================================================
-// Session Cache Reset (for testing)
+// Session Cache Reset
 // ============================================================================
 
 /**
- * Resets the session cache.
+ * Resets the session cache to force re-evaluation.
  *
- * This is primarily for testing purposes. In production, the session cache
- * is automatically cleared on logout via clearOutfitRecommendationStubFlagCache().
+ * This function clears both the session cache and any in-progress evaluation,
+ * allowing a fresh evaluation to occur on the next call to
+ * evaluateOutfitRecommendationStubFlag().
+ *
+ * USAGE CONTEXTS:
+ * 1. Testing: Reset state between test cases
+ * 2. Hook background refresh: Called by useOutfitRecommendationStubFlag to
+ *    force a fresh server fetch after loading from AsyncStorage cache
+ * 3. Manual refresh: Called by the hook's refresh() function
+ *
+ * IMPACT ON SYNCHRONOUS ACCESSORS:
+ * After calling this function and before evaluation completes:
+ * - getOutfitRecommendationStubFlagSync() returns null
+ * - isOutfitRecommendationStubFlagEvaluated() returns false
+ * - canAccessRecommendations() returns { allowed: false, reason: 'flag_not_evaluated' }
+ *
+ * This is intentional - it creates a brief window where synchronous accessors
+ * report no cached value, ensuring the next evaluation fetches fresh data.
+ * React hook consumers are unaffected as the hook maintains local state.
+ *
+ * For code that cannot tolerate null values during this window, use
+ * getOutfitRecommendationStubFlagWithFallback() instead.
  *
  * @internal
  */
@@ -926,6 +994,26 @@ export interface UseOutfitRecommendationStubFlagResult {
  *
  * The hook is designed for use in components that need to gate UI based on
  * the flag. It handles all the complexity of user context and evaluation.
+ *
+ * TWO-PHASE STARTUP:
+ * The hook implements a two-phase initialization for optimal UX:
+ *
+ * Phase 1 - Cache Initialization (immediate):
+ *   Loads persisted flag value from AsyncStorage into session cache.
+ *   If found, the hook immediately returns this cached value (isLoading=false).
+ *   This enables instant UI decisions without waiting for the network.
+ *
+ * Phase 2 - Background Refresh (async):
+ *   After cache initialization, triggers a server fetch for fresh data.
+ *   During this phase:
+ *   - The hook's local state is preserved (no UI flicker)
+ *   - resetSessionCache() clears the module-level cache
+ *   - evaluateOutfitRecommendationStubFlag() fetches from server
+ *   - On completion, the hook updates its state with the fresh value
+ *
+ *   Note: Synchronous accessors (getOutfitRecommendationStubFlagSync, etc.)
+ *   return null during this refresh window. This does NOT affect hook consumers
+ *   because the hook maintains its own React state.
  *
  * @returns Hook result with flag state, loading status, and refresh function
  *
