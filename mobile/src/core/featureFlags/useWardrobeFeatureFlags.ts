@@ -217,7 +217,7 @@ export function useWardrobeFeatureFlags(): UseWardrobeFeatureFlagsResult {
 
   const { data, isLoading, error, isStale } = useQuery({
     queryKey: WARDROBE_FEATURE_FLAGS_QUERY_KEY,
-    queryFn: fetchWardrobeFeatureFlags,
+    queryFn: () => fetchWardrobeFeatureFlags(),
     // Cache configuration
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
@@ -261,7 +261,7 @@ export async function prefetchWardrobeFeatureFlags(
 ): Promise<void> {
   await queryClient.prefetchQuery({
     queryKey: WARDROBE_FEATURE_FLAGS_QUERY_KEY,
-    queryFn: fetchWardrobeFeatureFlags,
+    queryFn: () => fetchWardrobeFeatureFlags(),
     staleTime: 5 * 60 * 1000,
   });
 }
