@@ -21,12 +21,16 @@
  * Custom update message (default: generic message):
  * - EXPO_PUBLIC_FEATURE_UPDATE_MESSAGE
  *
+ * App environment (for flag evaluation):
+ * - EXPO_PUBLIC_ENVIRONMENT: 'development' | 'staging' | 'production'
+ *
  * WARDROBE FEATURE FLAGS (fetched from server):
  * These flags are evaluated server-side and fetched via the get-feature-flags
  * Edge Function. The client uses them for UI adjustments only - the server
  * always makes the authoritative decision for backend operations.
  * - wardrobe.imageCleanup: Controls whether image cleanup UI elements are shown
  * - wardrobe.aiAttributes: Controls whether AI attributes UI elements are shown
+ * - recommendations.outfitRecommendationStub: Controls outfit recommendation rollout
  *
  * MIGRATION TO UNLEASH:
  * When migrating to Unleash, this module can be replaced with Unleash SDK calls
@@ -128,4 +132,41 @@ export function getFlagConfig(flagName: FeatureFlagName): FlagConfig {
     minVersion,
     message,
   };
+}
+
+/**
+ * App environment for feature flag evaluation.
+ *
+ * Used to apply environment-specific defaults and targeting rules.
+ */
+export type AppEnvironment = 'development' | 'staging' | 'production';
+
+/**
+ * Gets the current app environment.
+ *
+ * Reads from EXPO_PUBLIC_ENVIRONMENT environment variable.
+ * Defaults to 'development' if not set or invalid.
+ *
+ * Environment-specific behaviour for outfit_recommendation_stub:
+ * - development: ON for all users by default
+ * - staging: ON for internal testers, OFF for others
+ * - production: OFF for all users by default
+ *
+ * @returns The current app environment
+ *
+ * @example
+ * ```typescript
+ * const env = getAppEnvironment();
+ * // env = 'development' | 'staging' | 'production'
+ * ```
+ */
+export function getAppEnvironment(): AppEnvironment {
+  const env = process.env.EXPO_PUBLIC_ENVIRONMENT;
+
+  if (env === 'production' || env === 'staging' || env === 'development') {
+    return env;
+  }
+
+  // Default to development for local development and testing
+  return 'development';
 }

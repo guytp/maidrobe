@@ -12,9 +12,42 @@ import { z } from 'zod';
  *
  * FIELD MAPPING:
  * - has_onboarded (DB) -> hasOnboarded (app)
+ * - role (DB) -> role (app)
  * - created_at (DB) -> createdAt (app)
  * - updated_at (DB) -> updatedAt (app)
  */
+
+/**
+ * User role/cohort for feature flag targeting.
+ *
+ * Used to control access to features during controlled rollouts:
+ * - 'internal': Maidrobe staff and internal testers
+ * - 'beta': Selected early-access external users
+ * - 'standard': All other users (default)
+ *
+ * @see Story #366 for outfit recommendation rollout targeting
+ */
+export type UserRole = 'internal' | 'beta' | 'standard';
+
+/**
+ * Valid user roles for validation.
+ */
+export const VALID_USER_ROLES: readonly UserRole[] = ['internal', 'beta', 'standard'] as const;
+
+/**
+ * Default user role assigned to new users.
+ */
+export const DEFAULT_USER_ROLE: UserRole = 'standard';
+
+/**
+ * Zod schema for user role validation.
+ *
+ * Validates that a role value is one of the allowed cohort types.
+ * Defaults to 'standard' if the value is missing or invalid.
+ */
+export const UserRoleSchema = z
+  .enum(['internal', 'beta', 'standard'])
+  .catch('standard');
 
 /**
  * Zod schema for validating profile data from Supabase.
@@ -27,6 +60,7 @@ import { z } from 'zod';
  * Validation rules:
  * - id: Must be a valid UUID string
  * - has_onboarded: Must be a boolean
+ * - role: Must be 'internal', 'beta', or 'standard' (defaults to 'standard')
  * - created_at: Must be a string (ISO 8601 timestamp from Postgres)
  * - updated_at: Must be a string (ISO 8601 timestamp from Postgres)
  *
@@ -42,6 +76,7 @@ import { z } from 'zod';
 export const ProfileRowSchema = z.object({
   id: z.string().uuid(),
   has_onboarded: z.boolean(),
+  role: UserRoleSchema.default('standard'),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -68,6 +103,7 @@ export type ProfileRow = z.infer<typeof ProfileRowSchema>;
  * const profile: Profile = {
  *   id: 'user-uuid',
  *   hasOnboarded: true,
+ *   role: 'standard',
  *   createdAt: '2024-01-01T00:00:00Z',
  *   updatedAt: '2024-01-02T00:00:00Z',
  * };
@@ -78,6 +114,8 @@ export interface Profile {
   id: string;
   /** Whether the user has completed onboarding */
   hasOnboarded: boolean;
+  /** User role/cohort for feature flag targeting */
+  role: UserRole;
   /** Timestamp when profile was created */
   createdAt: string;
   /** Timestamp when profile was last updated */
@@ -99,12 +137,14 @@ export interface Profile {
  * const { data } = await supabase.from('profiles').select('*').single();
  * const profile = mapProfileRowToProfile(data);
  * // profile.hasOnboarded (camelCase) instead of data.has_onboarded
+ * // profile.role for feature flag cohort targeting
  * ```
  */
 export function mapProfileRowToProfile(row: ProfileRow): Profile {
   return {
     id: row.id,
     hasOnboarded: row.has_onboarded,
+    role: row.role,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

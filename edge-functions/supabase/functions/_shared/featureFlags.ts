@@ -52,6 +52,21 @@
  */
 
 /**
+ * User role/cohort for feature flag targeting.
+ *
+ * Used to control access to features during controlled rollouts:
+ * - 'internal': Maidrobe staff and internal testers
+ * - 'beta': Selected early-access external users
+ * - 'standard': All other users (default)
+ */
+export type UserRole = 'internal' | 'beta' | 'standard';
+
+/**
+ * Environment names for flag evaluation.
+ */
+export type FlagEnvironment = 'development' | 'staging' | 'production';
+
+/**
  * Wardrobe feature flag configuration.
  *
  * Contains the evaluated state of all wardrobe-related feature flags.
@@ -71,6 +86,17 @@ export interface WardrobeFeatureFlags {
    * and leave items without AI-detected attributes.
    */
   wardrobe_ai_attributes_enabled: boolean;
+
+  /**
+   * Whether the outfit recommendation stub is enabled for the user.
+   * Evaluation considers environment and user cohort/role.
+   *
+   * Environment-specific defaults:
+   * - development: ON for all users
+   * - staging: ON for internal, OFF for others
+   * - production: OFF for all (explicit config required)
+   */
+  outfit_recommendation_stub_enabled: boolean;
 }
 
 /**
@@ -147,6 +173,119 @@ function evaluateBooleanFlag(envVarName: string): boolean {
 }
 
 /**
+ * Gets the current environment from environment variables.
+ *
+ * @returns The current environment name (defaults to 'development')
+ */
+function getEnvironment(): FlagEnvironment {
+  const env = Deno.env.get('ENVIRONMENT');
+  if (env === 'production' || env === 'staging' || env === 'development') {
+    return env;
+  }
+  return 'development';
+}
+
+/**
+ * Validates a user role string.
+ *
+ * @param role - The role string to validate
+ * @returns Valid UserRole or 'standard' as default
+ */
+function validateUserRole(role: string | undefined): UserRole {
+  if (role === 'internal' || role === 'beta' || role === 'standard') {
+    return role;
+  }
+  return 'standard';
+}
+
+/**
+ * Context for evaluating user-specific feature flags.
+ */
+export interface UserFlagContext {
+  /** User's role/cohort for targeting */
+  role?: UserRole;
+  /** User ID (for logging, not targeting) */
+  userId?: string;
+}
+
+/**
+ * Evaluates the outfit_recommendation_stub flag with environment and cohort targeting.
+ *
+ * EVALUATION LOGIC:
+ *
+ * 1. Check explicit configuration (OUTFIT_RECOMMENDATION_STUB_ENABLED env var)
+ *    - If explicitly set to 'true' or 'false', use that value
+ *    - Explicit OFF always honoured regardless of environment/cohort
+ *
+ * 2. If not explicitly configured, apply environment-specific defaults:
+ *    - Development: ON for all users (unblock development)
+ *    - Staging: ON for internal testers, OFF for others
+ *    - Production: OFF for all users (requires explicit enablement)
+ *
+ * 3. Cohort targeting (when explicitly configured per cohort):
+ *    - OUTFIT_RECOMMENDATION_STUB_INTERNAL_ENABLED: Override for internal users
+ *    - OUTFIT_RECOMMENDATION_STUB_BETA_ENABLED: Override for beta users
+ *
+ * @param context - User context for cohort-based targeting
+ * @returns Whether the flag is enabled for this user
+ */
+export function evaluateOutfitRecommendationStubFlag(context?: UserFlagContext): boolean {
+  const environment = getEnvironment();
+  const userRole = validateUserRole(context?.role);
+
+  // Check for cohort-specific overrides first
+  const cohortOverrideEnvVar = `OUTFIT_RECOMMENDATION_STUB_${userRole.toUpperCase()}_ENABLED`;
+  const cohortOverride = Deno.env.get(cohortOverrideEnvVar);
+
+  if (cohortOverride !== undefined && cohortOverride !== '') {
+    const enabled = cohortOverride === 'true';
+    logFlagEvaluation(`${cohortOverrideEnvVar} (cohort: ${userRole})`, enabled, true);
+    return enabled;
+  }
+
+  // Check for global explicit configuration
+  const globalValue = Deno.env.get('OUTFIT_RECOMMENDATION_STUB_ENABLED');
+
+  if (globalValue !== undefined && globalValue !== '') {
+    const enabled = globalValue === 'true';
+    logFlagEvaluation('OUTFIT_RECOMMENDATION_STUB_ENABLED', enabled, true);
+    return enabled;
+  }
+
+  // Apply environment-specific defaults
+  let defaultEnabled: boolean;
+
+  switch (environment) {
+    case 'development':
+      // Development: ON for all users to unblock local development
+      defaultEnabled = true;
+      break;
+
+    case 'staging':
+      // Staging: ON for internal testers only
+      defaultEnabled = userRole === 'internal';
+      break;
+
+    case 'production':
+      // Production: OFF for all by default (explicit config required)
+      defaultEnabled = false;
+      break;
+
+    default:
+      // Fallback to safe default (OFF)
+      defaultEnabled = false;
+  }
+
+  logFlagEvaluation(
+    `OUTFIT_RECOMMENDATION_STUB (env: ${environment}, role: ${userRole})`,
+    defaultEnabled,
+    false
+  );
+
+  return defaultEnabled;
+}
+
+/**
  * Retrieves the current state of wardrobe feature flags.
  *
  * This function evaluates all wardrobe-related feature flags from environment
@@ -172,12 +311,14 @@ function evaluateBooleanFlag(envVarName: string): boolean {
  * - Missing env vars don't accidentally enable expensive operations
  * - Features can be explicitly enabled per environment
  *
+ * @param userContext - Optional user context for cohort-based flag targeting
  * @returns Object containing all wardrobe feature flag states
  */
-export function getWardrobeFeatureFlags(): WardrobeFeatureFlags {
+export function getWardrobeFeatureFlags(userContext?: UserFlagContext): WardrobeFeatureFlags {
   return {
     wardrobe_image_cleanup_enabled: evaluateBooleanFlag('WARDROBE_IMAGE_CLEANUP_ENABLED'),
     wardrobe_ai_attributes_enabled: evaluateBooleanFlag('WARDROBE_AI_ATTRIBUTES_ENABLED'),
+    outfit_recommendation_stub_enabled: evaluateOutfitRecommendationStubFlag(userContext),
   };
 }
 
@@ -203,4 +344,17 @@ export function isImageCleanupEnabled(): boolean {
  */
 export function isAIAttributesEnabled(): boolean {
   return evaluateBooleanFlag('WARDROBE_AI_ATTRIBUTES_ENABLED');
+}
+
+/**
+ * Checks if outfit recommendation stub is enabled for a user.
+ *
+ * Convenience function for checking the outfit recommendation stub flag
+ * with user context for cohort-based targeting.
+ *
+ * @param context - User context for cohort-based targeting
+ * @returns true if outfit recommendation stub is enabled for this user
+ */
+export function isOutfitRecommendationStubEnabled(context?: UserFlagContext): boolean {
+  return evaluateOutfitRecommendationStubFlag(context);
 }

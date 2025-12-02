@@ -45,7 +45,12 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-import { getWardrobeFeatureFlags, type WardrobeFeatureFlags } from '../_shared/featureFlags.ts';
+import {
+  getWardrobeFeatureFlags,
+  type WardrobeFeatureFlags,
+  type UserFlagContext,
+  type UserRole,
+} from '../_shared/featureFlags.ts';
 import {
   createLogger,
   getOrGenerateCorrelationId,
@@ -147,10 +152,46 @@ function classifyError(error: unknown): string {
 }
 
 /**
+ * Extracts user context from request URL query parameters.
+ *
+ * Query parameters:
+ * - role: User's role/cohort ('internal', 'beta', 'standard')
+ * - user_id: User ID for logging (not used for targeting)
+ *
+ * @param req - The incoming HTTP request
+ * @returns User context for flag evaluation
+ */
+function extractUserContext(req: Request): UserFlagContext {
+  const url = new URL(req.url);
+  const roleParam = url.searchParams.get('role');
+  const userIdParam = url.searchParams.get('user_id');
+
+  // Validate role parameter
+  let role: UserRole = 'standard';
+  if (roleParam === 'internal' || roleParam === 'beta' || roleParam === 'standard') {
+    role = roleParam;
+  }
+
+  return {
+    role,
+    userId: userIdParam ?? undefined,
+  };
+}
+
+/**
  * Main handler for feature flag requests.
  *
  * Supports GET requests only. Returns the current state of all wardrobe
  * feature flags for client-side UI adjustments.
+ *
+ * Query parameters (optional):
+ * - role: User's role/cohort for cohort-based flag targeting
+ * - user_id: User ID for logging purposes (not used for targeting)
+ *
+ * @example
+ * GET /get-feature-flags
+ * GET /get-feature-flags?role=internal
+ * GET /get-feature-flags?role=beta&user_id=user-123
  */
 export function handler(req: Request): Response {
   // Handle CORS preflight (no logging needed for preflight)
@@ -171,12 +212,17 @@ export function handler(req: Request): Response {
   const environment = getEnvironment();
   const logger = createLogger(FUNCTION_NAME, correlationId, environment);
 
+  // Extract user context from query parameters for cohort-based targeting
+  const userContext = extractUserContext(req);
+
   // Log request received with environment context for observability filtering
   // User story #241: Environment tagging enables separation of feature flag
   // requests by environment (development/staging/production) in dashboards
   logger.info('request_received', {
     metadata: {
       environment,
+      user_role: userContext.role,
+      has_user_id: !!userContext.userId,
     },
   });
 
@@ -190,17 +236,19 @@ export function handler(req: Request): Response {
   }
 
   try {
-    // Evaluate all wardrobe feature flags
-    const flags = getWardrobeFeatureFlags();
+    // Evaluate all wardrobe feature flags with user context
+    const flags = getWardrobeFeatureFlags(userContext);
     const timestamp = new Date().toISOString();
 
     logger.info('flags_retrieved', {
       feature_flags: {
         wardrobe_image_cleanup_enabled: flags.wardrobe_image_cleanup_enabled,
         wardrobe_ai_attributes_enabled: flags.wardrobe_ai_attributes_enabled,
+        outfit_recommendation_stub_enabled: flags.outfit_recommendation_stub_enabled,
       },
       metadata: {
         environment,
+        user_role: userContext.role,
       },
     });
 
@@ -222,11 +270,12 @@ export function handler(req: Request): Response {
       error_message: errorMessage,
       metadata: {
         environment,
+        user_role: userContext.role,
         fallback_applied: true,
       },
     });
 
-    // On error, return safe defaults (both flags false) with defaults_used marker
+    // On error, return safe defaults (all flags false) with defaults_used marker
     // This ensures the client doesn't try to use features that may not be available
     // while allowing clients and monitoring to distinguish fallback from real values
     return jsonResponse(
@@ -235,6 +284,7 @@ export function handler(req: Request): Response {
         flags: {
           wardrobe_image_cleanup_enabled: false,
           wardrobe_ai_attributes_enabled: false,
+          outfit_recommendation_stub_enabled: false,
         },
         timestamp: new Date().toISOString(),
         defaults_used: true,
