@@ -28,6 +28,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
 
 /**
+ * User role/cohort for feature flag targeting.
+ *
+ * Used to control access to features during controlled rollouts:
+ * - 'internal': Maidrobe staff and internal testers
+ * - 'beta': Selected early-access external users
+ * - 'standard': All other users (default)
+ */
+export type UserRole = 'internal' | 'beta' | 'standard';
+
+/**
  * Wardrobe feature flags structure returned by the server.
  */
 export interface WardrobeFeatureFlags {
@@ -43,6 +53,17 @@ export interface WardrobeFeatureFlags {
    * "detecting attributes" status indicators.
    */
   wardrobe_ai_attributes_enabled: boolean;
+
+  /**
+   * Whether the outfit recommendation stub is enabled for the user.
+   * Evaluation considers environment and user cohort/role.
+   *
+   * Environment-specific defaults (when service unavailable):
+   * - development: ON for all users
+   * - staging: ON for internal, OFF for others
+   * - production: OFF for all
+   */
+  outfit_recommendation_stub_enabled: boolean;
 }
 
 /**
@@ -64,11 +85,16 @@ export const WARDROBE_FEATURE_FLAGS_QUERY_KEY = ['wardrobe', 'featureFlags'] as 
 
 /**
  * Safe default flags when server is unreachable or returns an error.
- * Both flags are false to ensure features are hidden when availability is uncertain.
+ * All flags are false to ensure features are hidden when availability is uncertain.
+ *
+ * Note: The outfit_recommendation_stub flag has environment-specific fallback
+ * logic that is handled separately in the dedicated evaluation helper.
+ * This default is used only as a last resort when all other fallbacks fail.
  */
 const SAFE_DEFAULT_FLAGS: WardrobeFeatureFlags = {
   wardrobe_image_cleanup_enabled: false,
   wardrobe_ai_attributes_enabled: false,
+  outfit_recommendation_stub_enabled: false,
 };
 
 /**

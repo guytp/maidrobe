@@ -62,7 +62,7 @@
  * @module core/featureFlags
  */
 
-import { getFlagConfig } from './config';
+import { getFlagConfig, getAppEnvironment, type AppEnvironment } from './config';
 
 /**
  * Feature flag check result with version compatibility information.
@@ -94,10 +94,13 @@ export interface FeatureFlagResult {
  * - capture.cropScreen: Crop & adjust experience for wardrobe item images
  * - recommendations.itemResolution: Item resolution with thumbnails for outfit suggestions
  * - recommendations.contextSelector: Context selector UI for occasion and temperature band
+ * - recommendations.outfitRecommendationStub: Outfit recommendation engine rollout flag
+ *   (controlled via server-side evaluation with cohort targeting)
  *
  * Server-side wardrobe flags (fetched remotely, cannot be overridden locally):
  * - wardrobe.imageCleanup: Whether image cleanup/background removal is enabled
  * - wardrobe.aiAttributes: Whether AI attribute detection is enabled
+ * - recommendations.outfitRecommendationStub: Outfit recommendation stub with cohort targeting
  */
 export type FeatureFlagName =
   | 'auth.login'
@@ -110,7 +113,8 @@ export type FeatureFlagName =
   | 'wardrobe.imageCleanup'
   | 'wardrobe.aiAttributes'
   | 'recommendations.itemResolution'
-  | 'recommendations.contextSelector';
+  | 'recommendations.contextSelector'
+  | 'recommendations.outfitRecommendationStub';
 
 /**
  * Client version information for compatibility checks.
@@ -378,4 +382,8 @@ export {
   WARDROBE_FEATURE_FLAGS_QUERY_KEY,
   type WardrobeFeatureFlags,
   type UseWardrobeFeatureFlagsResult,
+  type UserRole,
 } from './useWardrobeFeatureFlags';
+
+// Re-export environment utilities
+export { getAppEnvironment, type AppEnvironment } from './config';
