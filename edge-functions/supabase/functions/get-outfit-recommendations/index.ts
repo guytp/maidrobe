@@ -116,7 +116,7 @@ const OCCASION_CONTEXT_PHRASES: Record<OccasionKey, string> = {
   work_meeting: 'Smart-casual for a client meeting.',
   date: 'Relaxed but polished for a date or drinks.',
   weekend: 'Effortlessly casual for weekend plans.',
-  event: 'Dressed to impress for a special occasion.',
+  event: 'Dressed-up look for a party or event.',
 };
 
 // ============================================================================
