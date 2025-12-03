@@ -14,7 +14,10 @@ import {
   AddPendingWearEventInput,
   PendingWearEventsSlice,
 } from '../../src/features/wearHistory/store/pendingWearEventsSlice';
-import { PendingWearEvent } from '../../src/features/wearHistory/types';
+import {
+  PendingWearEvent,
+  MAX_PENDING_WEAR_EVENTS,
+} from '../../src/features/wearHistory/types';
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -343,6 +346,214 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
         store.getState().addPendingWearEvent(createEventInput({ source: 'imported' }));
         expect(store.getState().pendingEvents[0].source).toBe('imported');
+      });
+    });
+
+    describe('Maximum Queue Size Enforcement', () => {
+      it('should keep all events when at exactly MAX_PENDING_WEAR_EVENTS', () => {
+        const store = createTestStore();
+
+        // Add exactly MAX events
+        for (let i = 0; i < MAX_PENDING_WEAR_EVENTS; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+          }));
+        }
+
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+      });
+
+      it('should evict oldest event when exceeding MAX_PENDING_WEAR_EVENTS by one', () => {
+        const store = createTestStore();
+
+        // Store original toISOString before mocking
+        const originalToISOString = Date.prototype.toISOString;
+        let mockTime = new Date('2024-01-01T00:00:00.000Z').getTime();
+
+        // Override toISOString for controlled timestamps (use original to avoid recursion)
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function (this: Date) {
+          return originalToISOString.call(new Date(mockTime));
+        });
+
+        // Add MAX events with incrementing timestamps
+        for (let i = 0; i < MAX_PENDING_WEAR_EVENTS; i++) {
+          mockTime = new Date('2024-01-01T00:00:00.000Z').getTime() + i * 1000; // 1 second apart
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+          }));
+        }
+
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+
+        // The first event should be outfit-0
+        const hasOutfit0Before = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-0');
+        expect(hasOutfit0Before).toBe(true);
+
+        // Add one more event (the newest)
+        mockTime = new Date('2024-01-01T00:00:00.000Z').getTime() + MAX_PENDING_WEAR_EVENTS * 1000;
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-new',
+          wornDate: '2024-12-31',
+        }));
+
+        // Should still be at MAX
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+
+        // The oldest event (outfit-0) should have been evicted
+        const hasOutfit0After = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-0');
+        expect(hasOutfit0After).toBe(false);
+
+        // The new event should be present
+        const hasNewOutfit = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-new');
+        expect(hasNewOutfit).toBe(true);
+
+        // Restore Date
+        jest.restoreAllMocks();
+      });
+
+      it('should never exceed MAX_PENDING_WEAR_EVENTS regardless of how many events are added', () => {
+        const store = createTestStore();
+
+        // Add significantly more events than the limit
+        const totalEventsToAdd = MAX_PENDING_WEAR_EVENTS + 20;
+
+        for (let i = 0; i < totalEventsToAdd; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+          }));
+
+          // Verify at each step that we never exceed the limit
+          expect(store.getState().pendingEvents.length).toBeLessThanOrEqual(MAX_PENDING_WEAR_EVENTS);
+        }
+
+        // Final state should be exactly at the limit
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+      });
+
+      it('should keep newest events and evict oldest based on createdAt timestamp', () => {
+        const store = createTestStore();
+
+        // Store original toISOString before mocking
+        const originalToISOString = Date.prototype.toISOString;
+        const baseTime = new Date('2024-01-01T00:00:00.000Z').getTime();
+
+        // Mock toISOString to return controlled timestamps (use original to avoid recursion)
+        let callCount = 0;
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          const timestamp = new Date(baseTime + callCount * 60000); // 1 minute apart
+          callCount++;
+          return originalToISOString.call(timestamp);
+        });
+
+        // Add MAX + 5 events
+        const totalEvents = MAX_PENDING_WEAR_EVENTS + 5;
+        for (let i = 0; i < totalEvents; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+          }));
+        }
+
+        jest.restoreAllMocks();
+
+        // Should have exactly MAX events
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+
+        // The first 5 events (outfit-0 through outfit-4) should have been evicted
+        for (let i = 0; i < 5; i++) {
+          const hasOldEvent = store.getState().pendingEvents.some(e => e.outfitId === `outfit-${i}`);
+          expect(hasOldEvent).toBe(false);
+        }
+
+        // Events outfit-5 through outfit-(MAX+4) should still be present
+        for (let i = 5; i < totalEvents; i++) {
+          const hasEvent = store.getState().pendingEvents.some(e => e.outfitId === `outfit-${i}`);
+          expect(hasEvent).toBe(true);
+        }
+      });
+
+      it('should handle eviction correctly when deduplication reduces count before limit check', () => {
+        const store = createTestStore();
+
+        // Add MAX-1 events
+        for (let i = 0; i < MAX_PENDING_WEAR_EVENTS - 1; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+          }));
+        }
+
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS - 1);
+
+        // Add a duplicate (same outfitId + wornDate as outfit-0)
+        // This should replace, not add, so count stays at MAX-1
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-0',
+          wornDate: '2024-01-01',
+          context: 'Updated context',
+        }));
+
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS - 1);
+
+        // Add one more new event to reach exactly MAX
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-new',
+          wornDate: '2024-12-31',
+        }));
+
+        expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+      });
+
+      it('should verify MAX_PENDING_WEAR_EVENTS constant value is reasonable', () => {
+        // This test documents the expected configuration value
+        // If this fails, it indicates the constant has changed and tests may need updating
+        expect(MAX_PENDING_WEAR_EVENTS).toBe(50);
+        expect(MAX_PENDING_WEAR_EVENTS).toBeGreaterThan(0);
+        expect(MAX_PENDING_WEAR_EVENTS).toBeLessThanOrEqual(1000); // Reasonable upper bound
+      });
+
+      it('should preserve event data integrity during eviction', () => {
+        const store = createTestStore();
+
+        // Store original toISOString before mocking
+        const originalToISOString = Date.prototype.toISOString;
+        let mockTime = new Date('2024-01-01T00:00:00.000Z').getTime();
+
+        // Mock timestamps for deterministic ordering (use original to avoid recursion)
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          const timestamp = new Date(mockTime);
+          mockTime += 1000;
+          return originalToISOString.call(timestamp);
+        });
+
+        // Add MAX + 1 events with specific data
+        for (let i = 0; i <= MAX_PENDING_WEAR_EVENTS; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-${i}`,
+            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+            itemIds: [`item-${i}-a`, `item-${i}-b`],
+            context: `Context for outfit ${i}`,
+            source: 'ai_recommendation',
+          }));
+        }
+
+        jest.restoreAllMocks();
+
+        // Verify the remaining events have correct data structure
+        const events = store.getState().pendingEvents;
+        expect(events).toHaveLength(MAX_PENDING_WEAR_EVENTS);
+
+        // Check a surviving event has all its data intact
+        const lastEvent = events.find(e => e.outfitId === `outfit-${MAX_PENDING_WEAR_EVENTS}`);
+        expect(lastEvent).toBeDefined();
+        expect(lastEvent?.itemIds).toEqual([`item-${MAX_PENDING_WEAR_EVENTS}-a`, `item-${MAX_PENDING_WEAR_EVENTS}-b`]);
+        expect(lastEvent?.context).toBe(`Context for outfit ${MAX_PENDING_WEAR_EVENTS}`);
+        expect(lastEvent?.source).toBe('ai_recommendation');
+        expect(lastEvent?.status).toBe('pending');
+        expect(lastEvent?.attemptCount).toBe(0);
       });
     });
   });
