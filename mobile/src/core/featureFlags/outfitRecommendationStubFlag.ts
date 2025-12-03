@@ -400,10 +400,7 @@ export async function initializeOutfitRecommendationStubFlagFromCache(
  * @param userId - User ID for logging (not used for targeting)
  * @returns Flag value from server, or null if fetch failed/timed out
  */
-async function fetchRemoteFlagValue(
-  userRole: UserRole,
-  userId: string
-): Promise<boolean | null> {
+async function fetchRemoteFlagValue(userRole: UserRole, userId: string): Promise<boolean | null> {
   const startTime = Date.now();
   const environment = getAppEnvironment();
 
@@ -415,9 +412,12 @@ async function fetchRemoteFlagValue(
 
   try {
     // Build query params for cohort targeting
+    // Note: URLSearchParams handles encoding automatically, but we apply
+    // encodeURIComponent defensively to ensure user_id remains safe if
+    // ID formats change or if this code is refactored to use string concatenation.
     const queryParams = new URLSearchParams({
       role: userRole,
-      user_id: userId,
+      user_id: encodeURIComponent(userId),
     });
 
     const fetchPromise = supabase.functions.invoke<FeatureFlagsResponse>(
@@ -428,7 +428,10 @@ async function fetchRemoteFlagValue(
     // Race between fetch and timeout
     const result = await Promise.race([
       fetchPromise,
-      timeoutPromise.then(() => ({ data: null, error: { message: 'timeout' } as { message: string } })),
+      timeoutPromise.then(() => ({
+        data: null,
+        error: { message: 'timeout' } as { message: string },
+      })),
     ]);
 
     const { data, error } = result;
@@ -1039,8 +1042,8 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
   const user = useStore((state) => state.user);
   const { data: profile, isLoading: isProfileLoading } = useProfile(user?.id);
 
-  const [result, setResult] = useState<OutfitRecommendationStubFlagResult | null>(
-    () => getOutfitRecommendationStubFlagSync()
+  const [result, setResult] = useState<OutfitRecommendationStubFlagResult | null>(() =>
+    getOutfitRecommendationStubFlagSync()
   );
   const [isLoading, setIsLoading] = useState(() => !isOutfitRecommendationStubFlagEvaluated());
   const [hasInitializedFromCache, setHasInitializedFromCache] = useState(false);
@@ -1125,7 +1128,14 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
         }
         setIsLoading(false);
       });
-  }, [user?.id, profile?.role, isProfileLoading, hasInitializedFromCache, hasTriggeredBackgroundRefresh, result]);
+  }, [
+    user?.id,
+    profile?.role,
+    isProfileLoading,
+    hasInitializedFromCache,
+    hasTriggeredBackgroundRefresh,
+    result,
+  ]);
 
   // Refresh function for manual re-evaluation
   const refresh = useCallback(async () => {
