@@ -10,7 +10,7 @@
  * @module features/wearHistory/components/WearHistorySyncProvider
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { usePendingWearEventsSync } from '../hooks/usePendingWearEventsSync';
 import { SyncFailureBanner } from './SyncFailureBanner';
@@ -61,15 +61,22 @@ export function WearHistorySyncProvider({
   // Track whether user has dismissed the banner
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // Reset dismissed state when new failures occur
-  // This ensures banner shows again if sync fails after dismissal
+  // Track the last known failure count to detect new failures
   const [lastFailedCount, setLastFailedCount] = useState(0);
-  if (hasFailedEvents && failedCount > lastFailedCount) {
-    setIsDismissed(false);
-    setLastFailedCount(failedCount);
-  } else if (!hasFailedEvents && lastFailedCount > 0) {
-    setLastFailedCount(0);
-  }
+
+  // Effect to handle failure count changes and banner visibility.
+  // - When new failures occur (count increases), show the banner again
+  // - When all failures are resolved, reset the tracking state
+  useEffect(() => {
+    if (hasFailedEvents && failedCount > lastFailedCount) {
+      // New failures occurred - reset dismissal and track new count
+      setIsDismissed(false);
+      setLastFailedCount(failedCount);
+    } else if (!hasFailedEvents && lastFailedCount > 0) {
+      // All failures resolved - reset tracking
+      setLastFailedCount(0);
+    }
+  }, [hasFailedEvents, failedCount, lastFailedCount]);
 
   const handleRetry = useCallback(() => {
     retryFailedEvents();
