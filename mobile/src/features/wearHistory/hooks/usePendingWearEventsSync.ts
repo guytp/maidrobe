@@ -9,7 +9,7 @@
  * @module features/wearHistory/hooks/usePendingWearEventsSync
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
@@ -21,6 +21,7 @@ import {
   WearHistoryClientError,
 } from '../api/wearHistoryClient';
 import type { PendingWearEvent } from '../types';
+import { MAX_SYNC_ATTEMPTS } from '../types';
 
 // ============================================================================
 // Types
@@ -32,10 +33,16 @@ import type { PendingWearEvent } from '../types';
 export interface UsePendingWearEventsSyncResult {
   /** Whether a sync is currently in progress */
   isSyncing: boolean;
-  /** Number of events waiting to be synced */
+  /** Number of events waiting to be synced (excluding permanently failed) */
   pendingCount: number;
+  /** Number of permanently failed events */
+  failedCount: number;
+  /** Whether there are permanently failed events */
+  hasFailedEvents: boolean;
   /** Manually trigger a sync attempt */
   triggerSync: () => Promise<void>;
+  /** Retry all permanently failed events */
+  retryFailedEvents: () => void;
 }
 
 // ============================================================================
@@ -45,8 +52,8 @@ export interface UsePendingWearEventsSyncResult {
 /** Minimum delay between sync attempts in milliseconds */
 const SYNC_DEBOUNCE_MS = 2000;
 
-/** Delay before retrying failed events in milliseconds */
-const RETRY_DELAY_MS = 5000;
+/** Delay between syncing individual events in milliseconds */
+const INTER_EVENT_DELAY_MS = 500;
 
 // ============================================================================
 // Hook Implementation
@@ -60,9 +67,14 @@ const RETRY_DELAY_MS = 5000;
  *
  * SYNC BEHAVIOR:
  * - Syncs events sequentially to avoid overwhelming the server
- * - Retries failed events with exponential backoff
- * - Removes successfully synced events from the queue
+ * - Increments attemptCount on each sync attempt
+ * - Removes events from queue on success (treats conflicts as success)
+ * - Marks events as permanently failed after MAX_SYNC_ATTEMPTS
  * - Invalidates React Query cache on successful sync
+ *
+ * ANALYTICS:
+ * - Emits `wear_history_marked` event on successful sync (same as direct marking)
+ * - Includes outfitId, source, itemCount, wornDate, and context
  *
  * TRIGGERS:
  * - Network connectivity restored
@@ -75,14 +87,13 @@ const RETRY_DELAY_MS = 5000;
  * @example
  * ```tsx
  * function App() {
- *   const { isSyncing, pendingCount, triggerSync } = usePendingWearEventsSync();
+ *   const { isSyncing, pendingCount, hasFailedEvents, retryFailedEvents } = usePendingWearEventsSync();
  *
  *   return (
  *     <View>
- *       {pendingCount > 0 && (
- *         <Banner>
- *           {isSyncing ? 'Syncing...' : `${pendingCount} events pending`}
- *           <Button onPress={triggerSync}>Retry</Button>
+ *       {hasFailedEvents && (
+ *         <Banner onRetry={retryFailedEvents}>
+ *           Some items failed to sync
  *         </Banner>
  *       )}
  *     </View>
@@ -101,13 +112,17 @@ export function usePendingWearEventsSync(): UsePendingWearEventsSyncResult {
   const markEventSyncing = useStore((state) => state.markEventSyncing);
   const markEventFailed = useStore((state) => state.markEventFailed);
   const removePendingEvent = useStore((state) => state.removePendingEvent);
+  const hasPermanentlyFailedEvents = useStore((state) => state.hasPermanentlyFailedEvents);
+  const getPermanentlyFailedEvents = useStore((state) => state.getPermanentlyFailedEvents);
+  const retryPermanentlyFailedEvents = useStore((state) => state.retryPermanentlyFailedEvents);
 
-  // Sync state
-  const isSyncingRef = useRef(false);
+  // Sync state - use useState for reactivity
+  const [isSyncing, setIsSyncing] = useState(false);
   const lastSyncAttemptRef = useRef(0);
 
   /**
    * Sync a single pending event to the server.
+   * Returns true on success (including conflict/already-exists scenarios).
    */
   const syncEvent = useCallback(
     async (event: PendingWearEvent): Promise<boolean> => {
@@ -115,7 +130,7 @@ export function usePendingWearEventsSync(): UsePendingWearEventsSyncResult {
         return false;
       }
 
-      // Mark as syncing
+      // Mark as syncing (this also increments attemptCount)
       markEventSyncing(event.localId);
 
       try {
@@ -129,52 +144,80 @@ export function usePendingWearEventsSync(): UsePendingWearEventsSyncResult {
         });
 
         if (result.success) {
-          // Remove from queue
+          // Remove from queue - success includes conflict/already-exists (isUpdate=true)
           removePendingEvent(event.localId);
 
-          // Invalidate relevant queries
+          // Invalidate relevant queries to refresh wear history lists
           queryClient.invalidateQueries({
             queryKey: wearHistoryQueryKey.user(user.id),
           });
 
-          // Set the specific outfit+date query data
+          // Also invalidate window queries to ensure no duplicates in lists
+          queryClient.invalidateQueries({
+            queryKey: [...wearHistoryQueryKey.all, user.id, 'window'],
+            exact: false,
+          });
+
+          // Set the specific outfit+date query data for immediate lookups
           queryClient.setQueryData(
             wearHistoryQueryKey.forOutfitDate(user.id, event.outfitId, event.wornDate),
             result.data
           );
 
-          // Track success
-          trackCaptureEvent('pending_wear_event_synced', {
+          // Emit wear_history_marked event (same as direct marking)
+          // This ensures analytics consistency whether synced immediately or via background
+          trackCaptureEvent('wear_history_marked', {
             userId: user.id,
             itemId: event.outfitId,
             latencyMs: Date.now() - new Date(event.createdAt).getTime(),
             metadata: {
-              localId: event.localId,
-              attemptCount: event.attemptCount + 1,
+              outfitId: event.outfitId,
               source: event.source,
+              itemCount: event.itemIds.length,
+              wornDate: event.wornDate,
+              hasContext: !!event.context,
               isUpdate: result.isUpdate,
+              syncedFromQueue: true,
+              attemptCount: event.attemptCount + 1,
             },
           });
 
           return true;
         }
 
-        // Handle failure
+        // Handle failure - check if it's a validation error that shouldn't retry
         const errorMessage = result.error.message;
-        markEventFailed(event.localId, errorMessage);
 
-        // Track failure
-        trackCaptureEvent('pending_wear_event_sync_failed', {
-          userId: user.id,
-          itemId: event.outfitId,
-          errorCode: result.error.code,
-          errorMessage,
-          metadata: {
-            localId: event.localId,
-            attemptCount: event.attemptCount + 1,
-            isRetryable: result.error.isRetryable,
-          },
-        });
+        // Validation and auth errors are permanent - don't keep retrying
+        if (result.error.code === 'validation' || result.error.code === 'auth') {
+          // Mark as failed with max attempts to make it permanently failed
+          markEventFailed(event.localId, errorMessage);
+
+          logError(result.error, 'user', {
+            feature: 'wearHistory',
+            operation: 'syncPendingEvent',
+            metadata: {
+              localId: event.localId,
+              outfitId: event.outfitId,
+              errorCode: result.error.code,
+              isPermanent: true,
+            },
+          });
+        } else {
+          // Transient error - mark as failed for retry
+          markEventFailed(event.localId, errorMessage);
+
+          logError(result.error, 'server', {
+            feature: 'wearHistory',
+            operation: 'syncPendingEvent',
+            metadata: {
+              localId: event.localId,
+              outfitId: event.outfitId,
+              errorCode: result.error.code,
+              attemptCount: event.attemptCount + 1,
+            },
+          });
+        }
 
         return false;
       } catch (error) {
@@ -208,32 +251,50 @@ export function usePendingWearEventsSync(): UsePendingWearEventsSyncResult {
     lastSyncAttemptRef.current = now;
 
     // Guard conditions
-    if (isSyncingRef.current) return;
+    if (isSyncing) return;
     if (!isOnline) return;
     if (!user?.id) return;
 
     const retryableEvents = getRetryableEvents();
     if (retryableEvents.length === 0) return;
 
-    isSyncingRef.current = true;
+    setIsSyncing(true);
 
     try {
       // Sync events sequentially
-      for (const event of retryableEvents) {
+      for (let i = 0; i < retryableEvents.length; i++) {
+        const event = retryableEvents[i];
+
         // Check if still online before each sync
         if (!isOnline) break;
 
-        const success = await syncEvent(event);
+        await syncEvent(event);
 
-        // Add delay between events if there was a failure
-        if (!success && retryableEvents.indexOf(event) < retryableEvents.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+        // Small delay between events to avoid overwhelming the server
+        if (i < retryableEvents.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, INTER_EVENT_DELAY_MS));
         }
       }
     } finally {
-      isSyncingRef.current = false;
+      setIsSyncing(false);
     }
-  }, [isOnline, user?.id, getRetryableEvents, syncEvent]);
+  }, [isOnline, isSyncing, user?.id, getRetryableEvents, syncEvent]);
+
+  /**
+   * Retry all permanently failed events.
+   */
+  const retryFailedEvents = useCallback(() => {
+    // Reset all permanently failed events
+    retryPermanentlyFailedEvents();
+
+    // Trigger sync if online
+    if (isOnline) {
+      // Small delay to allow state to update
+      setTimeout(() => {
+        syncAllPending();
+      }, 100);
+    }
+  }, [retryPermanentlyFailedEvents, isOnline, syncAllPending]);
 
   // Effect: Sync when coming online
   useEffect(() => {
@@ -266,10 +327,23 @@ export function usePendingWearEventsSync(): UsePendingWearEventsSyncResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isInitialized]);
 
+  // Calculate counts
+  const failedEvents = getPermanentlyFailedEvents();
+  const failedCount = failedEvents.length;
+  const hasFailedEvents = hasPermanentlyFailedEvents();
+
+  // Pending count excludes permanently failed events
+  const pendingCount = pendingEvents.filter(
+    (event) => !(event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS)
+  ).length;
+
   return {
-    isSyncing: isSyncingRef.current,
-    pendingCount: pendingEvents.length,
+    isSyncing,
+    pendingCount,
+    failedCount,
+    hasFailedEvents,
     triggerSync: syncAllPending,
+    retryFailedEvents,
   };
 }
 

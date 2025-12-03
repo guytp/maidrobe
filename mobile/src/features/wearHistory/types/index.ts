@@ -200,7 +200,7 @@ export const MAX_PENDING_WEAR_EVENTS = 50;
 /**
  * Maximum number of sync attempts before an event is considered permanently failed.
  */
-export const MAX_SYNC_ATTEMPTS = 5;
+export const MAX_SYNC_ATTEMPTS = 3;
 
 /**
  * Age in milliseconds after which stale pending events are pruned (7 days).

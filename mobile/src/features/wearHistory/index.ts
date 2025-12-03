@@ -63,3 +63,5 @@ export {
 
 // Components
 export { MarkAsWornSheet, type MarkAsWornSheetProps } from './components';
+export { SyncFailureBanner, type SyncFailureBannerProps } from './components';
+export { WearHistorySyncProvider, type WearHistorySyncProviderProps } from './components';
