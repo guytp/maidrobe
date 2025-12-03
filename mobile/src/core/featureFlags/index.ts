@@ -382,8 +382,10 @@ export {
   WARDROBE_FEATURE_FLAGS_QUERY_KEY,
   type WardrobeFeatureFlags,
   type UseWardrobeFeatureFlagsResult,
-  type UserRole,
 } from './useWardrobeFeatureFlags';
+
+// Re-export UserRole from canonical auth types for backward compatibility
+export type { UserRole } from '../../features/auth/types/profile';
 
 // Re-export environment utilities
 export { getAppEnvironment, type AppEnvironment } from './config';
