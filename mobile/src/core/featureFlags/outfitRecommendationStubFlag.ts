@@ -56,7 +56,7 @@
  * @see Story #366 - Outfit Recommendation Engine Feature Flag and Controlled Rollout
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { checkIsOffline } from '../../features/recommendations/hooks/useNetworkStatus';
@@ -1049,6 +1049,10 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
   const [hasInitializedFromCache, setHasInitializedFromCache] = useState(false);
   const [hasTriggeredBackgroundRefresh, setHasTriggeredBackgroundRefresh] = useState(false);
 
+  // Ref to track if we had a valid result before starting background refresh.
+  // This avoids relying on stale closure values in async callbacks.
+  const hadResultBeforeRefreshRef = useRef(false);
+
   // Step 1: Initialize from AsyncStorage cache immediately for fast UI
   // This runs once per user to populate session cache from persisted cache
   useEffect(() => {
@@ -1073,6 +1077,15 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
 
   // Step 2: Trigger background refresh to get fresh value from server
   // This updates the session cache with the latest server value
+  //
+  // FLOW OVERVIEW:
+  // 1. resetSessionCache() clears the module-level cache (getOutfitRecommendationStubFlagSync
+  //    will return null during the refresh window)
+  // 2. evaluateOutfitRecommendationStubFlag() fetches fresh value from server
+  // 3. On SUCCESS: Use the fresh server value
+  // 4. On FAILURE: If we had no result before refresh, compute environment-based fallback
+  //    using getOutfitRecommendationStubFlagWithFallback() - we cannot use
+  //    getOutfitRecommendationStubFlagSync() here because the cache was cleared in step 1
   useEffect(() => {
     // Skip if no user
     if (!user?.id) {
@@ -1101,31 +1114,56 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
       return;
     }
 
-    // Trigger background refresh (at most once per session)
+    // === BEGIN BACKGROUND REFRESH ===
+    // Mark that we're starting the refresh (only once per session)
     setHasTriggeredBackgroundRefresh(true);
 
-    // If we already have a cached result, don't show loading
-    // (background refresh happens silently)
-    if (result === null) {
+    // Capture whether we have a valid result BEFORE clearing the cache.
+    // This ref is used in the error handler to decide if we need a fallback.
+    hadResultBeforeRefreshRef.current = result !== null;
+
+    // If we don't have a cached result yet, show loading state.
+    // If we do have a result, the refresh happens silently (no loading indicator).
+    const showLoadingDuringRefresh = result === null;
+    if (showLoadingDuringRefresh) {
       setIsLoading(true);
     }
 
-    // Reset session cache to force fresh evaluation from server
+    // Clear the session cache to force fresh evaluation from server.
+    // IMPORTANT: After this call, getOutfitRecommendationStubFlagSync() returns null
+    // until evaluateOutfitRecommendationStubFlag() completes.
     resetSessionCache();
 
-    evaluateOutfitRecommendationStubFlag(user.id, profile?.role ?? DEFAULT_USER_ROLE)
-      .then((evaluated) => {
-        setResult(evaluated);
+    // Capture userRole for use in callbacks (avoid stale closure issues)
+    const userRole = profile?.role ?? DEFAULT_USER_ROLE;
+
+    evaluateOutfitRecommendationStubFlag(user.id, userRole)
+      .then((freshResult) => {
+        // SUCCESS PATH: Use the fresh server-evaluated result
+        setResult(freshResult);
         setIsLoading(false);
       })
       .catch(() => {
-        // On error, use fallback if we don't already have a result
-        if (result === null) {
-          const fallback = getOutfitRecommendationStubFlagWithFallback(
-            profile?.role ?? DEFAULT_USER_ROLE
-          );
+        // FAILURE PATH: Server fetch failed or timed out
+        //
+        // We need to decide what value to use:
+        // - If we had a result before the refresh started, keep it (React state
+        //   is preserved, so `result` in the component remains valid)
+        // - If we had NO result before refresh, we must provide a fallback value
+        //
+        // We use the ref to check this, not the closure's `result` variable,
+        // because the closure value might be stale if this effect ran multiple times.
+        //
+        // IMPORTANT: We use getOutfitRecommendationStubFlagWithFallback() here because:
+        // 1. resetSessionCache() was called, so getOutfitRecommendationStubFlagSync() returns null
+        // 2. getOutfitRecommendationStubFlagWithFallback() computes environment-based defaults
+        //    and never returns null
+        if (!hadResultBeforeRefreshRef.current) {
+          const fallback = getOutfitRecommendationStubFlagWithFallback(userRole);
           setResult(fallback);
         }
+        // If we had a result before refresh, we keep it (don't call setResult,
+        // so the existing React state value remains unchanged)
         setIsLoading(false);
       });
   }, [
@@ -1138,25 +1176,28 @@ export function useOutfitRecommendationStubFlag(): UseOutfitRecommendationStubFl
   ]);
 
   // Refresh function for manual re-evaluation
+  // This follows the same pattern as the background refresh but is user-triggered.
   const refresh = useCallback(async () => {
     if (!user?.id) {
       return;
     }
 
-    // Reset session cache to force re-evaluation
+    const userRole = profile?.role ?? DEFAULT_USER_ROLE;
+
+    // Clear the session cache to force fresh evaluation from server.
+    // After this, getOutfitRecommendationStubFlagSync() returns null.
     resetSessionCache();
     setIsLoading(true);
 
     try {
-      const evaluated = await evaluateOutfitRecommendationStubFlag(
-        user.id,
-        profile?.role ?? DEFAULT_USER_ROLE
-      );
-      setResult(evaluated);
+      // SUCCESS PATH: Use fresh server-evaluated result
+      const freshResult = await evaluateOutfitRecommendationStubFlag(user.id, userRole);
+      setResult(freshResult);
     } catch {
-      const fallback = getOutfitRecommendationStubFlagWithFallback(
-        profile?.role ?? DEFAULT_USER_ROLE
-      );
+      // FAILURE PATH: Server fetch failed
+      // Use getOutfitRecommendationStubFlagWithFallback() to compute environment-based
+      // defaults since the session cache was cleared and sync accessors return null.
+      const fallback = getOutfitRecommendationStubFlagWithFallback(userRole);
       setResult(fallback);
     } finally {
       setIsLoading(false);
