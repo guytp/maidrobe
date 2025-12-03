@@ -108,19 +108,42 @@ function isValidUuid(value: string): boolean {
 }
 
 /**
- * Validates a date string format (YYYY-MM-DD).
+ * Validates a date string format (YYYY-MM-DD) and ensures the date is real.
+ *
+ * JavaScript's Date constructor is lenient and rolls over invalid dates
+ * (e.g., 2024-02-30 becomes 2024-03-01). This function catches such cases
+ * by verifying that the parsed Date components match the input values.
  *
  * @param value - The string to validate
- * @returns True if the string is a valid date format
+ * @returns True if the string is a valid date in YYYY-MM-DD format
  */
 function isValidDateString(value: string): boolean {
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!dateRegex.test(value)) {
     return false;
   }
-  // Also verify it's a valid date
+
+  // Parse year, month, day components explicitly
+  const [yearStr, monthStr, dayStr] = value.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+
+  // Construct Date and verify it's valid
   const date = new Date(value);
-  return !isNaN(date.getTime());
+  if (isNaN(date.getTime())) {
+    return false;
+  }
+
+  // Verify the Date components match the parsed values.
+  // This catches impossible dates like 2024-02-30 which JavaScript
+  // would silently roll over to 2024-03-01.
+  // Using UTC methods because Date parses YYYY-MM-DD as UTC midnight.
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month && // getUTCMonth is 0-indexed
+    date.getUTCDate() === day
+  );
 }
 
 /**
