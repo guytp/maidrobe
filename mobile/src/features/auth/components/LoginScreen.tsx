@@ -383,6 +383,7 @@ export function LoginScreen() {
               maxFontSizeMultiplier={2}
             />
             <TouchableOpacity
+              testID="password-toggle"
               style={styles.passwordToggle}
               onPress={() => setShowPassword(!showPassword)}
               accessibilityRole="button"

@@ -553,6 +553,7 @@ export function ResetPasswordScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text
+            testID="reset-password-title"
             style={styles.title}
             accessibilityRole="header"
             allowFontScaling={true}

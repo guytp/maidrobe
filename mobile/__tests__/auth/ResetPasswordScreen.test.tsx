@@ -251,17 +251,22 @@ describe('ResetPasswordScreen', () => {
 
   describe('Form Rendering with Valid Token', () => {
     it('should render reset password form with all fields when token is valid', () => {
-      const { getByText, getByPlaceholderText } = render(<ResetPasswordScreen />, {
-        wrapper: TestWrapper,
-      });
+      const { getByTestId, getByText, getByPlaceholderText, getByLabelText } = render(
+        <ResetPasswordScreen />,
+        {
+          wrapper: TestWrapper,
+        }
+      );
 
-      expect(getByText('Reset Password')).toBeTruthy();
+      // Use testID for title to avoid ambiguity with button text
+      expect(getByTestId('reset-password-title')).toBeTruthy();
       expect(getByText('Create a new password')).toBeTruthy();
       expect(getByText('New Password')).toBeTruthy();
       expect(getByText('Confirm Password')).toBeTruthy();
       expect(getByPlaceholderText('Enter new password')).toBeTruthy();
       expect(getByPlaceholderText('Confirm new password')).toBeTruthy();
-      expect(getByText('Reset Password')).toBeTruthy(); // Button text same as title
+      // Use accessibilityLabel for button to avoid ambiguity with title text
+      expect(getByLabelText('Reset password button')).toBeTruthy();
     });
 
     it('should log telemetry event for valid token on mount', () => {
@@ -1229,9 +1234,10 @@ describe('ResetPasswordScreen', () => {
     });
 
     it('should support font scaling on all text elements', () => {
-      const { getByText } = render(<ResetPasswordScreen />, { wrapper: TestWrapper });
+      const { getByTestId, getByText } = render(<ResetPasswordScreen />, { wrapper: TestWrapper });
 
-      const title = getByText('Reset Password');
+      // Use testID to target title specifically (avoids ambiguity with button text)
+      const title = getByTestId('reset-password-title');
       expect(title.props.allowFontScaling).toBe(true);
       expect(title.props.maxFontSizeMultiplier).toBe(3);
 
