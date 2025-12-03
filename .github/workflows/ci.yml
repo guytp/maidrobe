@@ -92,7 +92,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run mobile:test
+        run: npm run mobile:test:ci
 
   edge_lint:
     name: Edge Functions Lint

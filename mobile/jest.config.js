@@ -15,4 +15,7 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/jest.setup.js'],
+  // CI reliability settings
+  testTimeout: 10000,
+  maxWorkers: '50%',
 };

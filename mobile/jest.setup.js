@@ -33,3 +33,19 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   useSafeAreaFrame: () => ({ x: 0, y: 0, width: 390, height: 844 }),
 }));
+
+// Silence console warnings during tests for cleaner output
+// Keeps error output for actual failures while reducing noise from React Native internals
+const originalConsoleWarn = console.warn;
+console.warn = (...args) => {
+  const message = args[0];
+  if (
+    typeof message === 'string' &&
+    (message.includes('Animated: `useNativeDriver`') ||
+      message.includes('componentWillReceiveProps') ||
+      message.includes('componentWillMount'))
+  ) {
+    return;
+  }
+  originalConsoleWarn.apply(console, args);
+};
