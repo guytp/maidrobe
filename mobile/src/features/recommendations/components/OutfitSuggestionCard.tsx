@@ -47,6 +47,8 @@ export interface OutfitSuggestionCardProps {
   isMarkingAsWorn?: boolean;
   /** Whether this outfit is already marked as worn today */
   isWornToday?: boolean;
+  /** Whether this outfit has pending sync events (queued offline) */
+  isPendingSync?: boolean;
 }
 
 /**
@@ -119,6 +121,7 @@ function OutfitSuggestionCardComponent({
   onMarkAsWorn,
   isMarkingAsWorn = false,
   isWornToday = false,
+  isPendingSync = false,
 }: OutfitSuggestionCardProps): React.JSX.Element {
   const { colors, spacing, radius, fontSize } = useTheme();
 
@@ -214,6 +217,18 @@ function OutfitSuggestionCardComponent({
         buttonFlex: {
           flex: 1,
         },
+        syncingIndicator: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing.sm,
+        },
+        syncingText: {
+          fontSize: fontSize.sm,
+          fontWeight: '600',
+          color: colors.textSecondary,
+          marginLeft: spacing.xs,
+        },
       }),
     [colors, spacing, radius, fontSize]
   );
@@ -281,10 +296,26 @@ function OutfitSuggestionCardComponent({
         {suggestion.reason}
       </Text>
 
-      {/* Action area - buttons or worn indicator */}
+      {/* Action area - buttons, worn indicator, or syncing indicator */}
       {(onWearToday || onMarkAsWorn) && (
         <View style={styles.actionArea} testID={`${testID}-action-area`}>
-          {isWornToday ? (
+          {isPendingSync ? (
+            <View
+              style={styles.syncingIndicator}
+              testID={`${testID}-syncing-indicator`}
+              accessibilityRole="text"
+              accessibilityLabel={t('screens.wearHistory.accessibility.syncingIndicator')}
+            >
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+              <Text
+                style={styles.syncingText}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.wearHistory.syncing')}
+              </Text>
+            </View>
+          ) : isWornToday ? (
             <View
               style={styles.wornIndicator}
               testID={`${testID}-worn-indicator`}

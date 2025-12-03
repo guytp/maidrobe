@@ -355,7 +355,11 @@ export type CaptureEventType =
   | 'wear_history_marked'
   | 'wear_history_mark_failed'
   | 'wear_history_sync_completed'
-  | 'wear_history_sync_failed';
+  | 'wear_history_sync_failed'
+  // Offline queue events (story #443)
+  | 'wear_event_queued_offline'
+  | 'pending_wear_event_synced'
+  | 'pending_wear_event_sync_failed';
 
 /**
  * Metadata for authentication event logging.

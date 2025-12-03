@@ -15,10 +15,18 @@ export type {
   GetWearHistoryParams,
   GetWearHistoryResponse,
   GetWearHistoryWindowResponse,
+  PendingWearEvent,
+  PendingWearEventStatus,
 } from './types';
 
 // Constants
-export { WEAR_HISTORY_PROJECTION, DEFAULT_WEAR_HISTORY_PAGE_SIZE } from './types';
+export {
+  WEAR_HISTORY_PROJECTION,
+  DEFAULT_WEAR_HISTORY_PAGE_SIZE,
+  MAX_PENDING_WEAR_EVENTS,
+  MAX_SYNC_ATTEMPTS,
+  STALE_EVENT_AGE_MS,
+} from './types';
 
 // API / Data access (repository layer)
 export {
@@ -46,8 +54,11 @@ export {
 export {
   useCreateWearEvent,
   useInvalidateWearHistory,
+  usePendingWearEventsSync,
+  useHasPendingWearEvent,
   type CreateWearEventParams,
   type UseCreateWearEventResult,
+  type UsePendingWearEventsSyncResult,
 } from './hooks';
 
 // Components

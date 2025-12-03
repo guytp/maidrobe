@@ -135,3 +135,74 @@ export interface GetWearHistoryWindowResponse {
  * Matches the default used in wardrobe items for consistency.
  */
 export const DEFAULT_WEAR_HISTORY_PAGE_SIZE = 20;
+
+// ============================================================================
+// Pending Wear Events (Offline Queue)
+// ============================================================================
+
+/**
+ * Status of a pending wear event in the offline queue.
+ */
+export type PendingWearEventStatus = 'pending' | 'syncing' | 'failed';
+
+/**
+ * A wear event waiting to be synced to the server.
+ *
+ * Used for offline-first functionality. Events are queued locally
+ * when the device is offline or when server errors occur, then
+ * synced when connectivity is restored.
+ *
+ * The queue is deduplicated by (outfitId, wornDate) - if a user
+ * marks the same outfit as worn on the same date multiple times
+ * while offline, only the latest event is kept.
+ */
+export interface PendingWearEvent {
+  /** Locally-generated unique ID (UUID) for queue management */
+  localId: string;
+
+  /** Outfit ID being marked as worn */
+  outfitId: string;
+
+  /** Snapshot of item IDs in the outfit at the time of wear */
+  itemIds: string[];
+
+  /** User-local calendar date (YYYY-MM-DD) */
+  wornDate: string;
+
+  /** Optional occasion/context description */
+  context?: string;
+
+  /** Source indicating how the outfit was selected */
+  source: WearHistorySource;
+
+  /** ISO 8601 timestamp when the event was created locally */
+  createdAt: string;
+
+  /** Number of sync attempts made */
+  attemptCount: number;
+
+  /** Current status of the pending event */
+  status: PendingWearEventStatus;
+
+  /** ISO 8601 timestamp of last sync attempt, if any */
+  lastAttemptAt?: string;
+
+  /** Error message from last failed attempt, if any */
+  lastError?: string;
+}
+
+/**
+ * Maximum number of events allowed in the pending queue.
+ * Older events are pruned when this limit is exceeded.
+ */
+export const MAX_PENDING_WEAR_EVENTS = 50;
+
+/**
+ * Maximum number of sync attempts before an event is considered permanently failed.
+ */
+export const MAX_SYNC_ATTEMPTS = 5;
+
+/**
+ * Age in milliseconds after which stale pending events are pruned (7 days).
+ */
+export const STALE_EVENT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
