@@ -2,7 +2,7 @@
 -- Purpose: Create RLS-protected export view and document account deletion behavior
 -- Story: #442 - Wear History Data Model and Supabase Integration
 -- Dependencies: 20241203000001_create_wear_history_table.sql, 20241203000003_add_wear_history_rls_policies.sql
--- Idempotency: Safe to re-run; uses CREATE OR REPLACE VIEW and DROP POLICY IF EXISTS
+-- Idempotency: Safe to re-run; uses CREATE OR REPLACE VIEW
 --
 -- This is Step 4 of the wear history feature (Story #442). This migration:
 --   - Documents the existing CASCADE deletion behavior for GDPR compliance
@@ -92,9 +92,6 @@ FROM public.wear_history;
 -- This ensures queries against the view run with the invoking user's privileges,
 -- causing RLS policies on the underlying wear_history table to be properly enforced.
 -- Each user can only see their own wear history data through this view.
-
--- Drop existing policies on the view if they exist (for idempotency)
-DROP POLICY IF EXISTS "Users can view their own export data" ON public.user_wear_history_export_view;
 
 -- Grant SELECT on the view to authenticated users
 -- The underlying wear_history RLS policies will filter rows automatically
