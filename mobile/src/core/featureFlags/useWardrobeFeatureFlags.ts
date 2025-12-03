@@ -26,16 +26,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../services/supabase';
-
-/**
- * User role/cohort for feature flag targeting.
- *
- * Used to control access to features during controlled rollouts:
- * - 'internal': Maidrobe staff and internal testers
- * - 'beta': Selected early-access external users
- * - 'standard': All other users (default)
- */
-export type UserRole = 'internal' | 'beta' | 'standard';
+import type { UserRole } from '../../features/auth/types/profile';
 
 /**
  * Wardrobe feature flags structure returned by the server.
@@ -134,12 +125,9 @@ async function fetchWardrobeFeatureFlags(
       endpoint = `get-feature-flags?${queryParams.toString()}`;
     }
 
-    const { data, error } = await supabase.functions.invoke<FeatureFlagsResponse>(
-      endpoint,
-      {
-        method: 'GET',
-      }
-    );
+    const { data, error } = await supabase.functions.invoke<FeatureFlagsResponse>(endpoint, {
+      method: 'GET',
+    });
 
     if (error) {
       // Log error but return safe defaults
