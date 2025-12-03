@@ -128,12 +128,23 @@ export default function HomeScreen(): React.JSX.Element {
       return;
     }
 
+    // Track retry click event for analytics (mirrors CTA telemetry)
+    trackRecommendationEvent('outfit_recommendation_retry_clicked', {
+      userId: user?.id,
+      environment: getAppEnvironment(),
+      flagEnabled: flagResult?.enabled ?? false,
+      flagSource: flagResult?.source,
+      userRole: flagResult?.userRole,
+      occasion: isContextSelectorEnabled ? occasion : undefined,
+      temperatureBand: isContextSelectorEnabled ? temperatureBand : undefined,
+    });
+
     if (isContextSelectorEnabled) {
       fetchRecommendations({ occasion, temperatureBand });
     } else {
       fetchRecommendations();
     }
-  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand]);
+  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand, user?.id, flagResult]);
 
   // Exit app on back press from home screen
   // Prevents navigation back to login/loading screens which would be confusing
