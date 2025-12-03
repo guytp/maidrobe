@@ -41,6 +41,8 @@ export interface OutfitSuggestionCardProps {
   testID?: string;
   /** Callback when "Wear this today" is tapped */
   onWearToday?: (suggestion: OutfitSuggestion) => void;
+  /** Callback when "Mark as worn..." is tapped (opens date picker) */
+  onMarkAsWorn?: (suggestion: OutfitSuggestion) => void;
   /** Whether the wear mutation is in progress for this card */
   isMarkingAsWorn?: boolean;
   /** Whether this outfit is already marked as worn today */
@@ -114,6 +116,7 @@ function OutfitSuggestionCardComponent({
   isLoadingItems = false,
   testID,
   onWearToday,
+  onMarkAsWorn,
   isMarkingAsWorn = false,
   isWornToday = false,
 }: OutfitSuggestionCardProps): React.JSX.Element {
@@ -123,6 +126,11 @@ function OutfitSuggestionCardComponent({
   const handleWearToday = useCallback(() => {
     onWearToday?.(suggestion);
   }, [onWearToday, suggestion]);
+
+  // Memoized callback to handle mark as worn button press
+  const handleMarkAsWorn = useCallback(() => {
+    onMarkAsWorn?.(suggestion);
+  }, [onMarkAsWorn, suggestion]);
 
   const styles = useMemo(
     () =>
@@ -199,6 +207,13 @@ function OutfitSuggestionCardComponent({
           fontWeight: '600',
           color: colors.textSecondary,
         },
+        buttonRow: {
+          flexDirection: 'row',
+          gap: spacing.sm,
+        },
+        buttonFlex: {
+          flex: 1,
+        },
       }),
     [colors, spacing, radius, fontSize]
   );
@@ -266,8 +281,8 @@ function OutfitSuggestionCardComponent({
         {suggestion.reason}
       </Text>
 
-      {/* Action area - button or worn indicator */}
-      {onWearToday && (
+      {/* Action area - buttons or worn indicator */}
+      {(onWearToday || onMarkAsWorn) && (
         <View style={styles.actionArea} testID={`${testID}-action-area`}>
           {isWornToday ? (
             <View
@@ -289,16 +304,35 @@ function OutfitSuggestionCardComponent({
               </Text>
             </View>
           ) : (
-            <Button
-              onPress={handleWearToday}
-              variant="primary"
-              loading={isMarkingAsWorn}
-              disabled={isMarkingAsWorn}
-              accessibilityLabel={t('screens.wearHistory.accessibility.wearTodayButton')}
-              accessibilityHint={t('screens.wearHistory.accessibility.wearTodayHint')}
-            >
-              {t('screens.wearHistory.wearThisToday')}
-            </Button>
+            <View style={styles.buttonRow}>
+              {onWearToday && (
+                <View style={styles.buttonFlex}>
+                  <Button
+                    onPress={handleWearToday}
+                    variant="primary"
+                    loading={isMarkingAsWorn}
+                    disabled={isMarkingAsWorn}
+                    accessibilityLabel={t('screens.wearHistory.accessibility.wearTodayButton')}
+                    accessibilityHint={t('screens.wearHistory.accessibility.wearTodayHint')}
+                  >
+                    {t('screens.wearHistory.wearThisToday')}
+                  </Button>
+                </View>
+              )}
+              {onMarkAsWorn && (
+                <View style={styles.buttonFlex}>
+                  <Button
+                    onPress={handleMarkAsWorn}
+                    variant="secondary"
+                    disabled={isMarkingAsWorn}
+                    accessibilityLabel={t('screens.wearHistory.accessibility.markAsWornButton')}
+                    accessibilityHint={t('screens.wearHistory.accessibility.markAsWornHint')}
+                  >
+                    {t('screens.wearHistory.markAsWorn')}
+                  </Button>
+                </View>
+              )}
+            </View>
           )}
         </View>
       )}

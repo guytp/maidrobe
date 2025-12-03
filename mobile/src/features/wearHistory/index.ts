@@ -49,3 +49,6 @@ export {
   type CreateWearEventParams,
   type UseCreateWearEventResult,
 } from './hooks';
+
+// Components
+export { MarkAsWornSheet, type MarkAsWornSheetProps } from './components';

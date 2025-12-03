@@ -26,8 +26,15 @@ const mockUseCreateWearEvent = jest.fn(() => ({
   reset: jest.fn(),
 }));
 
+// Mock MarkAsWornSheet component
+const MockMarkAsWornSheet = ({ visible }: { visible: boolean }) => {
+  if (!visible) return null;
+  return null; // In tests, we just care that it's rendered when visible
+};
+
 jest.mock('../../wearHistory', () => ({
   useCreateWearEvent: () => mockUseCreateWearEvent(),
+  MarkAsWornSheet: (props: { visible: boolean }) => MockMarkAsWornSheet(props),
 }));
 
 // Mock useResolvedOutfitItems hook
@@ -61,9 +68,12 @@ jest.mock('../../../core/i18n', () => ({
       'screens.home.recommendations.itemChip.placeholderItem': 'Item {number}',
       'screens.home.recommendations.itemChip.accessibility.itemCount': '{resolved} of {total} items',
       'screens.wearHistory.wearThisToday': 'Wear this today',
+      'screens.wearHistory.markAsWorn': 'Mark as worn...',
       'screens.wearHistory.wornToday': 'Worn today',
       'screens.wearHistory.accessibility.wearTodayButton': 'Wear this outfit today',
       'screens.wearHistory.accessibility.wearTodayHint': 'Mark as worn for today',
+      'screens.wearHistory.accessibility.markAsWornButton': 'Mark outfit as worn',
+      'screens.wearHistory.accessibility.markAsWornHint': 'Open date picker to mark when you wore this outfit',
       'screens.wearHistory.accessibility.wornIndicator': 'Worn on {date}',
     };
     return translations[key] || key;
@@ -330,6 +340,21 @@ describe('SuggestionsSection', () => {
 
       fireEvent.press(getByText('Try again'));
       expect(onRetry).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Mark As Worn Integration', () => {
+    it('should render "Mark as worn..." button for each outfit card', () => {
+      const { getAllByText } = renderComponent();
+      const buttons = getAllByText('Mark as worn...');
+      expect(buttons).toHaveLength(2);
+    });
+
+    it('should render both "Wear this today" and "Mark as worn..." buttons', () => {
+      const { getAllByText } = renderComponent();
+
+      expect(getAllByText('Wear this today')).toHaveLength(2);
+      expect(getAllByText('Mark as worn...')).toHaveLength(2);
     });
   });
 

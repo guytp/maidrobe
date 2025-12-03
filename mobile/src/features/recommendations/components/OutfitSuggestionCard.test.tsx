@@ -22,9 +22,12 @@ jest.mock('../../../core/i18n', () => ({
       'screens.home.recommendations.itemChip.placeholderItem': 'Item {number}',
       'screens.home.recommendations.itemChip.accessibility.itemCount': '{resolved} of {total} items',
       'screens.wearHistory.wearThisToday': 'Wear this today',
+      'screens.wearHistory.markAsWorn': 'Mark as worn...',
       'screens.wearHistory.wornToday': 'Worn today',
       'screens.wearHistory.accessibility.wearTodayButton': 'Wear this outfit today',
       'screens.wearHistory.accessibility.wearTodayHint': 'Mark this outfit as worn for today',
+      'screens.wearHistory.accessibility.markAsWornButton': 'Mark outfit as worn',
+      'screens.wearHistory.accessibility.markAsWornHint': 'Open date picker to mark when you wore this outfit',
       'screens.wearHistory.accessibility.wornIndicator': 'Outfit worn on {date}',
     };
     return translations[key] || key;
@@ -150,6 +153,65 @@ describe('OutfitSuggestionCard', () => {
       // The button should have disabled state in its accessibility attributes
       const button = getByRole('button');
       expect(button.props.accessibilityState.disabled).toBe(true);
+    });
+  });
+
+  describe('Mark As Worn Button', () => {
+    it('should render "Mark as worn..." button when onMarkAsWorn is provided', () => {
+      const onMarkAsWorn = jest.fn();
+      const { getByText } = renderComponent({ onMarkAsWorn });
+      expect(getByText('Mark as worn...')).toBeTruthy();
+    });
+
+    it('should call onMarkAsWorn with suggestion when button is pressed', () => {
+      const onMarkAsWorn = jest.fn();
+      const { getByText } = renderComponent({ onMarkAsWorn });
+
+      fireEvent.press(getByText('Mark as worn...'));
+
+      expect(onMarkAsWorn).toHaveBeenCalledTimes(1);
+      expect(onMarkAsWorn).toHaveBeenCalledWith(mockSuggestion);
+    });
+
+    it('should render both buttons when both callbacks are provided', () => {
+      const onWearToday = jest.fn();
+      const onMarkAsWorn = jest.fn();
+      const { getByText } = renderComponent({ onWearToday, onMarkAsWorn });
+
+      expect(getByText('Wear this today')).toBeTruthy();
+      expect(getByText('Mark as worn...')).toBeTruthy();
+    });
+
+    it('should be disabled when isMarkingAsWorn is true', () => {
+      const onMarkAsWorn = jest.fn();
+      const { getByLabelText } = renderComponent({
+        onMarkAsWorn,
+        isMarkingAsWorn: true,
+      });
+
+      const button = getByLabelText('Mark outfit as worn');
+      expect(button.props.accessibilityState.disabled).toBe(true);
+    });
+
+    it('should have proper accessibility attributes', () => {
+      const onMarkAsWorn = jest.fn();
+      const { getByLabelText } = renderComponent({ onMarkAsWorn });
+
+      expect(getByLabelText('Mark outfit as worn')).toBeTruthy();
+    });
+
+    it('should not render action area when neither callback is provided', () => {
+      const { queryByTestId } = renderComponent();
+      expect(queryByTestId('outfit-card-action-area')).toBeNull();
+    });
+
+    it('should render action area with only onMarkAsWorn', () => {
+      const onMarkAsWorn = jest.fn();
+      const { getByTestId, getByText, queryByText } = renderComponent({ onMarkAsWorn });
+
+      expect(getByTestId('outfit-card-action-area')).toBeTruthy();
+      expect(getByText('Mark as worn...')).toBeTruthy();
+      expect(queryByText('Wear this today')).toBeNull();
     });
   });
 
