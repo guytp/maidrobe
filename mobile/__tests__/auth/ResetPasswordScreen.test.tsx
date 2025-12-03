@@ -8,10 +8,18 @@ import * as resetAttemptRateLimit from '../../src/features/auth/utils/resetAttem
 import * as passwordReuse from '../../src/features/auth/utils/passwordReuse';
 
 // Mock react-native-safe-area-context
-jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: { children: React.ReactNode }) => children,
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
+// Uses View to preserve accessibility props that would otherwise be stripped
+jest.mock('react-native-safe-area-context', () => {
+  /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+  const React = require('react');
+  const { View } = require('react-native');
+  /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires */
+  return {
+    SafeAreaView: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) =>
+      React.createElement(View, props, children),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
 
 // Mock expo-router
 const mockPush = jest.fn();
@@ -1210,10 +1218,10 @@ describe('ResetPasswordScreen', () => {
       const { getByLabelText } = render(<ResetPasswordScreen />, { wrapper: TestWrapper });
 
       const screen = getByLabelText('Reset password screen');
-      expect(screen.props.accessibilityHint).toBe('Enter your new password twice to reset it');
+      expect(screen.props.accessibilityHint).toBe('Create a new password for your account');
 
       const submitButton = getByLabelText('Reset password button');
-      expect(submitButton.props.accessibilityHint).toBe('Submit new password');
+      expect(submitButton.props.accessibilityHint).toBe('Tap to reset your password');
     });
 
     it('should mark errors as alerts with live region', async () => {
