@@ -384,16 +384,20 @@ export function SuggestionsSection({
     [createWearEvent, selectedOutfit]
   );
 
-  // Effect to handle mutation completion - update worn status on success
-  // We track this by watching the isPending state transition
-  // When isPending goes from true to false and we have a markingOutfitId,
-  // we mark that outfit as worn
+  // Track the previous pending state to detect transitions
   const prevIsPending = usePrevious(isWearPending);
-  if (prevIsPending && !isWearPending && markingOutfitId) {
-    // Mutation completed - mark as worn and clear marking state
-    setWornTodayIds((prev) => new Set(prev).add(markingOutfitId));
-    setMarkingOutfitId(null);
-  }
+
+  // Effect to handle mutation completion - update worn status on success.
+  // This effect runs when the pending state or marking outfit changes.
+  // It detects the transition from pending (true) to not pending (false)
+  // with a valid markingOutfitId, indicating a completed wear action.
+  useEffect(() => {
+    if (prevIsPending && !isWearPending && markingOutfitId) {
+      // Mutation completed - mark as worn and clear marking state
+      setWornTodayIds((prev) => new Set(prev).add(markingOutfitId));
+      setMarkingOutfitId(null);
+    }
+  }, [isWearPending, markingOutfitId, prevIsPending]);
 
   const styles = useMemo(
     () =>
