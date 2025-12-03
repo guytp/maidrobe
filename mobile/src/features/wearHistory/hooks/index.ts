@@ -10,3 +10,9 @@ export {
   type CreateWearEventParams,
   type UseCreateWearEventResult,
 } from './useCreateWearEvent';
+
+export {
+  usePendingWearEventsSync,
+  useHasPendingWearEvent,
+  type UsePendingWearEventsSyncResult,
+} from './usePendingWearEventsSync';

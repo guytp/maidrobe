@@ -5,6 +5,10 @@ import {
   createOnboardingSlice,
 } from '../../features/onboarding/store/onboardingSlice';
 import { ContextSlice, createContextSlice } from '../../features/recommendations/store';
+import {
+  PendingWearEventsSlice,
+  createPendingWearEventsSlice,
+} from '../../features/wearHistory/store';
 import { CaptureSlice, createCaptureSlice } from './captureSlice';
 import { WardrobeSlice, createWardrobeSlice } from './wardrobeSlice';
 
@@ -20,6 +24,7 @@ import { WardrobeSlice, createWardrobeSlice } from './wardrobeSlice';
  * - ContextSlice: Outfit context parameters (occasion, temperatureBand) - persisted
  * - CaptureSlice: Capture flow state (origin, source, isNavigating, errorMessage, payload)
  * - WardrobeSlice: Wardrobe UI state (searchQuery, scrollOffset)
+ * - PendingWearEventsSlice: Offline queue for wear events (pendingEvents) - persisted
  *
  * Future slices can be added using intersection types:
  * ```
@@ -30,7 +35,8 @@ export type RootState = SessionSlice &
   OnboardingSlice &
   ContextSlice &
   CaptureSlice &
-  WardrobeSlice;
+  WardrobeSlice &
+  PendingWearEventsSlice;
 
 /**
  * Typed Zustand store hook for accessing local application state.
@@ -57,4 +63,5 @@ export const useStore = create<RootState>()((...args) => ({
   ...createContextSlice(...args),
   ...createCaptureSlice(...args),
   ...createWardrobeSlice(...args),
+  ...createPendingWearEventsSlice(...args),
 }));

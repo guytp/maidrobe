@@ -6,14 +6,16 @@
  * - Automatic cache invalidation on success
  * - Error classification and telemetry
  * - Loading and error states
+ * - Offline queuing for network/server errors
  *
  * @module features/wearHistory/hooks/useCreateWearEvent
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
+import { useNetworkStatus } from '../../recommendations/hooks/useNetworkStatus';
 import {
   createOrUpdateWearEventForClient,
   wearHistoryQueryKey,
@@ -64,12 +66,14 @@ export interface UseCreateWearEventResult {
   /**
    * Function to trigger the create/update wear event mutation.
    * UserId is automatically injected from auth state.
+   * If offline or on retryable errors, queues the event for later sync.
    */
   createWearEvent: (params: CreateWearEventParams) => void;
 
   /**
    * Async version that returns a promise for the result.
    * Useful when you need to await the mutation outcome.
+   * Note: Does NOT queue on failure - use createWearEvent for offline support.
    */
   createWearEventAsync: (params: CreateWearEventParams) => Promise<CreateWearEventResult>;
 
@@ -89,6 +93,11 @@ export interface UseCreateWearEventResult {
   isError: boolean;
 
   /**
+   * Whether the last event was queued for offline sync.
+   */
+  wasQueued: boolean;
+
+  /**
    * The created/updated wear history record on success.
    */
   data: WearHistoryRow | null;
@@ -105,7 +114,7 @@ export interface UseCreateWearEventResult {
   error: WearHistoryClientError | null;
 
   /**
-   * Reset the mutation state (clears error, success, data).
+   * Reset the mutation state (clears error, success, data, wasQueued).
    */
   reset: () => void;
 }
@@ -164,6 +173,7 @@ function mapErrorToClassification(error: WearHistoryClientError): ErrorClassific
  * - Cache invalidation on success
  * - Error classification for appropriate UI feedback
  * - Telemetry logging for observability
+ * - Offline queuing for network/server errors
  *
  * CACHE STRATEGY:
  * On success, the hook invalidates:
@@ -175,12 +185,17 @@ function mapErrorToClassification(error: WearHistoryClientError): ErrorClassific
  * rather than creating duplicates. The `wasUpdate` field indicates
  * whether the operation was an update.
  *
+ * OFFLINE SUPPORT:
+ * When the device is offline or when retryable errors occur (network/server),
+ * events are automatically queued for later sync. The `wasQueued` field
+ * indicates when this happens.
+ *
  * @returns Object containing mutation function, states, and reset
  *
  * @example
  * ```tsx
  * function OutfitCard({ outfit }) {
- *   const { createWearEvent, isPending, isSuccess, error, reset } = useCreateWearEvent();
+ *   const { createWearEvent, isPending, isSuccess, wasQueued, error, reset } = useCreateWearEvent();
  *
  *   const handleWearToday = () => {
  *     createWearEvent({
@@ -193,8 +208,10 @@ function mapErrorToClassification(error: WearHistoryClientError): ErrorClassific
  *   useEffect(() => {
  *     if (isSuccess) {
  *       showToast('Marked as worn!');
+ *     } else if (wasQueued) {
+ *       showToast('Will sync when online');
  *     }
- *   }, [isSuccess]);
+ *   }, [isSuccess, wasQueued]);
  *
  *   return (
  *     <Button onPress={handleWearToday} loading={isPending}>
@@ -206,8 +223,13 @@ function mapErrorToClassification(error: WearHistoryClientError): ErrorClassific
  */
 export function useCreateWearEvent(): UseCreateWearEventResult {
   const queryClient = useQueryClient();
+  const { isOnline } = useNetworkStatus();
   const user = useStore((state) => state.user);
+  const addPendingWearEvent = useStore((state) => state.addPendingWearEvent);
   const userId = user?.id;
+
+  // Track whether the last event was queued for offline sync
+  const [wasQueued, setWasQueued] = useState(false);
 
   const mutation = useMutation<MutationResult, WearHistoryClientError, MutationVariables>({
     mutationKey: ['wear-history', 'createOrUpdate', userId],
@@ -324,9 +346,44 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
     },
   });
 
-  // Memoized fire-and-forget mutation function
+  /**
+   * Queue an event for offline sync.
+   */
+  const queueEvent = useCallback(
+    (params: CreateWearEventParams): void => {
+      const wornDate = params.wornDate ?? getTodayDateString();
+
+      addPendingWearEvent({
+        outfitId: params.outfitId,
+        itemIds: params.itemIds,
+        wornDate,
+        source: params.source,
+        context: params.context,
+      });
+
+      setWasQueued(true);
+
+      // Track queued event
+      trackCaptureEvent('wear_event_queued_offline', {
+        userId: userId ?? 'unknown',
+        itemId: params.outfitId,
+        metadata: {
+          outfitId: params.outfitId,
+          source: params.source,
+          wornDate,
+          isOnline,
+        },
+      });
+    },
+    [addPendingWearEvent, userId, isOnline]
+  );
+
+  // Memoized fire-and-forget mutation function with offline support
   const createWearEvent = useCallback(
     (params: CreateWearEventParams) => {
+      // Reset queued state
+      setWasQueued(false);
+
       if (!userId) {
         // Log error but don't throw - the mutation will handle auth errors
         logError(new Error('Cannot create wear event: user not authenticated'), 'user', {
@@ -336,9 +393,26 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
         return;
       }
 
-      mutation.mutate({ params, userId });
+      // If offline, queue immediately
+      if (!isOnline) {
+        queueEvent(params);
+        return;
+      }
+
+      // Try online mutation with error handling for queuing
+      mutation.mutate(
+        { params, userId },
+        {
+          onError: (error) => {
+            // Queue retryable errors for offline sync
+            if (error.isRetryable) {
+              queueEvent(params);
+            }
+          },
+        }
+      );
     },
-    [mutation, userId]
+    [mutation, userId, isOnline, queueEvent]
   );
 
   // Memoized async mutation function that returns the result
@@ -374,6 +448,7 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
   // Memoized reset function
   const reset = useCallback(() => {
     mutation.reset();
+    setWasQueued(false);
   }, [mutation]);
 
   return {
@@ -382,6 +457,7 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
     isPending: mutation.isPending,
     isSuccess: mutation.isSuccess,
     isError: mutation.isError,
+    wasQueued,
     data: mutation.data?.data ?? null,
     wasUpdate: mutation.data?.isUpdate ?? null,
     error: mutation.error ?? null,

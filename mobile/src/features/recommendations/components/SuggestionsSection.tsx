@@ -41,7 +41,7 @@ import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
 import { useResolvedOutfitItems } from '../hooks';
-import { useCreateWearEvent, MarkAsWornSheet } from '../../wearHistory';
+import { useCreateWearEvent, useHasPendingWearEvent, MarkAsWornSheet } from '../../wearHistory';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 import type { RecommendationErrorType } from '../hooks';
 
@@ -78,6 +78,50 @@ function usePrevious<T>(value: T): T | undefined {
     ref.current = value;
   }, [value]);
   return ref.current;
+}
+
+/**
+ * Wrapper for OutfitSuggestionCard that adds pending sync status.
+ *
+ * This wrapper exists because useHasPendingWearEvent is a hook that
+ * needs to be called per outfit to check if it has pending events.
+ */
+interface OutfitCardWithPendingSyncProps {
+  suggestion: OutfitSuggestion;
+  items: OutfitItemViewModel[];
+  isLoadingItems: boolean;
+  testID: string;
+  onWearToday: (suggestion: OutfitSuggestion) => void;
+  onMarkAsWorn: (suggestion: OutfitSuggestion) => void;
+  isMarkingAsWorn: boolean;
+  isWornToday: boolean;
+}
+
+function OutfitCardWithPendingSync({
+  suggestion,
+  items,
+  isLoadingItems,
+  testID,
+  onWearToday,
+  onMarkAsWorn,
+  isMarkingAsWorn,
+  isWornToday,
+}: OutfitCardWithPendingSyncProps): React.JSX.Element {
+  const isPendingSync = useHasPendingWearEvent(suggestion.id);
+
+  return (
+    <OutfitSuggestionCard
+      suggestion={suggestion}
+      items={items}
+      isLoadingItems={isLoadingItems}
+      testID={testID}
+      onWearToday={onWearToday}
+      onMarkAsWorn={onMarkAsWorn}
+      isMarkingAsWorn={isMarkingAsWorn}
+      isWornToday={isWornToday}
+      isPendingSync={isPendingSync}
+    />
+  );
 }
 
 /**
@@ -380,7 +424,7 @@ export function SuggestionsSection({
     ({ item }: ListRenderItemInfo<OutfitSuggestion>) => {
       const items: OutfitItemViewModel[] = resolvedOutfits.get(item.id) ?? [];
       return (
-        <OutfitSuggestionCard
+        <OutfitCardWithPendingSync
           suggestion={item}
           items={items}
           isLoadingItems={isResolvingItems && items.length === 0}

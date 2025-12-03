@@ -20,6 +20,7 @@ const mockUseCreateWearEvent = jest.fn(() => ({
   isPending: false,
   isSuccess: false,
   isError: false,
+  wasQueued: false,
   data: null,
   wasUpdate: null,
   error: null,
@@ -34,6 +35,7 @@ const MockMarkAsWornSheet = ({ visible }: { visible: boolean }) => {
 
 jest.mock('../../wearHistory', () => ({
   useCreateWearEvent: () => mockUseCreateWearEvent(),
+  useHasPendingWearEvent: () => false,
   MarkAsWornSheet: (props: { visible: boolean }) => MockMarkAsWornSheet(props),
 }));
 
