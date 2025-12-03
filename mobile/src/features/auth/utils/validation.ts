@@ -215,6 +215,19 @@ export function validateLoginPassword(password: string): EmailValidationResult {
 export type PasswordStrength = 'weak' | 'medium' | 'strong';
 
 /**
+ * Password strength score thresholds.
+ * These constants define the score boundaries for each strength level.
+ * Used by calculatePasswordStrength() and can be referenced in tests for stability.
+ *
+ * Score ranges:
+ * - Weak: 0 to STRENGTH_THRESHOLD_MEDIUM - 1 (0-39)
+ * - Medium: STRENGTH_THRESHOLD_MEDIUM to STRENGTH_THRESHOLD_STRONG - 1 (40-69)
+ * - Strong: STRENGTH_THRESHOLD_STRONG and above (70-100)
+ */
+export const STRENGTH_THRESHOLD_MEDIUM = 40;
+export const STRENGTH_THRESHOLD_STRONG = 70;
+
+/**
  * Password strength analysis result
  */
 export interface PasswordStrengthResult {
@@ -340,13 +353,21 @@ export function checkPasswordPolicyRules(password: string): PasswordPolicyRules 
  * - Common password patterns
  * - Sequential and repeated characters
  *
- * Scoring:
- * - 0-39: Weak
- * - 40-69: Medium
- * - 70-100: Strong
+ * Scoring thresholds (defined by exported constants):
+ * - Weak: 0 to STRENGTH_THRESHOLD_MEDIUM - 1 (0-39)
+ * - Medium: STRENGTH_THRESHOLD_MEDIUM to STRENGTH_THRESHOLD_STRONG - 1 (40-69)
+ * - Strong: STRENGTH_THRESHOLD_STRONG and above (70-100)
+ *
+ * Test reference passwords (for stable test expectations):
+ * - 'simple' (6 chars, lowercase only) → ~10 points → Weak
+ * - 'Password1!' (10 chars, all types) → ~65 points → Medium
+ * - 'VeryStrong123!Password' (22 chars, all types) → ~90 points → Strong
  *
  * @param password - The password to analyze
  * @returns Strength assessment with score and feedback
+ *
+ * @see STRENGTH_THRESHOLD_MEDIUM
+ * @see STRENGTH_THRESHOLD_STRONG
  *
  * @example
  * ```typescript
@@ -432,11 +453,11 @@ export function calculatePasswordStrength(password: string): PasswordStrengthRes
     feedback.push('Avoid repeated characters');
   }
 
-  // Determine strength level
+  // Determine strength level based on exported threshold constants
   let strength: PasswordStrength;
-  if (score >= 70) {
+  if (score >= STRENGTH_THRESHOLD_STRONG) {
     strength = 'strong';
-  } else if (score >= 40) {
+  } else if (score >= STRENGTH_THRESHOLD_MEDIUM) {
     strength = 'medium';
   } else {
     strength = 'weak';
