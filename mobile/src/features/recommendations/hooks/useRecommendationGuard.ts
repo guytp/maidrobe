@@ -32,9 +32,13 @@ import { logSuccess } from '../../../core/telemetry';
  * - Any future recommendation-related screens
  *
  * TELEMETRY:
- * Logs navigation guard events for observability:
- * - recommendation-guard-authorized: Flag is ON, access granted
- * - recommendation-guard-blocked: Flag is OFF, redirecting to home
+ * Logs navigation guard events for observability using a unified event with
+ * an explicit outcome field for clear distinction in dashboards:
+ * - recommendations.guard-check with outcome: 'authorized' - Flag is ON, access granted
+ * - recommendations.guard-check with outcome: 'blocked' - Flag is OFF, redirecting to home
+ *
+ * This design allows filtering by outcome in observability tools without
+ * treating blocked access as a generic "success" event.
  *
  * @returns Object containing authorization and loading states
  *
@@ -102,9 +106,10 @@ export function useRecommendationGuard(): UseRecommendationGuardResult {
 
     // Flag evaluated - check if access should be granted
     if (isEnabled) {
-      // Access granted - log authorization event
-      logSuccess('recommendations', 'guard-authorized', {
+      // Access granted - log authorization event with explicit outcome
+      logSuccess('recommendations', 'guard-check', {
         data: {
+          outcome: 'authorized',
           path: currentPath,
           flagSource: result?.source,
           flagEnvironment: result?.environment,
@@ -114,9 +119,10 @@ export function useRecommendationGuard(): UseRecommendationGuardResult {
       return;
     }
 
-    // Access denied - log block event and redirect to home
-    logSuccess('recommendations', 'guard-blocked', {
+    // Access denied - log block event with explicit outcome and redirect to home
+    logSuccess('recommendations', 'guard-check', {
       data: {
+        outcome: 'blocked',
         path: currentPath,
         flagSource: result?.source,
         flagEnvironment: result?.environment,
