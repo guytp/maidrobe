@@ -149,6 +149,21 @@ export interface PendingWearEventsSlice extends PendingWearEventsState {
    * Mark hydration as complete.
    */
   setHydrated: (hydrated: boolean) => void;
+
+  /**
+   * Get events that have permanently failed (exceeded MAX_SYNC_ATTEMPTS).
+   */
+  getPermanentlyFailedEvents: () => PendingWearEvent[];
+
+  /**
+   * Check if there are any permanently failed events.
+   */
+  hasPermanentlyFailedEvents: () => boolean;
+
+  /**
+   * Retry all permanently failed events by resetting their status and attempt count.
+   */
+  retryPermanentlyFailedEvents: () => void;
 }
 
 // ============================================================================
@@ -343,9 +358,8 @@ export const createPendingWearEventsSlice = persist<PendingWearEventsSlice>(
       set((state) => ({
         pendingEvents: state.pendingEvents.filter((event) => {
           const eventAge = now - new Date(event.createdAt).getTime();
-          // Remove if stale OR if permanently failed (max attempts reached)
+          // Remove if stale (but keep permanently failed events for user action)
           if (eventAge > STALE_EVENT_AGE_MS) return false;
-          if (event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS) return false;
           return true;
         }),
       }));
@@ -357,6 +371,38 @@ export const createPendingWearEventsSlice = persist<PendingWearEventsSlice>(
 
     setHydrated: (hydrated) => {
       set({ isHydrated: hydrated });
+    },
+
+    getPermanentlyFailedEvents: () => {
+      const { pendingEvents } = get();
+      return pendingEvents.filter(
+        (event) => event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS
+      );
+    },
+
+    hasPermanentlyFailedEvents: () => {
+      const { pendingEvents } = get();
+      return pendingEvents.some(
+        (event) => event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS
+      );
+    },
+
+    retryPermanentlyFailedEvents: () => {
+      set((state) => ({
+        pendingEvents: state.pendingEvents.map((event) => {
+          // Only reset permanently failed events
+          if (event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS) {
+            return {
+              ...event,
+              status: 'pending' as PendingWearEventStatus,
+              attemptCount: 0,
+              lastError: undefined,
+              lastAttemptAt: undefined,
+            };
+          }
+          return event;
+        }),
+      }));
     },
   }),
   {

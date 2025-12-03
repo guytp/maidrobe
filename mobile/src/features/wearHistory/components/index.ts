@@ -5,3 +5,8 @@
  */
 
 export { MarkAsWornSheet, type MarkAsWornSheetProps } from './MarkAsWornSheet';
+export { SyncFailureBanner, type SyncFailureBannerProps } from './SyncFailureBanner';
+export {
+  WearHistorySyncProvider,
+  type WearHistorySyncProviderProps,
+} from './WearHistorySyncProvider';

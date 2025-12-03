@@ -8,6 +8,7 @@ import { useAuthStateListener } from '../src/features/auth/hooks/useAuthStateLis
 import { useTokenRefreshManager } from '../src/features/auth/hooks/useTokenRefreshManager';
 import { restoreAuthStateOnLaunch } from '../src/features/auth/utils/authRestore';
 import { validateColourPalette } from '../src/features/onboarding/utils/colourTranslation';
+import { WearHistorySyncProvider } from '../src/features/wearHistory';
 
 export default function RootLayout(): React.JSX.Element {
   // Restore auth state on cold start
@@ -36,7 +37,9 @@ export default function RootLayout(): React.JSX.Element {
     <SafeAreaProvider>
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <WearHistorySyncProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </WearHistorySyncProvider>
           {/* Load React Query Devtools dynamically in development only.
               This ensures the devtools bundle is excluded from production builds. */}
           {__DEV__ &&

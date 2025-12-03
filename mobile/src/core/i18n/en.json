@@ -801,6 +801,20 @@
       "wornOn": "Worn on {date}",
       "syncing": "Syncing...",
       "syncPending": "Will sync when online",
+      "syncFailure": {
+        "message": "Some items couldn't sync",
+        "itemCount": {
+          "one": "1 item failed to sync",
+          "other": "{count} items failed to sync"
+        },
+        "retry": "Try again",
+        "accessibility": {
+          "retryButton": "Retry syncing failed items",
+          "retryHint": "Attempt to sync the failed wear records again",
+          "dismissButton": "Dismiss sync failure notification",
+          "dismissHint": "Hide this notification without retrying"
+        }
+      },
       "markAsWornSheet": {
         "title": "Mark as worn",
         "dateLabel": "When did you wear this?",
