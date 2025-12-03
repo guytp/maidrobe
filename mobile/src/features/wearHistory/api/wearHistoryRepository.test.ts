@@ -267,6 +267,41 @@ describe('wearHistoryRepository', () => {
         });
       });
 
+      it('should throw validation error for impossible dates that would roll over', async () => {
+        // February 30 doesn't exist - JavaScript would roll to March 1
+        await expect(
+          createOrUpdateWearEvent(validUserId, validOutfitId, '2024-02-30', {
+            item_ids: validItemIds,
+            source: 'ai_recommendation',
+          })
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Invalid worn date format (expected YYYY-MM-DD)',
+        });
+
+        // April only has 30 days - JavaScript would roll to May 1
+        await expect(
+          createOrUpdateWearEvent(validUserId, validOutfitId, '2024-04-31', {
+            item_ids: validItemIds,
+            source: 'ai_recommendation',
+          })
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Invalid worn date format (expected YYYY-MM-DD)',
+        });
+
+        // February 29 in non-leap year - JavaScript would roll to March 1
+        await expect(
+          createOrUpdateWearEvent(validUserId, validOutfitId, '2023-02-29', {
+            item_ids: validItemIds,
+            source: 'ai_recommendation',
+          })
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Invalid worn date format (expected YYYY-MM-DD)',
+        });
+      });
+
       it('should throw validation error for empty item_ids', async () => {
         await expect(
           createOrUpdateWearEvent(validUserId, validOutfitId, validWornDate, {
