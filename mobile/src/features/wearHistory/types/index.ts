@@ -21,11 +21,7 @@
  * - manual_outfit: User manually assembled the outfit
  * - imported: Wear event imported from external source (e.g., data migration)
  */
-export type WearHistorySource =
-  | 'ai_recommendation'
-  | 'saved_outfit'
-  | 'manual_outfit'
-  | 'imported';
+export type WearHistorySource = 'ai_recommendation' | 'saved_outfit' | 'manual_outfit' | 'imported';
 
 /**
  * Database row representation of a wear history event.
