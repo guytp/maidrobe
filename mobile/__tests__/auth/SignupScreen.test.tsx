@@ -81,12 +81,12 @@ describe('SignupScreen', () => {
   });
 
   it('should toggle password visibility', () => {
-    const { getByText, getByPlaceholderText } = render(<SignupScreen />, {
+    const { getByTestId, getByPlaceholderText } = render(<SignupScreen />, {
       wrapper: TestWrapper,
     });
 
     const passwordInput = getByPlaceholderText('Enter password');
-    const toggleButton = getByText('Show password');
+    const toggleButton = getByTestId('password-toggle');
 
     // Initially password should be hidden
     expect(passwordInput.props.secureTextEntry).toBe(true);
@@ -95,9 +95,8 @@ describe('SignupScreen', () => {
     fireEvent.press(toggleButton);
     expect(passwordInput.props.secureTextEntry).toBe(false);
 
-    // Click to hide password again
-    const hideButton = getByText('Hide password');
-    fireEvent.press(hideButton);
+    // Click to hide password again (same button, text changes but testID is stable)
+    fireEvent.press(toggleButton);
     expect(passwordInput.props.secureTextEntry).toBe(true);
   });
 
