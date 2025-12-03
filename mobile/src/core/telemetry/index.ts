@@ -964,6 +964,7 @@ export type FeatureFlagEventType =
  */
 export type RecommendationEventType =
   | 'outfit_recommendation_cta_clicked'
+  | 'outfit_recommendation_retry_clicked'
   | 'outfit_recommendation_request_succeeded'
   | 'outfit_recommendation_request_failed';
 
