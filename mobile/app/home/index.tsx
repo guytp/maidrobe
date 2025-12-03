@@ -91,7 +91,23 @@ export default function HomeScreen(): React.JSX.Element {
   // Handle CTA button press - pass current context params when feature flag is on
   // Includes defensive guard check even though button is hidden when flag is OFF
   const handleGetOutfitIdeas = useCallback(() => {
-    // Defensive guard: check flag before proceeding (handles race conditions)
+    // Defensive guard: check flag before proceeding
+    //
+    // TRANSIENT STATE NOTE:
+    // During the hook's background refresh (triggered after cache initialization),
+    // resetSessionCache() briefly clears the module-level cache. In this window
+    // (typically <500ms), canAccessRecommendations() returns:
+    //   { allowed: false, reason: 'flag_not_evaluated' }
+    // even for users who should have access. This is harmless here because:
+    // 1. The CTA button is already hidden while isEnabled is false
+    // 2. The hook's React state preserves the cached value during refresh
+    // 3. Once evaluation completes, canAccessRecommendations() returns correctly
+    //
+    // Deep-link handlers should be aware of this transient state and either:
+    // - Wait for flag evaluation to complete before checking access, or
+    // - Use getOutfitRecommendationStubFlagWithFallback() for a never-null value
+    //
+    // See: outfitRecommendationStubFlag.ts module docs for full details.
     const guard = canAccessRecommendations();
     if (!guard.allowed) {
       // Silently no-op - button should already be hidden when flag is OFF
@@ -116,12 +132,20 @@ export default function HomeScreen(): React.JSX.Element {
       // Preserve existing behaviour when feature flag is off
       fetchRecommendations();
     }
-  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand, user?.id, flagResult]);
+  }, [
+    fetchRecommendations,
+    isContextSelectorEnabled,
+    occasion,
+    temperatureBand,
+    user?.id,
+    flagResult,
+  ]);
 
   // Handle retry from error state - use same context handling as CTA
   // Includes defensive guard check for consistency with CTA handler
   const handleRetry = useCallback(() => {
     // Defensive guard: check flag before proceeding
+    // Note: See handleGetOutfitIdeas for explanation of transient 'flag_not_evaluated' state
     const guard = canAccessRecommendations();
     if (!guard.allowed) {
       // Silently no-op - retry button should be hidden when flag is OFF
@@ -144,7 +168,14 @@ export default function HomeScreen(): React.JSX.Element {
     } else {
       fetchRecommendations();
     }
-  }, [fetchRecommendations, isContextSelectorEnabled, occasion, temperatureBand, user?.id, flagResult]);
+  }, [
+    fetchRecommendations,
+    isContextSelectorEnabled,
+    occasion,
+    temperatureBand,
+    user?.id,
+    flagResult,
+  ]);
 
   // Exit app on back press from home screen
   // Prevents navigation back to login/loading screens which would be confusing
