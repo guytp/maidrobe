@@ -139,8 +139,8 @@ export function SyncFailureBanner({
         dismissButton: {
           padding: spacing.xs,
           marginLeft: spacing.xs,
-          minWidth: 36,
-          minHeight: 36,
+          minWidth: 44,
+          minHeight: 44,
           justifyContent: 'center',
           alignItems: 'center',
         },
