@@ -793,6 +793,46 @@
         "goBackHint": "Return to capture screen",
         "errorIcon": "Error icon"
       }
+    },
+    "wearHistory": {
+      "wearThisToday": "Wear this today",
+      "markAsWorn": "Mark as worn...",
+      "wornToday": "Worn today",
+      "wornOn": "Worn on {date}",
+      "syncing": "Syncing...",
+      "syncPending": "Will sync when online",
+      "markAsWornSheet": {
+        "title": "Mark as worn",
+        "dateLabel": "When did you wear this?",
+        "contextLabel": "What was the occasion?",
+        "contextPlaceholder": "e.g. Work meeting, date night, weekend brunch...",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "pickDate": "Pick a date",
+        "submit": "Mark as worn",
+        "cancel": "Cancel"
+      },
+      "errors": {
+        "createFailed": "Could not mark outfit as worn. Please try again.",
+        "network": "Unable to connect. Your wear will be synced when online.",
+        "validation": "Invalid wear data. Please try again.",
+        "futureDateNotAllowed": "Cannot mark outfits as worn for future dates",
+        "dateTooOld": "Cannot mark outfits as worn for dates older than 30 days"
+      },
+      "success": {
+        "markedAsWorn": "Marked as worn!",
+        "updatedWear": "Wear record updated"
+      },
+      "accessibility": {
+        "wearTodayButton": "Wear this outfit today",
+        "wearTodayHint": "Mark this outfit as worn for today",
+        "markAsWornButton": "Mark outfit as worn",
+        "markAsWornHint": "Open date picker to mark when you wore this outfit",
+        "wornIndicator": "This outfit was worn on {date}",
+        "syncingIndicator": "Syncing wear record",
+        "datePickerLabel": "Select wear date",
+        "contextInputLabel": "Occasion description"
+      }
     }
   },
   "processing_image": "Processing image...",

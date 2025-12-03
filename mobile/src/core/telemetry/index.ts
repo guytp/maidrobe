@@ -350,7 +350,12 @@ export type CaptureEventType =
   // Recommendation item resolution events
   | 'recommendations_items_resolved'
   | 'recommendations_items_resolution_failed'
-  | 'recommendations_high_missing_rate';
+  | 'recommendations_high_missing_rate'
+  // Wear history events (story #443)
+  | 'wear_history_marked'
+  | 'wear_history_mark_failed'
+  | 'wear_history_sync_completed'
+  | 'wear_history_sync_failed';
 
 /**
  * Metadata for authentication event logging.
