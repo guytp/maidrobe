@@ -25,7 +25,7 @@
  * @module features/recommendations/components/SuggestionsSection
  */
 
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -41,6 +41,7 @@ import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
 import { useResolvedOutfitItems } from '../hooks';
+import { useCreateWearEvent } from '../../wearHistory';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 import type { RecommendationErrorType } from '../hooks';
 
@@ -62,6 +63,21 @@ export interface SuggestionsSectionProps {
   hasData: boolean;
   /** Callback to retry fetch */
   onRetry: () => void;
+}
+
+/**
+ * Hook to track the previous value of a state/prop.
+ * Useful for detecting state transitions.
+ *
+ * @param value - Current value to track
+ * @returns Previous value (undefined on first render)
+ */
+function usePrevious<T>(value: T): T | undefined {
+  const ref = useRef<T | undefined>(undefined);
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref.current;
 }
 
 /**
@@ -209,6 +225,12 @@ function ErrorState({
  * Integrates with useResolvedOutfitItems to resolve item IDs to
  * view-models with thumbnails and display names.
  *
+ * WEAR HISTORY INTEGRATION:
+ * Each outfit card has a "Wear this today" button that marks the outfit
+ * as worn for today. The component tracks:
+ * - Which outfit is currently being marked (for loading state)
+ * - Which outfits have been marked as worn today (for "Worn today" indicator)
+ *
  * @param props - Component props
  * @returns Suggestions section component
  */
@@ -239,6 +261,48 @@ export function SuggestionsSection({
     outfits,
     enabled: itemResolutionEnabled && outfits.length > 0,
   });
+
+  // Wear event mutation hook
+  const { createWearEvent, isPending: isWearPending } = useCreateWearEvent();
+
+  // Track which outfit is currently being marked as worn
+  const [markingOutfitId, setMarkingOutfitId] = useState<string | null>(null);
+
+  // Track outfits that have been successfully marked as worn today
+  // Using a Set stored in state for efficient lookups
+  const [wornTodayIds, setWornTodayIds] = useState<Set<string>>(() => new Set());
+
+  // Handler for "Wear this today" button press
+  const handleWearToday = useCallback(
+    (suggestion: OutfitSuggestion) => {
+      // Skip if already worn or currently marking
+      if (wornTodayIds.has(suggestion.id) || markingOutfitId) {
+        return;
+      }
+
+      setMarkingOutfitId(suggestion.id);
+
+      createWearEvent({
+        outfitId: suggestion.id,
+        itemIds: suggestion.itemIds,
+        source: 'ai_recommendation',
+        context: suggestion.context ?? undefined,
+        // wornDate and wornAt default to today/now in the hook
+      });
+    },
+    [createWearEvent, wornTodayIds, markingOutfitId]
+  );
+
+  // Effect to handle mutation completion - update worn status on success
+  // We track this by watching the isPending state transition
+  // When isPending goes from true to false and we have a markingOutfitId,
+  // we mark that outfit as worn
+  const prevIsPending = usePrevious(isWearPending);
+  if (prevIsPending && !isWearPending && markingOutfitId) {
+    // Mutation completed - mark as worn and clear marking state
+    setWornTodayIds((prev) => new Set(prev).add(markingOutfitId));
+    setMarkingOutfitId(null);
+  }
 
   const styles = useMemo(
     () =>
@@ -274,10 +338,13 @@ export function SuggestionsSection({
           items={items}
           isLoadingItems={isResolvingItems && items.length === 0}
           testID={`outfit-suggestion-${item.id}`}
+          onWearToday={handleWearToday}
+          isMarkingAsWorn={markingOutfitId === item.id && isWearPending}
+          isWornToday={wornTodayIds.has(item.id)}
         />
       );
     },
-    [resolvedOutfits, isResolvingItems]
+    [resolvedOutfits, isResolvingItems, handleWearToday, markingOutfitId, isWearPending, wornTodayIds]
   );
 
   // Key extractor for FlatList
@@ -348,8 +415,8 @@ export function SuggestionsSection({
           removeClippedSubviews={Platform.OS === 'android'}
           // updateCellsBatchingPeriod: 50ms batching for smooth updates
           updateCellsBatchingPeriod={50}
-          // Force re-render when items resolve
-          extraData={resolvedOutfits}
+          // Force re-render when items resolve or worn status changes
+          extraData={{ resolvedOutfits, wornTodayIds, markingOutfitId }}
           // Accessibility
           accessibilityRole="list"
           accessibilityLabel={t('screens.home.recommendations.listLabel').replace(

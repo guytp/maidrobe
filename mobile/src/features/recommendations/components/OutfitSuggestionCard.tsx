@@ -19,10 +19,11 @@
  * @module features/recommendations/components/OutfitSuggestionCard
  */
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
+import { Button } from '../../../core/components/Button';
 import { OutfitItemChip, MIN_CHIP_HEIGHT } from './OutfitItemChip';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 
@@ -38,6 +39,12 @@ export interface OutfitSuggestionCardProps {
   isLoadingItems?: boolean;
   /** Optional test ID for testing */
   testID?: string;
+  /** Callback when "Wear this today" is tapped */
+  onWearToday?: (suggestion: OutfitSuggestion) => void;
+  /** Whether the wear mutation is in progress for this card */
+  isMarkingAsWorn?: boolean;
+  /** Whether this outfit is already marked as worn today */
+  isWornToday?: boolean;
 }
 
 /**
@@ -106,8 +113,16 @@ function OutfitSuggestionCardComponent({
   items,
   isLoadingItems = false,
   testID,
+  onWearToday,
+  isMarkingAsWorn = false,
+  isWornToday = false,
 }: OutfitSuggestionCardProps): React.JSX.Element {
   const { colors, spacing, radius, fontSize } = useTheme();
+
+  // Memoized callback to handle wear today button press
+  const handleWearToday = useCallback(() => {
+    onWearToday?.(suggestion);
+  }, [onWearToday, suggestion]);
 
   const styles = useMemo(
     () =>
@@ -161,6 +176,27 @@ function OutfitSuggestionCardComponent({
         },
         placeholderText: {
           fontSize: fontSize.xs,
+          color: colors.textSecondary,
+        },
+        actionArea: {
+          marginTop: spacing.md,
+          paddingTop: spacing.sm,
+          borderTopWidth: 1,
+          borderTopColor: colors.textSecondary + '20',
+        },
+        wornIndicator: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: spacing.sm,
+        },
+        wornCheckmark: {
+          fontSize: fontSize.base,
+          marginRight: spacing.xs,
+        },
+        wornText: {
+          fontSize: fontSize.sm,
+          fontWeight: '600',
           color: colors.textSecondary,
         },
       }),
@@ -229,6 +265,43 @@ function OutfitSuggestionCardComponent({
       <Text style={styles.reasonText} allowFontScaling={true} maxFontSizeMultiplier={2}>
         {suggestion.reason}
       </Text>
+
+      {/* Action area - button or worn indicator */}
+      {onWearToday && (
+        <View style={styles.actionArea} testID={`${testID}-action-area`}>
+          {isWornToday ? (
+            <View
+              style={styles.wornIndicator}
+              testID={`${testID}-worn-indicator`}
+              accessibilityRole="text"
+              accessibilityLabel={t('screens.wearHistory.accessibility.wornIndicator').replace(
+                '{date}',
+                t('screens.wearHistory.wornToday')
+              )}
+            >
+              <Text style={styles.wornCheckmark}>✓</Text>
+              <Text
+                style={styles.wornText}
+                allowFontScaling={true}
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.wearHistory.wornToday')}
+              </Text>
+            </View>
+          ) : (
+            <Button
+              onPress={handleWearToday}
+              variant="primary"
+              loading={isMarkingAsWorn}
+              disabled={isMarkingAsWorn}
+              accessibilityLabel={t('screens.wearHistory.accessibility.wearTodayButton')}
+              accessibilityHint={t('screens.wearHistory.accessibility.wearTodayHint')}
+            >
+              {t('screens.wearHistory.wearThisToday')}
+            </Button>
+          )}
+        </View>
+      )}
     </View>
   );
 }
