@@ -17,6 +17,7 @@ import {
 import {
   PendingWearEvent,
   MAX_PENDING_WEAR_EVENTS,
+  STALE_EVENT_AGE_MS,
 } from '../../src/features/wearHistory/types';
 
 // Mock AsyncStorage
@@ -966,6 +967,388 @@ describe('pendingWearEventsSlice', () => {
         const event = store.getState().pendingEvents[0];
         expect(event.status).toBe('failed');
         expect(event.lastError).toBe('Network timeout');
+      });
+    });
+  });
+
+  describe('Stale Event Pruning', () => {
+    describe('pruneStaleEvents', () => {
+      it('should remove events older than STALE_EVENT_AGE_MS', () => {
+        const store = createTestStore();
+
+        // Store original toISOString before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Create an event with a timestamp 8 days ago (older than 7-day threshold)
+        const eightDaysAgo = Date.now() - (8 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(eightDaysAgo));
+        });
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-outfit',
+          wornDate: '2024-01-01',
+        }));
+
+        jest.restoreAllMocks();
+
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // The stale event should be removed
+        expect(store.getState().pendingEvents).toHaveLength(0);
+      });
+
+      it('should keep events younger than STALE_EVENT_AGE_MS', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Create an event with a timestamp 1 day ago (well within 7-day threshold)
+        const oneDayAgo = Date.now() - (1 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(oneDayAgo));
+        });
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'fresh-outfit',
+          wornDate: '2024-01-15',
+        }));
+
+        jest.restoreAllMocks();
+
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // The fresh event should remain
+        expect(store.getState().pendingEvents).toHaveLength(1);
+        expect(store.getState().pendingEvents[0].outfitId).toBe('fresh-outfit');
+      });
+
+      it('should remove stale events regardless of their status', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Create events with timestamps 10 days ago
+        const tenDaysAgo = Date.now() - (10 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(tenDaysAgo));
+        });
+
+        // Add pending event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-pending',
+          wornDate: '2024-01-01',
+        }));
+
+        // Add syncing event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-syncing',
+          wornDate: '2024-01-02',
+        }));
+        const syncingLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'stale-syncing'
+        )?.localId;
+        if (syncingLocalId) {
+          store.getState().markEventSyncing(syncingLocalId);
+        }
+
+        // Add failed event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-failed',
+          wornDate: '2024-01-03',
+        }));
+        const failedLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'stale-failed'
+        )?.localId;
+        if (failedLocalId) {
+          store.getState().markEventSyncing(failedLocalId);
+          store.getState().markEventFailed(failedLocalId, 'Network error');
+        }
+
+        jest.restoreAllMocks();
+
+        expect(store.getState().pendingEvents).toHaveLength(3);
+
+        // Verify we have all three statuses
+        const statuses = store.getState().pendingEvents.map(e => e.status);
+        expect(statuses).toContain('pending');
+        expect(statuses).toContain('syncing');
+        expect(statuses).toContain('failed');
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // All events should be removed regardless of status
+        expect(store.getState().pendingEvents).toHaveLength(0);
+      });
+
+      it('should remove events at exactly the staleness threshold', () => {
+        const store = createTestStore();
+
+        // Store original toISOString before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Set a fixed "now" time
+        const fixedNow = new Date('2024-01-15T12:00:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+        // Create event at exactly STALE_EVENT_AGE_MS + 1ms ago (just over threshold)
+        const justOverThreshold = fixedNow - STALE_EVENT_AGE_MS - 1;
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(justOverThreshold));
+        });
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'threshold-outfit',
+          wornDate: '2024-01-08',
+        }));
+
+        // Restore toISOString but keep Date.now mocked
+        jest.spyOn(Date.prototype, 'toISOString').mockRestore();
+
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        // Prune with the mocked Date.now
+        store.getState().pruneStaleEvents();
+
+        // Event just over threshold should be removed
+        expect(store.getState().pendingEvents).toHaveLength(0);
+
+        jest.restoreAllMocks();
+      });
+
+      it('should keep events just under the staleness threshold', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Set a fixed "now" time
+        const fixedNow = new Date('2024-01-15T12:00:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+        // Create event at STALE_EVENT_AGE_MS - 1 hour ago (just under threshold)
+        const justUnderThreshold = fixedNow - STALE_EVENT_AGE_MS + (60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(justUnderThreshold));
+        });
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'threshold-outfit',
+          wornDate: '2024-01-08',
+        }));
+
+        // Restore toISOString but keep Date.now mocked
+        jest.spyOn(Date.prototype, 'toISOString').mockRestore();
+
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        // Prune with the mocked Date.now
+        store.getState().pruneStaleEvents();
+
+        // Event just under threshold should remain
+        expect(store.getState().pendingEvents).toHaveLength(1);
+        expect(store.getState().pendingEvents[0].outfitId).toBe('threshold-outfit');
+
+        jest.restoreAllMocks();
+      });
+
+      it('should handle mixed stale and non-stale events correctly', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Set a fixed "now" time
+        const fixedNow = new Date('2024-01-15T12:00:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+        // Add a stale event (10 days old)
+        const tenDaysAgo = fixedNow - (10 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(tenDaysAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-outfit-1',
+          wornDate: '2024-01-05',
+        }));
+
+        // Add a fresh event (1 day old)
+        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(oneDayAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'fresh-outfit-1',
+          wornDate: '2024-01-14',
+        }));
+
+        // Add another stale event (8 days old)
+        const eightDaysAgo = fixedNow - (8 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(eightDaysAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-outfit-2',
+          wornDate: '2024-01-07',
+        }));
+
+        // Add another fresh event (3 days old)
+        const threeDaysAgo = fixedNow - (3 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(threeDaysAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'fresh-outfit-2',
+          wornDate: '2024-01-12',
+        }));
+
+        // Restore toISOString but keep Date.now mocked
+        jest.spyOn(Date.prototype, 'toISOString').mockRestore();
+
+        expect(store.getState().pendingEvents).toHaveLength(4);
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // Only fresh events should remain
+        expect(store.getState().pendingEvents).toHaveLength(2);
+
+        const remainingOutfitIds = store.getState().pendingEvents.map(e => e.outfitId);
+        expect(remainingOutfitIds).toContain('fresh-outfit-1');
+        expect(remainingOutfitIds).toContain('fresh-outfit-2');
+        expect(remainingOutfitIds).not.toContain('stale-outfit-1');
+        expect(remainingOutfitIds).not.toContain('stale-outfit-2');
+
+        jest.restoreAllMocks();
+      });
+
+      it('should handle empty queue gracefully', () => {
+        const store = createTestStore();
+
+        expect(store.getState().pendingEvents).toHaveLength(0);
+
+        // Should not throw when pruning empty queue
+        expect(() => store.getState().pruneStaleEvents()).not.toThrow();
+
+        expect(store.getState().pendingEvents).toHaveLength(0);
+      });
+
+      it('should verify STALE_EVENT_AGE_MS constant value is 7 days', () => {
+        // Document the expected staleness threshold
+        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+        expect(STALE_EVENT_AGE_MS).toBe(sevenDaysInMs);
+        expect(STALE_EVENT_AGE_MS).toBe(604800000);
+      });
+
+      it('should preserve event data integrity for non-stale events after pruning', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Set a fixed "now" time
+        const fixedNow = new Date('2024-01-15T12:00:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+        // Add a stale event to ensure pruning runs
+        const tenDaysAgo = fixedNow - (10 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(tenDaysAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'stale-outfit',
+          wornDate: '2024-01-05',
+        }));
+
+        // Add a fresh event with specific data
+        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(oneDayAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'fresh-outfit',
+          wornDate: '2024-01-14',
+          itemIds: ['item-a', 'item-b', 'item-c'],
+          context: 'Special occasion',
+          source: 'saved_outfit',
+        }));
+
+        // Restore toISOString but keep Date.now mocked
+        jest.spyOn(Date.prototype, 'toISOString').mockRestore();
+
+        // Mark the fresh event as syncing then failed to test all data preserved
+        const freshEvent = store.getState().pendingEvents.find(
+          e => e.outfitId === 'fresh-outfit'
+        );
+        if (freshEvent) {
+          store.getState().markEventSyncing(freshEvent.localId);
+          store.getState().markEventFailed(freshEvent.localId, 'Server error');
+        }
+
+        expect(store.getState().pendingEvents).toHaveLength(2);
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // Only fresh event should remain with all data intact
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        const remainingEvent = store.getState().pendingEvents[0];
+        expect(remainingEvent.outfitId).toBe('fresh-outfit');
+        expect(remainingEvent.wornDate).toBe('2024-01-14');
+        expect(remainingEvent.itemIds).toEqual(['item-a', 'item-b', 'item-c']);
+        expect(remainingEvent.context).toBe('Special occasion');
+        expect(remainingEvent.source).toBe('saved_outfit');
+        expect(remainingEvent.status).toBe('failed');
+        expect(remainingEvent.lastError).toBe('Server error');
+        expect(remainingEvent.attemptCount).toBe(1);
+
+        jest.restoreAllMocks();
+      });
+
+      it('should use createdAt timestamp for staleness calculation, not wornDate', () => {
+        const store = createTestStore();
+
+        // Store original function before mocking
+        const originalToISOString = Date.prototype.toISOString;
+
+        // Set a fixed "now" time
+        const fixedNow = new Date('2024-01-15T12:00:00.000Z').getTime();
+        jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+        // Create an event with a recent createdAt but an old wornDate
+        // This simulates marking an old date as worn recently
+        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
+          return originalToISOString.call(new Date(oneDayAgo));
+        });
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'recent-creation-old-worndate',
+          wornDate: '2023-06-15', // Very old worn date, but created recently
+        }));
+
+        // Restore toISOString but keep Date.now mocked
+        jest.spyOn(Date.prototype, 'toISOString').mockRestore();
+
+        expect(store.getState().pendingEvents).toHaveLength(1);
+
+        // Prune stale events
+        store.getState().pruneStaleEvents();
+
+        // Event should remain because createdAt is recent, regardless of wornDate
+        expect(store.getState().pendingEvents).toHaveLength(1);
+        expect(store.getState().pendingEvents[0].outfitId).toBe('recent-creation-old-worndate');
+
+        jest.restoreAllMocks();
       });
     });
   });
