@@ -113,6 +113,9 @@ async function fetchWardrobeFeatureFlags(
 ): Promise<WardrobeFeatureFlags> {
   try {
     // Build query params for cohort targeting if provided
+    // Note: URLSearchParams handles encoding automatically, but we apply
+    // encodeURIComponent defensively to ensure user_id remains safe if
+    // ID formats change or if this code is refactored to use string concatenation.
     let endpoint = 'get-feature-flags';
     if (options?.userRole || options?.userId) {
       const queryParams = new URLSearchParams();
@@ -120,7 +123,7 @@ async function fetchWardrobeFeatureFlags(
         queryParams.set('role', options.userRole);
       }
       if (options.userId) {
-        queryParams.set('user_id', options.userId);
+        queryParams.set('user_id', encodeURIComponent(options.userId));
       }
       endpoint = `get-feature-flags?${queryParams.toString()}`;
     }
