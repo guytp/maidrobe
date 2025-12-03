@@ -1352,4 +1352,758 @@ describe('pendingWearEventsSlice', () => {
       });
     });
   });
+
+  describe('State Rehydration and Migration', () => {
+    describe('validatePersistedPendingEventsState Migration', () => {
+      it('should preserve all valid event data through migration', () => {
+        const originalEvent = createValidPendingEvent({
+          localId: 'local-abc-123',
+          outfitId: 'outfit-xyz',
+          itemIds: ['item-a', 'item-b', 'item-c'],
+          wornDate: '2024-03-15',
+          source: 'saved_outfit',
+          context: 'Business meeting',
+          createdAt: '2024-03-15T09:30:00.000Z',
+          attemptCount: 2,
+          status: 'failed',
+          lastAttemptAt: '2024-03-15T10:00:00.000Z',
+          lastError: 'Network timeout',
+        });
+
+        const persistedState = {
+          pendingEvents: [originalEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        const migratedEvent = result.pendingEvents[0];
+
+        // Verify all fields are preserved
+        expect(migratedEvent.localId).toBe('local-abc-123');
+        expect(migratedEvent.outfitId).toBe('outfit-xyz');
+        expect(migratedEvent.itemIds).toEqual(['item-a', 'item-b', 'item-c']);
+        expect(migratedEvent.wornDate).toBe('2024-03-15');
+        expect(migratedEvent.source).toBe('saved_outfit');
+        expect(migratedEvent.context).toBe('Business meeting');
+        expect(migratedEvent.createdAt).toBe('2024-03-15T09:30:00.000Z');
+        expect(migratedEvent.attemptCount).toBe(2);
+        expect(migratedEvent.status).toBe('failed');
+        expect(migratedEvent.lastAttemptAt).toBe('2024-03-15T10:00:00.000Z');
+        expect(migratedEvent.lastError).toBe('Network timeout');
+      });
+
+      it('should handle events with extra unknown fields gracefully', () => {
+        // Simulate a future schema with additional fields
+        const eventWithExtraFields = {
+          ...createValidPendingEvent(),
+          unknownField: 'some value',
+          anotherNewField: 12345,
+          nestedObject: { foo: 'bar' },
+        };
+
+        const persistedState = {
+          pendingEvents: [eventWithExtraFields],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        // Event should still be valid and included
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].outfitId).toBe('outfit-1');
+      });
+
+      it('should preserve optional context field when present', () => {
+        const eventWithContext = createValidPendingEvent({
+          context: 'Special occasion dinner',
+        });
+
+        const persistedState = {
+          pendingEvents: [eventWithContext],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].context).toBe('Special occasion dinner');
+      });
+
+      it('should handle events without optional context field', () => {
+        const eventWithoutContext = createValidPendingEvent();
+        delete (eventWithoutContext as unknown as Record<string, unknown>).context;
+
+        const persistedState = {
+          pendingEvents: [eventWithoutContext],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].context).toBeUndefined();
+      });
+
+      it('should preserve optional lastAttemptAt field when present', () => {
+        const eventWithLastAttempt = createValidPendingEvent({
+          lastAttemptAt: '2024-01-15T12:00:00.000Z',
+        });
+
+        const persistedState = {
+          pendingEvents: [eventWithLastAttempt],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].lastAttemptAt).toBe('2024-01-15T12:00:00.000Z');
+      });
+
+      it('should preserve optional lastError field when present', () => {
+        const eventWithLastError = createValidPendingEvent({
+          status: 'failed',
+          lastError: 'Server returned 500',
+        });
+
+        const persistedState = {
+          pendingEvents: [eventWithLastError],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].lastError).toBe('Server returned 500');
+      });
+
+      it('should reset syncing status to pending on rehydration', () => {
+        const syncingEvent = createValidPendingEvent({
+          status: 'syncing',
+          attemptCount: 1,
+        });
+
+        const persistedState = {
+          pendingEvents: [syncingEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('pending');
+        // attemptCount should be preserved
+        expect(result.pendingEvents[0].attemptCount).toBe(1);
+      });
+
+      it('should preserve pending status on rehydration', () => {
+        const pendingEvent = createValidPendingEvent({
+          status: 'pending',
+        });
+
+        const persistedState = {
+          pendingEvents: [pendingEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('pending');
+      });
+
+      it('should preserve failed status on rehydration', () => {
+        const failedEvent = createValidPendingEvent({
+          status: 'failed',
+          attemptCount: 3,
+          lastError: 'Max retries exceeded',
+        });
+
+        const persistedState = {
+          pendingEvents: [failedEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('failed');
+        expect(result.pendingEvents[0].attemptCount).toBe(3);
+        expect(result.pendingEvents[0].lastError).toBe('Max retries exceeded');
+      });
+
+      it('should handle multiple events with mixed syncing/pending/failed statuses', () => {
+        const persistedState = {
+          pendingEvents: [
+            createValidPendingEvent({ localId: 'event-1', status: 'pending' }),
+            createValidPendingEvent({ localId: 'event-2', status: 'syncing' }),
+            createValidPendingEvent({ localId: 'event-3', status: 'failed' }),
+            createValidPendingEvent({ localId: 'event-4', status: 'syncing' }),
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(4);
+
+        // Verify status transformations
+        const event1 = result.pendingEvents.find(e => e.localId === 'event-1');
+        const event2 = result.pendingEvents.find(e => e.localId === 'event-2');
+        const event3 = result.pendingEvents.find(e => e.localId === 'event-3');
+        const event4 = result.pendingEvents.find(e => e.localId === 'event-4');
+
+        expect(event1?.status).toBe('pending'); // Preserved
+        expect(event2?.status).toBe('pending'); // Reset from syncing
+        expect(event3?.status).toBe('failed');  // Preserved
+        expect(event4?.status).toBe('pending'); // Reset from syncing
+      });
+    });
+
+    describe('Invalid Event Filtering During Migration', () => {
+      it('should filter out events missing localId', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).localId;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing outfitId', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).outfitId;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing itemIds', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).itemIds;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing wornDate', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).wornDate;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing source', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).source;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing createdAt', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).createdAt;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing attemptCount', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).attemptCount;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events missing status', () => {
+        const invalidEvent = { ...createValidPendingEvent() };
+        delete (invalidEvent as Record<string, unknown>).status;
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events with invalid source value', () => {
+        const invalidEvent = {
+          ...createValidPendingEvent(),
+          source: 'unknown_source',
+        };
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events with invalid status value', () => {
+        const invalidEvent = {
+          ...createValidPendingEvent(),
+          status: 'unknown_status',
+        };
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events with non-array itemIds', () => {
+        const invalidEvent = {
+          ...createValidPendingEvent(),
+          itemIds: 'not-an-array',
+        };
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events with non-string items in itemIds array', () => {
+        const invalidEvent = {
+          ...createValidPendingEvent(),
+          itemIds: ['valid-item', 123, 'another-valid'],
+        };
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should filter out events with non-number attemptCount', () => {
+        const invalidEvent = {
+          ...createValidPendingEvent(),
+          attemptCount: '3',
+        };
+
+        const persistedState = {
+          pendingEvents: [invalidEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+
+      it('should keep valid events while filtering out invalid ones', () => {
+        const validEvent1 = createValidPendingEvent({ localId: 'valid-1' });
+        const invalidEvent = { ...createValidPendingEvent(), localId: undefined };
+        const validEvent2 = createValidPendingEvent({ localId: 'valid-2' });
+        const anotherInvalidEvent = { ...createValidPendingEvent(), source: 'bad_source' };
+        const validEvent3 = createValidPendingEvent({ localId: 'valid-3' });
+
+        const persistedState = {
+          pendingEvents: [validEvent1, invalidEvent, validEvent2, anotherInvalidEvent, validEvent3],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(3);
+        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2', 'valid-3']);
+      });
+    });
+
+    describe('Corrupted State Handling', () => {
+      it('should return initial state for null persisted state', () => {
+        const result = validatePersistedPendingEventsState(null);
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for undefined persisted state', () => {
+        const result = validatePersistedPendingEventsState(undefined);
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for string persisted state', () => {
+        const result = validatePersistedPendingEventsState('corrupted-string');
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for number persisted state', () => {
+        const result = validatePersistedPendingEventsState(42);
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for boolean persisted state', () => {
+        const result = validatePersistedPendingEventsState(true);
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for array persisted state', () => {
+        const result = validatePersistedPendingEventsState([1, 2, 3]);
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state for empty object', () => {
+        const result = validatePersistedPendingEventsState({});
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state when pendingEvents is not an array', () => {
+        const result = validatePersistedPendingEventsState({
+          pendingEvents: 'not-an-array',
+        });
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state when pendingEvents is null', () => {
+        const result = validatePersistedPendingEventsState({
+          pendingEvents: null,
+        });
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should return initial state when pendingEvents is an object', () => {
+        const result = validatePersistedPendingEventsState({
+          pendingEvents: { event1: createValidPendingEvent() },
+        });
+
+        expect(result).toEqual({
+          pendingEvents: [],
+          isHydrated: false,
+        });
+      });
+
+      it('should handle pendingEvents containing null elements', () => {
+        const persistedState = {
+          pendingEvents: [
+            createValidPendingEvent({ localId: 'valid-1' }),
+            null,
+            createValidPendingEvent({ localId: 'valid-2' }),
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        // Only valid events should remain
+        expect(result.pendingEvents).toHaveLength(2);
+        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+      });
+
+      it('should handle pendingEvents containing undefined elements', () => {
+        const persistedState = {
+          pendingEvents: [
+            createValidPendingEvent({ localId: 'valid-1' }),
+            undefined,
+            createValidPendingEvent({ localId: 'valid-2' }),
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        // Only valid events should remain
+        expect(result.pendingEvents).toHaveLength(2);
+        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+      });
+
+      it('should handle pendingEvents containing primitive values', () => {
+        const persistedState = {
+          pendingEvents: [
+            createValidPendingEvent({ localId: 'valid-1' }),
+            'string-value',
+            123,
+            true,
+            createValidPendingEvent({ localId: 'valid-2' }),
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        // Only valid events should remain
+        expect(result.pendingEvents).toHaveLength(2);
+        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+      });
+    });
+
+    describe('Source Type Validation', () => {
+      it('should accept ai_recommendation source', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ source: 'ai_recommendation' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].source).toBe('ai_recommendation');
+      });
+
+      it('should accept saved_outfit source', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ source: 'saved_outfit' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].source).toBe('saved_outfit');
+      });
+
+      it('should accept manual_outfit source', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ source: 'manual_outfit' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].source).toBe('manual_outfit');
+      });
+
+      it('should accept imported source', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ source: 'imported' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].source).toBe('imported');
+      });
+
+      it('should reject unknown source types', () => {
+        const persistedState = {
+          pendingEvents: [
+            { ...createValidPendingEvent(), source: 'future_source' },
+            { ...createValidPendingEvent(), source: 'SAVED_OUTFIT' }, // Wrong case
+            { ...createValidPendingEvent(), source: '' }, // Empty string
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+    });
+
+    describe('Status Type Validation', () => {
+      it('should accept pending status', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ status: 'pending' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('pending');
+      });
+
+      it('should accept syncing status and reset to pending', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ status: 'syncing' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('pending');
+      });
+
+      it('should accept failed status', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent({ status: 'failed' })],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].status).toBe('failed');
+      });
+
+      it('should reject unknown status types', () => {
+        const persistedState = {
+          pendingEvents: [
+            { ...createValidPendingEvent(), status: 'success' },
+            { ...createValidPendingEvent(), status: 'PENDING' }, // Wrong case
+            { ...createValidPendingEvent(), status: 'completed' },
+          ],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+      });
+    });
+
+    describe('Empty State Handling', () => {
+      it('should handle empty pendingEvents array', () => {
+        const persistedState = {
+          pendingEvents: [],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(0);
+        expect(result.isHydrated).toBe(false);
+      });
+
+      it('should set isHydrated to false after validation', () => {
+        const persistedState = {
+          pendingEvents: [createValidPendingEvent()],
+          isHydrated: true, // Even if true in persisted state
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        // isHydrated should always be false from validation
+        // (it gets set to true by onRehydrateStorage callback)
+        expect(result.isHydrated).toBe(false);
+      });
+    });
+
+    describe('Legacy State Shape Simulation', () => {
+      it('should handle v0 state shape without version field', () => {
+        // Simulating a hypothetical earlier version without explicit version
+        const legacyState = {
+          pendingEvents: [createValidPendingEvent()],
+        };
+
+        const result = validatePersistedPendingEventsState(legacyState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+      });
+
+      it('should preserve data when state has additional metadata fields', () => {
+        // State might have been persisted with extra metadata
+        const stateWithMetadata = {
+          pendingEvents: [createValidPendingEvent({ localId: 'test-123' })],
+          _persist: { version: 1, rehydrated: true },
+          lastUpdated: '2024-01-15T10:00:00.000Z',
+        };
+
+        const result = validatePersistedPendingEventsState(stateWithMetadata);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].localId).toBe('test-123');
+      });
+
+      it('should handle events with empty itemIds array', () => {
+        const eventWithEmptyItems = createValidPendingEvent({
+          itemIds: [],
+        });
+
+        const persistedState = {
+          pendingEvents: [eventWithEmptyItems],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].itemIds).toEqual([]);
+      });
+
+      it('should handle events with zero attemptCount', () => {
+        const freshEvent = createValidPendingEvent({
+          attemptCount: 0,
+        });
+
+        const persistedState = {
+          pendingEvents: [freshEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].attemptCount).toBe(0);
+      });
+
+      it('should handle events with high attemptCount', () => {
+        const retryExhaustedEvent = createValidPendingEvent({
+          attemptCount: 100,
+          status: 'failed',
+        });
+
+        const persistedState = {
+          pendingEvents: [retryExhaustedEvent],
+        };
+
+        const result = validatePersistedPendingEventsState(persistedState);
+
+        expect(result.pendingEvents).toHaveLength(1);
+        expect(result.pendingEvents[0].attemptCount).toBe(100);
+      });
+    });
+  });
 });
