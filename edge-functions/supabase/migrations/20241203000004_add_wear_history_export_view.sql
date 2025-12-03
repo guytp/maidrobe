@@ -71,7 +71,8 @@
 -- The view returns data only for the authenticated user due to RLS policies
 -- on the underlying wear_history table.
 
-CREATE OR REPLACE VIEW public.user_wear_history_export_view AS
+CREATE OR REPLACE VIEW public.user_wear_history_export_view
+WITH (security_invoker = true) AS
 SELECT
   id,
   outfit_id,
@@ -87,14 +88,10 @@ SELECT
   updated_at
 FROM public.wear_history;
 
--- Enable RLS on the view
--- Views inherit RLS from underlying tables when security_invoker is enabled
--- For PostgreSQL < 15, we need to ensure the view is created with proper permissions
--- and relies on the underlying table's RLS policies
-
--- Note: In PostgreSQL 15+, use CREATE VIEW ... WITH (security_invoker = true)
--- For broader compatibility, we rely on the underlying table's RLS and
--- ensure the view is only accessible to authenticated users
+-- Security: The view uses security_invoker = true (PostgreSQL 15+)
+-- This ensures queries against the view run with the invoking user's privileges,
+-- causing RLS policies on the underlying wear_history table to be properly enforced.
+-- Each user can only see their own wear history data through this view.
 
 -- Drop existing policies on the view if they exist (for idempotency)
 DROP POLICY IF EXISTS "Users can view their own export data" ON public.user_wear_history_export_view;
