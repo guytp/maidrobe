@@ -7,10 +7,9 @@
 export { useCapturePermissions } from './useCapturePermissions';
 export type { CapturePermissions } from './useCapturePermissions';
 
-export { useCreateItemWithImage } from './useCreateItemWithImage';
+export { useCreateItemWithImage, CreateItemWithImageError } from './useCreateItemWithImage';
 export type {
   CreateItemErrorType,
-  CreateItemWithImageError,
   CreateItemInput,
   CreateItemResult,
   UseCreateItemWithImageState,
