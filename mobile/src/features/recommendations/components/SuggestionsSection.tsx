@@ -41,7 +41,7 @@ import { checkFeatureFlagSync } from '../../../core/featureFlags';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
 import { useResolvedOutfitItems } from '../hooks';
-import { useCreateWearEvent } from '../../wearHistory';
+import { useCreateWearEvent, MarkAsWornSheet } from '../../wearHistory';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 import type { RecommendationErrorType } from '../hooks';
 
@@ -226,10 +226,13 @@ function ErrorState({
  * view-models with thumbnails and display names.
  *
  * WEAR HISTORY INTEGRATION:
- * Each outfit card has a "Wear this today" button that marks the outfit
- * as worn for today. The component tracks:
+ * Each outfit card has two wear options:
+ * - "Wear this today" button for quick marking as worn today
+ * - "Mark as worn..." button to open date picker for past dates (last 30 days)
+ * The component tracks:
  * - Which outfit is currently being marked (for loading state)
  * - Which outfits have been marked as worn today (for "Worn today" indicator)
+ * - The MarkAsWornSheet modal state for date selection
  *
  * @param props - Component props
  * @returns Suggestions section component
@@ -272,6 +275,10 @@ export function SuggestionsSection({
   // Using a Set stored in state for efficient lookups
   const [wornTodayIds, setWornTodayIds] = useState<Set<string>>(() => new Set());
 
+  // State for Mark As Worn sheet
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState<OutfitSuggestion | null>(null);
+
   // Handler for "Wear this today" button press
   const handleWearToday = useCallback(
     (suggestion: OutfitSuggestion) => {
@@ -291,6 +298,46 @@ export function SuggestionsSection({
       });
     },
     [createWearEvent, wornTodayIds, markingOutfitId]
+  );
+
+  // Handler for "Mark as worn..." button press - opens the date picker sheet
+  const handleMarkAsWorn = useCallback(
+    (suggestion: OutfitSuggestion) => {
+      // Skip if currently marking
+      if (markingOutfitId) {
+        return;
+      }
+      setSelectedOutfit(suggestion);
+      setSheetVisible(true);
+    },
+    [markingOutfitId]
+  );
+
+  // Handler for closing the sheet
+  const handleSheetClose = useCallback(() => {
+    setSheetVisible(false);
+    setSelectedOutfit(null);
+  }, []);
+
+  // Handler for sheet submission
+  const handleSheetSubmit = useCallback(
+    (date: string, context?: string) => {
+      if (!selectedOutfit) return;
+
+      setMarkingOutfitId(selectedOutfit.id);
+      setSheetVisible(false);
+
+      createWearEvent({
+        outfitId: selectedOutfit.id,
+        itemIds: selectedOutfit.itemIds,
+        source: 'ai_recommendation',
+        wornDate: date,
+        context: context ?? selectedOutfit.context ?? undefined,
+      });
+
+      setSelectedOutfit(null);
+    },
+    [createWearEvent, selectedOutfit]
   );
 
   // Effect to handle mutation completion - update worn status on success
@@ -339,12 +386,13 @@ export function SuggestionsSection({
           isLoadingItems={isResolvingItems && items.length === 0}
           testID={`outfit-suggestion-${item.id}`}
           onWearToday={handleWearToday}
+          onMarkAsWorn={handleMarkAsWorn}
           isMarkingAsWorn={markingOutfitId === item.id && isWearPending}
           isWornToday={wornTodayIds.has(item.id)}
         />
       );
     },
-    [resolvedOutfits, isResolvingItems, handleWearToday, markingOutfitId, isWearPending, wornTodayIds]
+    [resolvedOutfits, isResolvingItems, handleWearToday, handleMarkAsWorn, markingOutfitId, isWearPending, wornTodayIds]
   );
 
   // Key extractor for FlatList
@@ -428,6 +476,15 @@ export function SuggestionsSection({
 
       {/* Show empty state if no outfits after fetch */}
       {!isLoading && outfits.length === 0 && !isError && hasData && <EmptyState />}
+
+      {/* Mark as worn sheet */}
+      <MarkAsWornSheet
+        visible={sheetVisible}
+        onClose={handleSheetClose}
+        onSubmit={handleSheetSubmit}
+        isPending={isWearPending}
+        testID="mark-as-worn-sheet"
+      />
     </View>
   );
 }
