@@ -89,17 +89,12 @@ describe('wearHistoryRepository', () => {
       it('should create a new wear event', async () => {
         mockSingle.mockResolvedValue({ data: mockWearHistoryRow, error: null });
 
-        const result = await createOrUpdateWearEvent(
-          validUserId,
-          validOutfitId,
-          validWornDate,
-          {
-            item_ids: validItemIds,
-            source: 'ai_recommendation',
-            context: 'Client meeting',
-            notes: 'Great outfit choice',
-          }
-        );
+        const result = await createOrUpdateWearEvent(validUserId, validOutfitId, validWornDate, {
+          item_ids: validItemIds,
+          source: 'ai_recommendation',
+          context: 'Client meeting',
+          notes: 'Great outfit choice',
+        });
 
         expect(mockFrom).toHaveBeenCalledWith('wear_history');
         expect(mockUpsert).toHaveBeenCalledWith(
@@ -128,16 +123,11 @@ describe('wearHistoryRepository', () => {
         };
         mockSingle.mockResolvedValue({ data: updatedRow, error: null });
 
-        const result = await createOrUpdateWearEvent(
-          validUserId,
-          validOutfitId,
-          validWornDate,
-          {
-            item_ids: validItemIds,
-            source: 'saved_outfit',
-            context: 'Updated context',
-          }
-        );
+        const result = await createOrUpdateWearEvent(validUserId, validOutfitId, validWornDate, {
+          item_ids: validItemIds,
+          source: 'saved_outfit',
+          context: 'Updated context',
+        });
 
         expect(mockUpsert).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -193,15 +183,10 @@ describe('wearHistoryRepository', () => {
         for (const source of sources) {
           mockSingle.mockResolvedValue({ data: mockWearHistoryRow, error: null });
 
-          await createOrUpdateWearEvent(
-            validUserId,
-            validOutfitId,
-            validWornDate,
-            {
-              item_ids: validItemIds,
-              source,
-            }
-          );
+          await createOrUpdateWearEvent(validUserId, validOutfitId, validWornDate, {
+            item_ids: validItemIds,
+            source,
+          });
 
           expect(mockUpsert).toHaveBeenCalledWith(
             expect.objectContaining({ source }),
@@ -403,10 +388,7 @@ describe('wearHistoryRepository', () => {
         const result = await getWearHistoryForUser(validUserId);
 
         expect(mockFrom).toHaveBeenCalledWith('wear_history');
-        expect(mockSelect).toHaveBeenCalledWith(
-          expect.any(String),
-          { count: 'exact' }
-        );
+        expect(mockSelect).toHaveBeenCalledWith(expect.any(String), { count: 'exact' });
         expect(mockEq).toHaveBeenCalledWith('user_id', validUserId);
         expect(mockOrder).toHaveBeenCalledWith('worn_date', { ascending: false });
         expect(mockOrderSecond).toHaveBeenCalledWith('worn_at', { ascending: false });
@@ -469,34 +451,26 @@ describe('wearHistoryRepository', () => {
 
     describe('validation errors', () => {
       it('should throw validation error for invalid user ID', async () => {
-        await expect(
-          getWearHistoryForUser('not-a-uuid')
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForUser('not-a-uuid')).rejects.toMatchObject({
           code: 'validation',
           message: 'Invalid user ID',
         });
       });
 
       it('should throw validation error for limit out of range', async () => {
-        await expect(
-          getWearHistoryForUser(validUserId, { limit: 0 })
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForUser(validUserId, { limit: 0 })).rejects.toMatchObject({
           code: 'validation',
           message: 'limit must be between 1 and 100',
         });
 
-        await expect(
-          getWearHistoryForUser(validUserId, { limit: 101 })
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForUser(validUserId, { limit: 101 })).rejects.toMatchObject({
           code: 'validation',
           message: 'limit must be between 1 and 100',
         });
       });
 
       it('should throw validation error for negative offset', async () => {
-        await expect(
-          getWearHistoryForUser(validUserId, { offset: -1 })
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForUser(validUserId, { offset: -1 })).rejects.toMatchObject({
           code: 'validation',
           message: 'offset must be non-negative',
         });
@@ -511,9 +485,7 @@ describe('wearHistoryRepository', () => {
           count: null,
         });
 
-        await expect(getWearHistoryForUser(validUserId)).rejects.toThrow(
-          WearHistoryError
-        );
+        await expect(getWearHistoryForUser(validUserId)).rejects.toThrow(WearHistoryError);
       });
     });
   });
@@ -532,11 +504,7 @@ describe('wearHistoryRepository', () => {
 
     describe('successful queries', () => {
       it('should fetch wear history within date range', async () => {
-        const result = await getWearHistoryForWindow(
-          validUserId,
-          fromDate,
-          toDate
-        );
+        const result = await getWearHistoryForWindow(validUserId, fromDate, toDate);
 
         expect(mockFrom).toHaveBeenCalledWith('wear_history');
         expect(mockEq).toHaveBeenCalledWith('user_id', validUserId);
@@ -553,11 +521,7 @@ describe('wearHistoryRepository', () => {
       it('should accept same date for from and to (single day)', async () => {
         const sameDate = '2024-12-03';
 
-        const result = await getWearHistoryForWindow(
-          validUserId,
-          sameDate,
-          sameDate
-        );
+        const result = await getWearHistoryForWindow(validUserId, sameDate, sameDate);
 
         expect(mockGte).toHaveBeenCalledWith('worn_date', sameDate);
         expect(mockLte).toHaveBeenCalledWith('worn_date', sameDate);
@@ -570,11 +534,7 @@ describe('wearHistoryRepository', () => {
           error: null,
         });
 
-        const result = await getWearHistoryForWindow(
-          validUserId,
-          fromDate,
-          toDate
-        );
+        const result = await getWearHistoryForWindow(validUserId, fromDate, toDate);
 
         expect(result.events).toEqual([]);
       });
@@ -582,9 +542,7 @@ describe('wearHistoryRepository', () => {
 
     describe('validation errors', () => {
       it('should throw validation error for invalid user ID', async () => {
-        await expect(
-          getWearHistoryForWindow('bad-uuid', fromDate, toDate)
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForWindow('bad-uuid', fromDate, toDate)).rejects.toMatchObject({
           code: 'validation',
           message: 'Invalid user ID',
         });
@@ -625,9 +583,9 @@ describe('wearHistoryRepository', () => {
           error: new Error('Query failed'),
         });
 
-        await expect(
-          getWearHistoryForWindow(validUserId, fromDate, toDate)
-        ).rejects.toThrow(WearHistoryError);
+        await expect(getWearHistoryForWindow(validUserId, fromDate, toDate)).rejects.toThrow(
+          WearHistoryError
+        );
       });
 
       it('should classify connection errors as network', async () => {
@@ -636,9 +594,7 @@ describe('wearHistoryRepository', () => {
           error: new Error('Connection refused'),
         });
 
-        await expect(
-          getWearHistoryForWindow(validUserId, fromDate, toDate)
-        ).rejects.toMatchObject({
+        await expect(getWearHistoryForWindow(validUserId, fromDate, toDate)).rejects.toMatchObject({
           code: 'network',
         });
       });

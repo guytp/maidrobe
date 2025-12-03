@@ -51,9 +51,7 @@ export class WearHistoryError extends Error {
  * @param error - The error to classify
  * @returns Error classification code
  */
-function classifySupabaseError(
-  error: unknown
-): 'network' | 'server' | 'auth' | 'unknown' {
+function classifySupabaseError(error: unknown): 'network' | 'server' | 'auth' | 'unknown' {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
@@ -105,8 +103,7 @@ function classifySupabaseError(
  * @returns True if the string is a valid UUID format
  */
 function isValidUuid(value: string): boolean {
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(value);
 }
 
@@ -173,10 +170,7 @@ export async function createOrUpdateWearEvent(
   }
 
   if (!wornDate || !isValidDateString(wornDate)) {
-    throw new WearHistoryError(
-      'Invalid worn date format (expected YYYY-MM-DD)',
-      'validation'
-    );
+    throw new WearHistoryError('Invalid worn date format (expected YYYY-MM-DD)', 'validation');
   }
 
   if (!payload.item_ids || !Array.isArray(payload.item_ids)) {
@@ -198,12 +192,7 @@ export async function createOrUpdateWearEvent(
     throw new WearHistoryError('source is required', 'validation');
   }
 
-  const validSources = [
-    'ai_recommendation',
-    'saved_outfit',
-    'manual_outfit',
-    'imported',
-  ];
+  const validSources = ['ai_recommendation', 'saved_outfit', 'manual_outfit', 'imported'];
   if (!validSources.includes(payload.source)) {
     throw new WearHistoryError(`Invalid source: ${payload.source}`, 'validation');
   }
@@ -241,10 +230,7 @@ export async function createOrUpdateWearEvent(
     }
 
     if (!data) {
-      throw new WearHistoryError(
-        'No data returned from upsert operation',
-        'server'
-      );
+      throw new WearHistoryError('No data returned from upsert operation', 'server');
     }
 
     return data as WearHistoryRow;
@@ -396,25 +382,16 @@ export async function getWearHistoryForWindow(
   }
 
   if (!fromDate || !isValidDateString(fromDate)) {
-    throw new WearHistoryError(
-      'Invalid fromDate format (expected YYYY-MM-DD)',
-      'validation'
-    );
+    throw new WearHistoryError('Invalid fromDate format (expected YYYY-MM-DD)', 'validation');
   }
 
   if (!toDate || !isValidDateString(toDate)) {
-    throw new WearHistoryError(
-      'Invalid toDate format (expected YYYY-MM-DD)',
-      'validation'
-    );
+    throw new WearHistoryError('Invalid toDate format (expected YYYY-MM-DD)', 'validation');
   }
 
   // Validate date range
   if (fromDate > toDate) {
-    throw new WearHistoryError(
-      'fromDate must be before or equal to toDate',
-      'validation'
-    );
+    throw new WearHistoryError('fromDate must be before or equal to toDate', 'validation');
   }
 
   try {
