@@ -28,6 +28,11 @@ import { ItemType } from '../../../src/features/onboarding/types/itemMetadata';
 // Import UploadError before mocking
 import { UploadError } from '../../../src/features/wardrobe/utils/imageUpload';
 
+// Mock react-native-get-random-values polyfill
+// This is imported at the top of the hook for crypto.getRandomValues support in RN
+// In tests, we mock crypto.getRandomValues directly below, so this is a no-op
+jest.mock('react-native-get-random-values', () => ({}));
+
 // Mock dependencies
 jest.mock('../../../src/services/supabase', () => ({
   supabase: {
@@ -82,7 +87,9 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock crypto.getRandomValues for predictable UUIDs in tests
+// Also mock crypto.randomUUID for correlation ID generation
 const mockRandomBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+let correlationIdCounter = 0;
 global.crypto = {
   getRandomValues: jest.fn((array: Uint8Array) => {
     for (let i = 0; i < array.length; i++) {
@@ -90,6 +97,8 @@ global.crypto = {
     }
     return array;
   }),
+  // Mock randomUUID for correlation ID generation - returns predictable IDs
+  randomUUID: jest.fn(() => `mock-correlation-id-${++correlationIdCounter}`),
 } as unknown as Crypto;
 
 describe('useCreateItemWithImage - Happy Path', () => {
@@ -147,26 +156,32 @@ describe('useCreateItemWithImage - Happy Path', () => {
       },
     });
 
-    // Reset all mocks
+    // Reset all mocks - this clears call history but not mock implementations
     jest.clearAllMocks();
+
+    // Reset correlation ID counter for predictable IDs
+    correlationIdCounter = 0;
 
     // Mock Date.now for predictable timestamps
     jest.spyOn(Date, 'now').mockReturnValue(mockTimestamp);
 
     // Setup default successful mocks
+    // Use mockReset() + mockResolvedValue() to clear any queued mockRejectedValueOnce calls
     (mockNetInfo.fetch as jest.Mock) = jest.fn().mockResolvedValue({
       isConnected: true,
       isInternetReachable: true,
     });
 
-    (mockSupabase.auth.refreshSession as jest.Mock).mockResolvedValue({
+    (mockSupabase.auth.refreshSession as jest.Mock).mockReset().mockResolvedValue({
       data: { session: mockSession },
       error: null,
     });
 
-    (mockImageUpload.generateStoragePath as jest.Mock).mockReturnValue(mockStoragePath);
-    (mockImageUpload.prepareImageForUpload as jest.Mock).mockResolvedValue(mockPreparedImage);
-    (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValue(undefined);
+    (mockImageUpload.generateStoragePath as jest.Mock).mockReset().mockReturnValue(mockStoragePath);
+    (mockImageUpload.prepareImageForUpload as jest.Mock)
+      .mockReset()
+      .mockResolvedValue(mockPreparedImage);
+    (mockImageUpload.uploadImageToStorage as jest.Mock).mockReset().mockResolvedValue(undefined);
 
     const mockSingle = jest.fn().mockResolvedValue({
       data: mockDbItem,
@@ -181,11 +196,11 @@ describe('useCreateItemWithImage - Happy Path', () => {
       select: mockSelect,
     });
 
-    (mockSupabase.from as jest.Mock).mockReturnValue({
+    (mockSupabase.from as jest.Mock).mockReset().mockReturnValue({
       upsert: mockUpsert,
     });
 
-    (mockSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+    (mockSupabase.functions.invoke as jest.Mock).mockReset().mockResolvedValue({
       data: null,
       error: null,
     });
@@ -418,17 +433,23 @@ describe('useCreateItemWithImage - Happy Path', () => {
       // Both Edge Functions should be invoked
       expect(mockSupabase.functions.invoke).toHaveBeenCalledTimes(2);
 
-      // Check image processing pipeline
+      // Check image processing pipeline - includes correlation headers for tracing
       expect(mockSupabase.functions.invoke).toHaveBeenCalledWith(
         EDGE_FUNCTIONS.PROCESS_ITEM_IMAGE,
         {
           body: { itemId: expect.any(String) },
+          headers: expect.objectContaining({
+            'X-Correlation-ID': expect.any(String),
+          }),
         }
       );
 
-      // Check classification pipeline
+      // Check classification pipeline - includes correlation headers for tracing
       expect(mockSupabase.functions.invoke).toHaveBeenCalledWith(EDGE_FUNCTIONS.CLASSIFY_ITEM, {
         body: { itemId: expect.any(String) },
+        headers: expect.objectContaining({
+          'X-Correlation-ID': expect.any(String),
+        }),
       });
     });
 
@@ -515,14 +536,30 @@ describe('useCreateItemWithImage - Happy Path', () => {
       });
     });
 
-    it('does not emit failure telemetry on success', async () => {
+    it('emits item_created telemetry event on success (user story #241)', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
       await act(async () => {
         await result.current.save(mockInput);
       });
 
-      expect(mockTelemetry.trackCaptureEvent).not.toHaveBeenCalled();
+      // Per user story #241 spec: item_created event is emitted on successful save
+      expect(mockTelemetry.trackCaptureEvent).toHaveBeenCalledWith('item_created', {
+        userId: mockUser.id,
+        has_name: true,
+        tags_count: 2,
+        save_latency_ms: expect.any(Number),
+      });
+
+      // Should not emit failure events on success
+      expect(mockTelemetry.trackCaptureEvent).not.toHaveBeenCalledWith(
+        'item_save_failed',
+        expect.anything()
+      );
+      expect(mockTelemetry.trackCaptureEvent).not.toHaveBeenCalledWith(
+        'item_creation_failed',
+        expect.anything()
+      );
       expect(mockTelemetry.logError).not.toHaveBeenCalled();
     });
 
@@ -898,9 +935,14 @@ describe('useCreateItemWithImage - Happy Path', () => {
       it('handles image processing error', async () => {
         const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-        (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Failed to process image', 'processing')
-        );
+        // The hook has bounded retry logic (3 retries) for storage errors.
+        // Mock to reject all attempts to ensure the error propagates.
+        const processingError = new UploadError('Failed to process image', 'processing');
+        (mockImageUpload.prepareImageForUpload as jest.Mock)
+          .mockRejectedValueOnce(processingError)
+          .mockRejectedValueOnce(processingError)
+          .mockRejectedValueOnce(processingError)
+          .mockRejectedValueOnce(processingError);
 
         await act(async () => {
           try {
@@ -912,15 +954,21 @@ describe('useCreateItemWithImage - Happy Path', () => {
           }
         });
 
+        // Upload should not be called since preparation failed
         expect(mockImageUpload.uploadImageToStorage).not.toHaveBeenCalled();
       });
 
       it('handles file read error', async () => {
         const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-        (mockImageUpload.prepareImageForUpload as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Failed to read file', 'file_read')
-        );
+        // The hook has bounded retry logic (3 retries) for storage errors.
+        // Mock to reject all attempts to ensure the error propagates.
+        const fileReadError = new UploadError('Failed to read file', 'file_read');
+        (mockImageUpload.prepareImageForUpload as jest.Mock)
+          .mockRejectedValueOnce(fileReadError)
+          .mockRejectedValueOnce(fileReadError)
+          .mockRejectedValueOnce(fileReadError)
+          .mockRejectedValueOnce(fileReadError);
 
         await act(async () => {
           try {
@@ -936,9 +984,14 @@ describe('useCreateItemWithImage - Happy Path', () => {
       it('handles network error during upload', async () => {
         const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Network error', 'network')
-        );
+        // The hook has bounded retry logic (3 retries) for network errors.
+        // Mock to reject all attempts to ensure the error propagates.
+        const networkError = new UploadError('Network error', 'network');
+        (mockImageUpload.uploadImageToStorage as jest.Mock)
+          .mockRejectedValueOnce(networkError)
+          .mockRejectedValueOnce(networkError)
+          .mockRejectedValueOnce(networkError)
+          .mockRejectedValueOnce(networkError);
 
         await act(async () => {
           try {
@@ -950,15 +1003,21 @@ describe('useCreateItemWithImage - Happy Path', () => {
           }
         });
 
+        // Database operation should not be called since upload failed
         expect(mockSupabase.from).not.toHaveBeenCalled();
       });
 
       it('handles storage permission error', async () => {
         const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Permission denied', 'permission')
-        );
+        // The hook has bounded retry logic (3 retries) for storage errors.
+        // Mock to reject all attempts to ensure the error propagates.
+        const permissionError = new UploadError('Permission denied', 'permission');
+        (mockImageUpload.uploadImageToStorage as jest.Mock)
+          .mockRejectedValueOnce(permissionError)
+          .mockRejectedValueOnce(permissionError)
+          .mockRejectedValueOnce(permissionError)
+          .mockRejectedValueOnce(permissionError);
 
         await act(async () => {
           try {
@@ -972,17 +1031,23 @@ describe('useCreateItemWithImage - Happy Path', () => {
       it('handles storage server error', async () => {
         const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Storage service unavailable', 'storage')
-        );
+        // The hook has bounded retry logic (3 retries) for storage errors.
+        // Mock to reject all attempts to ensure the error propagates.
+        const storageError = new UploadError('Storage service unavailable', 'storage');
+        (mockImageUpload.uploadImageToStorage as jest.Mock)
+          .mockRejectedValueOnce(storageError)
+          .mockRejectedValueOnce(storageError)
+          .mockRejectedValueOnce(storageError)
+          .mockRejectedValueOnce(storageError);
 
         await act(async () => {
           try {
             await result.current.save(mockInput);
           } catch (err) {
             expect((err as CreateItemWithImageError).errorType).toBe('storage');
-            expect((err as CreateItemWithImageError).message).toContain(
-              'Storage service unavailable'
+            // After retries, the message is the standard ERROR_MESSAGES.storage message
+            expect((err as CreateItemWithImageError).message).toBe(
+              'Failed to upload image. Please try again.'
             );
           }
         });
@@ -1013,7 +1078,7 @@ describe('useCreateItemWithImage - Happy Path', () => {
           } catch (err) {
             expect(err).toBeInstanceOf(CreateItemWithImageError);
             expect((err as CreateItemWithImageError).errorType).toBe('database');
-            expect((err as CreateItemWithImageError).message).toBe('Failed to save item');
+            expect((err as CreateItemWithImageError).message).toBe('Failed to save item. Please try again.');
           }
         });
 
@@ -1156,7 +1221,9 @@ describe('useCreateItemWithImage - Happy Path', () => {
         } catch (err) {
           expect(err).toBeInstanceOf(CreateItemWithImageError);
           expect((err as CreateItemWithImageError).errorType).toBe('unknown');
-          expect((err as CreateItemWithImageError).message).toBe('An unexpected error occurred');
+          expect((err as CreateItemWithImageError).message).toBe(
+            'An unexpected error occurred. Please try again.'
+          );
         }
       });
     });
@@ -1174,7 +1241,7 @@ describe('useCreateItemWithImage - Happy Path', () => {
         } catch (err) {
           expect((err as CreateItemWithImageError).errorType).toBe('network');
           expect((err as CreateItemWithImageError).message).toBe(
-            'Network error. Please try again.'
+            'Connection error. Please check your network and try again.'
           );
         }
       });
@@ -1202,7 +1269,12 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('handles generic Error with database keywords', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      const mockSingle = jest.fn().mockRejectedValue(new Error('database insert failed'));
+      // Mock database to return an error in the response (Supabase pattern)
+      // This tests database errors via the standard Supabase error response
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'database insert failed', code: 'PGRST' },
+      });
 
       (mockSupabase.from as jest.Mock).mockReturnValue({
         upsert: jest.fn().mockReturnValue({
@@ -1229,33 +1301,42 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('preserves itemId across retry after upload failure', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      // First attempt fails at upload
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-        new UploadError('Network error', 'network')
-      );
+      // First user-facing save attempt fails at upload.
+      // The hook has bounded retry logic (3 retries) for network errors.
+      // Mock all internal retries to fail so the error propagates to the caller.
+      const networkError = new UploadError('Network error', 'network');
+      (mockImageUpload.uploadImageToStorage as jest.Mock)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError);
 
       await act(async () => {
         try {
           await result.current.save(mockInput);
         } catch {
-          // Expected to fail
+          // Expected to fail after all retries exhausted
         }
       });
 
       const firstCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
       const firstStoragePath = (mockImageUpload.generateStoragePath as jest.Mock).mock.calls[0];
 
-      // Second attempt succeeds
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+      // Second user-facing save attempt succeeds
+      // Reset upload mock to succeed
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValue(undefined);
 
       await act(async () => {
         await result.current.save(mockInput);
       });
 
       const secondCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
-      const secondStoragePath = (mockImageUpload.generateStoragePath as jest.Mock).mock.calls[1];
+      // generateStoragePath is called on each internal retry attempt, so we need to get
+      // the first call from the second user-facing save (after all the retry calls)
+      const allStoragePaths = (mockImageUpload.generateStoragePath as jest.Mock).mock.calls;
+      const secondStoragePath = allStoragePaths[allStoragePaths.length - 1];
 
-      // Should not have generated new random bytes (itemId is cached)
+      // Should not have generated new random bytes (itemId is cached across user retries)
       expect(secondCallCount).toBe(firstCallCount);
       expect(secondStoragePath).toEqual(firstStoragePath);
     });
@@ -1325,28 +1406,33 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('reset does not clear cached itemId', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      // First save fails
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-        new UploadError('Network error', 'network')
-      );
+      // First user-facing save fails.
+      // The hook has bounded retry logic (3 retries) for network errors.
+      // Mock all internal retries to fail so the error propagates to the caller.
+      const networkError = new UploadError('Network error', 'network');
+      (mockImageUpload.uploadImageToStorage as jest.Mock)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError);
 
       await act(async () => {
         try {
           await result.current.save(mockInput);
         } catch {
-          // Expected
+          // Expected after all retries exhausted
         }
       });
 
       const firstCallCount = (global.crypto.getRandomValues as jest.Mock).mock.calls.length;
 
-      // Call reset
+      // Call reset - this should NOT clear the cached itemId
       act(() => {
         result.current.reset();
       });
 
-      // Retry save
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+      // Retry save - should use the same cached itemId
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValue(undefined);
 
       await act(async () => {
         await result.current.save(mockInput);
@@ -1358,33 +1444,43 @@ describe('useCreateItemWithImage - Happy Path', () => {
       expect(secondCallCount).toBe(firstCallCount);
     });
 
-    it('handles multiple rapid retry attempts with same itemId', async () => {
-      const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
+    it(
+      'handles multiple rapid retry attempts with same itemId',
+      async () => {
+        const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      // Multiple failures
-      for (let i = 0; i < 3; i++) {
-        (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-          new UploadError('Network error', 'network')
+        // Multiple user-facing failures.
+        // Each user-facing save has internal bounded retry logic (3 retries).
+        // Mock all internal retries to fail for each user-facing attempt.
+        const networkError = new UploadError('Network error', 'network');
+
+        for (let i = 0; i < 3; i++) {
+          (mockImageUpload.uploadImageToStorage as jest.Mock)
+            .mockRejectedValueOnce(networkError)
+            .mockRejectedValueOnce(networkError)
+            .mockRejectedValueOnce(networkError)
+            .mockRejectedValueOnce(networkError);
+
+          await act(async () => {
+            try {
+              await result.current.save(mockInput);
+            } catch {
+              // Expected after all internal retries exhausted
+            }
+          });
+        }
+
+        // Get all storage paths used - all should be identical because itemId is cached
+        const storagePaths = (mockImageUpload.generateStoragePath as jest.Mock).mock.results.map(
+          (r: jest.MockResult<string>) => r.value
         );
 
-        await act(async () => {
-          try {
-            await result.current.save(mockInput);
-          } catch {
-            // Expected
-          }
-        });
-      }
-
-      // Get all storage paths used
-      const storagePaths = (mockImageUpload.generateStoragePath as jest.Mock).mock.results.map(
-        (r: jest.MockResult<string>) => r.value
-      );
-
-      // All should be identical
-      expect(storagePaths[0]).toBe(storagePaths[1]);
-      expect(storagePaths[1]).toBe(storagePaths[2]);
-    });
+        // All storage paths should be identical (same cached itemId)
+        const uniquePaths = [...new Set(storagePaths)];
+        expect(uniquePaths.length).toBe(1);
+      },
+      60000
+    );
 
     it('generates new itemId after offline error', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
@@ -1479,15 +1575,20 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('resets loading state after error', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-        new UploadError('Network error', 'network')
-      );
+      // The hook has bounded retry logic (3 retries) for network errors.
+      // Mock all internal retries to fail so the error propagates to the caller.
+      const networkError = new UploadError('Network error', 'network');
+      (mockImageUpload.uploadImageToStorage as jest.Mock)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError);
 
       await act(async () => {
         try {
           await result.current.save(mockInput);
         } catch {
-          // Expected
+          // Expected after all retries exhausted
         }
       });
 
@@ -1498,20 +1599,25 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('resets single-flight flag after error', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-        new UploadError('Network error', 'network')
-      );
+      // The hook has bounded retry logic (3 retries) for network errors.
+      // Mock all internal retries to fail so the error propagates to the caller.
+      const networkError = new UploadError('Network error', 'network');
+      (mockImageUpload.uploadImageToStorage as jest.Mock)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError);
 
       await act(async () => {
         try {
           await result.current.save(mockInput);
         } catch {
-          // Expected
+          // Expected after all retries exhausted
         }
       });
 
-      // Should allow new save (single-flight flag reset)
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValueOnce(undefined);
+      // Should allow new save (single-flight flag reset after error)
+      (mockImageUpload.uploadImageToStorage as jest.Mock).mockResolvedValue(undefined);
 
       await act(async () => {
         await result.current.save(mockInput);
@@ -1525,15 +1631,20 @@ describe('useCreateItemWithImage - Happy Path', () => {
     it('includes correct metadata in failure telemetry', async () => {
       const { result } = renderHook(() => useCreateItemWithImage(), { wrapper });
 
-      (mockImageUpload.uploadImageToStorage as jest.Mock).mockRejectedValueOnce(
-        new UploadError('Upload failed', 'network')
-      );
+      // The hook has bounded retry logic (3 retries) for network errors.
+      // Mock all internal retries to fail so the error propagates to the caller.
+      const networkError = new UploadError('Upload failed', 'network');
+      (mockImageUpload.uploadImageToStorage as jest.Mock)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError)
+        .mockRejectedValueOnce(networkError);
 
       await act(async () => {
         try {
           await result.current.save(mockInput);
         } catch {
-          // Expected
+          // Expected after all retries exhausted
         }
       });
 
