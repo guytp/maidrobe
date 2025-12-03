@@ -86,18 +86,34 @@ jest.mock('expo-router', () => ({
   })),
 }));
 
-// Mock crypto.getRandomValues for predictable UUIDs in tests
-// Also mock crypto.randomUUID for correlation ID generation
+/**
+ * Deterministic crypto mocking for CI/local parity.
+ *
+ * The hook uses two crypto functions:
+ * 1. crypto.getRandomValues() - for UUIDv7 generation (10 bytes)
+ * 2. crypto.randomUUID() - for correlation ID generation
+ *
+ * This mock ensures:
+ * - Same UUIDs generated in both CI and local environments
+ * - Predictable values for assertion matching
+ * - Call counting for idempotency verification
+ *
+ * Expected UUIDv7 format with these mock bytes (timestamp + [1,2,3,4,5,6,7,8,9,10]):
+ * The generated UUID will be deterministic based on Date.now() mock + these bytes
+ */
 const mockRandomBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 let correlationIdCounter = 0;
 global.crypto = {
+  // Mock getRandomValues - fills array with deterministic bytes for UUIDv7 generation
   getRandomValues: jest.fn((array: Uint8Array) => {
     for (let i = 0; i < array.length; i++) {
       array[i] = mockRandomBytes[i];
     }
     return array;
   }),
-  // Mock randomUUID for correlation ID generation - returns predictable IDs
+  // Mock randomUUID - returns incrementing IDs for correlation ID tracking
+  // Format: mock-correlation-id-1, mock-correlation-id-2, etc.
+  // Counter is reset in beforeEach for test isolation
   randomUUID: jest.fn(() => `mock-correlation-id-${++correlationIdCounter}`),
 } as unknown as Crypto;
 
@@ -161,6 +177,11 @@ describe('useCreateItemWithImage - Happy Path', () => {
 
     // Reset correlation ID counter for predictable IDs
     correlationIdCounter = 0;
+
+    // Reset crypto mocks to ensure deterministic behaviour across all tests
+    // This prevents any mockReturnValueOnce leaking between tests
+    (global.crypto.getRandomValues as jest.Mock).mockClear();
+    (global.crypto.randomUUID as jest.Mock).mockClear();
 
     // Mock Date.now for predictable timestamps
     jest.spyOn(Date, 'now').mockReturnValue(mockTimestamp);
