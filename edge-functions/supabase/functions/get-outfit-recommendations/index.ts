@@ -1033,7 +1033,8 @@ function errorResponse(
     error_code: outcome,
     status_code: status,
     duration_ms: durationMs,
-    metadata: { outcome },
+    // Cast RequestOutcome to string for metadata type compatibility
+    metadata: { outcome: outcome as string },
   });
 
   return jsonResponse(
@@ -1224,8 +1225,9 @@ export async function handler(req: Request): Promise<Response> {
       user_id: userId,
       metadata: {
         context_provided: effectiveContext.wasProvided,
-        effective_occasion: effectiveContext.occasion,
-        effective_temperature_band: effectiveContext.temperatureBand,
+        // Cast string literal union types to string for metadata type compatibility
+        effective_occasion: effectiveContext.occasion as string,
+        effective_temperature_band: effectiveContext.temperatureBand as string,
       },
     });
 
@@ -1369,13 +1371,14 @@ export async function handler(req: Request): Promise<Response> {
         duration_ms: durationMs,
         status_code: 200,
         metadata: {
-          outcome: 'success' as RequestOutcome,
+          outcome: 'success' as string,
           outfit_count: 0,
           config_error: true,
           // Context parameter observability (Story #365)
           context_provided: effectiveContext.wasProvided,
-          effective_occasion: effectiveContext.occasion,
-          effective_temperature_band: effectiveContext.temperatureBand,
+          // Cast string literal union types to string for metadata type compatibility
+          effective_occasion: effectiveContext.occasion as string,
+          effective_temperature_band: effectiveContext.temperatureBand as string,
           // No-repeat observability fields (privacy-safe, bucketed)
           no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
           static_pool_size: candidateOutfits.length,
@@ -1462,12 +1465,13 @@ export async function handler(req: Request): Promise<Response> {
       duration_ms: durationMs,
       status_code: 200,
       metadata: {
-        outcome: 'success' as RequestOutcome,
+        outcome: 'success' as string,
         outfit_count: outfits.length,
         // Context parameter observability (Story #365)
         context_provided: effectiveContext.wasProvided,
-        effective_occasion: effectiveContext.occasion,
-        effective_temperature_band: effectiveContext.temperatureBand,
+        // Cast string literal union types to string for metadata type compatibility
+        effective_occasion: effectiveContext.occasion as string,
+        effective_temperature_band: effectiveContext.temperatureBand as string,
         // No-repeat observability fields (privacy-safe, bucketed)
         no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
         static_pool_size: candidateOutfits.length,
