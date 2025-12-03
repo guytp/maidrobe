@@ -70,7 +70,17 @@ CREATE POLICY "Users can update their own profile except role"
   FOR UPDATE
   TO authenticated
   USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id AND role = (SELECT role FROM public.profiles WHERE id = auth.uid()));
+  WITH CHECK (
+    auth.uid() = id
+    AND role = (
+      -- ROLE IMMUTABILITY CHECK:
+      -- In WITH CHECK, unqualified 'role' refers to the NEW value being written.
+      -- This subquery fetches the CURRENT value from the database.
+      -- By requiring NEW.role = current role, we prevent users from changing
+      -- their own role while still allowing updates to other profile fields.
+      SELECT role FROM public.profiles WHERE id = auth.uid()
+    )
+  );
 
 -- Create an admin-only policy for role updates
 -- This policy allows the service_role (used by backend/admin operations) to update any profile
