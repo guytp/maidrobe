@@ -13,10 +13,11 @@ name: CI
 #     - typecheck:  Runs TypeScript compiler via `npm run mobile:typecheck`
 #     - test:       Runs Jest tests via `npm run mobile:test`
 #
-#   Edge Functions (Deno v1.x):
+#   Edge Functions (Deno v1.x, denoland/setup-deno@v2):
 #     - edge_lint:      Runs `deno lint` in edge-functions/
 #     - edge_typecheck: Runs `deno check` on supabase/functions/**/*.ts
 #     - edge_test:      Runs `deno test --allow-all` in edge-functions/
+#     - Dependency caching enabled via actions/cache@v4 for faster builds
 #
 # Modifying this workflow:
 #   - Mobile scripts: Update in root package.json (mobile:lint, mobile:typecheck, mobile:test)
