@@ -17,6 +17,7 @@ import {
 import {
   PendingWearEvent,
   MAX_PENDING_WEAR_EVENTS,
+  MAX_SYNC_ATTEMPTS,
   STALE_EVENT_AGE_MS,
 } from '../../src/features/wearHistory/types';
 
@@ -2103,6 +2104,698 @@ describe('pendingWearEventsSlice', () => {
 
         expect(result.pendingEvents).toHaveLength(1);
         expect(result.pendingEvents[0].attemptCount).toBe(100);
+      });
+    });
+  });
+
+  describe('Permanently Failed Event Handling', () => {
+    describe('MAX_SYNC_ATTEMPTS constant', () => {
+      it('should verify MAX_SYNC_ATTEMPTS constant value is 3', () => {
+        expect(MAX_SYNC_ATTEMPTS).toBe(3);
+      });
+    });
+
+    describe('getPermanentlyFailedEvents', () => {
+      it('should return empty array when no events exist', () => {
+        const store = createTestStore();
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toEqual([]);
+      });
+
+      it('should return empty array when no events are permanently failed', () => {
+        const store = createTestStore();
+
+        // Add a pending event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-1',
+          wornDate: '2024-01-01',
+        }));
+
+        // Add a failed event with attemptCount < MAX_SYNC_ATTEMPTS
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-2',
+          wornDate: '2024-01-02',
+        }));
+        const failedLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-2'
+        )?.localId;
+        if (failedLocalId) {
+          store.getState().markEventSyncing(failedLocalId);
+          store.getState().markEventFailed(failedLocalId, 'Network error');
+        }
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toEqual([]);
+      });
+
+      it('should return events with status failed and attemptCount >= MAX_SYNC_ATTEMPTS', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Simulate MAX_SYNC_ATTEMPTS failed sync attempts
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1} failed`);
+        }
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toHaveLength(1);
+        expect(permanentlyFailed[0].outfitId).toBe('outfit-perm-failed');
+        expect(permanentlyFailed[0].attemptCount).toBe(MAX_SYNC_ATTEMPTS);
+        expect(permanentlyFailed[0].status).toBe('failed');
+      });
+
+      it('should not include failed events with attemptCount < MAX_SYNC_ATTEMPTS', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retryable',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Only 2 attempts (less than MAX_SYNC_ATTEMPTS = 3)
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'First failure');
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'Second failure');
+
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(2);
+        expect(store.getState().pendingEvents[0].status).toBe('failed');
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toEqual([]);
+      });
+
+      it('should not include pending or syncing events regardless of attemptCount', () => {
+        const store = createTestStore();
+
+        // Add pending event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-pending',
+          wornDate: '2024-01-01',
+        }));
+
+        // Add syncing event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-syncing',
+          wornDate: '2024-01-02',
+        }));
+        const syncingLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-syncing'
+        )?.localId;
+        if (syncingLocalId) {
+          // Mark syncing 3 times to get attemptCount = 3
+          for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+            store.getState().markEventSyncing(syncingLocalId);
+          }
+        }
+
+        // Verify attemptCount is at MAX but status is syncing
+        const syncingEvent = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-syncing'
+        );
+        expect(syncingEvent?.attemptCount).toBe(MAX_SYNC_ATTEMPTS);
+        expect(syncingEvent?.status).toBe('syncing');
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toEqual([]);
+      });
+
+      it('should return multiple permanently failed events', () => {
+        const store = createTestStore();
+
+        // Create 3 permanently failed events
+        for (let i = 1; i <= 3; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-perm-failed-${i}`,
+            wornDate: `2024-01-0${i}`,
+          }));
+
+          const localId = store.getState().pendingEvents.find(
+            e => e.outfitId === `outfit-perm-failed-${i}`
+          )?.localId;
+
+          if (localId) {
+            for (let j = 0; j < MAX_SYNC_ATTEMPTS; j++) {
+              store.getState().markEventSyncing(localId);
+              store.getState().markEventFailed(localId, `Failure ${j + 1}`);
+            }
+          }
+        }
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toHaveLength(3);
+        expect(permanentlyFailed.map(e => e.outfitId)).toEqual([
+          'outfit-perm-failed-1',
+          'outfit-perm-failed-2',
+          'outfit-perm-failed-3',
+        ]);
+      });
+
+      it('should include events with attemptCount > MAX_SYNC_ATTEMPTS', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-over-max',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Simulate 5 attempts (more than MAX_SYNC_ATTEMPTS = 3)
+        for (let i = 0; i < 5; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1} failed`);
+        }
+
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(5);
+
+        const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
+
+        expect(permanentlyFailed).toHaveLength(1);
+        expect(permanentlyFailed[0].attemptCount).toBe(5);
+      });
+    });
+
+    describe('hasPermanentlyFailedEvents', () => {
+      it('should return false when no events exist', () => {
+        const store = createTestStore();
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+      });
+
+      it('should return false when no events are permanently failed', () => {
+        const store = createTestStore();
+
+        // Add pending and retryable failed events
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-1',
+          wornDate: '2024-01-01',
+        }));
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-2',
+          wornDate: '2024-01-02',
+        }));
+        const localId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-2'
+        )?.localId;
+        if (localId) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, 'Retryable error');
+        }
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+      });
+
+      it('should return true when at least one event is permanently failed', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1} failed`);
+        }
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(true);
+      });
+
+      it('should return false for failed events under MAX_SYNC_ATTEMPTS', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retryable',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Only 2 attempts
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'First failure');
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'Second failure');
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+      });
+    });
+
+    describe('retryPermanentlyFailedEvents', () => {
+      it('should reset permanently failed events to pending with attemptCount 0', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Make it permanently failed
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1} failed`);
+        }
+
+        expect(store.getState().pendingEvents[0].status).toBe('failed');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(MAX_SYNC_ATTEMPTS);
+
+        // Retry permanently failed events
+        store.getState().retryPermanentlyFailedEvents();
+
+        const event = store.getState().pendingEvents[0];
+        expect(event.status).toBe('pending');
+        expect(event.attemptCount).toBe(0);
+      });
+
+      it('should clear lastError and lastAttemptAt on retry', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1} failed`);
+        }
+
+        // Verify error fields are set before retry
+        expect(store.getState().pendingEvents[0].lastError).toBe('Attempt 3 failed');
+        expect(store.getState().pendingEvents[0].lastAttemptAt).toBeDefined();
+
+        // Retry
+        store.getState().retryPermanentlyFailedEvents();
+
+        const event = store.getState().pendingEvents[0];
+        expect(event.lastError).toBeUndefined();
+        expect(event.lastAttemptAt).toBeUndefined();
+      });
+
+      it('should not affect non-permanently-failed events', () => {
+        const store = createTestStore();
+
+        // Add a pending event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-pending',
+          wornDate: '2024-01-01',
+        }));
+
+        // Add a syncing event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-syncing',
+          wornDate: '2024-01-02',
+        }));
+        const syncingLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-syncing'
+        )?.localId;
+        if (syncingLocalId) {
+          store.getState().markEventSyncing(syncingLocalId);
+        }
+
+        // Add a permanently failed event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-03',
+        }));
+        const permFailedLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-perm-failed'
+        )?.localId;
+        if (permFailedLocalId) {
+          for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+            store.getState().markEventSyncing(permFailedLocalId);
+            store.getState().markEventFailed(permFailedLocalId, `Attempt ${i + 1}`);
+          }
+        }
+
+        // Get statuses before retry
+        const pendingEvent = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-pending');
+        const syncingEvent = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-syncing');
+
+        expect(pendingEvent?.status).toBe('pending');
+        expect(pendingEvent?.attemptCount).toBe(0);
+        expect(syncingEvent?.status).toBe('syncing');
+        expect(syncingEvent?.attemptCount).toBe(1);
+
+        // Retry permanently failed events
+        store.getState().retryPermanentlyFailedEvents();
+
+        // Verify pending and syncing events are unchanged
+        const pendingAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-pending');
+        const syncingAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-syncing');
+
+        expect(pendingAfter?.status).toBe('pending');
+        expect(pendingAfter?.attemptCount).toBe(0);
+        expect(syncingAfter?.status).toBe('syncing');
+        expect(syncingAfter?.attemptCount).toBe(1);
+
+        // Verify permanently failed event was reset
+        const permFailedAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-perm-failed');
+        expect(permFailedAfter?.status).toBe('pending');
+        expect(permFailedAfter?.attemptCount).toBe(0);
+      });
+
+      it('should not affect failed events under MAX_SYNC_ATTEMPTS', () => {
+        const store = createTestStore();
+
+        // Add a retryable failed event (2 attempts)
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retryable',
+          wornDate: '2024-01-01',
+        }));
+        const retryableLocalId = store.getState().pendingEvents[0].localId;
+        store.getState().markEventSyncing(retryableLocalId);
+        store.getState().markEventFailed(retryableLocalId, 'First failure');
+        store.getState().markEventSyncing(retryableLocalId);
+        store.getState().markEventFailed(retryableLocalId, 'Second failure');
+
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(2);
+        expect(store.getState().pendingEvents[0].status).toBe('failed');
+
+        // Retry permanently failed events (should not affect this one)
+        store.getState().retryPermanentlyFailedEvents();
+
+        const event = store.getState().pendingEvents[0];
+        expect(event.status).toBe('failed');
+        expect(event.attemptCount).toBe(2);
+        expect(event.lastError).toBe('Second failure');
+      });
+
+      it('should reset all permanently failed events when multiple exist', () => {
+        const store = createTestStore();
+
+        // Create 3 permanently failed events
+        for (let i = 1; i <= 3; i++) {
+          store.getState().addPendingWearEvent(createEventInput({
+            outfitId: `outfit-perm-failed-${i}`,
+            wornDate: `2024-01-0${i}`,
+          }));
+
+          const localId = store.getState().pendingEvents.find(
+            e => e.outfitId === `outfit-perm-failed-${i}`
+          )?.localId;
+
+          if (localId) {
+            for (let j = 0; j < MAX_SYNC_ATTEMPTS; j++) {
+              store.getState().markEventSyncing(localId);
+              store.getState().markEventFailed(localId, `Failure ${j + 1}`);
+            }
+          }
+        }
+
+        expect(store.getState().getPermanentlyFailedEvents()).toHaveLength(3);
+
+        // Retry all
+        store.getState().retryPermanentlyFailedEvents();
+
+        // All should be reset
+        expect(store.getState().getPermanentlyFailedEvents()).toHaveLength(0);
+
+        store.getState().pendingEvents.forEach(event => {
+          expect(event.status).toBe('pending');
+          expect(event.attemptCount).toBe(0);
+          expect(event.lastError).toBeUndefined();
+          expect(event.lastAttemptAt).toBeUndefined();
+        });
+      });
+
+      it('should preserve other event data when retrying', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-with-data',
+          wornDate: '2024-01-15',
+          itemIds: ['item-a', 'item-b', 'item-c'],
+          context: 'Special occasion',
+          source: 'saved_outfit',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+        const originalCreatedAt = store.getState().pendingEvents[0].createdAt;
+
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1}`);
+        }
+
+        store.getState().retryPermanentlyFailedEvents();
+
+        const event = store.getState().pendingEvents[0];
+        expect(event.localId).toBe(localId);
+        expect(event.outfitId).toBe('outfit-with-data');
+        expect(event.wornDate).toBe('2024-01-15');
+        expect(event.itemIds).toEqual(['item-a', 'item-b', 'item-c']);
+        expect(event.context).toBe('Special occasion');
+        expect(event.source).toBe('saved_outfit');
+        expect(event.createdAt).toBe(originalCreatedAt);
+      });
+    });
+
+    describe('getRetryableEvents integration with permanent failure', () => {
+      it('should exclude permanently failed events from retryable events', () => {
+        const store = createTestStore();
+
+        // Add a permanently failed event
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-01',
+        }));
+        const localId = store.getState().pendingEvents[0].localId;
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1}`);
+        }
+
+        const retryable = store.getState().getRetryableEvents();
+
+        expect(retryable).toHaveLength(0);
+      });
+
+      it('should include failed events under MAX_SYNC_ATTEMPTS in retryable events', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retryable',
+          wornDate: '2024-01-01',
+        }));
+        const localId = store.getState().pendingEvents[0].localId;
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'First failure');
+
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(1);
+
+        const retryable = store.getState().getRetryableEvents();
+
+        expect(retryable).toHaveLength(1);
+        expect(retryable[0].outfitId).toBe('outfit-retryable');
+      });
+
+      it('should include pending events in retryable events', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-pending',
+          wornDate: '2024-01-01',
+        }));
+
+        const retryable = store.getState().getRetryableEvents();
+
+        expect(retryable).toHaveLength(1);
+        expect(retryable[0].status).toBe('pending');
+      });
+
+      it('should correctly filter mixed retryable and non-retryable events', () => {
+        const store = createTestStore();
+
+        // Add pending event (retryable)
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-pending',
+          wornDate: '2024-01-01',
+        }));
+
+        // Add retryable failed event (retryable)
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retryable-failed',
+          wornDate: '2024-01-02',
+        }));
+        const retryableLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-retryable-failed'
+        )?.localId;
+        if (retryableLocalId) {
+          store.getState().markEventSyncing(retryableLocalId);
+          store.getState().markEventFailed(retryableLocalId, 'Error');
+        }
+
+        // Add permanently failed event (not retryable)
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-perm-failed',
+          wornDate: '2024-01-03',
+        }));
+        const permFailedLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-perm-failed'
+        )?.localId;
+        if (permFailedLocalId) {
+          for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+            store.getState().markEventSyncing(permFailedLocalId);
+            store.getState().markEventFailed(permFailedLocalId, `Attempt ${i + 1}`);
+          }
+        }
+
+        // Add syncing event (not retryable - currently being synced)
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-syncing',
+          wornDate: '2024-01-04',
+        }));
+        const syncingLocalId = store.getState().pendingEvents.find(
+          e => e.outfitId === 'outfit-syncing'
+        )?.localId;
+        if (syncingLocalId) {
+          store.getState().markEventSyncing(syncingLocalId);
+        }
+
+        const retryable = store.getState().getRetryableEvents();
+
+        expect(retryable).toHaveLength(2);
+        const retryableOutfitIds = retryable.map(e => e.outfitId);
+        expect(retryableOutfitIds).toContain('outfit-pending');
+        expect(retryableOutfitIds).toContain('outfit-retryable-failed');
+        expect(retryableOutfitIds).not.toContain('outfit-perm-failed');
+        expect(retryableOutfitIds).not.toContain('outfit-syncing');
+      });
+    });
+
+    describe('Event Lifecycle Simulation', () => {
+      it('should transition event to permanently failed after MAX_SYNC_ATTEMPTS failures', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-lifecycle',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // Initial state
+        expect(store.getState().pendingEvents[0].status).toBe('pending');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(0);
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+        expect(store.getState().getRetryableEvents()).toHaveLength(1);
+
+        // First attempt fails
+        store.getState().markEventSyncing(localId);
+        expect(store.getState().pendingEvents[0].status).toBe('syncing');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(1);
+
+        store.getState().markEventFailed(localId, 'Network timeout');
+        expect(store.getState().pendingEvents[0].status).toBe('failed');
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+        expect(store.getState().getRetryableEvents()).toHaveLength(1); // Still retryable
+
+        // Second attempt fails
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'Server error');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(2);
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+        expect(store.getState().getRetryableEvents()).toHaveLength(1); // Still retryable
+
+        // Third attempt fails - now permanently failed
+        store.getState().markEventSyncing(localId);
+        store.getState().markEventFailed(localId, 'Final failure');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(3);
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(true);
+        expect(store.getState().getRetryableEvents()).toHaveLength(0); // No longer retryable
+        expect(store.getState().getPermanentlyFailedEvents()).toHaveLength(1);
+      });
+
+      it('should allow permanently failed events to be retried and fail again', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-retry-cycle',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // First round: fail MAX_SYNC_ATTEMPTS times
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Round 1 Attempt ${i + 1}`);
+        }
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(true);
+
+        // User triggers retry
+        store.getState().retryPermanentlyFailedEvents();
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
+        expect(store.getState().pendingEvents[0].status).toBe('pending');
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(0);
+        expect(store.getState().getRetryableEvents()).toHaveLength(1);
+
+        // Second round: fail again
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Round 2 Attempt ${i + 1}`);
+        }
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(true);
+        expect(store.getState().pendingEvents[0].attemptCount).toBe(3);
+        expect(store.getState().pendingEvents[0].lastError).toBe('Round 2 Attempt 3');
+      });
+
+      it('should allow event to succeed after retry', () => {
+        const store = createTestStore();
+
+        store.getState().addPendingWearEvent(createEventInput({
+          outfitId: 'outfit-eventual-success',
+          wornDate: '2024-01-01',
+        }));
+
+        const localId = store.getState().pendingEvents[0].localId;
+
+        // First round: fail MAX_SYNC_ATTEMPTS times
+        for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
+          store.getState().markEventSyncing(localId);
+          store.getState().markEventFailed(localId, `Attempt ${i + 1}`);
+        }
+
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(true);
+
+        // User triggers retry
+        store.getState().retryPermanentlyFailedEvents();
+
+        // Simulate successful sync this time
+        store.getState().markEventSyncing(localId);
+        // On success, event would be removed from queue
+        store.getState().removePendingEvent(localId);
+
+        expect(store.getState().pendingEvents).toHaveLength(0);
+        expect(store.getState().hasPermanentlyFailedEvents()).toBe(false);
       });
     });
   });
