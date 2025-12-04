@@ -38,10 +38,16 @@ import {
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
 import { checkFeatureFlagSync } from '../../../core/featureFlags';
+import { useStore } from '../../../core/state/store';
 import { Button } from '../../../core/components/Button';
 import { OutfitSuggestionCard } from './OutfitSuggestionCard';
 import { useResolvedOutfitItems } from '../hooks';
-import { useCreateWearEvent, useHasPendingWearEvent, MarkAsWornSheet } from '../../wearHistory';
+import {
+  useCreateWearEvent,
+  useHasPendingWearEvent,
+  MarkAsWornSheet,
+  getTodayDateString,
+} from '../../wearHistory';
 import type { OutfitSuggestion, OutfitItemViewModel } from '../types';
 import type { RecommendationErrorType } from '../hooks';
 
@@ -312,12 +318,44 @@ export function SuggestionsSection({
   // Wear event mutation hook
   const { createWearEvent, isPending: isWearPending } = useCreateWearEvent();
 
+  // Access pending wear events from the store for initialization
+  const pendingEvents = useStore((state) => state.pendingEvents);
+
   // Track which outfit is currently being marked as worn
   const [markingOutfitId, setMarkingOutfitId] = useState<string | null>(null);
 
-  // Track outfits that have been successfully marked as worn today
-  // Using a Set stored in state for efficient lookups
-  const [wornTodayIds, setWornTodayIds] = useState<Set<string>>(() => new Set());
+  // Track outfits that have been successfully marked as worn today.
+  // Initialize from pending events queue to preserve "Worn today" indicator
+  // after navigation or app restart.
+  const [wornTodayIds, setWornTodayIds] = useState<Set<string>>(() => {
+    const today = getTodayDateString();
+    const todayOutfitIds = pendingEvents
+      .filter((event) => event.wornDate === today)
+      .map((event) => event.outfitId);
+    return new Set(todayOutfitIds);
+  });
+
+  // Effect to sync wornTodayIds when pending events change (e.g., new events added,
+  // events synced and removed, or state rehydrated from AsyncStorage).
+  // This ensures the "Worn today" indicator reflects both:
+  // - Outfits marked during this session (added via mutation completion effect)
+  // - Outfits in the pending queue for today (from offline actions or prior sessions)
+  useEffect(() => {
+    const today = getTodayDateString();
+    const todayPendingIds = pendingEvents
+      .filter((event) => event.wornDate === today)
+      .map((event) => event.outfitId);
+
+    // Only update if there are pending IDs not already in the set
+    setWornTodayIds((prev) => {
+      const hasNewIds = todayPendingIds.some((id) => !prev.has(id));
+      if (!hasNewIds) return prev;
+
+      const next = new Set(prev);
+      todayPendingIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [pendingEvents]);
 
   // State for Mark As Worn sheet
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -440,7 +478,15 @@ export function SuggestionsSection({
         />
       );
     },
-    [resolvedOutfits, isResolvingItems, handleWearToday, handleMarkAsWorn, markingOutfitId, isWearPending, wornTodayIds]
+    [
+      resolvedOutfits,
+      isResolvingItems,
+      handleWearToday,
+      handleMarkAsWorn,
+      markingOutfitId,
+      isWearPending,
+      wornTodayIds,
+    ]
   );
 
   // Key extractor for FlatList
