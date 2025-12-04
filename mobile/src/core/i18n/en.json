@@ -917,6 +917,11 @@
       "title": "Outfit Details",
       "loading": "Loading outfit...",
       "itemsSection": "Items in this outfit",
+      "lastWorn": {
+        "title": "Last worn",
+        "wornOn": "Worn on {date}",
+        "notes": "Notes"
+      },
       "wearContext": {
         "title": "Wear Details",
         "wornOn": "Worn on {date}",
@@ -946,7 +951,9 @@
         "backButtonHint": "Return to previous screen",
         "itemThumbnail": "Item {number} thumbnail",
         "wearDate": "This outfit was worn on {date}",
-        "loadingScreen": "Loading outfit details"
+        "loadingScreen": "Loading outfit details",
+        "lastWornSection": "Last worn information",
+        "notesLabel": "Wear notes: {notes}"
       }
     }
   },
