@@ -16,7 +16,7 @@
  * @module features/wearHistory/components/MarkAsWornSheet
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../core/theme';
@@ -42,6 +42,8 @@ export interface MarkAsWornSheetProps {
   isPending?: boolean;
   /** Optional test ID for testing */
   testID?: string;
+  /** Optional initial value for the context field (e.g., from previous wear event) */
+  initialContext?: string;
 }
 
 /**
@@ -155,13 +157,19 @@ export function MarkAsWornSheet({
   onSubmit,
   isPending = false,
   testID = 'mark-as-worn-sheet',
+  initialContext,
 }: MarkAsWornSheetProps): React.JSX.Element {
   const { colors, spacing, radius, fontSize } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // State
+  // State - context initializes from prop when provided
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
-  const [context, setContext] = useState<string>('');
+  const [context, setContext] = useState<string>(initialContext ?? '');
+
+  // Sync context state when initialContext prop changes (e.g., different outfit selected)
+  useEffect(() => {
+    setContext(initialContext ?? '');
+  }, [initialContext]);
 
   // Generate date options
   const dateOptions = useMemo(() => generateDateOptions(), []);
@@ -332,11 +340,11 @@ export function MarkAsWornSheet({
   }, [selectedDate, context, onSubmit]);
 
   const handleClose = useCallback(() => {
-    // Reset state when closing
+    // Reset state when closing - restore to initial values
     setSelectedDate(getTodayDateString());
-    setContext('');
+    setContext(initialContext ?? '');
     onClose();
-  }, [onClose]);
+  }, [onClose, initialContext]);
 
   // Render quick option button
   const renderQuickOption = useCallback(
