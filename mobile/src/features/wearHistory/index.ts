@@ -71,3 +71,11 @@ export { MarkAsWornSheet, type MarkAsWornSheetProps } from './components';
 export { SyncFailureBanner, type SyncFailureBannerProps } from './components';
 export { WearHistorySyncProvider, type WearHistorySyncProviderProps } from './components';
 export { WearHistoryScreen } from './components';
+export { WearEventCard, type WearEventCardProps } from './components';
+
+// Utils
+export {
+  groupWearEventsByDate,
+  formatDateLabel,
+  type WearHistorySection,
+} from './utils';

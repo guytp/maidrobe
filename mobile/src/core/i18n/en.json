@@ -855,12 +855,34 @@
     },
     "history": {
       "title": "Wear History",
-      "placeholder": "Your wear history will appear here once implemented.",
+      "loading": "Loading wear history...",
+      "eventCount": "{count} wears",
+      "empty": {
+        "title": "No wear history yet",
+        "subtitle": "Start logging your outfits to build your wear history",
+        "iconLabel": "Calendar icon"
+      },
+      "error": {
+        "loadFailed": "We couldn't load your wear history. Please try again.",
+        "retry": "Retry"
+      },
+      "event": {
+        "defaultContext": "Outfit worn",
+        "fromRecommendation": "From AI recommendation",
+        "fromSavedOutfit": "From saved outfit",
+        "manualOutfit": "Manual outfit",
+        "imported": "Imported",
+        "at": "at {time}",
+        "itemCount": "{count} items"
+      },
       "accessibility": {
         "screenLabel": "Wear history screen",
         "screenHint": "View what you've worn and when",
         "backButton": "Go back",
-        "backButtonHint": "Return to home screen"
+        "backButtonHint": "Return to home screen",
+        "listLabel": "{count} wear events",
+        "eventCardHint": "Tap to view outfit details",
+        "retryHint": "Tap to retry loading wear history"
       }
     }
   },
