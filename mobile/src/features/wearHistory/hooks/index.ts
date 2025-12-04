@@ -29,3 +29,8 @@ export {
   useWearHistoryEvent,
   type UseWearHistoryEventResult,
 } from './useWearHistoryEvent';
+
+export {
+  useLatestWearEventForOutfit,
+  type UseLatestWearEventForOutfitResult,
+} from './useLatestWearEventForOutfit';
