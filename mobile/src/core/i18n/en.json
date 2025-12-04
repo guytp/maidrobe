@@ -890,6 +890,42 @@
         "eventCardHint": "Tap to view outfit details",
         "retryHint": "Tap to retry loading wear history"
       }
+    },
+    "outfitDetail": {
+      "title": "Outfit Details",
+      "loading": "Loading outfit...",
+      "itemsSection": "Items in this outfit",
+      "wearContext": {
+        "title": "Wear Details",
+        "wornOn": "Worn on {date}",
+        "occasion": "Occasion",
+        "source": "Source"
+      },
+      "source": {
+        "aiRecommendation": "AI recommendation",
+        "savedOutfit": "Saved outfit",
+        "manualOutfit": "Your outfit",
+        "imported": "Imported"
+      },
+      "empty": {
+        "title": "Outfit not found",
+        "subtitle": "This outfit may have been deleted or is no longer available.",
+        "ctaButton": "Go back"
+      },
+      "error": {
+        "loadFailed": "We couldn't load this outfit. Please try again.",
+        "network": "Unable to connect. Please check your internet connection.",
+        "retry": "Retry"
+      },
+      "accessibility": {
+        "screenLabel": "Outfit detail screen",
+        "screenHint": "View outfit items and wear details",
+        "backButton": "Go back",
+        "backButtonHint": "Return to previous screen",
+        "itemThumbnail": "Item {number} thumbnail",
+        "wearDate": "This outfit was worn on {date}",
+        "loadingScreen": "Loading outfit details"
+      }
     }
   },
   "processing_image": "Processing image...",

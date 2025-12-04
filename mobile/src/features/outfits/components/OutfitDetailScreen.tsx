@@ -1,0 +1,713 @@
+/**
+ * Outfit Detail screen component for viewing outfit information and wear history context.
+ *
+ * This screen displays the full details of an outfit, including:
+ * - The items that comprise the outfit (fetched from wardrobe)
+ * - Wear-specific metadata (date, context, source) when navigated from history
+ * - Grid of item thumbnails with navigation to item detail
+ *
+ * Entry points:
+ * - From WearHistoryScreen: includes wearHistoryId, wornDate, source, context
+ * - Future: From saved outfits list, recommendations
+ *
+ * @module features/outfits/components/OutfitDetailScreen
+ */
+
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { t } from '../../../core/i18n';
+import { useTheme } from '../../../core/theme';
+import { Button } from '../../../core/components/Button';
+import { trackCaptureEvent } from '../../../core/telemetry';
+import { useStore } from '../../../core/state/store';
+import { useBatchWardrobeItems } from '../../wardrobe/api/useBatchWardrobeItems';
+import { getItemImageUrl } from '../../wardrobe/utils/getItemImageUrl';
+import { useWearHistoryEvent } from '../../wearHistory/hooks/useWearHistoryEvent';
+import type { WearHistorySource } from '../../wearHistory/types';
+import type { BatchWardrobeItem } from '../../wardrobe/types';
+
+/**
+ * Minimum touch target size for accessibility (WCAG 2.1 AA).
+ */
+const TOUCH_TARGET_SIZE = 44;
+
+/**
+ * Number of columns in the item grid.
+ */
+const GRID_COLUMNS = 3;
+
+/**
+ * Props for OutfitDetailScreen component.
+ */
+export interface OutfitDetailScreenProps {
+  /** Outfit ID from route path */
+  outfitId: string;
+  /** Optional wear history event ID for context */
+  wearHistoryId?: string;
+  /** Optional worn date (YYYY-MM-DD) */
+  wornDate?: string;
+  /** Optional source of the wear event */
+  source?: WearHistorySource;
+  /** Optional occasion context */
+  context?: string;
+}
+
+/**
+ * Formats a date string for display.
+ *
+ * @param dateString - Date in YYYY-MM-DD format
+ * @returns Formatted date string (e.g., "Mon, Dec 2, 2024")
+ */
+function formatWornDate(dateString: string): string {
+  try {
+    // Parse as local date to avoid timezone issues
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+/**
+ * Gets the display label for a wear history source.
+ *
+ * @param source - The wear history source type
+ * @returns Translated display label
+ */
+function getSourceLabel(source: WearHistorySource): string {
+  switch (source) {
+    case 'ai_recommendation':
+      return t('screens.outfitDetail.source.aiRecommendation');
+    case 'saved_outfit':
+      return t('screens.outfitDetail.source.savedOutfit');
+    case 'manual_outfit':
+      return t('screens.outfitDetail.source.manualOutfit');
+    case 'imported':
+      return t('screens.outfitDetail.source.imported');
+    default:
+      return t('screens.outfitDetail.source.manualOutfit');
+  }
+}
+
+/**
+ * Outfit Detail screen component.
+ *
+ * Displays outfit items and wear context when navigated from wear history.
+ *
+ * @param props - Component props including outfitId and optional wear context
+ * @returns Outfit Detail screen component
+ */
+export function OutfitDetailScreen({
+  outfitId,
+  wearHistoryId,
+  wornDate,
+  source,
+  context,
+}: OutfitDetailScreenProps): React.JSX.Element {
+  const { colors, colorScheme, spacing, fontSize, radius } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const hasTrackedScreenView = useRef(false);
+
+  // Global state
+  const user = useStore((state) => state.user);
+
+  // Fetch wear history event to get item_ids if we have a wearHistoryId
+  const {
+    event: wearEvent,
+    isLoading: isEventLoading,
+    isError: isEventError,
+  } = useWearHistoryEvent(wearHistoryId);
+
+  // Get item IDs from wear event - memoized to prevent unnecessary re-fetches
+  const itemIds = useMemo(() => wearEvent?.item_ids ?? [], [wearEvent?.item_ids]);
+
+  // Fetch wardrobe items for this outfit
+  const {
+    items: itemsMap,
+    isLoading: isItemsLoading,
+    isError: isItemsError,
+    refetch,
+  } = useBatchWardrobeItems({
+    itemIds,
+    enabled: itemIds.length > 0,
+  });
+
+  // Convert map to array preserving order from item_ids
+  const items = useMemo(() => {
+    return itemIds
+      .map((id) => itemsMap.get(id))
+      .filter((item): item is BatchWardrobeItem => item !== undefined);
+  }, [itemIds, itemsMap]);
+
+  // Determine loading state
+  const isLoading = isEventLoading || (itemIds.length > 0 && isItemsLoading);
+  const isError = isEventError || isItemsError;
+
+  // Use wear event data or props for display
+  const displayWornDate = wearEvent?.worn_date ?? wornDate;
+  const displaySource = wearEvent?.source ?? source;
+  const displayContext = wearEvent?.context ?? context;
+
+  /**
+   * Track screen view on mount (once per session).
+   */
+  useEffect(() => {
+    if (!hasTrackedScreenView.current && user?.id && outfitId) {
+      hasTrackedScreenView.current = true;
+      trackCaptureEvent('outfit_detail_viewed', {
+        userId: user.id,
+        metadata: {
+          outfitId,
+          wearHistoryId,
+          source: displaySource,
+          hasContext: !!displayContext,
+        },
+      });
+    }
+  }, [user?.id, outfitId, wearHistoryId, displaySource, displayContext]);
+
+  /**
+   * Handles back navigation.
+   */
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/home');
+    }
+  }, [router]);
+
+  /**
+   * Handles item thumbnail press - navigates to item detail.
+   */
+  const handleItemPress = useCallback(
+    (item: BatchWardrobeItem) => {
+      trackCaptureEvent('outfit_detail_item_tapped', {
+        userId: user?.id,
+        metadata: {
+          outfitId,
+          itemId: item.id,
+        },
+      });
+      router.push(`/wardrobe/${item.id}`);
+    },
+    [router, user?.id, outfitId]
+  );
+
+  /**
+   * Handles retry button press.
+   */
+  const handleRetry = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  /**
+   * Renders a single item thumbnail in the grid.
+   */
+  const renderItem = useCallback(
+    ({ item, index }: { item: BatchWardrobeItem; index: number }) => {
+      const imageUrl = getItemImageUrl(item);
+
+      return (
+        <Pressable
+          style={({ pressed }) => [
+            {
+              flex: 1 / GRID_COLUMNS,
+              aspectRatio: 1,
+              margin: spacing.xs,
+              borderRadius: radius.md,
+              overflow: 'hidden',
+              backgroundColor: colors.textSecondary + '10',
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+          onPress={() => handleItemPress(item)}
+          accessibilityLabel={
+            item.name ||
+            t('screens.outfitDetail.accessibility.itemThumbnail').replace(
+              '{number}',
+              String(index + 1)
+            )
+          }
+          accessibilityHint={t('screens.history.accessibility.eventCardHint')}
+          accessibilityRole="button"
+        >
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: fontSize.xl,
+                  color: colors.textSecondary,
+                }}
+              >
+                {''}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      );
+    },
+    [colors, spacing, radius, fontSize, handleItemPress]
+  );
+
+  /**
+   * Key extractor for FlatList items.
+   */
+  const keyExtractor = useCallback((item: BatchWardrobeItem) => item.id, []);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        container: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingTop: insets.top + spacing.sm,
+          paddingHorizontal: spacing.md,
+          paddingBottom: spacing.md,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.textSecondary + '20',
+          backgroundColor: colors.background,
+        },
+        backButton: {
+          width: TOUCH_TARGET_SIZE,
+          height: TOUCH_TARGET_SIZE,
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginRight: spacing.sm,
+        },
+        backButtonPressed: {
+          opacity: 0.6,
+        },
+        backIcon: {
+          fontSize: fontSize.xl,
+          color: colors.textPrimary,
+        },
+        headerTitleContainer: {
+          flex: 1,
+        },
+        headerTitle: {
+          fontSize: fontSize.xl,
+          fontWeight: '600',
+          color: colors.textPrimary,
+        },
+        content: {
+          flex: 1,
+          paddingHorizontal: spacing.md,
+        },
+        wearContextSection: {
+          paddingVertical: spacing.md,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.textSecondary + '15',
+        },
+        wearContextTitle: {
+          fontSize: fontSize.sm,
+          fontWeight: '600',
+          color: colors.textSecondary,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginBottom: spacing.sm,
+        },
+        wearContextRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: spacing.xs,
+        },
+        wearContextLabel: {
+          fontSize: fontSize.sm,
+          color: colors.textSecondary,
+          marginRight: spacing.xs,
+        },
+        wearContextValue: {
+          fontSize: fontSize.base,
+          color: colors.textPrimary,
+          fontWeight: '500',
+        },
+        contextChip: {
+          backgroundColor: colors.textSecondary + '15',
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.sm,
+          marginTop: spacing.xs,
+          alignSelf: 'flex-start',
+        },
+        contextChipText: {
+          fontSize: fontSize.sm,
+          color: colors.textPrimary,
+        },
+        sourceChip: {
+          backgroundColor: colors.textSecondary + '10',
+          paddingHorizontal: spacing.sm,
+          paddingVertical: spacing.xs,
+          borderRadius: radius.sm,
+          marginTop: spacing.xs,
+          alignSelf: 'flex-start',
+        },
+        sourceChipText: {
+          fontSize: fontSize.xs,
+          color: colors.textSecondary,
+        },
+        itemsSectionTitle: {
+          fontSize: fontSize.sm,
+          fontWeight: '600',
+          color: colors.textSecondary,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          marginTop: spacing.lg,
+          marginBottom: spacing.sm,
+        },
+        itemsGrid: {
+          flex: 1,
+        },
+        itemsGridContent: {
+          paddingBottom: insets.bottom + spacing.lg,
+        },
+        loadingContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        errorContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: spacing.xl,
+        },
+        errorText: {
+          fontSize: fontSize.base,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing.lg,
+        },
+        emptyContainer: {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: spacing.xl,
+        },
+        emptyTitle: {
+          fontSize: fontSize.lg,
+          fontWeight: '600',
+          color: colors.textPrimary,
+          textAlign: 'center',
+          marginBottom: spacing.sm,
+        },
+        emptySubtitle: {
+          fontSize: fontSize.base,
+          color: colors.textSecondary,
+          textAlign: 'center',
+          marginBottom: spacing.lg,
+        },
+      }),
+    [colors, spacing, fontSize, radius, insets.top, insets.bottom]
+  );
+
+  // Handle empty outfit ID
+  if (!outfitId) {
+    return (
+      <View
+        style={styles.container}
+        accessibilityLabel={t('screens.outfitDetail.accessibility.screenLabel')}
+      >
+        <View style={styles.header}>
+          <Pressable
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            onPress={handleBack}
+            accessibilityLabel={t('screens.outfitDetail.accessibility.backButton')}
+            accessibilityHint={t('screens.outfitDetail.accessibility.backButtonHint')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backIcon}>{'<'}</Text>
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Text
+              style={styles.headerTitle}
+              accessibilityRole="header"
+              allowFontScaling
+              maxFontSizeMultiplier={1.5}
+            >
+              {t('screens.outfitDetail.title')}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text
+            style={styles.emptyTitle}
+            allowFontScaling
+            maxFontSizeMultiplier={1.5}
+          >
+            {t('screens.outfitDetail.empty.title')}
+          </Text>
+          <Text
+            style={styles.emptySubtitle}
+            allowFontScaling
+            maxFontSizeMultiplier={2}
+          >
+            {t('screens.outfitDetail.empty.subtitle')}
+          </Text>
+          <Button
+            onPress={handleBack}
+            variant="primary"
+            accessibilityLabel={t('screens.outfitDetail.empty.ctaButton')}
+          >
+            {t('screens.outfitDetail.empty.ctaButton')}
+          </Button>
+        </View>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    );
+  }
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <View
+        style={styles.container}
+        accessibilityLabel={t('screens.outfitDetail.accessibility.screenLabel')}
+      >
+        <View style={styles.header}>
+          <Pressable
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            onPress={handleBack}
+            accessibilityLabel={t('screens.outfitDetail.accessibility.backButton')}
+            accessibilityHint={t('screens.outfitDetail.accessibility.backButtonHint')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backIcon}>{'<'}</Text>
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Text
+              style={styles.headerTitle}
+              accessibilityRole="header"
+              allowFontScaling
+              maxFontSizeMultiplier={1.5}
+            >
+              {t('screens.outfitDetail.title')}
+            </Text>
+          </View>
+        </View>
+        <View
+          style={styles.loadingContainer}
+          accessibilityLabel={t('screens.outfitDetail.accessibility.loadingScreen')}
+        >
+          <ActivityIndicator
+            size="large"
+            color={colors.textPrimary}
+            accessibilityLabel={t('screens.outfitDetail.loading')}
+          />
+        </View>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    );
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <View
+        style={styles.container}
+        accessibilityLabel={t('screens.outfitDetail.accessibility.screenLabel')}
+      >
+        <View style={styles.header}>
+          <Pressable
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+            onPress={handleBack}
+            accessibilityLabel={t('screens.outfitDetail.accessibility.backButton')}
+            accessibilityHint={t('screens.outfitDetail.accessibility.backButtonHint')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backIcon}>{'<'}</Text>
+          </Pressable>
+          <View style={styles.headerTitleContainer}>
+            <Text
+              style={styles.headerTitle}
+              accessibilityRole="header"
+              allowFontScaling
+              maxFontSizeMultiplier={1.5}
+            >
+              {t('screens.outfitDetail.title')}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text
+            style={styles.errorText}
+            allowFontScaling
+            maxFontSizeMultiplier={2}
+          >
+            {t('screens.outfitDetail.error.loadFailed')}
+          </Text>
+          <Button
+            onPress={handleRetry}
+            variant="secondary"
+            accessibilityLabel={t('screens.outfitDetail.error.retry')}
+          >
+            {t('screens.outfitDetail.error.retry')}
+          </Button>
+        </View>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      </View>
+    );
+  }
+
+  // Success state
+  return (
+    <View
+      style={styles.container}
+      accessibilityLabel={t('screens.outfitDetail.accessibility.screenLabel')}
+      accessibilityHint={t('screens.outfitDetail.accessibility.screenHint')}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable
+          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+          onPress={handleBack}
+          accessibilityLabel={t('screens.outfitDetail.accessibility.backButton')}
+          accessibilityHint={t('screens.outfitDetail.accessibility.backButtonHint')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.backIcon}>{'<'}</Text>
+        </Pressable>
+        <View style={styles.headerTitleContainer}>
+          <Text
+            style={styles.headerTitle}
+            accessibilityRole="header"
+            allowFontScaling
+            maxFontSizeMultiplier={1.5}
+          >
+            {t('screens.outfitDetail.title')}
+          </Text>
+        </View>
+      </View>
+
+      {/* Content */}
+      <View style={styles.content}>
+        {/* Wear Context Section - only shown when we have wear history context */}
+        {(displayWornDate || displayContext || displaySource) && (
+          <View style={styles.wearContextSection}>
+            <Text
+              style={styles.wearContextTitle}
+              allowFontScaling
+              maxFontSizeMultiplier={1.5}
+            >
+              {t('screens.outfitDetail.wearContext.title')}
+            </Text>
+
+            {/* Worn Date */}
+            {displayWornDate && (
+              <View style={styles.wearContextRow}>
+                <Text
+                  style={styles.wearContextValue}
+                  allowFontScaling
+                  maxFontSizeMultiplier={1.5}
+                  accessibilityLabel={t('screens.outfitDetail.accessibility.wearDate').replace(
+                    '{date}',
+                    formatWornDate(displayWornDate)
+                  )}
+                >
+                  {t('screens.outfitDetail.wearContext.wornOn').replace(
+                    '{date}',
+                    formatWornDate(displayWornDate)
+                  )}
+                </Text>
+              </View>
+            )}
+
+            {/* Context/Occasion Chip */}
+            {displayContext && (
+              <View style={styles.contextChip}>
+                <Text
+                  style={styles.contextChipText}
+                  allowFontScaling
+                  maxFontSizeMultiplier={1.5}
+                >
+                  {displayContext}
+                </Text>
+              </View>
+            )}
+
+            {/* Source Label */}
+            {displaySource && (
+              <View style={styles.sourceChip}>
+                <Text
+                  style={styles.sourceChipText}
+                  allowFontScaling
+                  maxFontSizeMultiplier={1.5}
+                >
+                  {getSourceLabel(displaySource)}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Items Section */}
+        <Text
+          style={styles.itemsSectionTitle}
+          allowFontScaling
+          maxFontSizeMultiplier={1.5}
+        >
+          {t('screens.outfitDetail.itemsSection')}
+        </Text>
+
+        {items.length > 0 ? (
+          <FlatList
+            style={styles.itemsGrid}
+            contentContainerStyle={styles.itemsGridContent}
+            data={items}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            numColumns={GRID_COLUMNS}
+            showsVerticalScrollIndicator={false}
+            accessibilityLabel={`${items.length} items in this outfit`}
+          />
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text
+              style={styles.emptySubtitle}
+              allowFontScaling
+              maxFontSizeMultiplier={2}
+            >
+              {t('screens.outfitDetail.empty.subtitle')}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    </View>
+  );
+}

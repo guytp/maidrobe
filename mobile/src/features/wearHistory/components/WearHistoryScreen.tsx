@@ -113,8 +113,10 @@ export function WearHistoryScreen(): React.JSX.Element {
   }, [router]);
 
   /**
-   * Handles wear event card press - navigates to outfit detail (future).
-   * Currently logs for telemetry tracking.
+   * Handles wear event card press - tracks telemetry and navigates to outfit detail.
+   *
+   * Passes the outfit ID as a route parameter and wear event context as query params
+   * so the outfit detail screen can display wear-specific metadata.
    */
   const handleEventPress = useCallback(
     (event: WearHistoryRow) => {
@@ -126,10 +128,20 @@ export function WearHistoryScreen(): React.JSX.Element {
           source: event.source,
         },
       });
-      // Future: Navigate to outfit detail
-      // router.push(`/outfit/${event.outfit_id}`);
+
+      // Navigate to outfit detail with wear event context
+      router.push({
+        pathname: '/outfit/[id]',
+        params: {
+          id: event.outfit_id,
+          wearHistoryId: event.id,
+          wornDate: event.worn_date,
+          source: event.source,
+          context: event.context ?? undefined,
+        },
+      });
     },
-    [user?.id]
+    [user?.id, router]
   );
 
   /**
