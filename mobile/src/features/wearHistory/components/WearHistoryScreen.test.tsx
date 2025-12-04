@@ -105,17 +105,18 @@ jest.mock('../hooks/useWearHistoryInfiniteQuery', () => ({
 }));
 
 // Mock WearEventCard to simplify testing
-jest.mock('./WearEventCard', () => ({
-  WearEventCard: ({ event, onPress }: { event: WearHistoryRow; onPress?: (e: WearHistoryRow) => void }) => {
-    const { View, Text, Pressable } = require('react-native');
-    return (
-      <Pressable onPress={() => onPress?.(event)} testID={`wear-event-${event.id}`}>
-        <Text>{event.context || 'No context'}</Text>
-        <Text>{event.worn_date}</Text>
-      </Pressable>
-    );
-  },
-}));
+jest.mock('./WearEventCard', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+  const { Text: MockText, Pressable: MockPressable } = require('react-native');
+  return {
+    WearEventCard: ({ event, onPress }: { event: { id: string; context: string | null; worn_date: string }; onPress?: (e: unknown) => void }) => (
+      <MockPressable onPress={() => onPress?.(event)} testID={`wear-event-${event.id}`}>
+        <MockText>{event.context || 'No context'}</MockText>
+        <MockText>{event.worn_date}</MockText>
+      </MockPressable>
+    ),
+  };
+});
 
 // Sample test data
 const createMockWearEvent = (overrides: Partial<WearHistoryRow> = {}): WearHistoryRow => ({
