@@ -372,9 +372,10 @@ export type CaptureEventType =
   | 'wear_history_pagination_triggered'
   | 'wear_history_event_tapped'
   | 'wear_history_empty_cta_tapped'
-  // Outfit detail screen events (story #444)
+  // Outfit detail screen events (story #444, #445)
   | 'outfit_detail_viewed'
-  | 'outfit_detail_item_tapped';
+  | 'outfit_detail_item_tapped'
+  | 'outfit_detail_mark_worn_again_tapped';
 
 /**
  * Metadata for authentication event logging.

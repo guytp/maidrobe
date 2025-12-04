@@ -18,7 +18,7 @@
  * @module features/outfits/components/OutfitDetailScreen
  */
 
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -41,6 +41,8 @@ import { useBatchWardrobeItems } from '../../wardrobe/api/useBatchWardrobeItems'
 import { getItemImageUrl } from '../../wardrobe/utils/getItemImageUrl';
 import { useWearHistoryEvent } from '../../wearHistory/hooks/useWearHistoryEvent';
 import { useLatestWearEventForOutfit } from '../../wearHistory/hooks/useLatestWearEventForOutfit';
+import { useCreateWearEvent } from '../../wearHistory/hooks/useCreateWearEvent';
+import { MarkAsWornSheet } from '../../wearHistory/components/MarkAsWornSheet';
 import type { WearHistorySource } from '../../wearHistory/types';
 import type { BatchWardrobeItem } from '../../wardrobe/types';
 
@@ -196,6 +198,12 @@ export function OutfitDetailScreen({
   const isLoading = isEventLoading || (itemIds.length > 0 && isItemsLoading);
   const isError = isEventError || isItemsError;
 
+  // Mark as worn again - sheet visibility state
+  const [isMarkAsWornSheetVisible, setIsMarkAsWornSheetVisible] = useState(false);
+
+  // Mark as worn mutation hook
+  const { createWearEvent, isPending: isWearPending, reset: resetWearState } = useCreateWearEvent();
+
   /**
    * Track screen view on mount (once per session).
    */
@@ -248,6 +256,46 @@ export function OutfitDetailScreen({
   const handleRetry = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  /**
+   * Opens the mark-as-worn sheet.
+   */
+  const handleMarkAsWornAgain = useCallback(() => {
+    resetWearState();
+    setIsMarkAsWornSheetVisible(true);
+    trackCaptureEvent('outfit_detail_mark_worn_again_tapped', {
+      userId: user?.id,
+      metadata: {
+        outfitId,
+        hasExistingWearEvent: !!wearEvent,
+      },
+    });
+  }, [resetWearState, user?.id, outfitId, wearEvent]);
+
+  /**
+   * Closes the mark-as-worn sheet.
+   */
+  const handleMarkAsWornSheetClose = useCallback(() => {
+    setIsMarkAsWornSheetVisible(false);
+  }, []);
+
+  /**
+   * Handles mark-as-worn sheet submission.
+   * Creates or updates a wear event for the selected date.
+   */
+  const handleMarkAsWornSheetSubmit = useCallback(
+    (date: string, context?: string) => {
+      createWearEvent({
+        outfitId,
+        itemIds,
+        wornDate: date,
+        source: 'saved_outfit',
+        context,
+      });
+      setIsMarkAsWornSheetVisible(false);
+    },
+    [createWearEvent, outfitId, itemIds]
+  );
 
   /**
    * Renders a single item thumbnail in the grid.
@@ -467,6 +515,11 @@ export function OutfitDetailScreen({
           color: colors.textSecondary,
           textAlign: 'center',
           marginBottom: spacing.lg,
+        },
+        markAsWornButtonContainer: {
+          paddingVertical: spacing.md,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.textSecondary + '15',
         },
       }),
     [colors, spacing, fontSize, radius, insets.top, insets.bottom]
@@ -731,6 +784,20 @@ export function OutfitDetailScreen({
           </View>
         )}
 
+        {/* Mark as worn again button - always visible for any outfit */}
+        <View style={styles.markAsWornButtonContainer}>
+          <Button
+            onPress={handleMarkAsWornAgain}
+            variant="secondary"
+            disabled={isWearPending || itemIds.length === 0}
+            loading={isWearPending}
+            accessibilityLabel={t('screens.outfitDetail.accessibility.markAsWornAgainButton')}
+            accessibilityHint={t('screens.outfitDetail.accessibility.markAsWornAgainHint')}
+          >
+            {t('screens.outfitDetail.markAsWornAgain.button')}
+          </Button>
+        </View>
+
         {/* Items Section */}
         <Text
           style={styles.itemsSectionTitle}
@@ -763,6 +830,16 @@ export function OutfitDetailScreen({
           </View>
         )}
       </View>
+
+      {/* Mark as worn sheet */}
+      <MarkAsWornSheet
+        visible={isMarkAsWornSheetVisible}
+        onClose={handleMarkAsWornSheetClose}
+        onSubmit={handleMarkAsWornSheetSubmit}
+        isPending={isWearPending}
+        initialContext={wearEvent?.context ?? undefined}
+        testID="outfit-detail-mark-as-worn-sheet"
+      />
 
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </View>

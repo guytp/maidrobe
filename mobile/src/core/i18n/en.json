@@ -944,6 +944,12 @@
         "network": "Unable to connect. Please check your internet connection.",
         "retry": "Retry"
       },
+      "markAsWornAgain": {
+        "button": "Mark as worn again...",
+        "successMessage": "Outfit marked as worn!",
+        "updateMessage": "Wear record updated",
+        "queuedMessage": "Will sync when online"
+      },
       "accessibility": {
         "screenLabel": "Outfit detail screen",
         "screenHint": "View outfit items and wear details",
@@ -953,7 +959,9 @@
         "wearDate": "This outfit was worn on {date}",
         "loadingScreen": "Loading outfit details",
         "lastWornSection": "Last worn information",
-        "notesLabel": "Wear notes: {notes}"
+        "notesLabel": "Wear notes: {notes}",
+        "markAsWornAgainButton": "Mark this outfit as worn again",
+        "markAsWornAgainHint": "Opens a picker to select when you wore this outfit"
       }
     }
   },
