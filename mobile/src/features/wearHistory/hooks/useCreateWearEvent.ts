@@ -295,7 +295,7 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
       const { params, userId: varUserId } = variables;
       const wornDate = params.wornDate ?? getTodayDateString();
 
-      // Invalidate user's wear history list
+      // Invalidate user's wear history list (for History screen)
       queryClient.invalidateQueries({
         queryKey: wearHistoryQueryKey.user(varUserId),
       });
@@ -305,6 +305,12 @@ export function useCreateWearEvent(): UseCreateWearEventResult {
       queryClient.invalidateQueries({
         queryKey: [...wearHistoryQueryKey.all, varUserId, 'window'],
         exact: false,
+      });
+
+      // Invalidate the "latest wear event for outfit" query
+      // This ensures the Outfit Detail screen's "Last worn" section updates
+      queryClient.invalidateQueries({
+        queryKey: wearHistoryQueryKey.latestForOutfit(varUserId, params.outfitId),
       });
 
       // Set the specific outfit+date query data directly
