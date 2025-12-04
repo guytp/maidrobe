@@ -78,11 +78,11 @@ export function formatDateLabel(dateString: string): string {
   const yesterday = getYesterdayDateString();
 
   if (dateString === today) {
-    return t('screens.wearHistory.markAsWornSheet.today');
+    return t('screens.history.dateLabels.today');
   }
 
   if (dateString === yesterday) {
-    return t('screens.wearHistory.markAsWornSheet.yesterday');
+    return t('screens.history.dateLabels.yesterday');
   }
 
   // Parse the date string - add T00:00:00 to avoid timezone issues

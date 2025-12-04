@@ -857,6 +857,10 @@
       "title": "Wear History",
       "loading": "Loading wear history...",
       "eventCount": "{count} wears",
+      "dateLabels": {
+        "today": "Today",
+        "yesterday": "Yesterday"
+      },
       "empty": {
         "title": "No wear history yet",
         "subtitle": "Start logging your outfits to build your wear history",
