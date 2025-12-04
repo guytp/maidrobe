@@ -35,6 +35,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
+import { Toast } from '../../../core/components/Toast';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useBatchWardrobeItems } from '../../wardrobe/api/useBatchWardrobeItems';
@@ -201,8 +202,47 @@ export function OutfitDetailScreen({
   // Mark as worn again - sheet visibility state
   const [isMarkAsWornSheetVisible, setIsMarkAsWornSheetVisible] = useState(false);
 
+  // Toast state for success/queued feedback
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   // Mark as worn mutation hook
-  const { createWearEvent, isPending: isWearPending, reset: resetWearState } = useCreateWearEvent();
+  const {
+    createWearEvent,
+    isPending: isWearPending,
+    isSuccess: isWearSuccess,
+    wasQueued: wasWearQueued,
+    wasUpdate: wasWearUpdate,
+    reset: resetWearState,
+  } = useCreateWearEvent();
+
+  /**
+   * Handle success/queued state from wear event creation.
+   * Shows toast feedback and resets mutation state.
+   */
+  useEffect(() => {
+    if (isWearSuccess) {
+      // Determine the appropriate message based on whether it was an update
+      const message = wasWearUpdate
+        ? t('screens.outfitDetail.markAsWornAgain.updateMessage')
+        : t('screens.outfitDetail.markAsWornAgain.successMessage');
+      setToastMessage(message);
+      setToastVisible(true);
+      resetWearState();
+    } else if (wasWearQueued) {
+      setToastMessage(t('screens.outfitDetail.markAsWornAgain.queuedMessage'));
+      setToastVisible(true);
+      resetWearState();
+    }
+  }, [isWearSuccess, wasWearQueued, wasWearUpdate, resetWearState]);
+
+  /**
+   * Handles toast dismissal.
+   */
+  const handleToastDismiss = useCallback(() => {
+    setToastVisible(false);
+    setToastMessage('');
+  }, []);
 
   /**
    * Track screen view on mount (once per session).
@@ -839,6 +879,14 @@ export function OutfitDetailScreen({
         isPending={isWearPending}
         initialContext={wearEvent?.context ?? undefined}
         testID="outfit-detail-mark-as-worn-sheet"
+      />
+
+      {/* Success/queued feedback toast */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type="success"
+        onDismiss={handleToastDismiss}
       />
 
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
