@@ -68,6 +68,15 @@ export const wearHistoryQueryKey = {
    */
   forOutfitDate: (userId: string, outfitId: string, wornDate: string) =>
     [...wearHistoryQueryKey.user(userId), 'outfit', outfitId, wornDate] as const,
+
+  /**
+   * Key for a single wear history event by ID.
+   *
+   * @param userId - User ID for RLS compliance
+   * @param eventId - Wear history event ID
+   */
+  event: (userId: string, eventId: string) =>
+    [...wearHistoryQueryKey.user(userId), 'event', eventId] as const,
 };
 
 // ============================================================================

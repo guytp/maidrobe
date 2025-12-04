@@ -24,3 +24,8 @@ export {
   type UseWearHistoryInfiniteQueryParams,
   type UseWearHistoryInfiniteQueryResult,
 } from './useWearHistoryInfiniteQuery';
+
+export {
+  useWearHistoryEvent,
+  type UseWearHistoryEventResult,
+} from './useWearHistoryEvent';

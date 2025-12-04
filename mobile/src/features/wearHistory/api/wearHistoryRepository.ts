@@ -364,6 +364,69 @@ export async function getWearHistoryForUser(
 }
 
 /**
+ * Fetches a single wear history event by ID.
+ *
+ * @param userId - The authenticated user's ID
+ * @param eventId - The wear event ID to fetch
+ * @returns The wear history event or null if not found
+ * @throws {WearHistoryError} If the query fails
+ *
+ * @example
+ * ```ts
+ * const event = await getWearHistoryEventById('user-123', 'event-456');
+ * if (event) {
+ *   console.log('Found event:', event.worn_date);
+ * }
+ * ```
+ */
+export async function getWearHistoryEventById(
+  userId: string,
+  eventId: string
+): Promise<WearHistoryRow | null> {
+  // Validate required parameters
+  if (!userId || !isValidUuid(userId)) {
+    throw new WearHistoryError('Invalid user ID', 'validation');
+  }
+
+  if (!eventId || !isValidUuid(eventId)) {
+    throw new WearHistoryError('Invalid event ID', 'validation');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('wear_history')
+      .select(WEAR_HISTORY_PROJECTION)
+      .eq('id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      const errorCode = classifySupabaseError(error);
+      throw new WearHistoryError(
+        `Failed to fetch wear history event: ${error.message}`,
+        errorCode,
+        error
+      );
+    }
+
+    return data as WearHistoryRow | null;
+  } catch (error) {
+    // Re-throw WearHistoryError as-is
+    if (error instanceof WearHistoryError) {
+      throw error;
+    }
+
+    // Wrap unexpected errors
+    const errorCode = classifySupabaseError(error);
+    throw new WearHistoryError(
+      error instanceof Error ? error.message : 'An unexpected error occurred',
+      errorCode,
+      error
+    );
+  }
+}
+
+/**
  * Fetches wear history for a user within a date range.
  *
  * Returns all events where worn_date is between fromDate and toDate (inclusive),
