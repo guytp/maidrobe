@@ -32,6 +32,12 @@ import {
 } from '../../src/features/recommendations';
 
 /**
+ * Navigation debounce time in milliseconds.
+ * Prevents double-tap navigation issues.
+ */
+const NAVIGATION_DEBOUNCE_MS = 500;
+
+/**
  * Home screen component displaying app title, CTA, and outfit suggestions.
  * Implements i18n, theming, and WCAG 2.1 AA accessibility standards.
  * Demonstrates server-state integration with healthcheck and recommendations.
@@ -62,12 +68,6 @@ import {
  *
  * @returns Home screen component with accessibility support
  */
-/**
- * Navigation debounce time in milliseconds.
- * Prevents double-tap navigation issues.
- */
-const NAVIGATION_DEBOUNCE_MS = 500;
-
 export default function HomeScreen(): React.JSX.Element {
   const isAuthorized = useProtectedRoute();
   const { colors, colorScheme, spacing, fontSize, radius } = useTheme();
