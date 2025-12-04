@@ -33,6 +33,7 @@ export {
   createOrUpdateWearEvent,
   getWearHistoryForUser,
   getWearHistoryForWindow,
+  getLatestWearEventForOutfit,
   WearHistoryError,
 } from './api';
 
@@ -59,11 +60,13 @@ export {
   useWearHistoryInfiniteQuery,
   useInvalidateWearHistoryQuery,
   usePrefetchWearHistory,
+  useLatestWearEventForOutfit,
   type CreateWearEventParams,
   type UseCreateWearEventResult,
   type UsePendingWearEventsSyncResult,
   type UseWearHistoryInfiniteQueryParams,
   type UseWearHistoryInfiniteQueryResult,
+  type UseLatestWearEventForOutfitResult,
 } from './hooks';
 
 // Components

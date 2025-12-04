@@ -427,6 +427,83 @@ export async function getWearHistoryEventById(
 }
 
 /**
+ * Fetches the most recent wear event for a specific outfit.
+ *
+ * Returns the single most recent wear_history row for the given outfit,
+ * ordered by worn_date DESC then worn_at DESC, or null if no events exist.
+ *
+ * This function is designed for:
+ * - Outfit detail screen "Last worn" display when opened from non-history sources
+ * - Pre-filling context in "Mark as worn again" flow
+ * - Checking if an outfit has ever been worn
+ *
+ * @param userId - The authenticated user's ID
+ * @param outfitId - The outfit ID to look up
+ * @returns The most recent wear event for the outfit, or null if none exist
+ * @throws {WearHistoryError} If the query fails
+ *
+ * @example
+ * ```ts
+ * const latestEvent = await getLatestWearEventForOutfit('user-123', 'outfit-456');
+ * if (latestEvent) {
+ *   console.log('Last worn on:', latestEvent.worn_date);
+ *   console.log('Context:', latestEvent.context);
+ * } else {
+ *   console.log('Outfit has never been worn');
+ * }
+ * ```
+ */
+export async function getLatestWearEventForOutfit(
+  userId: string,
+  outfitId: string
+): Promise<WearHistoryRow | null> {
+  // Validate required parameters
+  if (!userId || !isValidUuid(userId)) {
+    throw new WearHistoryError('Invalid user ID', 'validation');
+  }
+
+  if (!outfitId || !isValidUuid(outfitId)) {
+    throw new WearHistoryError('Invalid outfit ID', 'validation');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('wear_history')
+      .select(WEAR_HISTORY_PROJECTION)
+      .eq('user_id', userId)
+      .eq('outfit_id', outfitId)
+      .order('worn_date', { ascending: false })
+      .order('worn_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      const errorCode = classifySupabaseError(error);
+      throw new WearHistoryError(
+        `Failed to fetch latest wear event for outfit: ${error.message}`,
+        errorCode,
+        error
+      );
+    }
+
+    return data as WearHistoryRow | null;
+  } catch (error) {
+    // Re-throw WearHistoryError as-is
+    if (error instanceof WearHistoryError) {
+      throw error;
+    }
+
+    // Wrap unexpected errors
+    const errorCode = classifySupabaseError(error);
+    throw new WearHistoryError(
+      error instanceof Error ? error.message : 'An unexpected error occurred',
+      errorCode,
+      error
+    );
+  }
+}
+
+/**
  * Fetches wear history for a user within a date range.
  *
  * Returns all events where worn_date is between fromDate and toDate (inclusive),

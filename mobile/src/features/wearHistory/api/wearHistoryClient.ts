@@ -98,6 +98,18 @@ export const wearHistoryQueryKey = {
    */
   event: (userId: string, eventId: string) =>
     [...wearHistoryQueryKey.user(userId), 'event', eventId] as const,
+
+  /**
+   * Key for the most recent wear event for an outfit.
+   *
+   * Used by outfit detail screen to show "Last worn" information
+   * when opened from non-history sources (saved outfits, recommendations).
+   *
+   * @param userId - User ID for RLS compliance
+   * @param outfitId - Outfit ID to look up
+   */
+  latestForOutfit: (userId: string, outfitId: string) =>
+    [...wearHistoryQueryKey.user(userId), 'latest', outfitId] as const,
 };
 
 // ============================================================================

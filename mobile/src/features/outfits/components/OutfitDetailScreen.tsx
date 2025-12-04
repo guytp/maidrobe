@@ -3,12 +3,17 @@
  *
  * This screen displays the full details of an outfit, including:
  * - The items that comprise the outfit (fetched from wardrobe)
- * - Wear-specific metadata (date, context, source) when navigated from history
+ * - Wear-specific metadata (date, context, source) - "Last worn" section
  * - Grid of item thumbnails with navigation to item detail
  *
- * Entry points:
- * - From WearHistoryScreen: includes wearHistoryId, wornDate, source, context
- * - Future: From saved outfits list, recommendations
+ * Entry points and data loading:
+ * - From WearHistoryScreen: includes wearHistoryId, uses useWearHistoryEvent to fetch
+ *   the specific wear event that was tapped
+ * - From saved outfits/recommendations: only outfitId, uses useLatestWearEventForOutfit
+ *   to fetch the most recent wear event for this outfit (if any)
+ *
+ * The "Last worn" section displays when wear event data is available from either source.
+ * If the outfit has never been worn, no wear context is shown.
  *
  * @module features/outfits/components/OutfitDetailScreen
  */
@@ -35,6 +40,7 @@ import { useStore } from '../../../core/state/store';
 import { useBatchWardrobeItems } from '../../wardrobe/api/useBatchWardrobeItems';
 import { getItemImageUrl } from '../../wardrobe/utils/getItemImageUrl';
 import { useWearHistoryEvent } from '../../wearHistory/hooks/useWearHistoryEvent';
+import { useLatestWearEventForOutfit } from '../../wearHistory/hooks/useLatestWearEventForOutfit';
 import type { WearHistorySource } from '../../wearHistory/types';
 import type { BatchWardrobeItem } from '../../wardrobe/types';
 
@@ -136,11 +142,31 @@ export function OutfitDetailScreen({
   const user = useStore((state) => state.user);
 
   // Fetch wear history event to get item_ids if we have a wearHistoryId
+  // This is used when navigating from WearHistoryScreen
   const {
-    event: wearEvent,
-    isLoading: isEventLoading,
-    isError: isEventError,
+    event: explicitWearEvent,
+    isLoading: isExplicitEventLoading,
+    isError: isExplicitEventError,
   } = useWearHistoryEvent(wearHistoryId);
+
+  // Fetch the latest wear event for this outfit when no explicit wearHistoryId is provided
+  // This enables showing "Last worn" info when opened from saved outfits or recommendations
+  const {
+    event: latestWearEvent,
+    isLoading: isLatestEventLoading,
+    isError: isLatestEventError,
+  } = useLatestWearEventForOutfit(wearHistoryId ? undefined : outfitId);
+
+  // Determine which wear event to use:
+  // 1. Explicit event from wearHistoryId (navigating from history)
+  // 2. Latest event for outfit (navigating from saved outfits/recommendations)
+  const wearEvent = explicitWearEvent ?? latestWearEvent;
+
+  // Determine loading state for wear event data
+  // Only consider explicit event loading if wearHistoryId was provided
+  // Only consider latest event loading if wearHistoryId was NOT provided
+  const isEventLoading = wearHistoryId ? isExplicitEventLoading : isLatestEventLoading;
+  const isEventError = wearHistoryId ? isExplicitEventError : isLatestEventError;
 
   // Get item IDs from wear event - memoized to prevent unnecessary re-fetches
   const itemIds = useMemo(() => wearEvent?.item_ids ?? [], [wearEvent?.item_ids]);

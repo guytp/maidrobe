@@ -9,6 +9,7 @@ export {
   createOrUpdateWearEvent,
   getWearHistoryForUser,
   getWearHistoryForWindow,
+  getLatestWearEventForOutfit,
   WearHistoryError,
 } from './wearHistoryRepository';
 
