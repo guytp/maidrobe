@@ -29,6 +29,7 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { Button } from '../../../core/components/Button';
@@ -54,6 +55,12 @@ const END_REACHED_THRESHOLD = 0.5;
  * Number of skeleton cards to show during initial load.
  */
 const SKELETON_COUNT = 4;
+
+/**
+ * Icon size for empty state illustration.
+ * Larger than typical icons for visual prominence in centered layout.
+ */
+const EMPTY_STATE_ICON_SIZE = 48;
 
 /**
  * Wear History screen - displays timeline of worn outfits.
@@ -261,15 +268,17 @@ export function WearHistoryScreen(): React.JSX.Element {
           padding: spacing.xl,
         }}
       >
-        <Text
-          style={{
-            fontSize: fontSize['2xl'],
-            marginBottom: spacing.md,
-          }}
+        <View
+          style={{ marginBottom: spacing.md }}
           accessibilityLabel={t('screens.history.empty.iconLabel')}
+          accessibilityRole="image"
         >
-          📅
-        </Text>
+          <MaterialIcons
+            name="event"
+            size={EMPTY_STATE_ICON_SIZE}
+            color={colors.textSecondary}
+          />
+        </View>
         <Text
           style={{
             fontSize: fontSize.lg,
