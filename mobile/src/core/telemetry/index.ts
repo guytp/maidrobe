@@ -362,7 +362,12 @@ export type CaptureEventType =
   | 'pending_wear_event_sync_failed'
   // Wear history screen events (story #444)
   | 'wear_history_screen_viewed'
-  | 'wear_history_navigation_clicked';
+  | 'wear_history_navigation_clicked'
+  // Wear history query events (story #444)
+  | 'wear_history_loaded'
+  | 'wear_history_load_failed'
+  | 'wear_history_time_to_first_event'
+  | 'wear_history_pagination_triggered';
 
 /**
  * Metadata for authentication event logging.
