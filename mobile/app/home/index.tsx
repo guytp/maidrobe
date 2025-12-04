@@ -195,8 +195,8 @@ export default function HomeScreen(): React.JSX.Element {
     flagResult,
   ]);
 
-  // Handle navigation to wear history screen
-  const handleNavigateToWearHistory = useCallback(() => {
+  // Handle navigation to profile screen
+  const handleNavigateToProfile = useCallback(() => {
     // Prevent double-tap navigation
     if (isNavigatingRef.current) {
       return;
@@ -205,12 +205,12 @@ export default function HomeScreen(): React.JSX.Element {
     isNavigatingRef.current = true;
 
     // Track navigation event
-    trackCaptureEvent('wear_history_navigation_clicked', {
+    trackCaptureEvent('profile_navigation_clicked', {
       userId: user?.id,
       metadata: { source: 'home_screen' },
     });
 
-    router.push('/history');
+    router.push('/profile');
 
     // Reset navigation lock after debounce period
     setTimeout(() => {
@@ -460,9 +460,9 @@ export default function HomeScreen(): React.JSX.Element {
               styles.navigationLink,
               pressed && styles.navigationLinkPressed,
             ]}
-            onPress={handleNavigateToWearHistory}
-            accessibilityLabel={t('screens.home.navigation.wearHistoryLabel')}
-            accessibilityHint={t('screens.home.navigation.wearHistoryHint')}
+            onPress={handleNavigateToProfile}
+            accessibilityLabel={t('screens.home.navigation.profileLabel')}
+            accessibilityHint={t('screens.home.navigation.profileHint')}
             accessibilityRole="button"
           >
             <Text
@@ -470,7 +470,7 @@ export default function HomeScreen(): React.JSX.Element {
               allowFontScaling={true}
               maxFontSizeMultiplier={1.5}
             >
-              {t('screens.home.navigation.wearHistory')}
+              {t('screens.home.navigation.profile')}
             </Text>
             <Text style={styles.navigationLinkArrow}>→</Text>
           </Pressable>
