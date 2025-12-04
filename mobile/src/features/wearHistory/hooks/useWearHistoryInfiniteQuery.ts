@@ -195,9 +195,11 @@ export function useWearHistoryInfiniteQuery(
         offset: pageParam as number,
       });
 
+      // Calculate latency for this request
+      const latency = Date.now() - queryStartTime;
+
       // Track successful load for first page
       if (pageParam === 0) {
-        const latency = Date.now() - queryStartTime;
         trackCaptureEvent('wear_history_loaded', {
           userId,
           latencyMs: latency,
@@ -215,9 +217,10 @@ export function useWearHistoryInfiniteQuery(
           });
         }
       } else {
-        // Track pagination event
+        // Track pagination event with latency
         trackCaptureEvent('wear_history_pagination_triggered', {
           userId,
+          latencyMs: latency,
           metadata: {
             page: Math.floor((pageParam as number) / pageSize),
             eventCount: result.events.length,
