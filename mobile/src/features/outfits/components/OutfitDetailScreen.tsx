@@ -62,17 +62,21 @@ const PLACEHOLDER_ICON_SIZE = 32;
 
 /**
  * Props for OutfitDetailScreen component.
+ *
+ * Note: The wornDate, source, and context props are kept for backwards compatibility
+ * with existing navigation flows but are no longer used for display. The "Last worn"
+ * section is now driven entirely by wear event data fetched via hooks.
  */
 export interface OutfitDetailScreenProps {
   /** Outfit ID from route path */
   outfitId: string;
   /** Optional wear history event ID for context */
   wearHistoryId?: string;
-  /** Optional worn date (YYYY-MM-DD) */
+  /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   wornDate?: string;
-  /** Optional source of the wear event */
+  /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   source?: WearHistorySource;
-  /** Optional occasion context */
+  /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   context?: string;
 }
 
@@ -129,9 +133,8 @@ function getSourceLabel(source: WearHistorySource): string {
 export function OutfitDetailScreen({
   outfitId,
   wearHistoryId,
-  wornDate,
-  source,
-  context,
+  // Note: wornDate, source, context props are kept for navigation compatibility
+  // but the "Last worn" section is now driven entirely by fetched wear event data
 }: OutfitDetailScreenProps): React.JSX.Element {
   const { colors, colorScheme, spacing, fontSize, radius } = useTheme();
   const insets = useSafeAreaInsets();
@@ -193,11 +196,6 @@ export function OutfitDetailScreen({
   const isLoading = isEventLoading || (itemIds.length > 0 && isItemsLoading);
   const isError = isEventError || isItemsError;
 
-  // Use wear event data or props for display
-  const displayWornDate = wearEvent?.worn_date ?? wornDate;
-  const displaySource = wearEvent?.source ?? source;
-  const displayContext = wearEvent?.context ?? context;
-
   /**
    * Track screen view on mount (once per session).
    */
@@ -209,12 +207,12 @@ export function OutfitDetailScreen({
         metadata: {
           outfitId,
           wearHistoryId,
-          source: displaySource,
-          hasContext: !!displayContext,
+          source: wearEvent?.source,
+          hasContext: !!wearEvent?.context,
         },
       });
     }
-  }, [user?.id, outfitId, wearHistoryId, displaySource, displayContext]);
+  }, [user?.id, outfitId, wearHistoryId, wearEvent?.source, wearEvent?.context]);
 
   /**
    * Handles back navigation.
@@ -410,6 +408,14 @@ export function OutfitDetailScreen({
         sourceChipText: {
           fontSize: fontSize.xs,
           color: colors.textSecondary,
+        },
+        notesContainer: {
+          marginTop: spacing.sm,
+        },
+        notesText: {
+          fontSize: fontSize.sm,
+          color: colors.textSecondary,
+          lineHeight: fontSize.sm * 1.5,
         },
         itemsSectionTitle: {
           fontSize: fontSize.sm,
@@ -646,19 +652,22 @@ export function OutfitDetailScreen({
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Wear Context Section - only shown when we have wear history context */}
-        {(displayWornDate || displayContext || displaySource) && (
-          <View style={styles.wearContextSection}>
+        {/* Last Worn Section - only shown when we have wear event data */}
+        {wearEvent && (
+          <View
+            style={styles.wearContextSection}
+            accessibilityLabel={t('screens.outfitDetail.accessibility.lastWornSection')}
+          >
             <Text
               style={styles.wearContextTitle}
               allowFontScaling
               maxFontSizeMultiplier={1.5}
             >
-              {t('screens.outfitDetail.wearContext.title')}
+              {t('screens.outfitDetail.lastWorn.title')}
             </Text>
 
             {/* Worn Date */}
-            {displayWornDate && (
+            {wearEvent.worn_date && (
               <View style={styles.wearContextRow}>
                 <Text
                   style={styles.wearContextValue}
@@ -666,39 +675,56 @@ export function OutfitDetailScreen({
                   maxFontSizeMultiplier={1.5}
                   accessibilityLabel={t('screens.outfitDetail.accessibility.wearDate').replace(
                     '{date}',
-                    formatWornDate(displayWornDate)
+                    formatWornDate(wearEvent.worn_date)
                   )}
                 >
-                  {t('screens.outfitDetail.wearContext.wornOn').replace(
+                  {t('screens.outfitDetail.lastWorn.wornOn').replace(
                     '{date}',
-                    formatWornDate(displayWornDate)
+                    formatWornDate(wearEvent.worn_date)
                   )}
                 </Text>
               </View>
             )}
 
             {/* Context/Occasion Chip */}
-            {displayContext && (
+            {wearEvent.context && (
               <View style={styles.contextChip}>
                 <Text
                   style={styles.contextChipText}
                   allowFontScaling
                   maxFontSizeMultiplier={1.5}
                 >
-                  {displayContext}
+                  {wearEvent.context}
                 </Text>
               </View>
             )}
 
             {/* Source Label */}
-            {displaySource && (
+            {wearEvent.source && (
               <View style={styles.sourceChip}>
                 <Text
                   style={styles.sourceChipText}
                   allowFontScaling
                   maxFontSizeMultiplier={1.5}
                 >
-                  {getSourceLabel(displaySource)}
+                  {getSourceLabel(wearEvent.source)}
+                </Text>
+              </View>
+            )}
+
+            {/* Notes - displayed as body text when present */}
+            {wearEvent.notes && (
+              <View style={styles.notesContainer}>
+                <Text
+                  style={styles.notesText}
+                  allowFontScaling
+                  maxFontSizeMultiplier={2}
+                  accessibilityLabel={t('screens.outfitDetail.accessibility.notesLabel').replace(
+                    '{notes}',
+                    wearEvent.notes
+                  )}
+                >
+                  {wearEvent.notes}
                 </Text>
               </View>
             )}
