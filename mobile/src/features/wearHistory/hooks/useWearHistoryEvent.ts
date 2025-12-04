@@ -16,7 +16,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { wearHistoryQueryKey, WearHistoryClientError } from '../api/wearHistoryClient';
+import { wearHistoryQueryKey, WearHistoryClientError, QUERY_KEY_NO_USER, QUERY_KEY_NO_ID } from '../api/wearHistoryClient';
 import { getWearHistoryEventById, WearHistoryError } from '../api/wearHistoryRepository';
 import type { WearHistoryRow } from '../types';
 
@@ -59,7 +59,7 @@ export function useWearHistoryEvent(eventId?: string): UseWearHistoryEventResult
   const userId = user?.id;
 
   const query = useQuery<WearHistoryRow | null, WearHistoryError>({
-    queryKey: wearHistoryQueryKey.event(userId ?? '', eventId ?? ''),
+    queryKey: wearHistoryQueryKey.event(userId ?? QUERY_KEY_NO_USER, eventId ?? QUERY_KEY_NO_ID),
     queryFn: async () => {
       if (!userId) {
         throw new WearHistoryError('User not authenticated', 'auth');
