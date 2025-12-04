@@ -1,9 +1,19 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  ActivityIndicator,
+  BackHandler,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { t } from '../../src/core/i18n';
 import { useTheme } from '../../src/core/theme';
 import { Button } from '../../src/core/components/Button';
+import { trackCaptureEvent } from '../../src/core/telemetry';
 import {
   checkFeatureFlagSync,
   useOutfitRecommendationStubFlag,
@@ -52,9 +62,17 @@ import {
  *
  * @returns Home screen component with accessibility support
  */
+/**
+ * Navigation debounce time in milliseconds.
+ * Prevents double-tap navigation issues.
+ */
+const NAVIGATION_DEBOUNCE_MS = 500;
+
 export default function HomeScreen(): React.JSX.Element {
   const isAuthorized = useProtectedRoute();
   const { colors, colorScheme, spacing, fontSize, radius } = useTheme();
+  const router = useRouter();
+  const isNavigatingRef = useRef(false);
   const {
     data: healthcheck,
     isLoading: isHealthcheckLoading,
@@ -177,6 +195,29 @@ export default function HomeScreen(): React.JSX.Element {
     flagResult,
   ]);
 
+  // Handle navigation to wear history screen
+  const handleNavigateToWearHistory = useCallback(() => {
+    // Prevent double-tap navigation
+    if (isNavigatingRef.current) {
+      return;
+    }
+
+    isNavigatingRef.current = true;
+
+    // Track navigation event
+    trackCaptureEvent('wear_history_navigation_clicked', {
+      userId: user?.id,
+      metadata: { source: 'home_screen' },
+    });
+
+    router.push('/history');
+
+    // Reset navigation lock after debounce period
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, NAVIGATION_DEBOUNCE_MS);
+  }, [router, user?.id]);
+
   // Exit app on back press from home screen
   // Prevents navigation back to login/loading screens which would be confusing
   useEffect(() => {
@@ -264,6 +305,32 @@ export default function HomeScreen(): React.JSX.Element {
           backgroundColor: colors.background,
           justifyContent: 'center',
           alignItems: 'center',
+        },
+        navigationSection: {
+          marginTop: spacing.xl,
+          paddingTop: spacing.lg,
+          borderTopWidth: 1,
+          borderTopColor: colors.textSecondary + '20',
+        },
+        navigationLink: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.sm,
+          borderRadius: radius.md,
+          minHeight: 44, // WCAG 2.1 AA touch target
+        },
+        navigationLinkPressed: {
+          backgroundColor: colors.textSecondary + '10',
+        },
+        navigationLinkText: {
+          fontSize: fontSize.base,
+          color: colors.textPrimary,
+        },
+        navigationLinkArrow: {
+          fontSize: fontSize.base,
+          color: colors.textSecondary,
         },
       }),
     [colors, spacing, fontSize, radius]
@@ -384,6 +451,29 @@ export default function HomeScreen(): React.JSX.Element {
               {healthcheck?.status || 'Unknown'}
             </Text>
           )}
+        </View>
+
+        {/* Navigation Section */}
+        <View style={styles.navigationSection}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.navigationLink,
+              pressed && styles.navigationLinkPressed,
+            ]}
+            onPress={handleNavigateToWearHistory}
+            accessibilityLabel={t('screens.home.navigation.wearHistoryLabel')}
+            accessibilityHint={t('screens.home.navigation.wearHistoryHint')}
+            accessibilityRole="button"
+          >
+            <Text
+              style={styles.navigationLinkText}
+              allowFontScaling={true}
+              maxFontSizeMultiplier={1.5}
+            >
+              {t('screens.home.navigation.wearHistory')}
+            </Text>
+            <Text style={styles.navigationLinkArrow}>→</Text>
+          </Pressable>
         </View>
       </ScrollView>
 

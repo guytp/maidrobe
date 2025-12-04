@@ -359,7 +359,10 @@ export type CaptureEventType =
   // Offline queue events (story #443)
   | 'wear_event_queued_offline'
   | 'pending_wear_event_synced'
-  | 'pending_wear_event_sync_failed';
+  | 'pending_wear_event_sync_failed'
+  // Wear history screen events (story #444)
+  | 'wear_history_screen_viewed'
+  | 'wear_history_navigation_clicked';
 
 /**
  * Metadata for authentication event logging.

@@ -69,6 +69,11 @@
       },
       "serverStatus": {
         "label": "Server Status"
+      },
+      "navigation": {
+        "wearHistory": "Wear history",
+        "wearHistoryLabel": "View wear history",
+        "wearHistoryHint": "Navigate to see what you've worn and when"
       }
     },
     "auth": {
@@ -846,6 +851,16 @@
         "syncingIndicator": "Syncing wear record",
         "datePickerLabel": "Select wear date",
         "contextInputLabel": "Occasion description"
+      }
+    },
+    "history": {
+      "title": "Wear History",
+      "placeholder": "Your wear history will appear here once implemented.",
+      "accessibility": {
+        "screenLabel": "Wear history screen",
+        "screenHint": "View what you've worn and when",
+        "backButton": "Go back",
+        "backButtonHint": "Return to home screen"
       }
     }
   },

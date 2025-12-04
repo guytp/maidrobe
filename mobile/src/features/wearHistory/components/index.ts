@@ -10,3 +10,4 @@ export {
   WearHistorySyncProvider,
   type WearHistorySyncProviderProps,
 } from './WearHistorySyncProvider';
+export { WearHistoryScreen } from './WearHistoryScreen';
