@@ -180,12 +180,12 @@ export function useWearHistoryInfiniteQuery(
   const user = useStore((state) => state.user);
   const userId = user?.id;
 
-  // Track when query starts for telemetry
-  const queryStartTime = useMemo(() => Date.now(), []);
-
   const query = useInfiniteQuery<GetWearHistoryResponse, WearHistoryError>({
     queryKey: wearHistoryQueryKey.user(userId ?? ''),
     queryFn: async ({ pageParam = 0 }) => {
+      // Track query start time for accurate latency measurement
+      const queryStartTime = Date.now();
+
       if (!userId) {
         throw new WearHistoryError('User not authenticated', 'auth');
       }
