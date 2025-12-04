@@ -12,3 +12,7 @@ export {
 } from './WearHistorySyncProvider';
 export { WearHistoryScreen } from './WearHistoryScreen';
 export { WearEventCard, type WearEventCardProps } from './WearEventCard';
+export {
+  WearEventCardSkeleton,
+  type WearEventCardSkeletonProps,
+} from './WearEventCardSkeleton';

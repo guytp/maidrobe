@@ -860,10 +860,13 @@
       "empty": {
         "title": "No wear history yet",
         "subtitle": "Start logging your outfits to build your wear history",
-        "iconLabel": "Calendar icon"
+        "iconLabel": "Calendar icon",
+        "ctaButton": "Get outfit ideas",
+        "ctaButtonHint": "Go to home screen to get outfit suggestions"
       },
       "error": {
         "loadFailed": "We couldn't load your wear history. Please try again.",
+        "loadMoreFailed": "Couldn't load more history",
         "retry": "Retry"
       },
       "event": {

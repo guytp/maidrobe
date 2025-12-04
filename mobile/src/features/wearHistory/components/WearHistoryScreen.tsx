@@ -37,6 +37,7 @@ import { useStore } from '../../../core/state/store';
 import { useWearHistoryInfiniteQuery } from '../hooks';
 import { groupWearEventsByDate, type WearHistorySection } from '../utils';
 import { WearEventCard } from './WearEventCard';
+import { WearEventCardSkeleton } from './WearEventCardSkeleton';
 import type { WearHistoryRow } from '../types';
 
 /**
@@ -48,6 +49,11 @@ const TOUCH_TARGET_SIZE = 44;
  * Threshold for triggering pagination (50% from bottom).
  */
 const END_REACHED_THRESHOLD = 0.5;
+
+/**
+ * Number of skeleton cards to show during initial load.
+ */
+const SKELETON_COUNT = 4;
 
 /**
  * Wear History screen - displays timeline of worn outfits.
@@ -219,6 +225,16 @@ export function WearHistoryScreen(): React.JSX.Element {
   }, [isFetchingNextPage, spacing, colors]);
 
   /**
+   * Handles CTA button press in empty state - navigates to home.
+   */
+  const handleEmptyCta = useCallback(() => {
+    trackCaptureEvent('wear_history_empty_cta_tapped', {
+      userId: user?.id,
+    });
+    router.replace('/home');
+  }, [user?.id, router]);
+
+  /**
    * Renders the empty state.
    */
   const renderEmpty = useCallback(() => {
@@ -260,15 +276,24 @@ export function WearHistoryScreen(): React.JSX.Element {
             fontSize: fontSize.base,
             color: colors.textSecondary,
             textAlign: 'center',
+            marginBottom: spacing.lg,
           }}
           allowFontScaling
           maxFontSizeMultiplier={2}
         >
           {t('screens.history.empty.subtitle')}
         </Text>
+        <Button
+          onPress={handleEmptyCta}
+          variant="primary"
+          accessibilityLabel={t('screens.history.empty.ctaButton')}
+          accessibilityHint={t('screens.history.empty.ctaButtonHint')}
+        >
+          {t('screens.history.empty.ctaButton')}
+        </Button>
       </View>
     );
-  }, [isLoading, isError, spacing, fontSize, colors]);
+  }, [isLoading, isError, spacing, fontSize, colors, handleEmptyCta]);
 
   const styles = useMemo(
     () =>
@@ -321,10 +346,9 @@ export function WearHistoryScreen(): React.JSX.Element {
           paddingTop: spacing.sm,
           paddingBottom: insets.bottom + spacing.lg,
         },
-        loadingContainer: {
+        skeletonContainer: {
           flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
+          paddingTop: spacing.md,
         },
         errorContainer: {
           flex: 1,
@@ -338,11 +362,36 @@ export function WearHistoryScreen(): React.JSX.Element {
           textAlign: 'center',
           marginBottom: spacing.lg,
         },
+        inlineErrorBanner: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: colors.error + '15',
+          borderWidth: 1,
+          borderColor: colors.error + '30',
+          marginHorizontal: spacing.md,
+          marginTop: spacing.sm,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          borderRadius: 8,
+          minHeight: TOUCH_TARGET_SIZE,
+        },
+        inlineErrorText: {
+          fontSize: fontSize.sm,
+          color: colors.error,
+          flex: 1,
+        },
+        inlineErrorRetry: {
+          fontSize: fontSize.sm,
+          fontWeight: '600',
+          color: colors.error,
+          marginLeft: spacing.sm,
+        },
       }),
     [colors, spacing, fontSize, insets.top, insets.bottom]
   );
 
-  // Render loading state
+  // Render loading state with skeleton cards
   if (isLoading) {
     return (
       <View
@@ -370,20 +419,21 @@ export function WearHistoryScreen(): React.JSX.Element {
             </Text>
           </View>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator
-            size="large"
-            color={colors.textPrimary}
-            accessibilityLabel={t('screens.history.loading')}
-          />
+        <View
+          style={styles.skeletonContainer}
+          accessibilityLabel={t('screens.history.loading')}
+        >
+          {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
+            <WearEventCardSkeleton key={`skeleton-${index}`} testID={`skeleton-${index}`} />
+          ))}
         </View>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </View>
     );
   }
 
-  // Render error state
-  if (isError) {
+  // Render full-screen error only when we have no data
+  if (isError && events.length === 0) {
     return (
       <View
         style={styles.container}
@@ -432,6 +482,9 @@ export function WearHistoryScreen(): React.JSX.Element {
     );
   }
 
+  // Determine if we should show inline error banner (error with existing data)
+  const showInlineError = isError && events.length > 0;
+
   return (
     <View
       style={styles.container}
@@ -469,6 +522,24 @@ export function WearHistoryScreen(): React.JSX.Element {
           )}
         </View>
       </View>
+
+      {/* Inline error banner (shown when error occurs but we have cached data) */}
+      {showInlineError && (
+        <Pressable
+          style={styles.inlineErrorBanner}
+          onPress={handleRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t('screens.history.error.loadMoreFailed')}
+          accessibilityHint={t('screens.history.accessibility.retryHint')}
+        >
+          <Text style={styles.inlineErrorText} allowFontScaling maxFontSizeMultiplier={1.5}>
+            {t('screens.history.error.loadMoreFailed')}
+          </Text>
+          <Text style={styles.inlineErrorRetry} allowFontScaling maxFontSizeMultiplier={1.5}>
+            {t('screens.history.error.retry')}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Content - SectionList or Empty State */}
       {isEmpty ? (
