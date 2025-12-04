@@ -367,7 +367,8 @@ export type CaptureEventType =
   | 'wear_history_loaded'
   | 'wear_history_load_failed'
   | 'wear_history_time_to_first_event'
-  | 'wear_history_pagination_triggered';
+  | 'wear_history_pagination_triggered'
+  | 'wear_history_event_tapped';
 
 /**
  * Metadata for authentication event logging.
