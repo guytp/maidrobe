@@ -97,7 +97,9 @@ export interface PendingWearEventsSlice extends PendingWearEventsState {
    */
   updatePendingEvent: (
     localId: string,
-    updates: Partial<Pick<PendingWearEvent, 'status' | 'attemptCount' | 'lastAttemptAt' | 'lastError'>>
+    updates: Partial<
+      Pick<PendingWearEvent, 'status' | 'attemptCount' | 'lastAttemptAt' | 'lastError'>
+    >
   ) => void;
 
   /**
@@ -194,7 +196,9 @@ function isValidPendingEvent(event: unknown): event is PendingWearEvent {
     e.itemIds.every((id) => typeof id === 'string') &&
     typeof e.wornDate === 'string' &&
     typeof e.source === 'string' &&
-    ['ai_recommendation', 'saved_outfit', 'manual_outfit', 'imported'].includes(e.source as string) &&
+    ['ai_recommendation', 'saved_outfit', 'manual_outfit', 'imported'].includes(
+      e.source as string
+    ) &&
     typeof e.createdAt === 'string' &&
     typeof e.attemptCount === 'number' &&
     typeof e.status === 'string' &&
@@ -218,13 +222,11 @@ export function validatePersistedPendingEventsState(state: unknown): PendingWear
 
   // Filter to only valid events and reset any 'syncing' status to 'pending'
   // (in case app was killed mid-sync)
-  const validEvents = stateObj.pendingEvents
-    .filter(isValidPendingEvent)
-    .map((event) => ({
-      ...event,
-      // Reset syncing status to pending on rehydration
-      status: event.status === 'syncing' ? ('pending' as PendingWearEventStatus) : event.status,
-    }));
+  const validEvents = stateObj.pendingEvents.filter(isValidPendingEvent).map((event) => ({
+    ...event,
+    // Reset syncing status to pending on rehydration
+    status: event.status === 'syncing' ? ('pending' as PendingWearEventStatus) : event.status,
+  }));
 
   return {
     pendingEvents: validEvents,
@@ -357,10 +359,14 @@ export const createPendingWearEventsSlice = persist<PendingWearEventsSlice>(
       const now = Date.now();
       set((state) => ({
         pendingEvents: state.pendingEvents.filter((event) => {
+          // Always retain permanently failed events for user action (retry/dismiss)
+          const isPermanentlyFailed =
+            event.status === 'failed' && event.attemptCount >= MAX_SYNC_ATTEMPTS;
+          if (isPermanentlyFailed) return true;
+
+          // Remove other events if stale
           const eventAge = now - new Date(event.createdAt).getTime();
-          // Remove if stale (but keep permanently failed events for user action)
-          if (eventAge > STALE_EVENT_AGE_MS) return false;
-          return true;
+          return eventAge <= STALE_EVENT_AGE_MS;
         }),
       }));
     },
