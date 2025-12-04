@@ -873,7 +873,10 @@
         "manualOutfit": "Manual outfit",
         "imported": "Imported",
         "at": "at {time}",
-        "itemCount": "{count} items"
+        "itemCount": "{count} items",
+        "aiPick": "AI pick",
+        "yourOutfit": "Your outfit",
+        "moreItems": "{count} more items"
       },
       "accessibility": {
         "screenLabel": "Wear history screen",
