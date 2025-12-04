@@ -71,9 +71,9 @@
         "label": "Server Status"
       },
       "navigation": {
-        "wearHistory": "Wear history",
-        "wearHistoryLabel": "View wear history",
-        "wearHistoryHint": "Navigate to see what you've worn and when"
+        "profile": "Profile",
+        "profileLabel": "View profile",
+        "profileHint": "Navigate to your profile and settings"
       }
     },
     "auth": {
@@ -893,6 +893,24 @@
         "listLabel": "{count} wear events",
         "eventCardHint": "Tap to view outfit details",
         "retryHint": "Tap to retry loading wear history"
+      }
+    },
+    "profile": {
+      "title": "Profile",
+      "sections": {
+        "activity": "Activity"
+      },
+      "navigation": {
+        "wearHistory": "Wear history",
+        "wearHistoryDescription": "See what you've worn and when",
+        "wearHistoryLabel": "View wear history",
+        "wearHistoryHint": "Navigate to see what you've worn and when"
+      },
+      "accessibility": {
+        "screenLabel": "Profile screen",
+        "screenHint": "Access your profile features and settings",
+        "backButton": "Go back",
+        "backButtonHint": "Return to home screen"
       }
     },
     "outfitDetail": {

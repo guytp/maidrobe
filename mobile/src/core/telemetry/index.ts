@@ -363,6 +363,8 @@ export type CaptureEventType =
   // Wear history screen events (story #444)
   | 'wear_history_screen_viewed'
   | 'wear_history_navigation_clicked'
+  // Profile screen events (story #444)
+  | 'profile_navigation_clicked'
   // Wear history query events (story #444)
   | 'wear_history_loaded'
   | 'wear_history_load_failed'
