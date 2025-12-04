@@ -17,15 +17,7 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../core/theme';
 import { t } from '../../../core/i18n';
@@ -92,13 +84,18 @@ function formatDateToString(date: Date): string {
 }
 
 /**
- * Formats a date for display (e.g., "Dec 3" or "Nov 28").
+ * Formats a date for display using the device's locale.
+ *
+ * Uses `undefined` as the locale to leverage the JavaScript Intl API's
+ * automatic locale detection, which uses the device's language settings.
+ * This ensures dates are displayed in the user's preferred format and
+ * supports RTL languages correctly.
  *
  * @param date - Date to format
- * @returns Human-readable date string
+ * @returns Locale-appropriate date string (e.g., "Dec 3", "3 déc.", "3 ديس")
  */
 function formatDisplayDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
   });
@@ -170,10 +167,7 @@ export function MarkAsWornSheet({
   const dateOptions = useMemo(() => generateDateOptions(), []);
 
   // Quick options (Today, Yesterday)
-  const quickOptions = useMemo(
-    () => dateOptions.filter((opt) => opt.isQuickOption),
-    [dateOptions]
-  );
+  const quickOptions = useMemo(() => dateOptions.filter((opt) => opt.isQuickOption), [dateOptions]);
 
   // Other date options
   const otherOptions = useMemo(
@@ -359,10 +353,7 @@ export function MarkAsWornSheet({
           testID={`${testID}-quick-${option.date}`}
         >
           <Text
-            style={[
-              styles.quickOptionText,
-              isSelected && styles.quickOptionTextSelected,
-            ]}
+            style={[styles.quickOptionText, isSelected && styles.quickOptionTextSelected]}
             allowFontScaling={true}
             maxFontSizeMultiplier={1.5}
           >
@@ -389,10 +380,7 @@ export function MarkAsWornSheet({
           testID={`${testID}-date-${option.date}`}
         >
           <Text
-            style={[
-              styles.dateOptionText,
-              isSelected && styles.dateOptionTextSelected,
-            ]}
+            style={[styles.dateOptionText, isSelected && styles.dateOptionTextSelected]}
             allowFontScaling={true}
             maxFontSizeMultiplier={1.5}
           >
@@ -448,24 +436,14 @@ export function MarkAsWornSheet({
 
           {/* Date Selection */}
           <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.sectionLabel} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
               {t('screens.wearHistory.markAsWornSheet.dateLabel')}
             </Text>
-            <View style={styles.quickOptionsRow}>
-              {quickOptions.map(renderQuickOption)}
-            </View>
+            <View style={styles.quickOptionsRow}>{quickOptions.map(renderQuickOption)}</View>
           </View>
 
           {/* Pick a Date Section */}
-          <Text
-            style={styles.pickDateLabel}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.pickDateLabel} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
             {t('screens.wearHistory.markAsWornSheet.pickDate')}
           </Text>
           <ScrollView
@@ -481,11 +459,7 @@ export function MarkAsWornSheet({
 
           {/* Context Input */}
           <View style={styles.section}>
-            <Text
-              style={styles.sectionLabel}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.sectionLabel} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
               {t('screens.wearHistory.markAsWornSheet.contextLabel')}
             </Text>
             <TextInput
@@ -499,11 +473,7 @@ export function MarkAsWornSheet({
               accessibilityLabel={t('screens.wearHistory.accessibility.contextInputLabel')}
               testID={`${testID}-context-input`}
             />
-            <Text
-              style={styles.contextHint}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.contextHint} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
               {context.length}/{MAX_CONTEXT_LENGTH}
             </Text>
           </View>
