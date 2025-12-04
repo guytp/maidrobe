@@ -34,9 +34,34 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
 }));
 
+// Helper to get today's date string in YYYY-MM-DD format
+const getTodayDateStringForTest = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper to get yesterday's date string in YYYY-MM-DD format
+const getYesterdayDateStringForTest = (): string => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const year = yesterday.getFullYear();
+  const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+  const day = String(yesterday.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // Mock validateWearDate - always return valid for these tests
 jest.mock('../api/wearHistoryClient', () => ({
-  getTodayDateString: () => '2025-12-03',
+  getTodayDateString: () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  },
   validateWearDate: () => ({ isValid: true }),
 }));
 
@@ -120,7 +145,7 @@ describe('MarkAsWornSheet', () => {
   describe('Date Selection', () => {
     it('should have Today selected by default', () => {
       const { getByTestId } = renderComponent();
-      const todayButton = getByTestId('test-sheet-quick-2025-12-03');
+      const todayButton = getByTestId(`test-sheet-quick-${getTodayDateStringForTest()}`);
       expect(todayButton.props.accessibilityState.selected).toBe(true);
     });
 
@@ -129,7 +154,7 @@ describe('MarkAsWornSheet', () => {
 
       fireEvent.press(getByText('Yesterday'));
 
-      const yesterdayButton = getByTestId('test-sheet-quick-2025-12-02');
+      const yesterdayButton = getByTestId(`test-sheet-quick-${getYesterdayDateStringForTest()}`);
       expect(yesterdayButton.props.accessibilityState.selected).toBe(true);
     });
 
@@ -187,7 +212,7 @@ describe('MarkAsWornSheet', () => {
       fireEvent.press(submitButtons[1]);
 
       expect(onSubmit).toHaveBeenCalledTimes(1);
-      expect(onSubmit).toHaveBeenCalledWith('2025-12-03', undefined);
+      expect(onSubmit).toHaveBeenCalledWith(getTodayDateStringForTest(), undefined);
     });
 
     it('should call onSubmit with context when provided', () => {
@@ -200,7 +225,7 @@ describe('MarkAsWornSheet', () => {
       const submitButtons = getAllByText('Mark as worn');
       fireEvent.press(submitButtons[1]);
 
-      expect(onSubmit).toHaveBeenCalledWith('2025-12-03', 'Date night');
+      expect(onSubmit).toHaveBeenCalledWith(getTodayDateStringForTest(), 'Date night');
     });
 
     it('should trim whitespace from context', () => {
@@ -213,7 +238,7 @@ describe('MarkAsWornSheet', () => {
       const submitButtons = getAllByText('Mark as worn');
       fireEvent.press(submitButtons[1]);
 
-      expect(onSubmit).toHaveBeenCalledWith('2025-12-03', 'Trimmed text');
+      expect(onSubmit).toHaveBeenCalledWith(getTodayDateStringForTest(), 'Trimmed text');
     });
 
     it('should pass undefined context when empty', () => {
@@ -226,7 +251,7 @@ describe('MarkAsWornSheet', () => {
       const submitButtons = getAllByText('Mark as worn');
       fireEvent.press(submitButtons[1]);
 
-      expect(onSubmit).toHaveBeenCalledWith('2025-12-03', undefined);
+      expect(onSubmit).toHaveBeenCalledWith(getTodayDateStringForTest(), undefined);
     });
   });
 
@@ -298,7 +323,7 @@ describe('MarkAsWornSheet', () => {
 
     it('should have accessibility state on quick options', () => {
       const { getByTestId } = renderComponent();
-      const todayButton = getByTestId('test-sheet-quick-2025-12-03');
+      const todayButton = getByTestId(`test-sheet-quick-${getTodayDateStringForTest()}`);
       expect(todayButton.props.accessibilityState).toHaveProperty('selected');
     });
   });
