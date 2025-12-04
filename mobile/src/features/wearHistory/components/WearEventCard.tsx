@@ -305,7 +305,7 @@ function WearEventCardComponent({
    * Renders a single thumbnail with fallback handling.
    */
   const renderThumbnail = useCallback(
-    (thumbnail: ResolvedThumbnail, _index: number) => {
+    (thumbnail: ResolvedThumbnail) => {
       const hasError = imageErrors.has(thumbnail.id);
       const showPlaceholder = !thumbnail.imageUrl || hasError;
 
@@ -370,7 +370,7 @@ function WearEventCardComponent({
       >
         {/* Thumbnails row */}
         <View style={styles.thumbnailsRow}>
-          {resolvedThumbnails.map((thumbnail, index) => renderThumbnail(thumbnail, index))}
+          {resolvedThumbnails.map(renderThumbnail)}
           {overflowCount > 0 && (
             <View
               style={styles.overflowBadge}
