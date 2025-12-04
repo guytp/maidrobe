@@ -3,11 +3,12 @@
  *
  * Tests cover:
  * - Loading state display
- * - Empty state display
+ * - Empty state display with icon component (not emoji)
  * - Error state display and retry
  * - Event list rendering
  * - Section headers for date grouping
- * - Navigation back button
+ * - Navigation back button and outfit detail navigation
+ * - Telemetry tracking on event tap
  * - Accessibility
  *
  * @module features/wearHistory/components/WearHistoryScreen.test
@@ -17,6 +18,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { WearHistoryScreen } from './WearHistoryScreen';
 import { ThemeProvider } from '../../../core/theme';
+import { trackCaptureEvent } from '../../../core/telemetry';
 import type { WearHistoryRow } from '../types';
 
 // Mock expo-router
@@ -40,6 +42,17 @@ jest.mock('../../../core/state/store', () => ({
 // Mock telemetry
 jest.mock('../../../core/telemetry', () => ({
   trackCaptureEvent: jest.fn(),
+}));
+
+// Mock @expo/vector-icons - capture props for verification
+const mockMaterialIconsComponent = jest.fn();
+jest.mock('@expo/vector-icons', () => ({
+  MaterialIcons: (props: { name: string; size: number; color: string }) => {
+    mockMaterialIconsComponent(props);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const { View } = require('react-native');
+    return <View testID="material-icon" {...props} />;
+  },
 }));
 
 // Mock i18n
@@ -200,6 +213,32 @@ describe('WearHistoryScreen', () => {
 
       expect(mockRouter.replace).toHaveBeenCalledWith('/home');
     });
+
+    it('should use MaterialIcons component for empty state icon (not emoji)', () => {
+      mockHookResult.events = [];
+      mockHookResult.isLoading = false;
+      mockMaterialIconsComponent.mockClear();
+
+      const { getByTestId } = renderComponent();
+
+      // Verify MaterialIcons is rendered with correct props
+      expect(getByTestId('material-icon')).toBeTruthy();
+      expect(mockMaterialIconsComponent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'event',
+          size: 48,
+        })
+      );
+    });
+
+    it('should have accessible icon label in empty state', () => {
+      mockHookResult.events = [];
+      mockHookResult.isLoading = false;
+
+      const { getByLabelText } = renderComponent();
+
+      expect(getByLabelText('Calendar icon')).toBeTruthy();
+    });
   });
 
   describe('Error state', () => {
@@ -287,6 +326,32 @@ describe('WearHistoryScreen', () => {
           params: expect.objectContaining({
             id: 'outfit-123',
             wearHistoryId: 'event-1',
+          }),
+        })
+      );
+    });
+
+    it('should track telemetry when event card pressed', () => {
+      const mockEvent = createMockWearEvent({
+        id: 'event-1',
+        outfit_id: 'outfit-123',
+        source: 'ai_recommendation',
+      });
+      mockHookResult.events = [mockEvent];
+
+      const { getByTestId } = renderComponent();
+      const eventCard = getByTestId('wear-event-event-1');
+
+      fireEvent.press(eventCard);
+
+      expect(trackCaptureEvent).toHaveBeenCalledWith(
+        'wear_history_event_tapped',
+        expect.objectContaining({
+          userId: 'test-user-123',
+          metadata: expect.objectContaining({
+            eventId: 'event-1',
+            outfitId: 'outfit-123',
+            source: 'ai_recommendation',
           }),
         })
       );
