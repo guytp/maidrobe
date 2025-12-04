@@ -56,9 +56,14 @@ export {
   useInvalidateWearHistory,
   usePendingWearEventsSync,
   useHasPendingWearEvent,
+  useWearHistoryInfiniteQuery,
+  useInvalidateWearHistoryQuery,
+  usePrefetchWearHistory,
   type CreateWearEventParams,
   type UseCreateWearEventResult,
   type UsePendingWearEventsSyncResult,
+  type UseWearHistoryInfiniteQueryParams,
+  type UseWearHistoryInfiniteQueryResult,
 } from './hooks';
 
 // Components

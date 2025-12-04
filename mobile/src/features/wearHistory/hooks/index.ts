@@ -16,3 +16,11 @@ export {
   useHasPendingWearEvent,
   type UsePendingWearEventsSyncResult,
 } from './usePendingWearEventsSync';
+
+export {
+  useWearHistoryInfiniteQuery,
+  useInvalidateWearHistoryQuery,
+  usePrefetchWearHistory,
+  type UseWearHistoryInfiniteQueryParams,
+  type UseWearHistoryInfiniteQueryResult,
+} from './useWearHistoryInfiniteQuery';
