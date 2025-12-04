@@ -23,6 +23,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +47,12 @@ const TOUCH_TARGET_SIZE = 44;
  * Number of columns in the item grid.
  */
 const GRID_COLUMNS = 3;
+
+/**
+ * Placeholder icon size for missing item images.
+ * Proportionally larger than WearEventCard (18px) since grid items are larger.
+ */
+const PLACEHOLDER_ICON_SIZE = 32;
 
 /**
  * Props for OutfitDetailScreen component.
@@ -263,21 +270,19 @@ export function OutfitDetailScreen({
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
+              accessibilityElementsHidden
             >
-              <Text
-                style={{
-                  fontSize: fontSize.xl,
-                  color: colors.textSecondary,
-                }}
-              >
-                {''}
-              </Text>
+              <MaterialIcons
+                name="checkroom"
+                size={PLACEHOLDER_ICON_SIZE}
+                color={colors.textSecondary}
+              />
             </View>
           )}
         </Pressable>
       );
     },
-    [colors, spacing, radius, fontSize, handleItemPress]
+    [colors, spacing, radius, handleItemPress]
   );
 
   /**
