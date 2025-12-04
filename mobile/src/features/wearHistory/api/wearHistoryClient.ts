@@ -15,6 +15,23 @@ import { createOrUpdateWearEvent, WearHistoryError } from './wearHistoryReposito
 import type { WearHistoryRow, WearHistorySource } from '../types';
 
 // ============================================================================
+// Query Key Constants
+// ============================================================================
+
+/**
+ * Sentinel value used in query keys when user is not authenticated.
+ * Using a distinct sentinel instead of empty string prevents potential
+ * cache collisions and makes disabled query states explicit.
+ */
+export const QUERY_KEY_NO_USER = '__NO_USER__' as const;
+
+/**
+ * Sentinel value used in query keys when a required ID is missing.
+ * Makes disabled query states explicit in the cache key.
+ */
+export const QUERY_KEY_NO_ID = '__NO_ID__' as const;
+
+// ============================================================================
 // Query Key Factory
 // ============================================================================
 
@@ -23,6 +40,10 @@ import type { WearHistoryRow, WearHistorySource } from '../types';
  *
  * Creates consistent cache keys that include userId per code guidelines.
  * Used by React Query hooks for cache management and invalidation.
+ *
+ * Uses sentinel values (QUERY_KEY_NO_USER, QUERY_KEY_NO_ID) instead of
+ * empty strings for disabled states to prevent cache collisions and
+ * make intent explicit.
  */
 export const wearHistoryQueryKey = {
   /**

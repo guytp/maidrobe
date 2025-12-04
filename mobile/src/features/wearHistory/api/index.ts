@@ -19,6 +19,8 @@ export {
   WearHistoryClientError,
   getTodayDateString,
   validateWearDate,
+  QUERY_KEY_NO_USER,
+  QUERY_KEY_NO_ID,
   type WearHistoryClientErrorCode,
   type CreateWearEventForClientPayload,
   type CreateWearEventResult,

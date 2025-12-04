@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
 import { getWearHistoryForUser, WearHistoryError } from '../api/wearHistoryRepository';
-import { wearHistoryQueryKey } from '../api/wearHistoryClient';
+import { wearHistoryQueryKey, QUERY_KEY_NO_USER } from '../api/wearHistoryClient';
 import { type GetWearHistoryResponse, type WearHistoryRow, DEFAULT_WEAR_HISTORY_PAGE_SIZE } from '../types';
 
 // ============================================================================
@@ -181,7 +181,7 @@ export function useWearHistoryInfiniteQuery(
   const userId = user?.id;
 
   const query = useInfiniteQuery<GetWearHistoryResponse, WearHistoryError>({
-    queryKey: wearHistoryQueryKey.user(userId ?? ''),
+    queryKey: wearHistoryQueryKey.user(userId ?? QUERY_KEY_NO_USER),
     queryFn: async ({ pageParam = 0 }) => {
       // Track query start time for accurate latency measurement
       const queryStartTime = Date.now();
