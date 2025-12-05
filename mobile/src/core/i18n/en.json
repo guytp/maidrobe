@@ -958,6 +958,8 @@
           "description": "Only avoid the exact same outfit combination. Individual items can repeat."
         }
       },
+      "retry": "Tap to retry",
+      "retryHint": "Retry saving your preferences",
       "errors": {
         "loadFailed": "Couldn't load preferences. Please try again.",
         "saveFailed": "Couldn't save. Please try again.",

@@ -16,7 +16,7 @@
  * @module features/profile/components/StylingPreferencesScreen
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -29,6 +29,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { trackCaptureEvent } from '../../../core/telemetry';
@@ -36,9 +37,9 @@ import { logError } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useUserPrefs } from '../../onboarding/api/useUserPrefs';
 import { useSavePrefs } from '../../onboarding/api/useSavePrefs';
-import { toFormData } from '../../onboarding/utils/prefsMapping';
+import { toFormData, toPrefsRow } from '../../onboarding/utils/prefsMapping';
 import { DEFAULT_PREFS_FORM_DATA } from '../../onboarding/utils/prefsTypes';
-import type { PrefsFormData, NoRepeatMode } from '../../onboarding/utils/prefsTypes';
+import type { PrefsFormData, NoRepeatMode, PrefsRow } from '../../onboarding/utils/prefsTypes';
 import { clampNoRepeatDays } from '../../onboarding/utils/prefsValidation';
 
 /**
@@ -74,6 +75,9 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   const user = useStore((state) => state.user);
   const userId = user?.id;
 
+  // Query client for optimistic updates
+  const queryClient = useQueryClient();
+
   // Fetch existing preferences
   const { data: prefsRow, isLoading } = useUserPrefs();
 
@@ -83,7 +87,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   // Local form state
   const [formData, setFormData] = useState<PrefsFormData>(DEFAULT_PREFS_FORM_DATA);
 
-  // Track initial form data for PATCH comparison
+  // Track initial form data for PATCH comparison and rollback
   const [initialFormData, setInitialFormData] = useState<PrefsFormData>(DEFAULT_PREFS_FORM_DATA);
 
   // Advanced section expanded state
@@ -100,6 +104,12 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   // Validation error for custom days input
   const [daysInputError, setDaysInputError] = useState<string | null>(null);
 
+  // Pending retry data - stores the intended form data when a save fails
+  const [pendingRetryData, setPendingRetryData] = useState<PrefsFormData | null>(null);
+
+  // Ref to track previous form data for analytics (before the current save)
+  const previousFormDataRef = useRef<PrefsFormData>(DEFAULT_PREFS_FORM_DATA);
+
   // Initialize form data from fetched prefs
   useEffect(() => {
     if (prefsRow !== undefined) {
@@ -107,6 +117,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
       setFormData(mappedData);
       setInitialFormData(mappedData);
       setCustomDaysInput(mappedData.noRepeatDays.toString());
+      previousFormDataRef.current = mappedData;
 
       // Auto-expand advanced section if user has custom value
       const isPresetValue = PRESET_BUTTONS.some((p) => p.value === mappedData.noRepeatDays);
@@ -128,7 +139,19 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   }, [router]);
 
   /**
-   * Saves the current preferences to the server.
+   * Query key for prefs cache - matches useUserPrefs hook
+   */
+  const prefsQueryKey = useMemo(() => ['prefs', userId ?? 'anonymous'], [userId]);
+
+  /**
+   * Saves the current preferences to the server with optimistic updates.
+   *
+   * Flow:
+   * 1. Snapshot previous query cache state
+   * 2. Apply optimistic update to query cache
+   * 3. Call mutation
+   * 4. On success: update baseline, track analytics with prev/new values
+   * 5. On failure: rollback cache and UI, store pending data for retry
    */
   const saveCurrentPrefs = useCallback(
     async (newFormData: PrefsFormData) => {
@@ -142,9 +165,30 @@ export function StylingPreferencesScreen(): React.JSX.Element {
         return false;
       }
 
+      // Capture previous values for analytics before any state changes
+      const previousNoRepeatDays = previousFormDataRef.current.noRepeatDays;
+      const previousNoRepeatMode = previousFormDataRef.current.noRepeatMode;
+
+      // Snapshot current query cache for rollback
+      const previousCacheData = queryClient.getQueryData<PrefsRow | null>(prefsQueryKey);
+
+      // Apply optimistic update to query cache
+      const optimisticPrefsRow = toPrefsRow(newFormData, userId);
+      queryClient.setQueryData<PrefsRow | null>(prefsQueryKey, (oldData) => {
+        if (oldData) {
+          return {
+            ...oldData,
+            no_repeat_days: optimisticPrefsRow.no_repeat_days,
+            no_repeat_mode: optimisticPrefsRow.no_repeat_mode,
+          };
+        }
+        return optimisticPrefsRow;
+      });
+
       setIsSaving(true);
       setSaveError(null);
       setSaveSuccess(false);
+      setPendingRetryData(null);
 
       try {
         await savePrefs.mutateAsync({
@@ -153,18 +197,21 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           existingData: initialFormData,
         });
 
-        // Track analytics event
+        // Track analytics event with previous and new values
         trackCaptureEvent('no_repeat_prefs_changed', {
           userId,
           metadata: {
-            noRepeatDays: newFormData.noRepeatDays,
-            noRepeatMode: newFormData.noRepeatMode,
+            previousNoRepeatDays,
+            newNoRepeatDays: newFormData.noRepeatDays,
+            previousNoRepeatMode,
+            newNoRepeatMode: newFormData.noRepeatMode,
             source: 'styling_preferences_screen',
           },
         });
 
-        // Update initial form data for future comparisons
+        // Update baseline for future comparisons and analytics
         setInitialFormData(newFormData);
+        previousFormDataRef.current = newFormData;
         setSaveSuccess(true);
 
         // Clear success message after a delay
@@ -177,19 +224,41 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           operation: 'styling_prefs_save',
           metadata: { userId },
         });
-        setSaveError(t('screens.stylingPreferences.errors.saveFailed'));
 
-        // Rollback to initial form data
+        // Rollback query cache to previous state
+        queryClient.setQueryData<PrefsRow | null>(prefsQueryKey, previousCacheData);
+
+        // Rollback UI to last known server state
         setFormData(initialFormData);
         setCustomDaysInput(initialFormData.noRepeatDays.toString());
+
+        // Store intended data for retry
+        setPendingRetryData(newFormData);
+        setSaveError(t('screens.stylingPreferences.errors.saveFailed'));
 
         return false;
       } finally {
         setIsSaving(false);
       }
     },
-    [userId, initialFormData, savePrefs]
+    [userId, initialFormData, savePrefs, queryClient, prefsQueryKey]
   );
+
+  /**
+   * Handles retry after a failed save.
+   * Re-invokes saveCurrentPrefs with the original intended values.
+   */
+  const handleRetry = useCallback(() => {
+    if (pendingRetryData) {
+      // Clear error before retry
+      setSaveError(null);
+      // Re-apply the intended form data to UI
+      setFormData(pendingRetryData);
+      setCustomDaysInput(pendingRetryData.noRepeatDays.toString());
+      // Retry the save
+      saveCurrentPrefs(pendingRetryData);
+    }
+  }, [pendingRetryData, saveCurrentPrefs]);
 
   /**
    * Handles preset button press.
@@ -549,9 +618,29 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           fontSize: fontSize.sm,
           color: colors.success,
         },
+        errorContainer: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        },
         errorText: {
           fontSize: fontSize.sm,
           color: colors.error,
+        },
+        retryButton: {
+          marginLeft: spacing.sm,
+          paddingVertical: spacing.xs,
+          paddingHorizontal: spacing.sm,
+          minHeight: TOUCH_TARGET_SIZE,
+          justifyContent: 'center',
+        },
+        retryButtonPressed: {
+          opacity: 0.6,
+        },
+        retryText: {
+          fontSize: fontSize.sm,
+          color: colors.textPrimary,
+          textDecorationLine: 'underline',
         },
         loadingContainer: {
           flex: 1,
@@ -650,9 +739,28 @@ export function StylingPreferencesScreen(): React.JSX.Element {
               </Text>
             )}
             {saveError && (
-              <Text style={styles.errorText} accessibilityLiveRegion="assertive">
-                {saveError}
-              </Text>
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText} accessibilityLiveRegion="assertive">
+                  {saveError}
+                </Text>
+                {pendingRetryData && (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.retryButton,
+                      pressed && styles.retryButtonPressed,
+                    ]}
+                    onPress={handleRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('screens.stylingPreferences.retry')}
+                    accessibilityHint={t('screens.stylingPreferences.retryHint')}
+                    disabled={isSaving}
+                  >
+                    <Text style={styles.retryText}>
+                      {t('screens.stylingPreferences.retry')}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
             )}
           </View>
         )}
