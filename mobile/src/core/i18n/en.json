@@ -919,8 +919,7 @@
       "itemsSection": "Items in this outfit",
       "lastWorn": {
         "title": "Last worn",
-        "wornOn": "Worn on {date}",
-        "notes": "Notes"
+        "wornOn": "Worn on {date}"
       },
       "wearContext": {
         "title": "Wear Details",
