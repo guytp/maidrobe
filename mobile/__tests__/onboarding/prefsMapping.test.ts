@@ -671,12 +671,12 @@ describe('prefsMapping', () => {
       expect(result.exclusions).toEqual(['free:no wool']);
     });
 
-    it('detects no-repeat window change', () => {
+    it('detects no-repeat days change', () => {
       const previous = DEFAULT_PREFS_FORM_DATA;
-      const current = { ...DEFAULT_PREFS_FORM_DATA, noRepeatWindow: 7 as const };
+      const current = { ...DEFAULT_PREFS_FORM_DATA, noRepeatDays: 14 };
       const result = getChangedFields(current, previous);
       expect(result).toHaveProperty('no_repeat_days');
-      expect(result.no_repeat_days).toBe(7);
+      expect(result.no_repeat_days).toBe(14);
     });
 
     it('detects comfort notes change', () => {
