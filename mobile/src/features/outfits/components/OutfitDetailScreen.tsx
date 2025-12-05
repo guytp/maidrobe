@@ -5,15 +5,32 @@
  * - The items that comprise the outfit (fetched from wardrobe)
  * - Wear-specific metadata (date, context, source) - "Last worn" section
  * - Grid of item thumbnails with navigation to item detail
+ * - "Mark as worn again" action (AC5: works for never-worn outfits too)
  *
- * Entry points and data loading:
- * - From WearHistoryScreen: includes wearHistoryId, uses useWearHistoryEvent to fetch
- *   the specific wear event that was tapped
- * - From saved outfits/recommendations: only outfitId, uses useLatestWearEventForOutfit
- *   to fetch the most recent wear event for this outfit (if any)
+ * ## Entry Points and Item ID Sourcing
  *
- * The "Last worn" section displays when wear event data is available from either source.
- * If the outfit has never been worn, no wear context is shown.
+ * Item IDs are sourced through a fallback chain to support different entry points:
+ *
+ * 1. **From Wear History** (wearHistoryId provided):
+ *    - Fetches the specific wear event via useWearHistoryEvent
+ *    - Item IDs come from wearEvent.item_ids
+ *    - "Last worn" section displays the event's metadata
+ *
+ * 2. **From Saved Outfits/Recommendations** (itemIds provided via props):
+ *    - Caller passes itemIds in navigation params (comma-separated in URL)
+ *    - Falls back to useLatestWearEventForOutfit if outfit was worn before
+ *    - For never-worn outfits, uses the props itemIds directly
+ *    - Enables "Mark as worn again" even for first-time wear (AC5)
+ *
+ * 3. **Direct Navigation** (only outfitId):
+ *    - Attempts to fetch latest wear event for the outfit
+ *    - If never worn and no itemIds prop, button is disabled (correct behavior)
+ *
+ * ## Architectural Note
+ *
+ * There is no persistent "outfits" table - outfits are ephemeral (AI recommendations)
+ * or represented by wear history entries. This means callers navigating with never-worn
+ * outfits MUST pass itemIds via navigation params for the "Mark as worn" action to work.
  *
  * @module features/outfits/components/OutfitDetailScreen
  */
