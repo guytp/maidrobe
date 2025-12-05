@@ -75,6 +75,12 @@ export interface OutfitDetailScreenProps {
   outfitId: string;
   /** Optional wear history event ID for context */
   wearHistoryId?: string;
+  /**
+   * Optional item IDs for the outfit.
+   * Used as fallback when no wear event exists (e.g., never-worn outfits from recommendations).
+   * When a wear event is present, its item_ids take precedence.
+   */
+  itemIds?: string[];
   /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   wornDate?: string;
   /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
@@ -136,6 +142,7 @@ function getSourceLabel(source: WearHistorySource): string {
 export function OutfitDetailScreen({
   outfitId,
   wearHistoryId,
+  itemIds: propsItemIds,
   // Note: wornDate, source, context props are kept for navigation compatibility
   // but the "Last worn" section is now driven entirely by fetched wear event data
 }: OutfitDetailScreenProps): React.JSX.Element {
@@ -174,8 +181,19 @@ export function OutfitDetailScreen({
   const isEventLoading = wearHistoryId ? isExplicitEventLoading : isLatestEventLoading;
   const isEventError = wearHistoryId ? isExplicitEventError : isLatestEventError;
 
-  // Get item IDs from wear event - memoized to prevent unnecessary re-fetches
-  const itemIds = useMemo(() => wearEvent?.item_ids ?? [], [wearEvent?.item_ids]);
+  // Get item IDs with fallback chain - memoized to prevent unnecessary re-fetches
+  // Priority: 1. Wear event item_ids (from history)
+  //           2. Props itemIds (from navigation params, e.g., recommendations)
+  //           3. Empty array (outfit has no items)
+  const itemIds = useMemo(() => {
+    if (wearEvent?.item_ids && wearEvent.item_ids.length > 0) {
+      return wearEvent.item_ids;
+    }
+    if (propsItemIds && propsItemIds.length > 0) {
+      return propsItemIds;
+    }
+    return [];
+  }, [wearEvent?.item_ids, propsItemIds]);
 
   // Fetch wardrobe items for this outfit
   const {
@@ -594,18 +612,10 @@ export function OutfitDetailScreen({
           </View>
         </View>
         <View style={styles.emptyContainer}>
-          <Text
-            style={styles.emptyTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.emptyTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.outfitDetail.empty.title')}
           </Text>
-          <Text
-            style={styles.emptySubtitle}
-            allowFontScaling
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.emptySubtitle} allowFontScaling maxFontSizeMultiplier={2}>
             {t('screens.outfitDetail.empty.subtitle')}
           </Text>
           <Button
@@ -693,11 +703,7 @@ export function OutfitDetailScreen({
           </View>
         </View>
         <View style={styles.errorContainer}>
-          <Text
-            style={styles.errorText}
-            allowFontScaling
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.errorText} allowFontScaling maxFontSizeMultiplier={2}>
             {t('screens.outfitDetail.error.loadFailed')}
           </Text>
           <Button
@@ -751,11 +757,7 @@ export function OutfitDetailScreen({
             style={styles.wearContextSection}
             accessibilityLabel={t('screens.outfitDetail.accessibility.lastWornSection')}
           >
-            <Text
-              style={styles.wearContextTitle}
-              allowFontScaling
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.wearContextTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
               {t('screens.outfitDetail.lastWorn.title')}
             </Text>
 
@@ -782,11 +784,7 @@ export function OutfitDetailScreen({
             {/* Context/Occasion Chip */}
             {wearEvent.context && (
               <View style={styles.contextChip}>
-                <Text
-                  style={styles.contextChipText}
-                  allowFontScaling
-                  maxFontSizeMultiplier={1.5}
-                >
+                <Text style={styles.contextChipText} allowFontScaling maxFontSizeMultiplier={1.5}>
                   {wearEvent.context}
                 </Text>
               </View>
@@ -795,11 +793,7 @@ export function OutfitDetailScreen({
             {/* Source Label */}
             {wearEvent.source && (
               <View style={styles.sourceChip}>
-                <Text
-                  style={styles.sourceChipText}
-                  allowFontScaling
-                  maxFontSizeMultiplier={1.5}
-                >
+                <Text style={styles.sourceChipText} allowFontScaling maxFontSizeMultiplier={1.5}>
                   {getSourceLabel(wearEvent.source)}
                 </Text>
               </View>
@@ -839,11 +833,7 @@ export function OutfitDetailScreen({
         </View>
 
         {/* Items Section */}
-        <Text
-          style={styles.itemsSectionTitle}
-          allowFontScaling
-          maxFontSizeMultiplier={1.5}
-        >
+        <Text style={styles.itemsSectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
           {t('screens.outfitDetail.itemsSection')}
         </Text>
 
@@ -860,11 +850,7 @@ export function OutfitDetailScreen({
           />
         ) : (
           <View style={styles.emptyContainer}>
-            <Text
-              style={styles.emptySubtitle}
-              allowFontScaling
-              maxFontSizeMultiplier={2}
-            >
+            <Text style={styles.emptySubtitle} allowFontScaling maxFontSizeMultiplier={2}>
               {t('screens.outfitDetail.empty.subtitle')}
             </Text>
           </View>

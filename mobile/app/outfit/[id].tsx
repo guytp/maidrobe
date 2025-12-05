@@ -8,12 +8,14 @@
  *
  * Route: /outfit/[id]
  * Example: /outfit/abc123?wearHistoryId=def456&wornDate=2024-01-15
+ * Example with itemIds: /outfit/abc123?itemIds=item1,item2,item3
  *
  * Query Parameters (optional, from wear history navigation):
  * - wearHistoryId: The specific wear event ID
  * - wornDate: The date the outfit was worn (YYYY-MM-DD)
  * - source: How the outfit was created ('ai_recommendation' | 'saved_outfit' | 'manual_outfit')
  * - context: The occasion description
+ * - itemIds: Comma-separated list of item IDs (fallback for never-worn outfits)
  *
  * Protected route: requires authenticated user with verified email.
  *
@@ -48,10 +50,15 @@ export default function OutfitDetailRoute(): React.JSX.Element {
     wornDate?: string;
     source?: string;
     context?: string;
+    itemIds?: string;
   }>();
 
   // Cast source to WearHistorySource type (validated in component)
   const source = params.source as WearHistorySource | undefined;
+
+  // Parse itemIds from comma-separated string to array
+  // This enables passing outfit item IDs for never-worn outfits from recommendations
+  const itemIds = params.itemIds ? params.itemIds.split(',').filter(Boolean) : undefined;
 
   // Show loading state while checking auth
   if (!isAuthorized) {
@@ -83,6 +90,7 @@ export default function OutfitDetailRoute(): React.JSX.Element {
     <OutfitDetailScreen
       outfitId={params.id}
       wearHistoryId={params.wearHistoryId}
+      itemIds={itemIds}
       wornDate={params.wornDate}
       source={source}
       context={params.context}
