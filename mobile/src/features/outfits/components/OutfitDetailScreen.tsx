@@ -182,9 +182,11 @@ export function OutfitDetailScreen({
   const isEventError = wearHistoryId ? isExplicitEventError : isLatestEventError;
 
   // Get item IDs with fallback chain - memoized to prevent unnecessary re-fetches
-  // Priority: 1. Wear event item_ids (from history)
+  // This fallback chain enables AC5: never-worn outfits can still be marked as worn
+  // using item IDs passed via navigation params from recommendations/saved outfits.
+  // Priority: 1. Wear event item_ids (from history - most accurate for previously worn)
   //           2. Props itemIds (from navigation params, e.g., recommendations)
-  //           3. Empty array (outfit has no items)
+  //           3. Empty array (outfit has no items - button will be disabled)
   const itemIds = useMemo(() => {
     if (wearEvent?.item_ids && wearEvent.item_ids.length > 0) {
       return wearEvent.item_ids;
@@ -818,7 +820,9 @@ export function OutfitDetailScreen({
           </View>
         )}
 
-        {/* Mark as worn again button - always visible for any outfit */}
+        {/* Mark as worn again button - always visible for any outfit (AC5)
+            For never-worn outfits, this behaves like "Mark as worn" using fallback itemIds.
+            Only disabled when truly no item IDs are available (neither from wear event nor props). */}
         <View style={styles.markAsWornButtonContainer}>
           <Button
             onPress={handleMarkAsWornAgain}
