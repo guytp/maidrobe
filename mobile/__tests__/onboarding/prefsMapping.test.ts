@@ -679,6 +679,14 @@ describe('prefsMapping', () => {
       expect(result.no_repeat_days).toBe(14);
     });
 
+    it('detects no-repeat mode change', () => {
+      const previous = DEFAULT_PREFS_FORM_DATA;
+      const current = { ...DEFAULT_PREFS_FORM_DATA, noRepeatMode: 'outfit' as const };
+      const result = getChangedFields(current, previous);
+      expect(result).toHaveProperty('no_repeat_mode');
+      expect(result.no_repeat_mode).toBe('outfit');
+    });
+
     it('detects comfort notes change', () => {
       const previous = DEFAULT_PREFS_FORM_DATA;
       const current = { ...DEFAULT_PREFS_FORM_DATA, comfortNotes: 'test notes' };
