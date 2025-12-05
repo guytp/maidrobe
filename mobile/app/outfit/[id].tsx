@@ -12,20 +12,21 @@
  * /outfit/abc123?wearHistoryId=def456
  * - Fetches item IDs from the wear event record
  *
- * **From Saved Outfits/Recommendations (never-worn):**
- * /outfit/abc123?itemIds=item1,item2,item3
- * - Must pass itemIds for "Mark as worn" to work on never-worn outfits
+ * **From AI Recommendations (never-worn):**
+ * /outfit/abc123?itemIds=item1,item2,item3&source=ai_recommendation
+ * - Pass itemIds and source for accurate wear history tracking
  *
- * **From Saved Outfits/Recommendations (previously worn):**
+ * **From Saved Outfits (previously worn):**
  * /outfit/abc123
- * - Screen fetches latest wear event to get item IDs
+ * - Screen fetches latest wear event to get item IDs and source
  *
  * ## Query Parameters
  *
  * - wearHistoryId: The specific wear event ID (from history navigation)
  * - itemIds: Comma-separated item IDs (required for never-worn outfits from recommendations)
+ * - source: Origin of outfit ('ai_recommendation' | 'saved_outfit' | 'manual_outfit')
+ *           Used when creating wear events to preserve accurate history
  * - wornDate: @deprecated - kept for navigation compatibility
- * - source: @deprecated - kept for navigation compatibility
  * - context: @deprecated - kept for navigation compatibility
  *
  * Protected route: requires authenticated user with verified email.

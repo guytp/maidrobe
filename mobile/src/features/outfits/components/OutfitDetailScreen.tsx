@@ -83,7 +83,7 @@ const PLACEHOLDER_ICON_SIZE = 32;
 /**
  * Props for OutfitDetailScreen component.
  *
- * Note: The wornDate, source, and context props are kept for backwards compatibility
+ * Note: The wornDate and context props are kept for backwards compatibility
  * with existing navigation flows but are no longer used for display. The "Last worn"
  * section is now driven entirely by wear event data fetched via hooks.
  */
@@ -98,10 +98,15 @@ export interface OutfitDetailScreenProps {
    * When a wear event is present, its item_ids take precedence.
    */
   itemIds?: string[];
+  /**
+   * Optional source indicating how the outfit was reached.
+   * Used when creating new wear events via "Mark as worn again" to preserve
+   * accurate history (e.g., 'ai_recommendation' when navigating from recommendations).
+   * Falls back to existing wear event source or 'saved_outfit' if not provided.
+   */
+  source?: WearHistorySource;
   /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   wornDate?: string;
-  /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
-  source?: WearHistorySource;
   /** @deprecated Use wearHistoryId instead - kept for navigation compatibility */
   context?: string;
 }
@@ -160,7 +165,8 @@ export function OutfitDetailScreen({
   outfitId,
   wearHistoryId,
   itemIds: propsItemIds,
-  // Note: wornDate, source, context props are kept for navigation compatibility
+  source: propsSource,
+  // Note: wornDate and context props are kept for navigation compatibility
   // but the "Last worn" section is now driven entirely by fetched wear event data
 }: OutfitDetailScreenProps): React.JSX.Element {
   const { colors, colorScheme, spacing, fontSize, radius } = useTheme();
@@ -213,6 +219,21 @@ export function OutfitDetailScreen({
     }
     return [];
   }, [wearEvent?.item_ids, propsItemIds]);
+
+  // Determine the effective source for new wear events
+  // This ensures wear history accurately reflects how the outfit was reached:
+  // Priority: 1. Props source (from navigation params, e.g., 'ai_recommendation')
+  //           2. Existing wear event source (preserve historical accuracy)
+  //           3. Default to 'saved_outfit' (standard saved outfit flow)
+  const effectiveSource: WearHistorySource = useMemo(() => {
+    if (propsSource) {
+      return propsSource;
+    }
+    if (wearEvent?.source) {
+      return wearEvent.source;
+    }
+    return 'saved_outfit';
+  }, [propsSource, wearEvent?.source]);
 
   // Fetch wardrobe items for this outfit
   const {
@@ -359,6 +380,8 @@ export function OutfitDetailScreen({
   /**
    * Handles mark-as-worn sheet submission.
    * Creates or updates a wear event for the selected date.
+   * Uses effectiveSource to preserve how the outfit was originally reached
+   * (e.g., 'ai_recommendation' for outfits from recommendations).
    */
   const handleMarkAsWornSheetSubmit = useCallback(
     (date: string, context?: string) => {
@@ -366,12 +389,12 @@ export function OutfitDetailScreen({
         outfitId,
         itemIds,
         wornDate: date,
-        source: 'saved_outfit',
+        source: effectiveSource,
         context,
       });
       setIsMarkAsWornSheetVisible(false);
     },
-    [createWearEvent, outfitId, itemIds]
+    [createWearEvent, outfitId, itemIds, effectiveSource]
   );
 
   /**
