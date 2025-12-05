@@ -4,18 +4,29 @@
  * This route displays the full details of an outfit, including:
  * - The items that comprise the outfit
  * - Wear-specific metadata (date, context, source) when navigated from history
- * - AI explanation if the outfit was an AI recommendation
+ * - "Mark as worn again" action (works for never-worn outfits when itemIds provided)
  *
- * Route: /outfit/[id]
- * Example: /outfit/abc123?wearHistoryId=def456&wornDate=2024-01-15
- * Example with itemIds: /outfit/abc123?itemIds=item1,item2,item3
+ * ## Route Usage by Entry Point
  *
- * Query Parameters (optional, from wear history navigation):
- * - wearHistoryId: The specific wear event ID
- * - wornDate: The date the outfit was worn (YYYY-MM-DD)
- * - source: How the outfit was created ('ai_recommendation' | 'saved_outfit' | 'manual_outfit')
- * - context: The occasion description
- * - itemIds: Comma-separated list of item IDs (fallback for never-worn outfits)
+ * **From Wear History:**
+ * /outfit/abc123?wearHistoryId=def456
+ * - Fetches item IDs from the wear event record
+ *
+ * **From Saved Outfits/Recommendations (never-worn):**
+ * /outfit/abc123?itemIds=item1,item2,item3
+ * - Must pass itemIds for "Mark as worn" to work on never-worn outfits
+ *
+ * **From Saved Outfits/Recommendations (previously worn):**
+ * /outfit/abc123
+ * - Screen fetches latest wear event to get item IDs
+ *
+ * ## Query Parameters
+ *
+ * - wearHistoryId: The specific wear event ID (from history navigation)
+ * - itemIds: Comma-separated item IDs (required for never-worn outfits from recommendations)
+ * - wornDate: @deprecated - kept for navigation compatibility
+ * - source: @deprecated - kept for navigation compatibility
+ * - context: @deprecated - kept for navigation compatibility
  *
  * Protected route: requires authenticated user with verified email.
  *
