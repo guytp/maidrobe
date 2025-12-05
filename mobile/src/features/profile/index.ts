@@ -8,4 +8,4 @@
  */
 
 // Components
-export { ProfileScreen } from './components';
+export { ProfileScreen, StylingPreferencesScreen } from './components';

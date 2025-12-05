@@ -3,6 +3,7 @@
  *
  * This screen provides navigation to various profile-related features:
  * - Wear history: View what you've worn and when
+ * - Styling preferences: Manage outfit repeat settings
  *
  * Entry point for the Profile feature area, following the existing
  * information architecture patterns used throughout the app.
@@ -34,7 +35,8 @@ const NAVIGATION_DEBOUNCE_MS = 500;
 /**
  * Profile screen component.
  *
- * Provides access to profile-related features including wear history.
+ * Provides access to profile-related features including wear history
+ * and styling preferences.
  * Implements WCAG 2.1 AA accessibility standards.
  *
  * @returns Profile screen component
@@ -77,6 +79,31 @@ export function ProfileScreen(): React.JSX.Element {
     });
 
     router.push('/history');
+
+    // Reset navigation lock after debounce period
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, NAVIGATION_DEBOUNCE_MS);
+  }, [router, user?.id]);
+
+  /**
+   * Handles navigation to styling preferences screen.
+   */
+  const handleNavigateToStylingPreferences = useCallback(() => {
+    // Prevent double-tap navigation
+    if (isNavigatingRef.current) {
+      return;
+    }
+
+    isNavigatingRef.current = true;
+
+    // Track navigation event
+    trackCaptureEvent('styling_preferences_navigation_clicked', {
+      userId: user?.id,
+      metadata: { source: 'profile_screen' },
+    });
+
+    router.push('/profile/styling-preferences');
 
     // Reset navigation lock after debounce period
     setTimeout(() => {
@@ -243,6 +270,47 @@ export function ProfileScreen(): React.JSX.Element {
                 maxFontSizeMultiplier={1.5}
               >
                 {t('screens.profile.navigation.wearHistoryDescription')}
+              </Text>
+            </View>
+            <Text style={styles.navigationItemArrow}>→</Text>
+          </Pressable>
+        </View>
+
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text
+            style={styles.sectionTitle}
+            allowFontScaling
+            maxFontSizeMultiplier={1.5}
+          >
+            {t('screens.profile.sections.preferences')}
+          </Text>
+
+          {/* Styling Preferences Navigation Item */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.navigationItem,
+              pressed && styles.navigationItemPressed,
+            ]}
+            onPress={handleNavigateToStylingPreferences}
+            accessibilityLabel={t('screens.profile.navigation.stylingPreferencesLabel')}
+            accessibilityHint={t('screens.profile.navigation.stylingPreferencesHint')}
+            accessibilityRole="button"
+          >
+            <View style={styles.navigationItemContent}>
+              <Text
+                style={styles.navigationItemTitle}
+                allowFontScaling
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.profile.navigation.stylingPreferences')}
+              </Text>
+              <Text
+                style={styles.navigationItemSubtitle}
+                allowFontScaling
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.profile.navigation.stylingPreferencesDescription')}
               </Text>
             </View>
             <Text style={styles.navigationItemArrow}>→</Text>

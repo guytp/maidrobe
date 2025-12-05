@@ -5,3 +5,4 @@
  */
 
 export { ProfileScreen } from './ProfileScreen';
+export { StylingPreferencesScreen } from './StylingPreferencesScreen';
