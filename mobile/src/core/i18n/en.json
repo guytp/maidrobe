@@ -920,7 +920,7 @@
     },
     "stylingPreferences": {
       "title": "Styling Preferences",
-      "loading": "Loading preferences...",
+      "loading": "Loading styling preferences...",
       "saving": "Saving...",
       "saved": "Preferences saved",
       "noRepeat": {
