@@ -692,8 +692,8 @@ describe('prefsMapping', () => {
       const current: PrefsFormData = {
         colourTendency: 'neutrals',
         exclusions: { checklist: ['skirts'], freeText: '' },
-        noRepeatWindow: 7,
-        noRepeatDays: 7,
+        noRepeatWindow: 14,
+        noRepeatDays: 14,
         noRepeatMode: 'item',
         comfortNotes: 'test notes',
       };
