@@ -467,18 +467,18 @@ describe('prefsMapping', () => {
       expect(result.exclusions).toEqual(['free:no wool']);
     });
 
-    it('maps no-repeat windows correctly', () => {
-      const windows: [0 | 7 | 14 | null, number | null][] = [
+    it('maps no-repeat days correctly', () => {
+      const testCases: [number, number][] = [
         [0, 0],
         [7, 7],
         [14, 14],
-        [null, null],
+        [30, 30],
       ];
 
-      windows.forEach(([input, expected]) => {
+      testCases.forEach(([input, expected]) => {
         const form: PrefsFormData = {
           ...DEFAULT_PREFS_FORM_DATA,
-          noRepeatWindow: input,
+          noRepeatDays: input,
         };
         const result = toPrefsRow(form, mockUserId);
         expect(result.no_repeat_days).toBe(expected);
