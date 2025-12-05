@@ -97,6 +97,9 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Validation error for custom days input
+  const [daysInputError, setDaysInputError] = useState<string | null>(null);
+
   // Initialize form data from fetched prefs
   useEffect(() => {
     if (prefsRow !== undefined) {
@@ -206,29 +209,76 @@ export function StylingPreferencesScreen(): React.JSX.Element {
   );
 
   /**
-   * Handles custom days input change.
+   * Validates a custom days value and returns an error message if invalid.
+   * Returns null if the value is valid.
    */
-  const handleCustomDaysChange = useCallback((text: string) => {
-    // Allow only numeric input
-    const numericText = text.replace(/[^0-9]/g, '');
-    setCustomDaysInput(numericText);
+  const validateDaysInput = useCallback((value: string): string | null => {
+    if (value === '') {
+      return null; // Empty is allowed during typing, validated on blur
+    }
+
+    const parsed = parseInt(value, 10);
+
+    if (isNaN(parsed)) {
+      return t('screens.stylingPreferences.errors.invalidDays');
+    }
+
+    if (parsed < 0 || parsed > 90) {
+      return t('screens.stylingPreferences.errors.invalidDays');
+    }
+
+    return null;
   }, []);
 
   /**
+   * Handles custom days input change.
+   */
+  const handleCustomDaysChange = useCallback(
+    (text: string) => {
+      // Allow only numeric input
+      const numericText = text.replace(/[^0-9]/g, '');
+      setCustomDaysInput(numericText);
+
+      // Validate and show inline error if invalid
+      const error = validateDaysInput(numericText);
+      setDaysInputError(error);
+    },
+    [validateDaysInput]
+  );
+
+  /**
    * Handles custom days input blur (save on blur).
+   * Validates input and either saves valid values or resets invalid ones.
    */
   const handleCustomDaysBlur = useCallback(() => {
     const parsed = parseInt(customDaysInput, 10);
 
-    if (isNaN(parsed)) {
+    // Handle empty or non-numeric input
+    if (isNaN(parsed) || customDaysInput === '') {
       // Reset to current value if invalid
       setCustomDaysInput(formData.noRepeatDays.toString());
+      setDaysInputError(null);
       return;
     }
 
+    // Validate range (0-90)
+    if (parsed < 0 || parsed > 90) {
+      // Show error and reset to valid value
+      setDaysInputError(t('screens.stylingPreferences.errors.invalidDays'));
+      setCustomDaysInput(formData.noRepeatDays.toString());
+      // Clear error after a delay
+      setTimeout(() => setDaysInputError(null), 3000);
+      return;
+    }
+
+    // Clear any validation error
+    setDaysInputError(null);
+
+    // Clamp to valid range (should already be valid, but defensive)
     const clamped = clampNoRepeatDays(parsed);
     setCustomDaysInput(clamped.toString());
 
+    // Only save if value changed
     if (clamped !== formData.noRepeatDays) {
       const newFormData = {
         ...formData,
@@ -426,7 +476,15 @@ export function StylingPreferencesScreen(): React.JSX.Element {
         inputHint: {
           fontSize: fontSize.sm,
           color: colors.textSecondary,
+          marginBottom: spacing.sm,
+        },
+        inputError: {
+          fontSize: fontSize.sm,
+          color: colors.error,
           marginBottom: spacing.lg,
+        },
+        customInputError: {
+          borderColor: colors.error,
         },
         modeSection: {
           marginTop: spacing.md,
@@ -697,13 +755,20 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                 {t('screens.stylingPreferences.advanced.customDays')}
               </Text>
               <TextInput
-                style={styles.customInput}
+                style={[
+                  styles.customInput,
+                  daysInputError != null && styles.customInputError,
+                ]}
                 value={customDaysInput}
                 onChangeText={handleCustomDaysChange}
                 onBlur={handleCustomDaysBlur}
                 keyboardType="number-pad"
                 maxLength={2}
-                accessibilityLabel={t('screens.stylingPreferences.advanced.customDaysLabel')}
+                accessibilityLabel={
+                  daysInputError != null
+                    ? `${t('screens.stylingPreferences.advanced.customDaysLabel')}, ${daysInputError}`
+                    : t('screens.stylingPreferences.advanced.customDaysLabel')
+                }
                 accessibilityHint={t('screens.stylingPreferences.advanced.customDaysHint')}
                 allowFontScaling
                 maxFontSizeMultiplier={1.5}
@@ -716,13 +781,24 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                 {t('screens.stylingPreferences.advanced.daysSuffix')}
               </Text>
             </View>
-            <Text
-              style={styles.inputHint}
-              allowFontScaling
-              maxFontSizeMultiplier={1.5}
-            >
-              {t('screens.stylingPreferences.advanced.rangeHint')}
-            </Text>
+            {daysInputError != null ? (
+              <Text
+                style={styles.inputError}
+                allowFontScaling
+                maxFontSizeMultiplier={1.5}
+                accessibilityLiveRegion="assertive"
+              >
+                {daysInputError}
+              </Text>
+            ) : (
+              <Text
+                style={styles.inputHint}
+                allowFontScaling
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.stylingPreferences.advanced.rangeHint')}
+              </Text>
+            )}
 
             {/* Mode Selector */}
             <View style={styles.modeSection}>

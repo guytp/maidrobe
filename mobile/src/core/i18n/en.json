@@ -954,13 +954,14 @@
           "description": "Avoid repeating your main pieces like tops and bottoms. More variety day-to-day."
         },
         "outfit": {
-          "label": "Exact outfits",
+          "label": "Exact outfit only",
           "description": "Only avoid the exact same outfit combination. Individual items can repeat."
         }
       },
       "errors": {
         "loadFailed": "Couldn't load preferences. Please try again.",
-        "saveFailed": "Couldn't save. Please try again."
+        "saveFailed": "Couldn't save. Please try again.",
+        "invalidDays": "Please enter a number between 0 and 90"
       },
       "accessibility": {
         "screenLabel": "Styling preferences screen",
