@@ -48,6 +48,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['neutrals'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -60,6 +61,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['some_colour'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -72,6 +74,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['bold_colours'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -84,6 +87,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -96,6 +100,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['unknown_tag'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -108,6 +113,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['neutrals', 'some_colour'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -120,6 +126,7 @@ describe('prefsMapping', () => {
           colour_prefs: ['unknown', 'some_colour', 'neutrals'],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -134,6 +141,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['skirts', 'heels'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -147,6 +155,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['free:no wool'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -160,6 +169,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['free:no wool', 'free:no silk'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -172,6 +182,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['skirts', 'free:no wool', 'heels'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -185,6 +196,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['skirts', 'unknown_tag', 'heels'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -197,6 +209,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: ['free:', 'free:  ', 'free:valid'],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -209,6 +222,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -224,6 +238,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: 0,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -237,6 +252,7 @@ describe('prefsMapping', () => {
             colour_prefs: [],
             exclusions: [],
             no_repeat_days: days,
+            no_repeat_mode: 'item',
             comfort_notes: null,
           };
           const result = toFormData(row);
@@ -251,6 +267,7 @@ describe('prefsMapping', () => {
             colour_prefs: [],
             exclusions: [],
             no_repeat_days: days,
+            no_repeat_mode: 'item',
             comfort_notes: null,
           };
           const result = toFormData(row);
@@ -264,6 +281,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: 30,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -276,6 +294,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: -5,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -288,6 +307,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -302,6 +322,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: 'no tight waistbands',
         };
         const result = toFormData(row);
@@ -314,6 +335,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: '  spaces  ',
         };
         const result = toFormData(row);
@@ -326,6 +348,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: null,
         };
         const result = toFormData(row);
@@ -338,6 +361,7 @@ describe('prefsMapping', () => {
           colour_prefs: [],
           exclusions: [],
           no_repeat_days: null,
+          no_repeat_mode: 'item',
           comfort_notes: '',
         };
         const result = toFormData(row);
@@ -516,6 +540,8 @@ describe('prefsMapping', () => {
           freeText: 'no wool',
         },
         noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: 'test notes',
       };
       const result = toUpdatePayload(form);
@@ -569,6 +595,8 @@ describe('prefsMapping', () => {
       const form: PrefsFormData = {
         ...DEFAULT_PREFS_FORM_DATA,
         noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
       };
       const result = hasAnyData(form);
       expect(result).toBe(true);
@@ -665,6 +693,8 @@ describe('prefsMapping', () => {
         colourTendency: 'neutrals',
         exclusions: { checklist: ['skirts'], freeText: '' },
         noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: 'test notes',
       };
       const result = getChangedFields(current, previous);
@@ -700,6 +730,7 @@ describe('prefsMapping', () => {
         colour_prefs: ['neutrals'],
         exclusions: ['skirts', 'free:no wool'],
         no_repeat_days: 7,
+          no_repeat_mode: 'item',
         comfort_notes: 'test notes',
       };
 
@@ -720,6 +751,8 @@ describe('prefsMapping', () => {
           freeText: 'no silk\nno lace',
         },
         noRepeatWindow: 14,
+          noRepeatDays: 14,
+          noRepeatMode: 'item',
         comfortNotes: 'sensitive skin',
       };
 

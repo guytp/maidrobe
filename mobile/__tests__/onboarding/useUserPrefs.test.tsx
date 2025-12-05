@@ -48,6 +48,7 @@ describe('useUserPrefs', () => {
   const mockPrefsRow: PrefsRow = {
     user_id: mockUserId,
     no_repeat_days: 7,
+          no_repeat_mode: 'item',
     colour_prefs: ['neutrals'],
     exclusions: ['skirts', 'free:no leather'],
     comfort_notes: 'Test notes',
@@ -195,6 +196,7 @@ describe('useUserPrefs', () => {
       const validRow: PrefsRow = {
         user_id: mockUserId,
         no_repeat_days: null,
+          no_repeat_mode: 'item',
         colour_prefs: [],
         exclusions: [],
         comfort_notes: null,

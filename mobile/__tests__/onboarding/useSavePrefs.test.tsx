@@ -51,12 +51,15 @@ describe('useSavePrefs', () => {
       freeText: 'no leather',
     },
     noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
     comfortNotes: 'Test comfort notes',
   };
 
   const mockPrefsRow: PrefsRow = {
     user_id: mockUserId,
     no_repeat_days: 7,
+          no_repeat_mode: 'item',
     colour_prefs: ['neutrals'],
     exclusions: ['skirts', 'free:no leather'],
     comfort_notes: 'Test comfort notes',
@@ -123,6 +126,7 @@ describe('useSavePrefs', () => {
         expect.objectContaining({
           user_id: mockUserId,
           no_repeat_days: 7,
+          no_repeat_mode: 'item',
           colour_prefs: ['neutrals'],
           exclusions: ['skirts', 'free:no leather'],
           comfort_notes: 'Test comfort notes',
@@ -172,6 +176,8 @@ describe('useSavePrefs', () => {
           freeText: 'no leather',
         },
         noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: 'Old notes',
       };
 
@@ -216,6 +222,8 @@ describe('useSavePrefs', () => {
         colourTendency: 'neutrals',
         exclusions: { checklist: [], freeText: '' },
         noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: '',
       };
 
@@ -479,6 +487,8 @@ describe('useSavePrefs', () => {
           freeText: 'sensitive personal information here',
         },
         noRepeatWindow: null,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: 'private comfort notes with PII',
       };
 

@@ -164,6 +164,8 @@ describe('prefsValidation', () => {
         freeText: 'no wool',
       },
       noRepeatWindow: 7,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
       comfortNotes: 'test notes',
     };
 
@@ -179,6 +181,8 @@ describe('prefsValidation', () => {
           freeText: '',
         },
         noRepeatWindow: null,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
         comfortNotes: '',
       };
       expect(() => PrefsFormDataSchema.parse(defaultData)).not.toThrow();
@@ -237,6 +241,7 @@ describe('prefsValidation', () => {
       colour_prefs: ['neutrals'],
       exclusions: ['skirts', 'free:no wool'],
       no_repeat_days: 7,
+          no_repeat_mode: 'item',
       comfort_notes: 'test notes',
     };
 
@@ -259,6 +264,7 @@ describe('prefsValidation', () => {
         colour_prefs: [],
         exclusions: [],
         no_repeat_days: null,
+          no_repeat_mode: 'item',
         comfort_notes: null,
       };
       expect(() => PrefsRowSchema.parse(rowWithNulls)).not.toThrow();
@@ -327,6 +333,7 @@ describe('prefsValidation', () => {
         colour_prefs: ['neutrals'],
         exclusions: ['skirts'],
         no_repeat_days: 7,
+          no_repeat_mode: 'item',
         comfort_notes: 'test notes',
       };
       expect(() => PrefsUpdatePayloadSchema.parse(payload)).not.toThrow();
@@ -347,6 +354,7 @@ describe('prefsValidation', () => {
     it('validates payload with null values', () => {
       const payload = {
         no_repeat_days: null,
+          no_repeat_mode: 'item',
         comfort_notes: null,
       };
       expect(() => PrefsUpdatePayloadSchema.parse(payload)).not.toThrow();
@@ -430,6 +438,8 @@ describe('prefsValidation', () => {
         freeText: '',
       },
       noRepeatWindow: null,
+          noRepeatDays: 7,
+          noRepeatMode: 'item',
       comfortNotes: '',
     };
 
@@ -453,6 +463,7 @@ describe('prefsValidation', () => {
       colour_prefs: [],
       exclusions: [],
       no_repeat_days: null,
+          no_repeat_mode: 'item',
       comfort_notes: null,
     };
 
@@ -475,6 +486,7 @@ describe('prefsValidation', () => {
       const payload = {
         colour_prefs: ['neutrals'],
         no_repeat_days: 7,
+          no_repeat_mode: 'item',
       };
       const result = validateUpdatePayload(payload);
       expect(result).toEqual(payload);

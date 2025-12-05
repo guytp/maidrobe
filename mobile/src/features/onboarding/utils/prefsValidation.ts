@@ -18,13 +18,23 @@
  */
 
 import { z } from 'zod';
-import { EXCLUSION_TAGS, COLOUR_TAGS } from './prefsTypes';
+import {
+  EXCLUSION_TAGS,
+  COLOUR_TAGS,
+  NO_REPEAT_MODES,
+  MIN_NO_REPEAT_DAYS,
+  MAX_NO_REPEAT_DAYS_UI,
+  MAX_NO_REPEAT_DAYS_DB,
+  DEFAULT_NO_REPEAT_DAYS,
+  DEFAULT_NO_REPEAT_MODE,
+} from './prefsTypes';
 import type {
   PrefsRow,
   PrefsFormData,
   PrefsUpdatePayload,
   ExclusionTag,
   ColourTag,
+  NoRepeatMode,
 } from './prefsTypes';
 
 /**
@@ -61,12 +71,61 @@ export const ColourTagSchema = z.enum(COLOUR_TAGS);
 export const ColourTendencySchema = z.enum(['neutrals', 'some_colour', 'bold_colours', 'not_sure']);
 
 /**
- * Schema for no-repeat window validation.
+ * Schema for no-repeat window validation (legacy preset buckets).
  *
- * Validates that value is one of the three buckets or null.
- * Rejects any other numbers (intermediate values should be mapped first).
+ * Validates that value is one of the preset buckets or null.
+ * @deprecated Use NoRepeatDaysSchema for the actual value validation.
  */
 export const NoRepeatWindowSchema = z.union([z.literal(0), z.literal(7), z.literal(14), z.null()]);
+
+/**
+ * Schema for no-repeat window preset validation (extended presets).
+ *
+ * Validates UI preset button values: Off (0), 3, 7, 14, 30 days, or null.
+ */
+export const NoRepeatWindowPresetSchema = z.union([
+  z.literal(0),
+  z.literal(3),
+  z.literal(7),
+  z.literal(14),
+  z.literal(30),
+  z.null(),
+]);
+
+/**
+ * Schema for no-repeat days validation (UI input).
+ *
+ * Validates the exact number of days for the no-repeat window.
+ * Range: 0-90 days (UI constraint).
+ * 0 means "off" (okay with immediate repeats).
+ */
+export const NoRepeatDaysUISchema = z
+  .number()
+  .int({ message: 'Days must be a whole number' })
+  .min(MIN_NO_REPEAT_DAYS, { message: `Days must be at least ${MIN_NO_REPEAT_DAYS}` })
+  .max(MAX_NO_REPEAT_DAYS_UI, { message: `Days must be at most ${MAX_NO_REPEAT_DAYS_UI}` });
+
+/**
+ * Schema for no-repeat days validation (database).
+ *
+ * Validates the database value which allows a wider range (0-180).
+ * This allows backend flexibility for future expansion.
+ */
+export const NoRepeatDaysDBSchema = z
+  .number()
+  .int({ message: 'Days must be a whole number' })
+  .min(MIN_NO_REPEAT_DAYS, { message: `Days must be at least ${MIN_NO_REPEAT_DAYS}` })
+  .max(MAX_NO_REPEAT_DAYS_DB, { message: `Days must be at most ${MAX_NO_REPEAT_DAYS_DB}` })
+  .nullable();
+
+/**
+ * Schema for no-repeat mode validation.
+ *
+ * Validates that mode is either 'item' or 'outfit'.
+ * - 'item': Avoid repeating key individual items (recommended)
+ * - 'outfit': Only avoid exact outfit combinations
+ */
+export const NoRepeatModeSchema = z.enum(NO_REPEAT_MODES);
 
 /**
  * Schema for exclusions data structure.
@@ -89,7 +148,9 @@ export const ExclusionsDataSchema = z.object({
  * Validates complete PrefsFormData structure with all constraints:
  * - colourTendency: One of four options
  * - exclusions: Valid structure with known tags
- * - noRepeatWindow: One of three buckets or null
+ * - noRepeatWindow: One of preset buckets or null (legacy, deprecated)
+ * - noRepeatDays: Number 0-90 for custom input
+ * - noRepeatMode: 'item' or 'outfit'
  * - comfortNotes: String with max length
  *
  * Use this schema when:
@@ -101,6 +162,8 @@ export const PrefsFormDataSchema = z.object({
   colourTendency: ColourTendencySchema,
   exclusions: ExclusionsDataSchema,
   noRepeatWindow: NoRepeatWindowSchema,
+  noRepeatDays: NoRepeatDaysUISchema,
+  noRepeatMode: NoRepeatModeSchema,
   comfortNotes: z.string().max(MAX_COMFORT_NOTES_LENGTH, {
     message: `Comfort notes must be ${MAX_COMFORT_NOTES_LENGTH} characters or less`,
   }),
@@ -113,7 +176,8 @@ export const PrefsFormDataSchema = z.object({
  *
  * Field constraints:
  * - user_id: Non-empty string (UUID format not enforced for simplicity)
- * - no_repeat_days: Integer or null
+ * - no_repeat_days: Integer 0-180 or null
+ * - no_repeat_mode: 'item' or 'outfit'
  * - colour_prefs: Array of strings (tags not validated - graceful degradation)
  * - exclusions: Array of strings (tags not validated - graceful degradation)
  * - comfort_notes: String or null
@@ -132,7 +196,8 @@ export const PrefsFormDataSchema = z.object({
  */
 export const PrefsRowSchema = z.object({
   user_id: z.string().min(1),
-  no_repeat_days: z.number().int().nullable(),
+  no_repeat_days: NoRepeatDaysDBSchema,
+  no_repeat_mode: NoRepeatModeSchema,
   colour_prefs: z.array(z.string()),
   exclusions: z.array(z.string()),
   comfort_notes: z.string().nullable(),
@@ -152,7 +217,8 @@ export const PrefsRowSchema = z.object({
  * - Type-guarding partial row data
  */
 export const PrefsUpdatePayloadSchema = z.object({
-  no_repeat_days: z.number().int().nullable().optional(),
+  no_repeat_days: NoRepeatDaysDBSchema.optional(),
+  no_repeat_mode: NoRepeatModeSchema.optional(),
   colour_prefs: z.array(z.string()).optional(),
   exclusions: z.array(z.string()).optional(),
   comfort_notes: z.string().nullable().optional(),
@@ -264,4 +330,108 @@ export function validatePrefsRow(data: unknown): PrefsRow {
  */
 export function validateUpdatePayload(data: unknown): PrefsUpdatePayload {
   return PrefsUpdatePayloadSchema.parse(data);
+}
+
+/**
+ * Type guard to check if a string is a valid NoRepeatMode.
+ *
+ * Provides runtime narrowing from string to NoRepeatMode.
+ *
+ * Usage:
+ * ```typescript
+ * if (isValidNoRepeatMode(mode)) {
+ *   // mode is NoRepeatMode here ('item' | 'outfit')
+ *   const prefs = { noRepeatMode: mode };
+ * }
+ * ```
+ *
+ * @param mode - String to check
+ * @returns true if mode is a valid NoRepeatMode
+ */
+export function isValidNoRepeatMode(mode: string): mode is NoRepeatMode {
+  return NO_REPEAT_MODES.includes(mode as never);
+}
+
+/**
+ * Validates no-repeat days for UI input.
+ *
+ * Clamps value to valid range (0-90) and returns validation result.
+ *
+ * Usage:
+ * ```typescript
+ * const result = validateNoRepeatDays(userInput);
+ * if (result.valid) {
+ *   updatePrefs({ noRepeatDays: result.value });
+ * } else {
+ *   showError(result.error);
+ * }
+ * ```
+ *
+ * @param days - Number to validate
+ * @returns Validation result with value or error
+ */
+export function validateNoRepeatDays(days: number): {
+  valid: boolean;
+  value: number;
+  error?: string;
+} {
+  // Check for non-integer
+  if (!Number.isInteger(days)) {
+    return {
+      valid: false,
+      value: Math.round(days),
+      error: 'Days must be a whole number',
+    };
+  }
+
+  // Check range
+  if (days < MIN_NO_REPEAT_DAYS) {
+    return {
+      valid: false,
+      value: MIN_NO_REPEAT_DAYS,
+      error: `Days must be at least ${MIN_NO_REPEAT_DAYS}`,
+    };
+  }
+
+  if (days > MAX_NO_REPEAT_DAYS_UI) {
+    return {
+      valid: false,
+      value: MAX_NO_REPEAT_DAYS_UI,
+      error: `Days must be at most ${MAX_NO_REPEAT_DAYS_UI}`,
+    };
+  }
+
+  return { valid: true, value: days };
+}
+
+/**
+ * Clamps no-repeat days to valid UI range.
+ *
+ * Unlike validateNoRepeatDays, this always returns a valid value
+ * without error information. Use for silent normalization.
+ *
+ * @param days - Number to clamp
+ * @returns Clamped value in range [0, 90]
+ */
+export function clampNoRepeatDays(days: number): number {
+  const rounded = Math.round(days);
+  return Math.max(MIN_NO_REPEAT_DAYS, Math.min(MAX_NO_REPEAT_DAYS_UI, rounded));
+}
+
+/**
+ * Gets the default no-repeat mode.
+ *
+ * @returns Default no-repeat mode ('item')
+ */
+export function getDefaultNoRepeatMode(): NoRepeatMode {
+  return DEFAULT_NO_REPEAT_MODE;
+}
+
+/**
+ * Gets the default no-repeat days.
+ *
+ * @returns Default no-repeat days (7)
+ */
+export function getDefaultNoRepeatDays(): number {
+  return DEFAULT_NO_REPEAT_DAYS;
 }
