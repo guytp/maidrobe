@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS public.prefs (
 
   -- No-repeat window: number of days before allowing item/outfit repeats
   -- Range: 0-180 days in database (UI validates 0-90, DB allows buffer for future expansion)
+  -- NOTE: DB range (0-180) intentionally exceeds UI range (0-90) to allow future UI expansion
+  --       without requiring a database migration. UI validation is the primary constraint.
   -- Default: 7 days (one week) - balances variety with practicality
   -- 0 means user is okay with immediate repeats
   no_repeat_days INTEGER NOT NULL DEFAULT 7
