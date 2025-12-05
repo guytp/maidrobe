@@ -737,8 +737,8 @@ describe('prefsMapping', () => {
         user_id: mockUserId,
         colour_prefs: ['neutrals'],
         exclusions: ['skirts', 'free:no wool'],
-        no_repeat_days: 7,
-        no_repeat_mode: 'item',
+        no_repeat_days: 14,
+        no_repeat_mode: 'outfit',
         comfort_notes: 'test notes',
       };
 
@@ -748,6 +748,7 @@ describe('prefsMapping', () => {
       expect(reconvertedRow.colour_prefs).toEqual(originalRow.colour_prefs);
       expect(reconvertedRow.exclusions).toEqual(originalRow.exclusions);
       expect(reconvertedRow.no_repeat_days).toEqual(originalRow.no_repeat_days);
+      expect(reconvertedRow.no_repeat_mode).toEqual(originalRow.no_repeat_mode);
       expect(reconvertedRow.comfort_notes).toEqual(originalRow.comfort_notes);
     });
 
