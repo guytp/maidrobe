@@ -92,6 +92,28 @@ describe('wearHistoryClient', () => {
         wornDate,
       ]);
     });
+
+    it('should generate correct event key', () => {
+      const userId = 'user-123';
+      const eventId = 'event-789';
+      expect(wearHistoryQueryKey.event(userId, eventId)).toEqual([
+        'wear-history',
+        userId,
+        'event',
+        eventId,
+      ]);
+    });
+
+    it('should generate correct latest for outfit key', () => {
+      const userId = 'user-123';
+      const outfitId = 'outfit-456';
+      expect(wearHistoryQueryKey.latestForOutfit(userId, outfitId)).toEqual([
+        'wear-history',
+        userId,
+        'latest',
+        outfitId,
+      ]);
+    });
   });
 
   describe('WearHistoryClientError', () => {
