@@ -898,19 +898,75 @@
     "profile": {
       "title": "Profile",
       "sections": {
-        "activity": "Activity"
+        "activity": "Activity",
+        "preferences": "Preferences"
       },
       "navigation": {
         "wearHistory": "Wear history",
         "wearHistoryDescription": "See what you've worn and when",
         "wearHistoryLabel": "View wear history",
-        "wearHistoryHint": "Navigate to see what you've worn and when"
+        "wearHistoryHint": "Navigate to see what you've worn and when",
+        "stylingPreferences": "Styling preferences",
+        "stylingPreferencesDescription": "Manage outfit repeat settings",
+        "stylingPreferencesLabel": "View styling preferences",
+        "stylingPreferencesHint": "Navigate to manage how often outfits and items can repeat"
       },
       "accessibility": {
         "screenLabel": "Profile screen",
         "screenHint": "Access your profile features and settings",
         "backButton": "Go back",
         "backButtonHint": "Return to home screen"
+      }
+    },
+    "stylingPreferences": {
+      "title": "Styling Preferences",
+      "loading": "Loading preferences...",
+      "saving": "Saving...",
+      "saved": "Preferences saved",
+      "noRepeat": {
+        "title": "No-repeat window",
+        "description": "How long before we suggest the same items or outfits again. A longer window means more variety in your recommendations."
+      },
+      "presets": {
+        "off": "Off (okay with repeats)",
+        "3days": "3 days",
+        "7days": "7 days",
+        "14days": "14 days",
+        "30days": "30 days",
+        "days": "days",
+        "hint": "Tap to select this no-repeat window"
+      },
+      "advanced": {
+        "title": "Advanced",
+        "toggle": "Advanced settings",
+        "toggleHint": "Expand or collapse advanced settings",
+        "customDays": "Custom window:",
+        "customDaysLabel": "Custom no-repeat window in days",
+        "customDaysHint": "Enter a number between 0 and 90",
+        "daysSuffix": "days",
+        "rangeHint": "Enter a value from 0 to 90 days"
+      },
+      "mode": {
+        "title": "What should we avoid repeating?",
+        "recommended": "(recommended)",
+        "item": {
+          "label": "Key items",
+          "description": "Avoid repeating your main pieces like tops and bottoms. More variety day-to-day."
+        },
+        "outfit": {
+          "label": "Exact outfits",
+          "description": "Only avoid the exact same outfit combination. Individual items can repeat."
+        }
+      },
+      "errors": {
+        "loadFailed": "Couldn't load preferences. Please try again.",
+        "saveFailed": "Couldn't save. Please try again."
+      },
+      "accessibility": {
+        "screenLabel": "Styling preferences screen",
+        "screenHint": "Configure how often outfits and items can repeat in recommendations",
+        "backButton": "Go back",
+        "backButtonHint": "Return to profile screen"
       }
     },
     "outfitDetail": {
