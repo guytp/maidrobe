@@ -540,8 +540,8 @@ describe('prefsMapping', () => {
           freeText: 'no wool',
         },
         noRepeatWindow: 7,
-          noRepeatDays: 7,
-          noRepeatMode: 'item',
+        noRepeatDays: 7,
+        noRepeatMode: 'item',
         comfortNotes: 'test notes',
       };
       const result = toUpdatePayload(form);
@@ -595,8 +595,8 @@ describe('prefsMapping', () => {
       const form: PrefsFormData = {
         ...DEFAULT_PREFS_FORM_DATA,
         noRepeatWindow: 7,
-          noRepeatDays: 7,
-          noRepeatMode: 'item',
+        noRepeatDays: 7,
+        noRepeatMode: 'item',
       };
       const result = hasAnyData(form);
       expect(result).toBe(true);
@@ -693,8 +693,8 @@ describe('prefsMapping', () => {
         colourTendency: 'neutrals',
         exclusions: { checklist: ['skirts'], freeText: '' },
         noRepeatWindow: 7,
-          noRepeatDays: 7,
-          noRepeatMode: 'item',
+        noRepeatDays: 7,
+        noRepeatMode: 'item',
         comfortNotes: 'test notes',
       };
       const result = getChangedFields(current, previous);
@@ -730,7 +730,7 @@ describe('prefsMapping', () => {
         colour_prefs: ['neutrals'],
         exclusions: ['skirts', 'free:no wool'],
         no_repeat_days: 7,
-          no_repeat_mode: 'item',
+        no_repeat_mode: 'item',
         comfort_notes: 'test notes',
       };
 
@@ -751,8 +751,8 @@ describe('prefsMapping', () => {
           freeText: 'no silk\nno lace',
         },
         noRepeatWindow: 14,
-          noRepeatDays: 14,
-          noRepeatMode: 'item',
+        noRepeatDays: 14,
+        noRepeatMode: 'item',
         comfortNotes: 'sensitive skin',
       };
 
