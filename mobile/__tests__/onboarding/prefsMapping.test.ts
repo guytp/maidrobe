@@ -774,6 +774,8 @@ describe('prefsMapping', () => {
       );
       expect(reconvertedForm.exclusions.freeText).toEqual(originalForm.exclusions.freeText);
       expect(reconvertedForm.noRepeatWindow).toEqual(originalForm.noRepeatWindow);
+      expect(reconvertedForm.noRepeatDays).toEqual(originalForm.noRepeatDays);
+      expect(reconvertedForm.noRepeatMode).toEqual(originalForm.noRepeatMode);
       expect(reconvertedForm.comfortNotes).toEqual(originalForm.comfortNotes);
     });
   });
