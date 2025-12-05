@@ -166,9 +166,11 @@ export function MarkAsWornSheet({
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [context, setContext] = useState<string>(initialContext ?? '');
 
-  // Sync context state when initialContext prop changes (e.g., different outfit selected)
+  // Sync state when initialContext prop changes (e.g., different outfit selected)
+  // Reset both context and selectedDate to ensure predictable defaults for each outfit
   useEffect(() => {
     setContext(initialContext ?? '');
+    setSelectedDate(getTodayDateString());
   }, [initialContext]);
 
   // Generate date options
