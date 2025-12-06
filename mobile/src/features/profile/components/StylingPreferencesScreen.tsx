@@ -13,6 +13,15 @@
  * - Accessible form controls with proper labelling
  * - Analytics tracking for preference changes
  *
+ * Validation ranges for no_repeat_days:
+ * - Input constraint: maxLength=2 limits direct text entry to 2 characters (max 99)
+ * - UI validation: 0-90 days enforced with inline error messaging
+ * - Backend range: 0-180 days supported in DB for future flexibility
+ *
+ * The UI validation (0-90) is intentionally stricter than the backend (0-180) to
+ * provide a sensible default experience while allowing server-side flexibility
+ * for future features or admin overrides.
+ *
  * @module features/profile/components/StylingPreferencesScreen
  */
 
@@ -862,6 +871,25 @@ export function StylingPreferencesScreen(): React.JSX.Element {
               >
                 {t('screens.stylingPreferences.advanced.customDays')}
               </Text>
+              {/*
+                * No-repeat days input constraints:
+                *
+                * - maxLength={2}: Limits text entry to 2 characters, practically capping
+                *   direct user input at 99. This is a UX constraint to prevent obviously
+                *   invalid entries and keep the input field compact.
+                *
+                * - UI validation (validateDaysInput): Enforces 0-90 range with inline
+                *   error messaging. Values outside this range show an error and are
+                *   rejected on blur.
+                *
+                * - Backend range: The database accepts 0-180 days, providing headroom
+                *   for future features or admin configuration beyond the UI limit.
+                *
+                * Note: The maxLength=2 constraint means users cannot directly type "90"
+                * if they first type "9" and then try to append characters beyond 2 digits.
+                * However, since 90 is exactly 2 characters, this works correctly. Values
+                * like "100" cannot be typed directly, which aligns with the 0-90 UI limit.
+                */}
               <TextInput
                 style={[
                   styles.customInput,
