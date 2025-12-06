@@ -735,10 +735,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
       </View>
 
       {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Feedback Messages */}
         {(saveSuccess || saveError) && (
           <View style={styles.feedbackContainer}>
@@ -764,9 +761,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                     accessibilityHint={t('screens.stylingPreferences.retryHint')}
                     disabled={isSaving}
                   >
-                    <Text style={styles.retryText}>
-                      {t('screens.stylingPreferences.retry')}
-                    </Text>
+                    <Text style={styles.retryText}>{t('screens.stylingPreferences.retry')}</Text>
                   </Pressable>
                 )}
               </View>
@@ -784,11 +779,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           >
             {t('screens.stylingPreferences.noRepeat.title')}
           </Text>
-          <Text
-            style={styles.sectionDescription}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionDescription} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.stylingPreferences.noRepeat.description')}
           </Text>
 
@@ -811,10 +802,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                   accessibilityHint={t('screens.stylingPreferences.presets.hint')}
                 >
                   <Text
-                    style={[
-                      styles.presetButtonText,
-                      isSelected && styles.presetButtonTextSelected,
-                    ]}
+                    style={[styles.presetButtonText, isSelected && styles.presetButtonTextSelected]}
                     allowFontScaling
                     maxFontSizeMultiplier={1.5}
                   >
@@ -822,10 +810,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                   </Text>
                   {preset.value > 0 && (
                     <Text
-                      style={[
-                        styles.presetLabel,
-                        isSelected && styles.presetLabelSelected,
-                      ]}
+                      style={[styles.presetLabel, isSelected && styles.presetLabelSelected]}
                       allowFontScaling
                       maxFontSizeMultiplier={1.5}
                     >
@@ -847,16 +832,10 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           accessibilityLabel={t('screens.stylingPreferences.advanced.toggle')}
           accessibilityHint={t('screens.stylingPreferences.advanced.toggleHint')}
         >
-          <Text
-            style={styles.advancedToggleText}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.advancedToggleText} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.stylingPreferences.advanced.title')}
           </Text>
-          <Text style={styles.advancedToggleArrow}>
-            {isAdvancedExpanded ? '▼' : '▶'}
-          </Text>
+          <Text style={styles.advancedToggleArrow}>{isAdvancedExpanded ? '▼' : '▶'}</Text>
         </Pressable>
 
         {/* Advanced Section Content */}
@@ -864,37 +843,30 @@ export function StylingPreferencesScreen(): React.JSX.Element {
           <View style={styles.advancedSection}>
             {/* Custom Days Input */}
             <View style={styles.inputRow}>
-              <Text
-                style={styles.inputLabel}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.inputLabel} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.stylingPreferences.advanced.customDays')}
               </Text>
               {/*
-                * No-repeat days input constraints:
-                *
-                * - maxLength={2}: Limits text entry to 2 characters, practically capping
-                *   direct user input at 99. This is a UX constraint to prevent obviously
-                *   invalid entries and keep the input field compact.
-                *
-                * - UI validation (validateDaysInput): Enforces 0-90 range with inline
-                *   error messaging. Values outside this range show an error and are
-                *   rejected on blur.
-                *
-                * - Backend range: The database accepts 0-180 days, providing headroom
-                *   for future features or admin configuration beyond the UI limit.
-                *
-                * Note: The maxLength=2 constraint means users cannot directly type "90"
-                * if they first type "9" and then try to append characters beyond 2 digits.
-                * However, since 90 is exactly 2 characters, this works correctly. Values
-                * like "100" cannot be typed directly, which aligns with the 0-90 UI limit.
-                */}
+               * No-repeat days input constraints:
+               *
+               * - maxLength={2}: Limits text entry to 2 characters, practically capping
+               *   direct user input at 99. This is a UX constraint to prevent obviously
+               *   invalid entries and keep the input field compact.
+               *
+               * - UI validation (validateDaysInput): Enforces 0-90 range with inline
+               *   error messaging. Values outside this range show an error and are
+               *   rejected on blur.
+               *
+               * - Backend range: The database accepts 0-180 days, providing headroom
+               *   for future features or admin configuration beyond the UI limit.
+               *
+               * Note: The maxLength=2 constraint means users cannot directly type "90"
+               * if they first type "9" and then try to append characters beyond 2 digits.
+               * However, since 90 is exactly 2 characters, this works correctly. Values
+               * like "100" cannot be typed directly, which aligns with the 0-90 UI limit.
+               */}
               <TextInput
-                style={[
-                  styles.customInput,
-                  daysInputError != null && styles.customInputError,
-                ]}
+                style={[styles.customInput, daysInputError != null && styles.customInputError]}
                 value={customDaysInput}
                 onChangeText={handleCustomDaysChange}
                 onBlur={handleCustomDaysBlur}
@@ -909,11 +881,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                 allowFontScaling
                 maxFontSizeMultiplier={1.5}
               />
-              <Text
-                style={styles.inputSuffix}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.inputSuffix} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.stylingPreferences.advanced.daysSuffix')}
               </Text>
             </View>
@@ -927,11 +895,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                 {daysInputError}
               </Text>
             ) : (
-              <Text
-                style={styles.inputHint}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.inputHint} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.stylingPreferences.advanced.rangeHint')}
               </Text>
             )}
@@ -967,14 +931,11 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                   <Text style={styles.modeLabel} allowFontScaling maxFontSizeMultiplier={1.5}>
                     {t('screens.stylingPreferences.mode.item.label')}
                     <Text style={styles.recommendedBadge}>
-                      {' '}{t('screens.stylingPreferences.mode.recommended')}
+                      {' '}
+                      {t('screens.stylingPreferences.mode.recommended')}
                     </Text>
                   </Text>
-                  <Text
-                    style={styles.modeDescription}
-                    allowFontScaling
-                    maxFontSizeMultiplier={1.5}
-                  >
+                  <Text style={styles.modeDescription} allowFontScaling maxFontSizeMultiplier={1.5}>
                     {t('screens.stylingPreferences.mode.item.description')}
                   </Text>
                 </View>
@@ -1000,11 +961,7 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                   <Text style={styles.modeLabel} allowFontScaling maxFontSizeMultiplier={1.5}>
                     {t('screens.stylingPreferences.mode.outfit.label')}
                   </Text>
-                  <Text
-                    style={styles.modeDescription}
-                    allowFontScaling
-                    maxFontSizeMultiplier={1.5}
-                  >
+                  <Text style={styles.modeDescription} allowFontScaling maxFontSizeMultiplier={1.5}>
                     {t('screens.stylingPreferences.mode.outfit.description')}
                   </Text>
                 </View>
