@@ -20,13 +20,17 @@
 import {
   EXCLUSION_TAGS,
   COLOUR_TAGS,
+  NO_REPEAT_MODES,
   DEFAULT_PREFS_FORM_DATA,
+  DEFAULT_NO_REPEAT_DAYS,
+  DEFAULT_NO_REPEAT_MODE,
   type PrefsRow,
   type PrefsFormData,
   type PrefsUpdatePayload,
   type ColourTendency,
   type ExclusionsData,
   type NoRepeatWindow,
+  type NoRepeatMode,
   type ExclusionTag,
 } from './prefsTypes';
 
@@ -270,9 +274,55 @@ function mapNoRepeatDaysToWindow(days: number | null): NoRepeatWindow {
  *
  * @param window - UI window value
  * @returns Exact days for database storage
+ * @deprecated Use noRepeatDays directly instead of mapping from window buckets
  */
 function mapNoRepeatWindowToDays(window: NoRepeatWindow): number | null {
   return window;
+}
+
+/**
+ * Maps database no-repeat mode to UI form value.
+ *
+ * Validates that the mode is one of the known values, defaulting to 'item'
+ * if the value is unknown or missing.
+ *
+ * Examples:
+ * - 'item' -> 'item'
+ * - 'outfit' -> 'outfit'
+ * - 'unknown' -> 'item' (fallback to default)
+ * - null/undefined -> 'item' (fallback to default)
+ *
+ * @param mode - No-repeat mode from database
+ * @returns Valid NoRepeatMode value
+ */
+function mapNoRepeatModeToFormData(mode: string | null | undefined): NoRepeatMode {
+  if (mode && NO_REPEAT_MODES.includes(mode as NoRepeatMode)) {
+    return mode as NoRepeatMode;
+  }
+  return DEFAULT_NO_REPEAT_MODE;
+}
+
+/**
+ * Maps database no-repeat days to UI form value.
+ *
+ * Handles null/undefined by returning the default value.
+ * Clamps negative values to 0.
+ *
+ * Examples:
+ * - 7 -> 7
+ * - 0 -> 0
+ * - null -> 7 (default)
+ * - -5 -> 0 (clamped)
+ *
+ * @param days - No-repeat days from database (can be null)
+ * @returns Valid number of days (defaults to DEFAULT_NO_REPEAT_DAYS if null)
+ */
+function mapNoRepeatDaysToFormData(days: number | null): number {
+  if (days === null || days === undefined) {
+    return DEFAULT_NO_REPEAT_DAYS;
+  }
+  // Clamp negative values to 0
+  return Math.max(0, days);
 }
 
 /**
@@ -323,7 +373,7 @@ function notesToDatabase(notes: string): string | null {
  * Handles:
  * - null row (returns defaults)
  * - Missing/null fields (uses defaults)
- * - All field mappings (colour, exclusions, no-repeat, notes)
+ * - All field mappings (colour, exclusions, no-repeat days/mode, notes)
  * - Unknown/invalid values (graceful degradation)
  *
  * Guarantees:
@@ -350,6 +400,8 @@ export function toFormData(row: PrefsRow | null): PrefsFormData {
     colourTendency: mapColourPrefsToTendency(row.colour_prefs),
     exclusions: splitExclusions(row.exclusions),
     noRepeatWindow: mapNoRepeatDaysToWindow(row.no_repeat_days),
+    noRepeatDays: mapNoRepeatDaysToFormData(row.no_repeat_days),
+    noRepeatMode: mapNoRepeatModeToFormData(row.no_repeat_mode),
     comfortNotes: trimNotes(row.comfort_notes),
   };
 }
@@ -362,6 +414,7 @@ export function toFormData(row: PrefsRow | null): PrefsFormData {
  * Creates a complete PrefsRow with:
  * - Provided user_id
  * - All fields from form data
+ * - noRepeatDays used directly (noRepeatWindow is legacy/deprecated)
  * - Timestamps omitted (managed by database DEFAULT)
  *
  * Usage:
@@ -379,7 +432,8 @@ export function toPrefsRow(form: PrefsFormData, userId: string): PrefsRow {
     user_id: userId,
     colour_prefs: mapColourTendencyToPrefs(form.colourTendency),
     exclusions: joinExclusions(form.exclusions),
-    no_repeat_days: mapNoRepeatWindowToDays(form.noRepeatWindow),
+    no_repeat_days: form.noRepeatDays,
+    no_repeat_mode: form.noRepeatMode,
     comfort_notes: notesToDatabase(form.comfortNotes),
   };
 }
@@ -391,6 +445,7 @@ export function toPrefsRow(form: PrefsFormData, userId: string): PrefsRow {
  *
  * Creates a PrefsUpdatePayload with:
  * - All updatable fields
+ * - noRepeatDays and noRepeatMode included
  * - user_id, created_at, updated_at omitted
  *
  * Use this for full updates where all fields are replaced.
@@ -409,7 +464,8 @@ export function toUpdatePayload(form: PrefsFormData): PrefsUpdatePayload {
   return {
     colour_prefs: mapColourTendencyToPrefs(form.colourTendency),
     exclusions: joinExclusions(form.exclusions),
-    no_repeat_days: mapNoRepeatWindowToDays(form.noRepeatWindow),
+    no_repeat_days: form.noRepeatDays,
+    no_repeat_mode: form.noRepeatMode,
     comfort_notes: notesToDatabase(form.comfortNotes),
   };
 }
@@ -420,7 +476,8 @@ export function toUpdatePayload(form: PrefsFormData): PrefsUpdatePayload {
  * Returns false if form is completely default/empty:
  * - Colour tendency is 'not_sure'
  * - No exclusions (checklist and free-text both empty)
- * - No no-repeat window set (null)
+ * - No no-repeat days changed from default (7)
+ * - No no-repeat mode changed from default ('item')
  * - No comfort notes
  *
  * Use case:
@@ -450,8 +507,18 @@ export function hasAnyData(form: PrefsFormData): boolean {
     return true;
   }
 
-  // Check no-repeat window
+  // Check no-repeat days (legacy window check for backward compatibility)
   if (form.noRepeatWindow !== null) {
+    return true;
+  }
+
+  // Check no-repeat days differs from default
+  if (form.noRepeatDays !== DEFAULT_NO_REPEAT_DAYS) {
+    return true;
+  }
+
+  // Check no-repeat mode differs from default
+  if (form.noRepeatMode !== DEFAULT_NO_REPEAT_MODE) {
     return true;
   }
 
@@ -472,7 +539,8 @@ export function hasAnyData(form: PrefsFormData): boolean {
  * Comparison logic:
  * - Colour tendency: Direct equality
  * - Exclusions: Deep array/string comparison
- * - No-repeat window: Direct equality
+ * - No-repeat days: Direct equality
+ * - No-repeat mode: Direct equality
  * - Comfort notes: Trimmed string comparison
  *
  * Use case:
@@ -512,9 +580,14 @@ export function getChangedFields(
     changes.exclusions = joinExclusions(current.exclusions);
   }
 
-  // Check no-repeat window
-  if (current.noRepeatWindow !== previous.noRepeatWindow) {
-    changes.no_repeat_days = mapNoRepeatWindowToDays(current.noRepeatWindow);
+  // Check no-repeat days
+  if (current.noRepeatDays !== previous.noRepeatDays) {
+    changes.no_repeat_days = current.noRepeatDays;
+  }
+
+  // Check no-repeat mode
+  if (current.noRepeatMode !== previous.noRepeatMode) {
+    changes.no_repeat_mode = current.noRepeatMode;
   }
 
   // Check comfort notes

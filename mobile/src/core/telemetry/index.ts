@@ -375,7 +375,10 @@ export type CaptureEventType =
   // Outfit detail screen events (story #444, #445)
   | 'outfit_detail_viewed'
   | 'outfit_detail_item_tapped'
-  | 'outfit_detail_mark_worn_again_tapped';
+  | 'outfit_detail_mark_worn_again_tapped'
+  // Styling preferences events (story #446)
+  | 'styling_preferences_navigation_clicked'
+  | 'no_repeat_prefs_changed';
 
 /**
  * Metadata for authentication event logging.

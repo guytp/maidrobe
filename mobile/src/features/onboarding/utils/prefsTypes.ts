@@ -5,10 +5,12 @@
  * - Database schema types (PrefsRow - snake_case)
  * - UI view model types (PrefsFormData - camelCase)
  * - Canonical tag constants for exclusions and colour preferences
+ * - No-repeat window and mode settings for outfit recommendations
  *
  * The type system enforces:
  * - Strict enum types for colour tendencies and exclusions
- * - Literal types for no-repeat windows (0, 7, 14, or null)
+ * - Literal types for no-repeat windows (0, 3, 7, 14, 30, or null for presets)
+ * - No-repeat mode ('item' or 'outfit') for repeat avoidance granularity
  * - Clear separation between database and UI representations
  *
  * @module features/onboarding/utils/prefsTypes
@@ -69,18 +71,90 @@ export type ColourTag = (typeof COLOUR_TAGS)[number];
 export type ColourTendency = ColourTag | 'not_sure';
 
 /**
- * No-repeat window options (in days).
+ * No-repeat window preset options (in days) for UI buttons.
  *
- * Represents how long user wants to wait before repeating an outfit:
- * - 0: Okay with immediate repeats
- * - 7: Avoid repeats within ~1 week
+ * Represents preset options for the no-repeat window:
+ * - 0: Okay with immediate repeats (Off)
+ * - 3: Avoid repeats within 3 days
+ * - 7: Avoid repeats within ~1 week (default)
  * - 14: Avoid repeats within ~2 weeks
- * - null: No preference set
+ * - 30: Avoid repeats within ~1 month
+ * - null: No preference set (uses default)
  *
- * Database stores exact number, UI uses these buckets.
- * Intermediate values (e.g., 5 days) are mapped to nearest bucket.
+ * These are the preset button values in the UI.
+ * The Advanced section allows custom values 0-90.
+ */
+export type NoRepeatWindowPreset = 0 | 3 | 7 | 14 | 30 | null;
+
+/**
+ * @deprecated Use NoRepeatWindowPreset for preset buttons.
+ * Kept for backward compatibility with existing onboarding code.
  */
 export type NoRepeatWindow = 0 | 7 | 14 | null;
+
+/**
+ * No-repeat mode options for repeat avoidance granularity.
+ *
+ * Determines how the no-repeat window is applied:
+ * - 'item': Avoid repeating key individual items within the window (recommended)
+ * - 'outfit': Only avoid repeating the exact same outfit combination
+ *
+ * Default is 'item' which provides more variety in recommendations.
+ */
+export const NO_REPEAT_MODES = ['item', 'outfit'] as const;
+
+/**
+ * Type-safe no-repeat mode derived from modes array.
+ */
+export type NoRepeatMode = (typeof NO_REPEAT_MODES)[number];
+
+/**
+ * Preset options for the no-repeat window UI buttons.
+ *
+ * Each preset maps to a specific number of days:
+ * - 'off' → 0 days
+ * - '3days' → 3 days
+ * - '7days' → 7 days (default)
+ * - '14days' → 14 days
+ * - '30days' → 30 days
+ */
+export const NO_REPEAT_PRESET_VALUES = {
+  off: 0,
+  '3days': 3,
+  '7days': 7,
+  '14days': 14,
+  '30days': 30,
+} as const;
+
+/**
+ * Default no-repeat days value for new users.
+ * 7 days provides a good balance of variety without being too restrictive.
+ */
+export const DEFAULT_NO_REPEAT_DAYS = 7;
+
+/**
+ * Default no-repeat mode for new users.
+ * 'item' mode is recommended as it provides more variety.
+ */
+export const DEFAULT_NO_REPEAT_MODE: NoRepeatMode = 'item';
+
+/**
+ * Maximum allowed value for no-repeat days in UI input.
+ * Higher values may be impractical for small wardrobes.
+ */
+export const MAX_NO_REPEAT_DAYS_UI = 90;
+
+/**
+ * Maximum allowed value for no-repeat days in database.
+ * Allows buffer for future expansion beyond UI limits.
+ */
+export const MAX_NO_REPEAT_DAYS_DB = 180;
+
+/**
+ * Minimum allowed value for no-repeat days.
+ * 0 means "off" (okay with immediate repeats).
+ */
+export const MIN_NO_REPEAT_DAYS = 0;
 
 /**
  * Exclusions data split into checklist and free-text.
@@ -116,7 +190,9 @@ export interface ExclusionsData {
  * - colourTendency: Required, defaults to 'not_sure'
  * - exclusions.checklist: Array of valid ExclusionTag values
  * - exclusions.freeText: String, max combined length validated separately
- * - noRepeatWindow: 0, 7, 14, or null
+ * - noRepeatWindow: 0, 7, 14, or null (deprecated, use noRepeatDays)
+ * - noRepeatDays: Number 0-90 for custom input, or preset value
+ * - noRepeatMode: 'item' or 'outfit' for repeat avoidance granularity
  * - comfortNotes: String, max 500 characters
  *
  * Validation:
@@ -128,8 +204,23 @@ export interface PrefsFormData {
   colourTendency: ColourTendency;
   /** Items/styles user never wears */
   exclusions: ExclusionsData;
-  /** Days to wait before repeating outfits */
+  /**
+   * Days to wait before repeating outfits (legacy preset bucket)
+   * @deprecated Use noRepeatDays for the actual value
+   */
   noRepeatWindow: NoRepeatWindow;
+  /**
+   * Exact number of days to wait before repeating items/outfits.
+   * Range: 0-90 in UI (0 = off, allows immediate repeats).
+   * This is the actual value stored in the database.
+   */
+  noRepeatDays: number;
+  /**
+   * Granularity of repeat avoidance.
+   * - 'item': Avoid repeating key individual items (recommended)
+   * - 'outfit': Only avoid exact outfit combinations
+   */
+  noRepeatMode: NoRepeatMode;
   /** Free-text comfort and style notes */
   comfortNotes: string;
 }
@@ -144,9 +235,10 @@ export interface PrefsFormData {
  * ```sql
  * CREATE TABLE prefs (
  *   user_id UUID PRIMARY KEY REFERENCES auth.users(id),
- *   no_repeat_days INTEGER,
- *   colour_prefs TEXT[],
- *   exclusions TEXT[],
+ *   no_repeat_days INTEGER NOT NULL DEFAULT 7 CHECK (0-180),
+ *   no_repeat_mode TEXT NOT NULL DEFAULT 'item' CHECK ('item', 'outfit'),
+ *   colour_prefs TEXT[] NOT NULL DEFAULT '{}',
+ *   exclusions TEXT[] NOT NULL DEFAULT '{}',
  *   comfort_notes TEXT,
  *   created_at TIMESTAMPTZ DEFAULT NOW(),
  *   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -160,8 +252,14 @@ export interface PrefsFormData {
 export interface PrefsRow {
   /** User ID (UUID) - primary key, foreign key to auth.users */
   user_id: string;
-  /** Number of days before allowing outfit repeats (0 = okay with repeats) */
+  /** Number of days before allowing outfit repeats (0 = okay with repeats). Default: 7 */
   no_repeat_days: number | null;
+  /**
+   * Granularity of repeat avoidance. Default: 'item'
+   * - 'item': Avoid repeating key individual items
+   * - 'outfit': Only avoid exact outfit combinations
+   */
+  no_repeat_mode: NoRepeatMode;
   /** Array of colour preference tags */
   colour_prefs: string[];
   /** Array of exclusion tags (checklist + "free:" prefixed entries) */
@@ -195,11 +293,11 @@ export type PrefsUpdatePayload = Omit<Partial<PrefsRow>, 'user_id' | 'created_at
  * - Database fetch fails (offline scenario)
  * - User explicitly resets preferences
  *
- * Represents "no preferences set" state:
- * - User hasn't chosen a colour tendency
- * - User hasn't excluded anything
- * - User hasn't set a no-repeat window
- * - User hasn't entered comfort notes
+ * Default no-repeat settings:
+ * - noRepeatDays: 7 (one week window)
+ * - noRepeatMode: 'item' (avoid repeating individual items)
+ *
+ * These defaults provide good variety without being too restrictive.
  */
 export const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
   colourTendency: 'not_sure',
@@ -208,5 +306,7 @@ export const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
     freeText: '',
   },
   noRepeatWindow: null,
+  noRepeatDays: DEFAULT_NO_REPEAT_DAYS,
+  noRepeatMode: DEFAULT_NO_REPEAT_MODE,
   comfortNotes: '',
 };
