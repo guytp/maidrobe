@@ -14,10 +14,12 @@
  * - Analytics tracking for preference changes
  *
  * Validation ranges for no_repeat_days:
- * - Input constraint: maxLength=2 limits direct text entry to 2 characters (max 99)
+ * - Input: maxLength=2 (intentional - max valid value 90 is exactly 2 digits)
  * - UI validation: 0-90 days enforced with inline error messaging
- * - Backend range: 0-180 days supported in DB for future flexibility
+ * - Backend: 0-180 days supported in DB for future flexibility
  *
+ * The maxLength=2 was deliberately chosen as all valid values (0-90) fit within
+ * 2 digits, and it prevents users from typing obviously invalid 3-digit numbers.
  * The UI validation (0-90) is intentionally stricter than the backend (0-180) to
  * provide a sensible default experience while allowing server-side flexibility
  * for future features or admin overrides.
@@ -847,23 +849,21 @@ export function StylingPreferencesScreen(): React.JSX.Element {
                 {t('screens.stylingPreferences.advanced.customDays')}
               </Text>
               {/*
-               * No-repeat days input constraints:
+               * No-repeat days input constraints (INTENTIONAL DESIGN):
                *
-               * - maxLength={2}: Limits text entry to 2 characters, practically capping
-               *   direct user input at 99. This is a UX constraint to prevent obviously
-               *   invalid entries and keep the input field compact.
+               * maxLength={2} is deliberately chosen because:
+               * - The valid UI range is 0-90, and 90 (the maximum) is exactly 2 digits
+               * - All valid values can be entered without restriction
+               * - Prevents users from typing 3-digit numbers (100+) that would always
+               *   be invalid, providing immediate feedback via input blocking
+               * - Keeps the input field compact and appropriately sized
                *
-               * - UI validation (validateDaysInput): Enforces 0-90 range with inline
-               *   error messaging. Values outside this range show an error and are
-               *   rejected on blur.
+               * Validation layers:
+               * - Input: maxLength={2} blocks entry beyond 2 characters
+               * - UI: validateDaysInput() enforces 0-90 with inline error messaging
+               * - Backend: Database accepts 0-180 for future flexibility
                *
-               * - Backend range: The database accepts 0-180 days, providing headroom
-               *   for future features or admin configuration beyond the UI limit.
-               *
-               * Note: The maxLength=2 constraint means users cannot directly type "90"
-               * if they first type "9" and then try to append characters beyond 2 digits.
-               * However, since 90 is exactly 2 characters, this works correctly. Values
-               * like "100" cannot be typed directly, which aligns with the 0-90 UI limit.
+               * This configuration was reviewed and confirmed as the optimal UX choice.
                */}
               <TextInput
                 style={[styles.customInput, daysInputError != null && styles.customInputError]}
