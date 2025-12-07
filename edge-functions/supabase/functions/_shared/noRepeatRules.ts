@@ -1,0 +1,492 @@
+/**
+ * No-Repeat Rules Module
+ *
+ * A reusable module that applies user preferences and recent wear history
+ * to filter and rank outfit candidates. This module ensures recommended
+ * outfits respect the user's no-repeat window by default and degrade
+ * gracefully when the wardrobe or window is too constrained.
+ *
+ * This module is designed to be used by both the current stubbed
+ * recommendation endpoint and future AI-powered recommendation engines.
+ *
+ * ## Time Semantics
+ *
+ * All date handling uses calendar days in the user's local timezone:
+ * - `targetDate`: The date for which recommendations are requested (YYYY-MM-DD)
+ * - `wornDate`: The date an outfit/item was worn (YYYY-MM-DD)
+ * - If worn on date D with noRepeatDays=N, days D+1 through D+N are blocked
+ * - From D+N+1 onward, the outfit/item is eligible again
+ * - Same-day repeats on D are allowed (v1 behaviour)
+ *
+ * ## Modes
+ *
+ * - `item`: Excludes outfits containing ANY item worn within the window
+ * - `outfit`: Excludes only the exact outfit if worn within the window
+ *
+ * @module _shared/noRepeatRules
+ */
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/**
+ * Default minimum count for strict results.
+ * If strict filtering returns fewer than this, fallbacks are generated.
+ */
+export const DEFAULT_STRICT_MIN_COUNT = 3;
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Minimal item representation for fallback metadata.
+ *
+ * Used to communicate which items would be repeated in fallback outfits.
+ * The `name` field is optional and used for client-side display when available.
+ */
+export interface Item {
+  /** Unique identifier for the item (UUID) */
+  id: string;
+  /** Optional human-readable name for client display */
+  name?: string;
+}
+
+/**
+ * Outfit candidate for no-repeat filtering.
+ *
+ * This interface defines the minimal shape required by the rules module.
+ * It is compatible with the full Outfit type from the recommendation endpoint.
+ */
+export interface Outfit {
+  /** Unique identifier for this outfit (UUID) */
+  id: string;
+  /** User ID who owns this outfit */
+  userId: string;
+  /** List of item identifiers comprising this outfit */
+  itemIds: string[];
+  /** Natural-language explanation of why this outfit works */
+  reason: string;
+  /** Short descriptor of usage context */
+  context: string;
+  /** ISO 8601 timestamp of when the suggestion was created */
+  createdAt: string;
+  /** Optional rating */
+  rating: number | null;
+}
+
+/**
+ * A single wear history entry.
+ *
+ * Represents one occasion when an outfit was worn. The rules module
+ * uses this to determine which items/outfits are within the blocked window.
+ */
+export interface WearHistoryEntry {
+  /** Array of item IDs that were worn in this outfit */
+  itemIds: string[];
+  /** Optional outfit ID (used in outfit mode for exact matching) */
+  outfitId?: string;
+  /** Date the outfit was worn, in user's local timezone (YYYY-MM-DD) */
+  wornDate: string;
+}
+
+/**
+ * User preferences for no-repeat behaviour.
+ */
+export interface NoRepeatPrefs {
+  /**
+   * Number of days in the no-repeat window (0-90).
+   * 0 means no-repeat filtering is disabled.
+   */
+  noRepeatDays: number;
+  /**
+   * Mode for no-repeat enforcement:
+   * - 'item': Exclude outfits with ANY recently worn item
+   * - 'outfit': Exclude only exact outfit matches
+   */
+  noRepeatMode: 'item' | 'outfit';
+}
+
+/**
+ * Input parameters for the applyNoRepeatRules function.
+ */
+export interface ApplyNoRepeatRulesInput {
+  /** Outfit candidates to filter (already filtered by other criteria) */
+  candidates: Outfit[];
+  /** Recent wear history entries within the relevant window */
+  wearHistory: WearHistoryEntry[];
+  /** User's no-repeat preferences */
+  prefs: NoRepeatPrefs;
+  /** Target date for recommendations (YYYY-MM-DD, user's local timezone) */
+  targetDate: string;
+  /**
+   * Minimum count threshold for strict results.
+   * If strict filtering returns fewer than this, fallbacks are generated.
+   * @default 3
+   */
+  strictMinCount?: number;
+}
+
+/**
+ * A fallback candidate with metadata about repeated items.
+ *
+ * When strict filtering is too restrictive, fallback candidates are provided
+ * with information about which items would be repeated. This allows the
+ * client to display appropriate messaging to the user.
+ */
+export interface FallbackCandidate {
+  /** The outfit that would repeat some items */
+  outfit: Outfit;
+  /** Items that were worn within the no-repeat window */
+  repeatedItems: Item[];
+}
+
+/**
+ * Result of applying no-repeat rules to outfit candidates.
+ */
+export interface ApplyNoRepeatRulesResult {
+  /**
+   * Outfits that fully comply with the no-repeat rules.
+   * In item mode: no items worn within the window.
+   * In outfit mode: the exact outfit not worn within the window.
+   */
+  strictFiltered: Outfit[];
+  /**
+   * Fallback candidates when strict filtering is too restrictive.
+   * Sorted by ascending number of repeated items (fewest first).
+   * Includes metadata about which items would be repeated.
+   */
+  fallbackCandidates: FallbackCandidate[];
+}
+
+// ============================================================================
+// Date Utilities
+// ============================================================================
+
+/**
+ * Parses a YYYY-MM-DD date string into a Date object at midnight UTC.
+ *
+ * This ensures consistent date arithmetic regardless of timezone.
+ * The returned Date represents the start of the given calendar day in UTC.
+ *
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Date object at midnight UTC, or null if invalid
+ */
+export function parseDateString(dateStr: string): Date | null {
+  // Validate format: YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return null;
+  }
+
+  // Parse as UTC to avoid timezone issues
+  const date = new Date(`${dateStr}T00:00:00.000Z`);
+
+  // Check for invalid date (e.g., 2024-02-30)
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+/**
+ * Calculates the number of days between two dates.
+ *
+ * Returns a positive number if targetDate is after wornDate.
+ * Uses UTC midnight for both dates to ensure accurate day counting.
+ *
+ * @param targetDate - The target date (typically today)
+ * @param wornDate - The date an outfit was worn
+ * @returns Number of days between the dates (can be negative)
+ */
+export function daysBetween(targetDate: Date, wornDate: Date): number {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  // Round to handle any potential DST issues with UTC dates
+  return Math.round((targetDate.getTime() - wornDate.getTime()) / msPerDay);
+}
+
+/**
+ * Determines if a wear event falls within the blocked window.
+ *
+ * Given a wear event on date D with noRepeatDays=N:
+ * - Days D+1 through D+N are blocked
+ * - D+N+1 onward is allowed
+ * - Same-day (D) is allowed
+ *
+ * @param targetDate - Date for which recommendations are requested
+ * @param wornDate - Date the outfit/item was worn
+ * @param noRepeatDays - Number of days in the no-repeat window
+ * @returns true if the wear event blocks recommendations on targetDate
+ */
+export function isWithinBlockedWindow(
+  targetDate: Date,
+  wornDate: Date,
+  noRepeatDays: number
+): boolean {
+  // If noRepeatDays is 0, nothing is blocked
+  if (noRepeatDays <= 0) {
+    return false;
+  }
+
+  const daysDiff = daysBetween(targetDate, wornDate);
+
+  // Same-day is allowed (daysDiff === 0)
+  if (daysDiff <= 0) {
+    return false;
+  }
+
+  // Days 1 through noRepeatDays are blocked
+  // Day noRepeatDays+1 and beyond are allowed
+  return daysDiff <= noRepeatDays;
+}
+
+// ============================================================================
+// Core Rules Function
+// ============================================================================
+
+/**
+ * Applies no-repeat rules to filter and rank outfit candidates.
+ *
+ * This is the primary export of this module. It takes outfit candidates,
+ * wear history, and user preferences, then returns:
+ * - `strictFiltered`: Outfits fully complying with no-repeat rules
+ * - `fallbackCandidates`: Ranked alternatives when strict filtering is too restrictive
+ *
+ * ## Behaviour by noRepeatDays
+ *
+ * - `noRepeatDays = 0`: Filtering disabled. All candidates pass as strict.
+ * - `noRepeatDays > 0`: Apply mode-specific filtering.
+ *
+ * ## Modes
+ *
+ * - `item` mode: A candidate is excluded from strictFiltered if ANY of its
+ *   itemIds appear in wear history within the blocked window.
+ *
+ * - `outfit` mode: A candidate is excluded from strictFiltered only if its
+ *   exact outfitId appears in wear history within the blocked window.
+ *
+ * ## Fallback Generation
+ *
+ * When strictFiltered has fewer than strictMinCount outfits:
+ * - All candidates are evaluated for their repeated items
+ * - Candidates are sorted by ascending repeat count (fewest first)
+ * - Deterministic tie-breaking by outfit ID
+ *
+ * @param input - Input parameters including candidates, history, prefs, and targetDate
+ * @returns Result containing strictFiltered and fallbackCandidates
+ */
+export function applyNoRepeatRules(input: ApplyNoRepeatRulesInput): ApplyNoRepeatRulesResult {
+  const {
+    candidates,
+    wearHistory,
+    prefs,
+    targetDate,
+    strictMinCount = DEFAULT_STRICT_MIN_COUNT,
+  } = input;
+
+  // Handle disabled state (noRepeatDays = 0)
+  // All candidates pass strict filtering, no fallbacks needed
+  if (prefs.noRepeatDays <= 0) {
+    return {
+      strictFiltered: [...candidates],
+      fallbackCandidates: [],
+    };
+  }
+
+  // Parse the target date
+  const targetDateParsed = parseDateString(targetDate);
+  if (targetDateParsed === null) {
+    // Invalid target date - treat as disabled to avoid blocking recommendations
+    // This is a defensive fallback; callers should validate dates
+    return {
+      strictFiltered: [...candidates],
+      fallbackCandidates: [],
+    };
+  }
+
+  // Build the set of items/outfits that are within the blocked window
+  const { recentItemIds, recentOutfitIds } = buildRecentSets(
+    wearHistory,
+    targetDateParsed,
+    prefs.noRepeatDays
+  );
+
+  // Apply filtering based on mode
+  const strictFiltered: Outfit[] = [];
+  const nonStrictCandidates: Outfit[] = [];
+
+  for (const candidate of candidates) {
+    const isStrict = isCandidateStrict(candidate, prefs.noRepeatMode, recentItemIds, recentOutfitIds);
+
+    if (isStrict) {
+      strictFiltered.push(candidate);
+    } else {
+      nonStrictCandidates.push(candidate);
+    }
+  }
+
+  // Build fallback candidates with repeated items metadata
+  // This is done regardless of strictFiltered count for consistent output
+  const fallbackCandidates = buildFallbackCandidates(
+    nonStrictCandidates,
+    recentItemIds,
+    strictFiltered.length,
+    strictMinCount
+  );
+
+  return {
+    strictFiltered,
+    fallbackCandidates,
+  };
+}
+
+// ============================================================================
+// Internal Helpers
+// ============================================================================
+
+/**
+ * Result of building recent item/outfit sets from wear history.
+ */
+interface RecentSets {
+  /** Set of item IDs worn within the blocked window */
+  recentItemIds: Set<string>;
+  /** Set of outfit IDs worn within the blocked window */
+  recentOutfitIds: Set<string>;
+}
+
+/**
+ * Builds sets of recently worn items and outfits from wear history.
+ *
+ * Only includes entries that fall within the blocked window relative to targetDate.
+ *
+ * @param wearHistory - Array of wear history entries
+ * @param targetDate - Parsed target date
+ * @param noRepeatDays - Number of days in the no-repeat window
+ * @returns Sets of recent item IDs and outfit IDs
+ */
+function buildRecentSets(
+  wearHistory: WearHistoryEntry[],
+  targetDate: Date,
+  noRepeatDays: number
+): RecentSets {
+  const recentItemIds = new Set<string>();
+  const recentOutfitIds = new Set<string>();
+
+  for (const entry of wearHistory) {
+    const wornDate = parseDateString(entry.wornDate);
+
+    // Skip entries with invalid dates
+    if (wornDate === null) {
+      continue;
+    }
+
+    // Check if this entry is within the blocked window
+    if (!isWithinBlockedWindow(targetDate, wornDate, noRepeatDays)) {
+      continue;
+    }
+
+    // Add item IDs to the recent set
+    for (const itemId of entry.itemIds) {
+      if (typeof itemId === 'string' && itemId.length > 0) {
+        recentItemIds.add(itemId);
+      }
+    }
+
+    // Add outfit ID to the recent set (if present)
+    if (typeof entry.outfitId === 'string' && entry.outfitId.length > 0) {
+      recentOutfitIds.add(entry.outfitId);
+    }
+  }
+
+  return { recentItemIds, recentOutfitIds };
+}
+
+/**
+ * Determines if a candidate outfit passes strict filtering.
+ *
+ * In item mode: passes if NONE of its items are in recentItemIds
+ * In outfit mode: passes if its ID is NOT in recentOutfitIds
+ *
+ * @param candidate - The outfit to check
+ * @param mode - The no-repeat mode ('item' or 'outfit')
+ * @param recentItemIds - Set of recently worn item IDs
+ * @param recentOutfitIds - Set of recently worn outfit IDs
+ * @returns true if the candidate passes strict filtering
+ */
+function isCandidateStrict(
+  candidate: Outfit,
+  mode: 'item' | 'outfit',
+  recentItemIds: Set<string>,
+  recentOutfitIds: Set<string>
+): boolean {
+  if (mode === 'outfit') {
+    // Outfit mode: check if this exact outfit was worn recently
+    return !recentOutfitIds.has(candidate.id);
+  }
+
+  // Item mode: check if ANY item in this outfit was worn recently
+  for (const itemId of candidate.itemIds) {
+    if (recentItemIds.has(itemId)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Builds the fallback candidates array with repeated items metadata.
+ *
+ * Candidates are sorted by ascending repeat count (fewest first),
+ * with deterministic tie-breaking by outfit ID.
+ *
+ * Note: Fallback candidates are generated from non-strict candidates only.
+ * When strictFiltered already meets strictMinCount, an empty array is returned
+ * for efficiency, though the output shape remains consistent.
+ *
+ * @param nonStrictCandidates - Candidates that failed strict filtering
+ * @param recentItemIds - Set of recently worn item IDs
+ * @param strictCount - Number of candidates that passed strict filtering
+ * @param strictMinCount - Minimum threshold for strict results
+ * @returns Sorted array of fallback candidates with metadata
+ */
+function buildFallbackCandidates(
+  nonStrictCandidates: Outfit[],
+  recentItemIds: Set<string>,
+  strictCount: number,
+  strictMinCount: number
+): FallbackCandidate[] {
+  // If we have enough strict results, return empty fallback array
+  // This is an optimization - callers don't need fallbacks if strict is sufficient
+  if (strictCount >= strictMinCount) {
+    return [];
+  }
+
+  // Build fallback candidates with repeated items metadata
+  const fallbacks: FallbackCandidate[] = nonStrictCandidates.map((outfit) => {
+    const repeatedItems: Item[] = [];
+
+    for (const itemId of outfit.itemIds) {
+      if (recentItemIds.has(itemId)) {
+        repeatedItems.push({ id: itemId });
+      }
+    }
+
+    return { outfit, repeatedItems };
+  });
+
+  // Sort by ascending repeat count, then by outfit ID for stability
+  fallbacks.sort((a, b) => {
+    // Primary: fewer repeated items first
+    const countDiff = a.repeatedItems.length - b.repeatedItems.length;
+    if (countDiff !== 0) {
+      return countDiff;
+    }
+
+    // Secondary: deterministic tie-breaking by outfit ID
+    return a.outfit.id < b.outfit.id ? -1 : a.outfit.id > b.outfit.id ? 1 : 0;
+  });
+
+  return fallbacks;
+}
