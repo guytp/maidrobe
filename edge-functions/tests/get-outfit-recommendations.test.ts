@@ -8,8 +8,6 @@
  * - clampNoRepeatDays: Clamps noRepeatDays to valid range [0, 90] (Story #364)
  * - bucketNoRepeatDays: Privacy-safe bucketing for observability (Story #364)
  * - parseContextParams: Parses and validates context parameters (Story #365)
- *
- * Pending refactoring (Step 2/3):
  * - applyFinalSelection: MIN/MAX selection with noRepeatRules integration (Story #364)
  *
  * @module tests/get-outfit-recommendations
@@ -20,18 +18,19 @@ import {
   clampNoRepeatDays,
   bucketNoRepeatDays,
   parseContextParams,
+  applyFinalSelection,
 } from '../supabase/functions/get-outfit-recommendations/index.ts';
 import type { Outfit } from '../supabase/functions/get-outfit-recommendations/types.ts';
 import {
   DEFAULT_OCCASION,
   DEFAULT_TEMPERATURE_BAND,
+  MIN_OUTFITS_PER_RESPONSE,
+  MAX_OUTFITS_PER_RESPONSE,
 } from '../supabase/functions/get-outfit-recommendations/types.ts';
-
-// Note: The following imports will be needed when tests are refactored in Step 2/3:
-// import { applyFinalSelection } from '../supabase/functions/get-outfit-recommendations/index.ts';
-// import type { OutfitWithMeta } from '../supabase/functions/get-outfit-recommendations/types.ts';
-// import { MIN_OUTFITS_PER_RESPONSE, MAX_OUTFITS_PER_RESPONSE } from '...types.ts';
-// import type { ApplyNoRepeatRulesResult, FallbackCandidate } from '..._shared/noRepeatRules.ts';
+import type {
+  ApplyNoRepeatRulesResult,
+  FallbackCandidate,
+} from '../supabase/functions/_shared/noRepeatRules.ts';
 
 // ============================================================================
 // Test Helpers
@@ -64,17 +63,48 @@ function createTestOutfit(
  * Creates multiple test outfits with sequential IDs.
  */
 function createTestOutfits(count: number): Outfit[] {
-  return Array.from({ length: count }, (_, i) => createTestOutfit(i + 1));
+  return Array.from({ length: count }, (_, i: number) => createTestOutfit(i + 1));
 }
 
-// Note: This helper will be needed when tests are refactored in Step 2/3:
-// /**
-//  * Creates an item worn-at map for testing recency scoring.
-//  * @param entries - Array of [itemId, timestamp] pairs
-//  */
-// function createItemWornAtMap(entries: [string, string][]): Map<string, string> {
-//   return new Map(entries);
-// }
+/**
+ * Creates an ApplyNoRepeatRulesResult with all strict outfits (no fallbacks).
+ * Used for testing applyFinalSelection with strict-only scenarios.
+ */
+function createStrictOnlyResult(strictOutfits: Outfit[]): ApplyNoRepeatRulesResult {
+  return {
+    strictFiltered: strictOutfits,
+    fallbackCandidates: [],
+  };
+}
+
+/**
+ * Creates a FallbackCandidate from an outfit with specified repeated items.
+ */
+function createFallbackCandidate(
+  outfit: Outfit,
+  repeatedItemIds: string[] = []
+): FallbackCandidate {
+  return {
+    outfit,
+    repeatedItems: repeatedItemIds.map((id: string) => ({ id })),
+  };
+}
+
+/**
+ * Creates an ApplyNoRepeatRulesResult with mixed strict and fallback outfits.
+ */
+function createMixedResult(
+  strictOutfits: Outfit[],
+  fallbackOutfits: { outfit: Outfit; repeatedItemIds: string[] }[]
+): ApplyNoRepeatRulesResult {
+  return {
+    strictFiltered: strictOutfits,
+    fallbackCandidates: fallbackOutfits.map(
+      (f: { outfit: Outfit; repeatedItemIds: string[] }) =>
+        createFallbackCandidate(f.outfit, f.repeatedItemIds)
+    ),
+  };
+}
 
 // ============================================================================
 // clampNoRepeatDays Tests
@@ -558,421 +588,36 @@ Deno.test('bucketNoRepeatDays: bucket boundaries align with semantic ranges', ()
   assertEquals(bucketNoRepeatDays(90), '31-90', '90 days (max) should be in long window');
 });
 
-/*
- * =============================================================================
- * TEMPORARILY DISABLED TESTS - Pending Step 2 Refactoring
- * =============================================================================
- *
- * The tests below were written for the old applyNoRepeatFilter and
- * applyMinMaxSelection functions which have been refactored into:
- *
- * 1. The noRepeatRules module (_shared/noRepeatRules.ts) - handles filtering
- *    logic with applyNoRepeatRules()
- * 2. The applyFinalSelection function - handles MIN/MAX selection with
- *    integration to the noRepeatRules module
- *
- * These tests will be refactored in Step 2 to either:
- * - Validate the new end-to-end selection behaviour via applyFinalSelection
- * - Be removed if they duplicate coverage in noRepeatRules.test.ts
- *
- * The noRepeatRules module has comprehensive tests in noRepeatRules.test.ts
- * that cover the filtering logic previously tested here.
- * =============================================================================
- */
-
 // ============================================================================
-// applyNoRepeatFilter Tests (DISABLED - see note above)
+// applyFinalSelection Tests
 // ============================================================================
-
-/*
-Deno.test('applyNoRepeatFilter: all outfits eligible when wear history is empty', () => {
-  const outfits = createTestOutfits(3);
-  const recentlyWornItemIds = new Set<string>();
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 3);
-  assertEquals(result.excluded.length, 0);
-  assertEquals(result.eligible, outfits);
-});
-
-Deno.test('applyNoRepeatFilter: returns empty arrays for empty outfit list', () => {
-  const outfits: Outfit[] = [];
-  const recentlyWornItemIds = new Set(['item-1-a', 'item-1-b']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 0);
-  assertEquals(result.excluded.length, 0);
-});
-
-Deno.test('applyNoRepeatFilter: outfit with empty itemIds is treated as eligible', () => {
-  const outfitWithEmptyItems = createTestOutfit(1, []);
-  const outfits = [outfitWithEmptyItems];
-  const recentlyWornItemIds = new Set(['some-item']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-});
-
-Deno.test('applyNoRepeatFilter: excludes outfit when ALL items are recently worn', () => {
-  const outfit = createTestOutfit(1, ['item-a', 'item-b', 'item-c']);
-  const outfits = [outfit];
-  const recentlyWornItemIds = new Set(['item-a', 'item-b', 'item-c']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 0);
-  assertEquals(result.excluded.length, 1);
-  assertEquals(result.excluded[0], outfit);
-});
-
-Deno.test('applyNoRepeatFilter: keeps outfit eligible when at least one item not worn', () => {
-  const outfit = createTestOutfit(1, ['item-a', 'item-b', 'item-c']);
-  const outfits = [outfit];
-  // Only item-a and item-b are recently worn, item-c is not
-  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-  assertEquals(result.eligible[0], outfit);
-});
-
-Deno.test('applyNoRepeatFilter: keeps outfit eligible when NO items are worn', () => {
-  const outfit = createTestOutfit(1, ['item-a', 'item-b']);
-  const outfits = [outfit];
-  // Completely different items in wear history
-  const recentlyWornItemIds = new Set(['other-item-1', 'other-item-2']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-});
-
-Deno.test('applyNoRepeatFilter: correctly separates mixed eligible and excluded outfits', () => {
-  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']); // Will be excluded
-  const outfit2 = createTestOutfit(2, ['item-a', 'item-c']); // Will be eligible (item-c not worn)
-  const outfit3 = createTestOutfit(3, ['item-d', 'item-e']); // Will be eligible (neither worn)
-  const outfit4 = createTestOutfit(4, ['item-b', 'item-f']); // Will be eligible (item-f not worn)
-
-  const outfits = [outfit1, outfit2, outfit3, outfit4];
-  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 3);
-  assertEquals(result.excluded.length, 1);
-  assertEquals(result.excluded[0], outfit1);
-  assertEquals(result.eligible.includes(outfit2), true);
-  assertEquals(result.eligible.includes(outfit3), true);
-  assertEquals(result.eligible.includes(outfit4), true);
-});
-
-Deno.test('applyNoRepeatFilter: excludes all outfits when all items fully worn', () => {
-  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']);
-  const outfit2 = createTestOutfit(2, ['item-c', 'item-d']);
-  const outfit3 = createTestOutfit(3, ['item-e', 'item-f']);
-
-  const outfits = [outfit1, outfit2, outfit3];
-  // All items are recently worn
-  const recentlyWornItemIds = new Set(['item-a', 'item-b', 'item-c', 'item-d', 'item-e', 'item-f']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 0);
-  assertEquals(result.excluded.length, 3);
-});
-
-Deno.test('applyNoRepeatFilter: preserves outfit order in results', () => {
-  const outfit1 = createTestOutfit(1, ['item-a']);
-  const outfit2 = createTestOutfit(2, ['item-b']);
-  const outfit3 = createTestOutfit(3, ['item-c']);
-
-  const outfits = [outfit1, outfit2, outfit3];
-  const recentlyWornItemIds = new Set(['item-b']); // Only outfit2 excluded
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 2);
-  assertEquals(result.eligible[0], outfit1);
-  assertEquals(result.eligible[1], outfit3);
-  assertEquals(result.excluded[0], outfit2);
-});
 
 // ---------------------------------------------------------------------------
-// Extended applyNoRepeatFilter Tests - Deterministic Sets and Edge Cases
+// Configuration Error Tests (Empty Pool)
 // ---------------------------------------------------------------------------
 
-Deno.test('applyNoRepeatFilter: single-item outfit - item worn → excluded', () => {
-  // Minimal case: one outfit with one item, that item is in wear history
-  const outfit = createTestOutfit(1, ['single-item']);
-  const recentlyWornItemIds = new Set(['single-item']);
-
-  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 0);
-  assertEquals(result.excluded.length, 1);
-  assertEquals(result.excluded[0], outfit);
-});
-
-Deno.test('applyNoRepeatFilter: single-item outfit - item not worn → eligible', () => {
-  // Minimal case: one outfit with one item, that item is NOT in wear history
-  const outfit = createTestOutfit(1, ['fresh-item']);
-  const recentlyWornItemIds = new Set(['other-item']);
-
-  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
-
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-  assertEquals(result.eligible[0], outfit);
-});
-
-Deno.test('applyNoRepeatFilter: two-item outfit classification matrix', () => {
-  // Test all combinations of two items being worn/not-worn
-  // Format: [item1-worn, item2-worn] → expected result
-
-  // Case 1: Neither worn → eligible
-  const outfit1 = createTestOutfit(1, ['fresh-a', 'fresh-b']);
-  const result1 = applyNoRepeatFilter([outfit1], new Set(['other']));
-  assertEquals(result1.eligible.length, 1, 'Neither worn → eligible');
-  assertEquals(result1.excluded.length, 0);
-
-  // Case 2: Only first worn → eligible (one fresh item)
-  const outfit2 = createTestOutfit(2, ['worn-a', 'fresh-b']);
-  const result2 = applyNoRepeatFilter([outfit2], new Set(['worn-a']));
-  assertEquals(result2.eligible.length, 1, 'Only first worn → eligible');
-  assertEquals(result2.excluded.length, 0);
-
-  // Case 3: Only second worn → eligible (one fresh item)
-  const outfit3 = createTestOutfit(3, ['fresh-a', 'worn-b']);
-  const result3 = applyNoRepeatFilter([outfit3], new Set(['worn-b']));
-  assertEquals(result3.eligible.length, 1, 'Only second worn → eligible');
-  assertEquals(result3.excluded.length, 0);
-
-  // Case 4: Both worn → excluded
-  const outfit4 = createTestOutfit(4, ['worn-a', 'worn-b']);
-  const result4 = applyNoRepeatFilter([outfit4], new Set(['worn-a', 'worn-b']));
-  assertEquals(result4.eligible.length, 0, 'Both worn → excluded');
-  assertEquals(result4.excluded.length, 1);
-});
-
-Deno.test('applyNoRepeatFilter: shared item across multiple outfits', () => {
-  // When the same item appears in multiple outfits
-  const sharedItem = 'shared-blazer';
-
-  const outfit1 = createTestOutfit(1, [sharedItem, 'item-1b']); // shared + fresh
-  const outfit2 = createTestOutfit(2, [sharedItem, 'item-2b']); // shared + fresh
-  const outfit3 = createTestOutfit(3, [sharedItem, 'item-3b']); // shared + worn
-
-  const outfits = [outfit1, outfit2, outfit3];
-  // Shared item is worn, plus item-3b is worn
-  const recentlyWornItemIds = new Set([sharedItem, 'item-3b']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  // outfit1: shared(worn) + item-1b(fresh) → eligible
-  // outfit2: shared(worn) + item-2b(fresh) → eligible
-  // outfit3: shared(worn) + item-3b(worn) → excluded (all items worn)
-  assertEquals(result.eligible.length, 2);
-  assertEquals(result.excluded.length, 1);
-  assertEquals(result.excluded[0], outfit3);
-});
-
-Deno.test('applyNoRepeatFilter: large wear history with few matches', () => {
-  // Many items in wear history, but outfit items don't overlap much
-  const outfit = createTestOutfit(1, ['target-item-1', 'target-item-2', 'target-item-3']);
-
-  // Large set of worn items, but only one matches the outfit
-  const largeWornSet = new Set([
-    'worn-1',
-    'worn-2',
-    'worn-3',
-    'worn-4',
-    'worn-5',
-    'worn-6',
-    'worn-7',
-    'worn-8',
-    'worn-9',
-    'worn-10',
-    'target-item-1', // Only this matches
-  ]);
-
-  const result = applyNoRepeatFilter([outfit], largeWornSet);
-
-  // Only 1 of 3 items worn → eligible
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-});
-
-Deno.test('applyNoRepeatFilter: large wear history covering all items', () => {
-  // Outfit items are subset of large wear history
-  const outfit = createTestOutfit(1, ['item-a', 'item-b', 'item-c']);
-
-  const largeWornSet = new Set([
-    'item-a',
-    'item-b',
-    'item-c', // All outfit items
-    'extra-1',
-    'extra-2',
-    'extra-3',
-    'extra-4',
-    'extra-5',
-  ]);
-
-  const result = applyNoRepeatFilter([outfit], largeWornSet);
-
-  assertEquals(result.eligible.length, 0);
-  assertEquals(result.excluded.length, 1);
-});
-
-Deno.test('applyNoRepeatFilter: is pure - does not modify input arrays', () => {
-  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']);
-  const outfit2 = createTestOutfit(2, ['item-c', 'item-d']);
-  const outfits = [outfit1, outfit2];
-  const originalOutfitsLength = outfits.length;
-  const originalOutfit1Items = [...outfit1.itemIds];
-
-  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
-  const originalSetSize = recentlyWornItemIds.size;
-
-  applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  // Verify inputs were not mutated
-  assertEquals(outfits.length, originalOutfitsLength);
-  assertEquals(outfit1.itemIds, originalOutfit1Items);
-  assertEquals(recentlyWornItemIds.size, originalSetSize);
-});
-
-Deno.test('applyNoRepeatFilter: is deterministic - same inputs produce same outputs', () => {
-  const outfit1 = createTestOutfit(1, ['item-a', 'item-b']);
-  const outfit2 = createTestOutfit(2, ['item-a', 'item-c']);
-  const outfit3 = createTestOutfit(3, ['item-d', 'item-e']);
-
-  const outfits = [outfit1, outfit2, outfit3];
-  const recentlyWornItemIds = new Set(['item-a', 'item-b']);
-
-  // Call multiple times
-  const result1 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-  const result2 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-  const result3 = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  // All results should be identical
-  assertEquals(result1.eligible.length, result2.eligible.length);
-  assertEquals(result2.eligible.length, result3.eligible.length);
-  assertEquals(result1.excluded.length, result2.excluded.length);
-  assertEquals(result2.excluded.length, result3.excluded.length);
-
-  // Same outfits in same positions
-  assertEquals(result1.eligible[0], result2.eligible[0]);
-  assertEquals(result1.excluded[0], result2.excluded[0]);
-});
-
-Deno.test('applyNoRepeatFilter: progressive filtering demonstration', () => {
-  // Shows how adding items to wear history progressively filters outfits
-  const outfit1 = createTestOutfit(1, ['item-a']);
-  const outfit2 = createTestOutfit(2, ['item-a', 'item-b']);
-  const outfit3 = createTestOutfit(3, ['item-b', 'item-c']);
-  const outfits = [outfit1, outfit2, outfit3];
-
-  // Stage 1: Empty history - all eligible
-  const result1 = applyNoRepeatFilter(outfits, new Set());
-  assertEquals(result1.eligible.length, 3, 'Empty history: all eligible');
-  assertEquals(result1.excluded.length, 0);
-
-  // Stage 2: Only item-a worn
-  // outfit1: [a] → excluded (all worn)
-  // outfit2: [a,b] → eligible (b not worn)
-  // outfit3: [b,c] → eligible (neither worn)
-  const result2 = applyNoRepeatFilter(outfits, new Set(['item-a']));
-  assertEquals(result2.eligible.length, 2, 'item-a worn: 2 eligible');
-  assertEquals(result2.excluded.length, 1);
-  assertEquals(result2.excluded[0], outfit1);
-
-  // Stage 3: item-a and item-b worn
-  // outfit1: [a] → excluded
-  // outfit2: [a,b] → excluded (all worn)
-  // outfit3: [b,c] → eligible (c not worn)
-  const result3 = applyNoRepeatFilter(outfits, new Set(['item-a', 'item-b']));
-  assertEquals(result3.eligible.length, 1, 'item-a+b worn: 1 eligible');
-  assertEquals(result3.excluded.length, 2);
-
-  // Stage 4: All items worn
-  const result4 = applyNoRepeatFilter(outfits, new Set(['item-a', 'item-b', 'item-c']));
-  assertEquals(result4.eligible.length, 0, 'All worn: none eligible');
-  assertEquals(result4.excluded.length, 3);
-});
-
-Deno.test('applyNoRepeatFilter: outfit with many items - partial overlap', () => {
-  // Outfit with 5 items, only 4 are worn → still eligible
-  const outfit = createTestOutfit(1, ['item-1', 'item-2', 'item-3', 'item-4', 'item-5']);
-
-  const recentlyWornItemIds = new Set([
-    'item-1',
-    'item-2',
-    'item-3',
-    'item-4', // 4 of 5 worn
-  ]);
-
-  const result = applyNoRepeatFilter([outfit], recentlyWornItemIds);
-
-  // One item (item-5) not worn → eligible
-  assertEquals(result.eligible.length, 1);
-  assertEquals(result.excluded.length, 0);
-});
-
-Deno.test('applyNoRepeatFilter: multiple outfits with overlapping items', () => {
-  // Complex scenario with overlapping item usage
-  const outfit1 = createTestOutfit(1, ['shirt-a', 'pants-a']);
-  const outfit2 = createTestOutfit(2, ['shirt-a', 'pants-b']);
-  const outfit3 = createTestOutfit(3, ['shirt-b', 'pants-a']);
-  const outfit4 = createTestOutfit(4, ['shirt-b', 'pants-b']);
-
-  const outfits = [outfit1, outfit2, outfit3, outfit4];
-
-  // Wear shirt-a and pants-a
-  const recentlyWornItemIds = new Set(['shirt-a', 'pants-a']);
-
-  const result = applyNoRepeatFilter(outfits, recentlyWornItemIds);
-
-  // outfit1: shirt-a(worn) + pants-a(worn) → excluded
-  // outfit2: shirt-a(worn) + pants-b(fresh) → eligible
-  // outfit3: shirt-b(fresh) + pants-a(worn) → eligible
-  // outfit4: shirt-b(fresh) + pants-b(fresh) → eligible
-  assertEquals(result.eligible.length, 3);
-  assertEquals(result.excluded.length, 1);
-  assertEquals(result.excluded[0], outfit1);
-});
-
-// ============================================================================
-// applyMinMaxSelection Tests
-// ============================================================================
-
-Deno.test('applyMinMaxSelection: returns configError for empty static pool', () => {
+Deno.test('applyFinalSelection: returns configError for empty static pool', () => {
   const staticPool: Outfit[] = [];
-  const eligible: Outfit[] = [];
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+  const rulesResult = createStrictOnlyResult([]);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   assertEquals(result.outfits.length, 0);
   assertEquals(result.fallbackCount, 0);
   assertEquals(result.configError, true);
   assertEquals(result.configWarning, false);
+  assertEquals(result.repeatedItemIds.length, 0);
 });
 
-Deno.test('applyMinMaxSelection: returns configWarning when pool smaller than MIN', () => {
-  const staticPool = createTestOutfits(2); // Less than MIN_OUTFITS (3)
-  const eligible = staticPool;
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+// ---------------------------------------------------------------------------
+// Configuration Warning Tests (Pool Smaller Than MIN)
+// ---------------------------------------------------------------------------
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+Deno.test('applyFinalSelection: returns configWarning when pool smaller than MIN', () => {
+  const staticPool = createTestOutfits(2); // Less than MIN_OUTFITS (3)
+  const rulesResult = createStrictOnlyResult(staticPool);
+
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   assertEquals(result.outfits.length, 2);
   assertEquals(result.fallbackCount, 0);
@@ -980,26 +625,40 @@ Deno.test('applyMinMaxSelection: returns configWarning when pool smaller than MI
   assertEquals(result.configWarning, true);
 });
 
-Deno.test('applyMinMaxSelection: returns single outfit with configWarning', () => {
+Deno.test('applyFinalSelection: returns single outfit with configWarning', () => {
   const staticPool = createTestOutfits(1);
-  const eligible = staticPool;
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+  const rulesResult = createStrictOnlyResult(staticPool);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   assertEquals(result.outfits.length, 1);
   assertEquals(result.configWarning, true);
   assertEquals(result.configError, false);
 });
 
-Deno.test('applyMinMaxSelection: uses eligible list when count >= MIN', () => {
-  const staticPool = createTestOutfits(5);
-  const eligible = staticPool.slice(0, 4); // 4 eligible
-  const excluded = staticPool.slice(4); // 1 excluded
-  const itemWornAtMap = new Map<string, string>();
+Deno.test('applyFinalSelection: configWarning path skips filtering and returns full pool', () => {
+  // Pool < MIN should return all outfits regardless of rulesResult
+  const staticPool = createTestOutfits(2);
+  // Even with empty strict results, should return full pool
+  const rulesResult = createStrictOnlyResult([]);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
+
+  assertEquals(result.outfits.length, 2);
+  assertEquals(result.configWarning, true);
+  assertEquals(result.fallbackCount, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Normal Operation - Strict Only
+// ---------------------------------------------------------------------------
+
+Deno.test('applyFinalSelection: uses strict results when count >= MIN', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, 4); // 4 strict
+  const rulesResult = createStrictOnlyResult(strictFiltered);
+
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   assertEquals(result.outfits.length, 4);
   assertEquals(result.fallbackCount, 0);
@@ -1007,182 +666,198 @@ Deno.test('applyMinMaxSelection: uses eligible list when count >= MIN', () => {
   assertEquals(result.configWarning, false);
 });
 
-Deno.test('applyMinMaxSelection: exactly MIN eligible outfits works correctly', () => {
+Deno.test('applyFinalSelection: exactly MIN strict outfits works correctly', () => {
   const staticPool = createTestOutfits(5);
-  const eligible = staticPool.slice(0, 3); // Exactly MIN_OUTFITS (3)
-  const excluded = staticPool.slice(3);
-  const itemWornAtMap = new Map<string, string>();
+  const strictFiltered = staticPool.slice(0, MIN_OUTFITS_PER_RESPONSE);
+  const rulesResult = createStrictOnlyResult(strictFiltered);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  assertEquals(result.outfits.length, 3);
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
   assertEquals(result.fallbackCount, 0);
 });
 
-Deno.test('applyMinMaxSelection: applies fallback when eligible < MIN', () => {
+Deno.test('applyFinalSelection: pool exactly at MIN returns all without warning', () => {
+  const staticPool = createTestOutfits(MIN_OUTFITS_PER_RESPONSE);
+  const rulesResult = createStrictOnlyResult(staticPool);
+
+  const result = applyFinalSelection(staticPool, rulesResult);
+
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, 0);
+  assertEquals(result.configWarning, false);
+  assertEquals(result.configError, false);
+});
+
+// ---------------------------------------------------------------------------
+// Fallback Selection Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('applyFinalSelection: adds fallbacks when strict < MIN', () => {
   const staticPool = createTestOutfits(5);
-  const eligible = staticPool.slice(0, 1); // Only 1 eligible
-  const excluded = staticPool.slice(1); // 4 excluded
-  const itemWornAtMap = new Map<string, string>();
+  const strictFiltered = [staticPool[0]]; // Only 1 strict
+  const fallbackOutfits = [
+    { outfit: staticPool[1], repeatedItemIds: ['item-2-a'] },
+    { outfit: staticPool[2], repeatedItemIds: ['item-3-a'] },
+    { outfit: staticPool[3], repeatedItemIds: ['item-4-a'] },
+    { outfit: staticPool[4], repeatedItemIds: ['item-5-a'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(result.fallbackCount, 2); // Added 2 from excluded
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, 2); // Added 2 from fallback to reach MIN
   assertEquals(result.configError, false);
   assertEquals(result.configWarning, false);
 });
 
-Deno.test('applyMinMaxSelection: fallback adds excluded by ascending recency', () => {
-  // Create outfits with specific item IDs for recency testing
-  const outfit1 = createTestOutfit(1, ['item-old']); // Will have oldest timestamp
-  const outfit2 = createTestOutfit(2, ['item-mid']); // Will have middle timestamp
-  const outfit3 = createTestOutfit(3, ['item-new']); // Will have newest timestamp
+Deno.test('applyFinalSelection: fallback stops exactly at MIN threshold', () => {
+  const staticPool = createTestOutfits(10);
+  const strictFiltered = [staticPool[0]]; // 1 strict
+  const fallbackOutfits = staticPool.slice(1).map((o: Outfit) => ({
+    outfit: o,
+    repeatedItemIds: [o.itemIds[0]],
+  }));
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
-  const staticPool = [outfit1, outfit2, outfit3];
-  const eligible: Outfit[] = []; // No eligible outfits
-  const excluded = [outfit1, outfit2, outfit3]; // All excluded
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  // Set up recency scores - older timestamps should be preferred in fallback
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-old', '2024-01-01T00:00:00.000Z'], // Oldest
-    ['item-mid', '2024-01-15T00:00:00.000Z'], // Middle
-    ['item-new', '2024-01-30T00:00:00.000Z'], // Newest
-  ]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3);
-  assertEquals(result.fallbackCount, 3);
-
-  // Outfits should be ordered deterministically by ID after selection
-  // But fallback selection should have picked the least recently worn first
-  // The final ordering is by outfit.id, so we check that all are present
-  const ids = result.outfits.map((o) => o.id);
-  assertEquals(ids.includes(outfit1.id), true);
-  assertEquals(ids.includes(outfit2.id), true);
-  assertEquals(ids.includes(outfit3.id), true);
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, MIN_OUTFITS_PER_RESPONSE - 1); // Added exactly 2 to reach MIN
 });
 
-Deno.test('applyMinMaxSelection: fallback respects outfit.id tie-breaker', () => {
-  // Create outfits with same recency score (same worn timestamp)
-  const outfit1 = createTestOutfit(1, ['shared-item']);
-  const outfit2 = createTestOutfit(2, ['shared-item']);
-  const outfit3 = createTestOutfit(3, ['shared-item']);
+Deno.test('applyFinalSelection: one less than MIN strict adds exactly one fallback', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, MIN_OUTFITS_PER_RESPONSE - 1); // 2 strict
+  const fallbackOutfits = [
+    { outfit: staticPool[2], repeatedItemIds: ['item-3-a'] },
+    { outfit: staticPool[3], repeatedItemIds: ['item-4-a'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
-  const staticPool = [outfit3, outfit1, outfit2]; // Intentionally out of order
-  const eligible: Outfit[] = [];
-  const excluded = [outfit3, outfit1, outfit2];
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  // Same timestamp for all - tie-breaker by outfit.id
-  const itemWornAtMap = createItemWornAtMap([['shared-item', '2024-01-15T00:00:00.000Z']]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3);
-
-  // Final ordering should be deterministic by outfit.id
-  assertEquals(result.outfits[0].id, outfit1.id);
-  assertEquals(result.outfits[1].id, outfit2.id);
-  assertEquals(result.outfits[2].id, outfit3.id);
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, 1);
 });
 
-Deno.test('applyMinMaxSelection: truncates to MAX when candidates exceed limit', () => {
-  const staticPool = createTestOutfits(15); // More than MAX_OUTFITS (10)
-  const eligible = staticPool; // All eligible
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+Deno.test('applyFinalSelection: zero strict, all fallback', () => {
+  const staticPool = createTestOutfits(5);
+  const fallbackOutfits = staticPool.map((o: Outfit) => ({
+    outfit: o,
+    repeatedItemIds: [o.itemIds[0]],
+  }));
+  const rulesResult = createMixedResult([], fallbackOutfits);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  assertEquals(result.outfits.length, 10); // MAX_OUTFITS
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, MIN_OUTFITS_PER_RESPONSE);
+});
+
+// ---------------------------------------------------------------------------
+// MAX Truncation Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('applyFinalSelection: truncates to MAX when strict exceeds limit', () => {
+  const staticPool = createTestOutfits(15);
+  const strictFiltered = staticPool.slice(0, 12); // 12 strict (exceeds MAX)
+  const rulesResult = createStrictOnlyResult(strictFiltered);
+
+  const result = applyFinalSelection(staticPool, rulesResult);
+
+  assertEquals(result.outfits.length, MAX_OUTFITS_PER_RESPONSE);
   assertEquals(result.fallbackCount, 0);
 });
 
-Deno.test('applyMinMaxSelection: exactly MAX outfits returns all', () => {
-  const staticPool = createTestOutfits(10); // Exactly MAX_OUTFITS
-  const eligible = staticPool;
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+Deno.test('applyFinalSelection: exactly MAX outfits returns all', () => {
+  const staticPool = createTestOutfits(MAX_OUTFITS_PER_RESPONSE);
+  const rulesResult = createStrictOnlyResult(staticPool);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  assertEquals(result.outfits.length, 10);
+  assertEquals(result.outfits.length, MAX_OUTFITS_PER_RESPONSE);
 });
 
-Deno.test('applyMinMaxSelection: handles zero eligible with insufficient excluded', () => {
-  // Only 2 outfits total, but MIN is 3
-  const staticPool = createTestOutfits(2);
-  const eligible: Outfit[] = [];
-  const excluded = staticPool;
-  const itemWornAtMap = new Map<string, string>();
+// ---------------------------------------------------------------------------
+// Repeated Item IDs Collection
+// ---------------------------------------------------------------------------
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+Deno.test('applyFinalSelection: collects repeated item IDs from fallbacks', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0]];
+  const fallbackOutfits = [
+    { outfit: staticPool[1], repeatedItemIds: ['item-2-a', 'item-2-b'] },
+    { outfit: staticPool[2], repeatedItemIds: ['item-3-a'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
-  // Pool < MIN triggers configWarning path, returns full pool
-  assertEquals(result.outfits.length, 2);
-  assertEquals(result.configWarning, true);
+  const result = applyFinalSelection(staticPool, rulesResult);
+
+  assertEquals(result.fallbackCount, 2);
+  // Should contain all repeated item IDs from the fallbacks used
+  assertEquals(result.repeatedItemIds.length, 3);
+  assertEquals(result.repeatedItemIds.includes('item-2-a'), true);
+  assertEquals(result.repeatedItemIds.includes('item-2-b'), true);
+  assertEquals(result.repeatedItemIds.includes('item-3-a'), true);
 });
 
-Deno.test('applyMinMaxSelection: fallback with some eligible, some excluded', () => {
-  const outfit1 = createTestOutfit(1, ['item-1']);
-  const outfit2 = createTestOutfit(2, ['item-2']);
-  const outfit3 = createTestOutfit(3, ['item-3']);
-  const outfit4 = createTestOutfit(4, ['item-4']);
-  const outfit5 = createTestOutfit(5, ['item-5']);
+Deno.test('applyFinalSelection: no repeated items when all strict', () => {
+  const staticPool = createTestOutfits(5);
+  const rulesResult = createStrictOnlyResult(staticPool);
 
-  const staticPool = [outfit1, outfit2, outfit3, outfit4, outfit5];
-  const eligible = [outfit1]; // Only 1 eligible
-  const excluded = [outfit2, outfit3, outfit4, outfit5]; // 4 excluded
+  const result = applyFinalSelection(staticPool, rulesResult);
 
-  // Set recency so outfit5 is oldest (preferred for fallback)
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-2', '2024-01-04T00:00:00.000Z'],
-    ['item-3', '2024-01-03T00:00:00.000Z'],
-    ['item-4', '2024-01-02T00:00:00.000Z'],
-    ['item-5', '2024-01-01T00:00:00.000Z'], // Oldest - should be picked first
-  ]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(result.fallbackCount, 2); // 2 added from excluded
-
-  // Should include outfit1 (eligible) and 2 from excluded (outfit4, outfit5 - oldest)
-  const ids = result.outfits.map((o) => o.id);
-  assertEquals(ids.includes(outfit1.id), true); // The eligible one
+  assertEquals(result.fallbackCount, 0);
+  assertEquals(result.repeatedItemIds.length, 0);
 });
 
-Deno.test('applyMinMaxSelection: items without recency score sort first (oldest)', () => {
-  const outfit1 = createTestOutfit(1, ['item-no-history']); // No history
-  const outfit2 = createTestOutfit(2, ['item-with-history']);
+// ---------------------------------------------------------------------------
+// Metadata Handling
+// ---------------------------------------------------------------------------
 
-  const staticPool = [outfit1, outfit2];
-  const eligible: Outfit[] = [];
-  const excluded = [outfit2, outfit1]; // Intentionally reversed
+Deno.test('applyFinalSelection: includes metadata by default', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0], staticPool[1], staticPool[2]];
+  const rulesResult = createStrictOnlyResult(strictFiltered);
 
-  // Only outfit2 has history
-  const itemWornAtMap = createItemWornAtMap([['item-with-history', '2024-01-15T00:00:00.000Z']]);
+  const result = applyFinalSelection(staticPool, rulesResult, true);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  // Pool < MIN triggers configWarning, returns all
-  assertEquals(result.outfits.length, 2);
-  assertEquals(result.configWarning, true);
+  // Outfits should have noRepeatMeta
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as Outfit & { noRepeatMeta?: unknown };
+    assertEquals(outfitWithMeta.noRepeatMeta !== undefined, true);
+  }
 });
 
-Deno.test('applyMinMaxSelection: applies deterministic ordering to final result', () => {
-  // Create outfits with IDs in specific order
+Deno.test('applyFinalSelection: excludes metadata when includeMetadata=false', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, 3);
+  const rulesResult = createStrictOnlyResult(strictFiltered);
+
+  const result = applyFinalSelection(staticPool, rulesResult, false);
+
+  // Outfits should NOT have noRepeatMeta
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as Outfit & { noRepeatMeta?: unknown };
+    assertEquals(outfitWithMeta.noRepeatMeta, undefined);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Deterministic Ordering Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('applyFinalSelection: applies deterministic ordering to final result', () => {
   const outfit3 = createTestOutfit(3, ['item-3']);
   const outfit1 = createTestOutfit(1, ['item-1']);
   const outfit2 = createTestOutfit(2, ['item-2']);
 
   const staticPool = [outfit3, outfit1, outfit2]; // Out of ID order
-  const eligible = [outfit3, outfit1, outfit2];
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+  const rulesResult = createStrictOnlyResult([outfit3, outfit1, outfit2]);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   // Should be sorted by outfit.id
   assertEquals(result.outfits[0].id, outfit1.id);
@@ -1190,91 +865,80 @@ Deno.test('applyMinMaxSelection: applies deterministic ordering to final result'
   assertEquals(result.outfits[2].id, outfit3.id);
 });
 
-Deno.test('applyMinMaxSelection: empty excluded list with insufficient eligible', () => {
-  const staticPool = createTestOutfits(4);
-  const eligible = staticPool.slice(0, 2); // Only 2 eligible
-  const excluded: Outfit[] = []; // No excluded to fall back on
-  const itemWornAtMap = new Map<string, string>();
+Deno.test(
+  'applyFinalSelection: output always sorted by outfit.id regardless of input order',
+  () => {
+    const outfit5 = createTestOutfit(5, ['item-5']);
+    const outfit3 = createTestOutfit(3, ['item-3']);
+    const outfit1 = createTestOutfit(1, ['item-1']);
+    const outfit4 = createTestOutfit(4, ['item-4']);
+    const outfit2 = createTestOutfit(2, ['item-2']);
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+    const staticPool = [outfit5, outfit3, outfit1, outfit4, outfit2];
+    const rulesResult = createStrictOnlyResult([outfit5, outfit3, outfit1, outfit4, outfit2]);
 
-  // Cannot reach MIN, but no configWarning because staticPool >= MIN
-  assertEquals(result.outfits.length, 2);
-  assertEquals(result.fallbackCount, 0);
-  assertEquals(result.configWarning, false);
-});
+    const result = applyFinalSelection(staticPool, rulesResult);
+
+    assertEquals(result.outfits[0].id, outfit1.id);
+    assertEquals(result.outfits[1].id, outfit2.id);
+    assertEquals(result.outfits[2].id, outfit3.id);
+    assertEquals(result.outfits[3].id, outfit4.id);
+    assertEquals(result.outfits[4].id, outfit5.id);
+  }
+);
 
 // ---------------------------------------------------------------------------
-// Extended applyMinMaxSelection Tests - Core Selection Behaviour
+// Purity and Determinism Tests
 // ---------------------------------------------------------------------------
 
-Deno.test('applyMinMaxSelection: is pure - does not modify input arrays', () => {
+Deno.test('applyFinalSelection: is pure - does not modify input arrays', () => {
   const outfit1 = createTestOutfit(1, ['item-1']);
   const outfit2 = createTestOutfit(2, ['item-2']);
   const outfit3 = createTestOutfit(3, ['item-3']);
   const outfit4 = createTestOutfit(4, ['item-4']);
 
   const staticPool = [outfit1, outfit2, outfit3, outfit4];
-  const eligible = [outfit1];
-  const excluded = [outfit2, outfit3, outfit4];
-
-  // Capture original states
   const originalStaticPoolLength = staticPool.length;
-  const originalEligibleLength = eligible.length;
-  const originalExcludedLength = excluded.length;
-  const originalStaticPoolIds = staticPool.map((o) => o.id);
-  const originalEligibleIds = eligible.map((o) => o.id);
-  const originalExcludedIds = excluded.map((o) => o.id);
+  const originalStaticPoolIds = staticPool.map((o: Outfit) => o.id);
 
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-2', '2024-01-03T00:00:00.000Z'],
-    ['item-3', '2024-01-02T00:00:00.000Z'],
-    ['item-4', '2024-01-01T00:00:00.000Z'],
-  ]);
-  const originalMapSize = itemWornAtMap.size;
+  const strictFiltered = [outfit1];
+  const originalStrictLength = strictFiltered.length;
 
-  applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const fallbackCandidates: FallbackCandidate[] = [
+    createFallbackCandidate(outfit2, ['item-2-a']),
+    createFallbackCandidate(outfit3, ['item-3-a']),
+    createFallbackCandidate(outfit4, ['item-4-a']),
+  ];
+  const originalFallbackLength = fallbackCandidates.length;
 
-  // Verify arrays were not mutated
+  const rulesResult: ApplyNoRepeatRulesResult = {
+    strictFiltered,
+    fallbackCandidates,
+  };
+
+  applyFinalSelection(staticPool, rulesResult);
+
+  // Verify inputs were not mutated
   assertEquals(staticPool.length, originalStaticPoolLength);
-  assertEquals(eligible.length, originalEligibleLength);
-  assertEquals(excluded.length, originalExcludedLength);
-  assertEquals(
-    staticPool.map((o) => o.id),
-    originalStaticPoolIds
-  );
-  assertEquals(
-    eligible.map((o) => o.id),
-    originalEligibleIds
-  );
-  assertEquals(
-    excluded.map((o) => o.id),
-    originalExcludedIds
-  );
-  assertEquals(itemWornAtMap.size, originalMapSize);
+  assertEquals(staticPool.map((o: Outfit) => o.id), originalStaticPoolIds);
+  assertEquals(rulesResult.strictFiltered.length, originalStrictLength);
+  assertEquals(rulesResult.fallbackCandidates.length, originalFallbackLength);
 });
 
-Deno.test('applyMinMaxSelection: is deterministic - same inputs produce same outputs', () => {
-  const outfit1 = createTestOutfit(1, ['item-1']);
-  const outfit2 = createTestOutfit(2, ['item-2']);
-  const outfit3 = createTestOutfit(3, ['item-3']);
-  const outfit4 = createTestOutfit(4, ['item-4']);
-  const outfit5 = createTestOutfit(5, ['item-5']);
-
-  const staticPool = [outfit1, outfit2, outfit3, outfit4, outfit5];
-  const eligible = [outfit1, outfit2];
-  const excluded = [outfit3, outfit4, outfit5];
-
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-3', '2024-01-03T00:00:00.000Z'],
-    ['item-4', '2024-01-02T00:00:00.000Z'],
-    ['item-5', '2024-01-01T00:00:00.000Z'],
-  ]);
+Deno.test('applyFinalSelection: is deterministic - same inputs produce same outputs', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, 2);
+  const fallbackOutfits = [
+    { outfit: staticPool[2], repeatedItemIds: ['item-3-a'] },
+    { outfit: staticPool[3], repeatedItemIds: ['item-4-a'] },
+    { outfit: staticPool[4], repeatedItemIds: ['item-5-a'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
   // Call multiple times
-  const result1 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-  const result2 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-  const result3 = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+  const result1 = applyFinalSelection(staticPool, rulesResult);
+  const result2 = applyFinalSelection(staticPool, rulesResult);
+  const result3 = applyFinalSelection(staticPool, rulesResult);
 
   // All results should be identical
   assertEquals(result1.outfits.length, result2.outfits.length);
@@ -1291,259 +955,45 @@ Deno.test('applyMinMaxSelection: is deterministic - same inputs produce same out
   }
 });
 
-Deno.test('applyMinMaxSelection: pool exactly at MIN returns all without warning', () => {
-  // Pool has exactly MIN_OUTFITS (3) - should not trigger configWarning
-  const staticPool = createTestOutfits(3);
-  const eligible = staticPool;
-  const excluded: Outfit[] = [];
-  const itemWornAtMap = new Map<string, string>();
+// ---------------------------------------------------------------------------
+// configError and configWarning Mutual Exclusivity
+// ---------------------------------------------------------------------------
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3);
-  assertEquals(result.fallbackCount, 0);
-  assertEquals(result.configWarning, false);
-  assertEquals(result.configError, false);
-});
-
-Deno.test('applyMinMaxSelection: eligible one less than MIN adds exactly one from fallback', () => {
-  // 2 eligible (MIN - 1), need exactly 1 from fallback
-  const outfit1 = createTestOutfit(1, ['item-1']);
-  const outfit2 = createTestOutfit(2, ['item-2']);
-  const outfit3 = createTestOutfit(3, ['item-3']);
-  const outfit4 = createTestOutfit(4, ['item-4']);
-
-  const staticPool = [outfit1, outfit2, outfit3, outfit4];
-  const eligible = [outfit1, outfit2]; // 2 eligible
-  const excluded = [outfit3, outfit4]; // 2 excluded
-
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-3', '2024-01-02T00:00:00.000Z'], // Newer
-    ['item-4', '2024-01-01T00:00:00.000Z'], // Older - picked first
-  ]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(result.fallbackCount, 1); // Exactly 1 added
-  assertEquals(result.configWarning, false);
-
-  // Should include outfit4 (oldest from excluded)
-  const ids = result.outfits.map((o) => o.id);
-  assertEquals(ids.includes(outfit1.id), true);
-  assertEquals(ids.includes(outfit2.id), true);
-  assertEquals(ids.includes(outfit4.id), true); // The fallback
-  assertEquals(ids.includes(outfit3.id), false); // Not needed
-});
-
-Deno.test('applyMinMaxSelection: fallback count exact when excluded fully fills gap', () => {
-  // 0 eligible, 5 excluded - need exactly 3 (MIN) from fallback
-  const staticPool = createTestOutfits(5);
-  const eligible: Outfit[] = [];
-  const excluded = staticPool;
-
-  const itemWornAtMap = new Map<string, string>();
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(result.fallbackCount, 3); // Exactly MIN added from fallback
-});
-
-Deno.test(
-  'applyMinMaxSelection: truncation applied after fallback when combined exceeds MAX',
-  () => {
-    // Create 12 outfits: 8 eligible + 4 excluded
-    // 8 eligible < MAX (10), but with fallback would exceed
-    // However, since eligible >= MIN, no fallback is used
-    // This tests truncation of eligible list that exceeds MAX
-    const staticPool = createTestOutfits(15);
-    const eligible = staticPool.slice(0, 12); // 12 eligible (exceeds MAX)
-    const excluded = staticPool.slice(12); // 3 excluded
-
-    const itemWornAtMap = new Map<string, string>();
-
-    const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-    assertEquals(result.outfits.length, 10); // Truncated to MAX_OUTFITS
-    assertEquals(result.fallbackCount, 0); // No fallback needed
-  }
-);
-
-Deno.test('applyMinMaxSelection: recency ordering prefers outfits worn longest ago', () => {
-  // All excluded, fallback should select by ascending recency (oldest first)
-  const outfit1 = createTestOutfit(1, ['item-newest']);
-  const outfit2 = createTestOutfit(2, ['item-middle']);
-  const outfit3 = createTestOutfit(3, ['item-oldest']);
-
-  const staticPool = [outfit1, outfit2, outfit3];
-  const eligible: Outfit[] = [];
-  const excluded = [outfit1, outfit2, outfit3];
-
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-newest', '2024-01-30T00:00:00.000Z'], // Most recent
-    ['item-middle', '2024-01-15T00:00:00.000Z'], // Middle
-    ['item-oldest', '2024-01-01T00:00:00.000Z'], // Oldest - preferred
-  ]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  // All 3 selected (pool = MIN), but we verify the selection order is correct
-  // Final output is sorted by id, but fallback selection prioritised oldest
-  assertEquals(result.outfits.length, 3);
-  assertEquals(result.fallbackCount, 3);
-
-  // Verify all are present (ordering is by id in final result)
-  const ids = result.outfits.map((o) => o.id);
-  assertEquals(ids.includes(outfit1.id), true);
-  assertEquals(ids.includes(outfit2.id), true);
-  assertEquals(ids.includes(outfit3.id), true);
-});
-
-Deno.test(
-  'applyMinMaxSelection: output always sorted by outfit.id regardless of input order',
-  () => {
-    // Pass outfits in reverse ID order
-    const outfit5 = createTestOutfit(5, ['item-5']);
-    const outfit3 = createTestOutfit(3, ['item-3']);
-    const outfit1 = createTestOutfit(1, ['item-1']);
-    const outfit4 = createTestOutfit(4, ['item-4']);
-    const outfit2 = createTestOutfit(2, ['item-2']);
-
-    const staticPool = [outfit5, outfit3, outfit1, outfit4, outfit2]; // Scrambled order
-    const eligible = [outfit5, outfit3, outfit1, outfit4, outfit2];
-    const excluded: Outfit[] = [];
-    const itemWornAtMap = new Map<string, string>();
-
-    const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-    // Output should be sorted by outfit.id (ascending)
-    assertEquals(result.outfits[0].id, outfit1.id);
-    assertEquals(result.outfits[1].id, outfit2.id);
-    assertEquals(result.outfits[2].id, outfit3.id);
-    assertEquals(result.outfits[3].id, outfit4.id);
-    assertEquals(result.outfits[4].id, outfit5.id);
-  }
-);
-
-Deno.test('applyMinMaxSelection: large pool with complex recency scores', () => {
-  // Test with many outfits to verify scalability
-  const outfits: Outfit[] = [];
-  for (let i = 1; i <= 20; i++) {
-    outfits.push(createTestOutfit(i, [`item-${i}`]));
-  }
-
-  const staticPool = outfits;
-  const eligible = outfits.slice(0, 5); // 5 eligible
-  const excluded = outfits.slice(5); // 15 excluded
-
-  // Create varied recency scores
-  const wornAtEntries: [string, string][] = [];
-  for (let i = 6; i <= 20; i++) {
-    // Alternating pattern for recency
-    const day = (i % 10) + 1;
-    wornAtEntries.push([`item-${i}`, `2024-01-${String(day).padStart(2, '0')}T00:00:00.000Z`]);
-  }
-  const itemWornAtMap = createItemWornAtMap(wornAtEntries);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  // Should return 5 eligible (no fallback needed since 5 >= MIN)
-  assertEquals(result.outfits.length, 5);
-  assertEquals(result.fallbackCount, 0);
-
-  // Verify deterministic ordering by id
-  for (let i = 0; i < result.outfits.length - 1; i++) {
-    assertEquals(
-      result.outfits[i].id < result.outfits[i + 1].id,
-      true,
-      'Output should be sorted by ascending id'
-    );
-  }
-});
-
-Deno.test('applyMinMaxSelection: excluded with mixed recency and no-history items', () => {
-  // Some excluded items have no wear history (should sort as oldest)
-  const outfit1 = createTestOutfit(1, ['item-no-history-1']);
-  const outfit2 = createTestOutfit(2, ['item-with-history']);
-  const outfit3 = createTestOutfit(3, ['item-no-history-2']);
-  const outfit4 = createTestOutfit(4, ['item-recent']);
-
-  const staticPool = [outfit1, outfit2, outfit3, outfit4];
-  const eligible: Outfit[] = [];
-  const excluded = [outfit1, outfit2, outfit3, outfit4];
-
-  // Only some items have history
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-with-history', '2024-01-15T00:00:00.000Z'],
-    ['item-recent', '2024-01-30T00:00:00.000Z'],
-  ]);
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(result.fallbackCount, 3);
-
-  // Items without history should be preferred (treated as oldest)
-  // outfit1 and outfit3 have no history, outfit2 has older history than outfit4
-  const ids = result.outfits.map((o) => o.id);
-
-  // outfit4 (most recent) should be excluded from the 3 selected
-  // The 3 selected should be outfit1, outfit2, outfit3 (or outfit1, outfit3, and one other)
-  // Since no-history items sort first (as empty string), outfit1 and outfit3 should be selected
-  assertEquals(ids.includes(outfit1.id), true); // No history - prioritised
-  assertEquals(ids.includes(outfit3.id), true); // No history - prioritised
-});
-
-Deno.test('applyMinMaxSelection: fallback stops exactly at MIN threshold', () => {
-  // Verify that fallback doesn't add more than needed
-  const staticPool = createTestOutfits(10);
-  const eligible = [staticPool[0]]; // 1 eligible
-  const excluded = staticPool.slice(1); // 9 excluded
-
-  const itemWornAtMap = new Map<string, string>();
-
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
-
-  assertEquals(result.outfits.length, 3); // Exactly MIN_OUTFITS
-  assertEquals(result.fallbackCount, 2); // Added exactly 2 to reach MIN
-  // Should not add more even though 9 excluded are available
-});
-
-Deno.test('applyMinMaxSelection: configError and configWarning are mutually exclusive', () => {
-  // Test that flags never overlap
-
+Deno.test('applyFinalSelection: configError and configWarning are mutually exclusive', () => {
   // Case 1: configError (empty pool)
-  const result1 = applyMinMaxSelection([], [], [], new Map());
-  assertEquals(result1.configError, true);
-  assertEquals(result1.configWarning, false);
+  const emptyResult = applyFinalSelection([], createStrictOnlyResult([]));
+  assertEquals(emptyResult.configError, true);
+  assertEquals(emptyResult.configWarning, false);
 
   // Case 2: configWarning (pool < MIN)
   const smallPool = createTestOutfits(2);
-  const result2 = applyMinMaxSelection(smallPool, smallPool, [], new Map());
-  assertEquals(result2.configError, false);
-  assertEquals(result2.configWarning, true);
+  const smallResult = applyFinalSelection(smallPool, createStrictOnlyResult(smallPool));
+  assertEquals(smallResult.configError, false);
+  assertEquals(smallResult.configWarning, true);
 
   // Case 3: Normal operation (neither flag)
   const normalPool = createTestOutfits(5);
-  const result3 = applyMinMaxSelection(normalPool, normalPool, [], new Map());
-  assertEquals(result3.configError, false);
-  assertEquals(result3.configWarning, false);
+  const normalResult = applyFinalSelection(normalPool, createStrictOnlyResult(normalPool));
+  assertEquals(normalResult.configError, false);
+  assertEquals(normalResult.configWarning, false);
 });
 
-Deno.test('applyMinMaxSelection: verifies all result properties are correctly typed', () => {
-  const staticPool = createTestOutfits(5);
-  const eligible = staticPool.slice(0, 3);
-  const excluded = staticPool.slice(3);
-  const itemWornAtMap = new Map<string, string>();
+// ---------------------------------------------------------------------------
+// Result Shape Verification
+// ---------------------------------------------------------------------------
 
-  const result = applyMinMaxSelection(staticPool, eligible, excluded, itemWornAtMap);
+Deno.test('applyFinalSelection: verifies all result properties are correctly typed', () => {
+  const staticPool = createTestOutfits(5);
+  const rulesResult = createStrictOnlyResult(staticPool.slice(0, 3));
+
+  const result = applyFinalSelection(staticPool, rulesResult);
 
   // Verify result shape
   assertEquals(Array.isArray(result.outfits), true);
   assertEquals(typeof result.fallbackCount, 'number');
   assertEquals(typeof result.configError, 'boolean');
   assertEquals(typeof result.configWarning, 'boolean');
+  assertEquals(Array.isArray(result.repeatedItemIds), true);
 
   // Verify outfits have correct structure
   for (const outfit of result.outfits) {
@@ -1555,86 +1005,13 @@ Deno.test('applyMinMaxSelection: verifies all result properties are correctly ty
   }
 });
 
-// ============================================================================
-// Integration-style Tests (combining multiple functions)
-// ============================================================================
-
-Deno.test('integration: full filtering and selection pipeline with mixed outfits', () => {
-  // Setup: 5 outfits, some with all items worn, some with partial
-  const outfit1 = createTestOutfit(1, ['worn-a', 'worn-b']); // Fully worn - excluded
-  const outfit2 = createTestOutfit(2, ['worn-a', 'fresh-c']); // Partial - eligible
-  const outfit3 = createTestOutfit(3, ['fresh-d', 'fresh-e']); // Fresh - eligible
-  const outfit4 = createTestOutfit(4, ['worn-b', 'worn-a']); // Fully worn - excluded
-  const outfit5 = createTestOutfit(5, ['fresh-f', 'worn-a']); // Partial - eligible
-
-  const staticPool = [outfit1, outfit2, outfit3, outfit4, outfit5];
-  const recentlyWornItemIds = new Set(['worn-a', 'worn-b']);
-
-  // Step 1: Apply filter
-  const filterResult = applyNoRepeatFilter(staticPool, recentlyWornItemIds);
-  assertEquals(filterResult.eligible.length, 3); // outfit2, outfit3, outfit5
-  assertEquals(filterResult.excluded.length, 2); // outfit1, outfit4
-
-  // Step 2: Apply selection (eligible >= MIN, no fallback needed)
-  const itemWornAtMap = createItemWornAtMap([
-    ['worn-a', '2024-01-15T00:00:00.000Z'],
-    ['worn-b', '2024-01-14T00:00:00.000Z'],
-  ]);
-
-  const selectionResult = applyMinMaxSelection(
-    staticPool,
-    filterResult.eligible,
-    filterResult.excluded,
-    itemWornAtMap
-  );
-
-  assertEquals(selectionResult.outfits.length, 3);
-  assertEquals(selectionResult.fallbackCount, 0);
-  assertEquals(selectionResult.configError, false);
-  assertEquals(selectionResult.configWarning, false);
-});
-
-Deno.test('integration: fallback scenario when all outfits filtered', () => {
-  // All outfits have all items recently worn
-  const outfit1 = createTestOutfit(1, ['item-a']);
-  const outfit2 = createTestOutfit(2, ['item-b']);
-  const outfit3 = createTestOutfit(3, ['item-c']);
-  const outfit4 = createTestOutfit(4, ['item-d']);
-
-  const staticPool = [outfit1, outfit2, outfit3, outfit4];
-  const recentlyWornItemIds = new Set(['item-a', 'item-b', 'item-c', 'item-d']);
-
-  // Step 1: Apply filter - all excluded
-  const filterResult = applyNoRepeatFilter(staticPool, recentlyWornItemIds);
-  assertEquals(filterResult.eligible.length, 0);
-  assertEquals(filterResult.excluded.length, 4);
-
-  // Step 2: Apply selection with fallback
-  const itemWornAtMap = createItemWornAtMap([
-    ['item-a', '2024-01-04T00:00:00.000Z'], // Newest
-    ['item-b', '2024-01-03T00:00:00.000Z'],
-    ['item-c', '2024-01-02T00:00:00.000Z'],
-    ['item-d', '2024-01-01T00:00:00.000Z'], // Oldest - preferred for fallback
-  ]);
-
-  const selectionResult = applyMinMaxSelection(
-    staticPool,
-    filterResult.eligible,
-    filterResult.excluded,
-    itemWornAtMap
-  );
-
-  assertEquals(selectionResult.outfits.length, 3); // MIN_OUTFITS
-  assertEquals(selectionResult.fallbackCount, 3);
-
-  // Verify outfit4 (oldest) is in result
-  const ids = selectionResult.outfits.map((o) => o.id);
-  assertEquals(ids.includes(outfit4.id), true);
-});
+// ---------------------------------------------------------------------------
+// Integration Tests
+// ---------------------------------------------------------------------------
 
 Deno.test('integration: noRepeatDays clamping flows into bucket correctly', () => {
   // Test the full flow from raw value to bucket
-  const testCases = [
+  const testCases: { raw: unknown; expectedClamped: number; expectedBucket: string }[] = [
     { raw: null, expectedClamped: 0, expectedBucket: '0' },
     { raw: -5, expectedClamped: 0, expectedBucket: '0' },
     { raw: 0, expectedClamped: 0, expectedBucket: '0' },
@@ -1654,7 +1031,6 @@ Deno.test('integration: noRepeatDays clamping flows into bucket correctly', () =
     assertEquals(bucket, tc.expectedBucket, `bucket(${clamped}) should be ${tc.expectedBucket}`);
   }
 });
-*/ // End of temporarily disabled tests
 
 // ============================================================================
 // parseContextParams Tests (Story #365)
