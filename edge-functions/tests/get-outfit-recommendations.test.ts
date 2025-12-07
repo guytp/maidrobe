@@ -20,7 +20,11 @@ import {
   parseContextParams,
   applyFinalSelection,
 } from '../supabase/functions/get-outfit-recommendations/index.ts';
-import type { Outfit } from '../supabase/functions/get-outfit-recommendations/types.ts';
+import type {
+  Outfit,
+  OutfitWithMeta,
+  OutfitNoRepeatMeta,
+} from '../supabase/functions/get-outfit-recommendations/types.ts';
 import {
   DEFAULT_OCCASION,
   DEFAULT_TEMPERATURE_BAND,
@@ -843,6 +847,216 @@ Deno.test('applyFinalSelection: excludes metadata when includeMetadata=false', (
     const outfitWithMeta = outfit as Outfit & { noRepeatMeta?: unknown };
     assertEquals(outfitWithMeta.noRepeatMeta, undefined);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Metadata Content Verification Tests
+// ---------------------------------------------------------------------------
+
+Deno.test('applyFinalSelection: strict outfits have filterStatus=strict metadata', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, 3);
+  const rulesResult = createStrictOnlyResult(strictFiltered);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  // All outfits should have strict metadata
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as OutfitWithMeta;
+    assertEquals(outfitWithMeta.noRepeatMeta !== undefined, true);
+    const meta = outfitWithMeta.noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(meta.filterStatus, 'strict');
+    assertEquals(Array.isArray(meta.repeatedItems), true);
+    assertEquals(meta.repeatedItems.length, 0);
+  }
+});
+
+Deno.test('applyFinalSelection: fallback outfits have filterStatus=fallback metadata', () => {
+  const staticPool = createTestOutfits(5);
+  // No strict outfits, all fallbacks
+  const fallbackOutfits = staticPool.slice(0, 3).map((o: Outfit) => ({
+    outfit: o,
+    repeatedItemIds: [o.itemIds[0]],
+  }));
+  const rulesResult = createMixedResult([], fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  // All outfits should have fallback metadata
+  assertEquals(result.fallbackCount, 3);
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as OutfitWithMeta;
+    assertEquals(outfitWithMeta.noRepeatMeta !== undefined, true);
+    const meta = outfitWithMeta.noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(meta.filterStatus, 'fallback');
+  }
+});
+
+Deno.test('applyFinalSelection: fallback metadata contains correct repeatedItems', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0]];
+  // Fallback with specific repeated item IDs
+  const fallbackOutfits = [
+    { outfit: staticPool[1], repeatedItemIds: ['repeated-item-a', 'repeated-item-b'] },
+    { outfit: staticPool[2], repeatedItemIds: ['repeated-item-c'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  // Find the fallback outfits in the result (sorted by ID)
+  const fallbackResults = result.outfits.filter((o: OutfitWithMeta) => {
+    const meta = o.noRepeatMeta as OutfitNoRepeatMeta | undefined;
+    return meta?.filterStatus === 'fallback';
+  });
+
+  assertEquals(fallbackResults.length, 2);
+
+  // Check that repeated items are correctly attached
+  for (const outfit of fallbackResults) {
+    const meta = (outfit as OutfitWithMeta).noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(meta.filterStatus, 'fallback');
+    assertEquals(Array.isArray(meta.repeatedItems), true);
+    assertEquals(meta.repeatedItems.length > 0, true);
+
+    // Each repeated item should have an id property
+    for (const item of meta.repeatedItems) {
+      assertEquals(typeof item.id, 'string');
+    }
+  }
+});
+
+Deno.test('applyFinalSelection: mixed selection has correct metadata for each type', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0], staticPool[1]]; // 2 strict
+  const fallbackOutfits = [
+    { outfit: staticPool[2], repeatedItemIds: ['item-3-repeated'] },
+  ]; // 1 fallback needed to reach MIN
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, 1);
+
+  let strictCount = 0;
+  let fallbackCount = 0;
+
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as OutfitWithMeta;
+    const meta = outfitWithMeta.noRepeatMeta as OutfitNoRepeatMeta;
+
+    if (meta.filterStatus === 'strict') {
+      strictCount++;
+      assertEquals(meta.repeatedItems.length, 0);
+    } else if (meta.filterStatus === 'fallback') {
+      fallbackCount++;
+      assertEquals(meta.repeatedItems.length > 0, true);
+    }
+  }
+
+  assertEquals(strictCount, 2);
+  assertEquals(fallbackCount, 1);
+});
+
+Deno.test('applyFinalSelection: configWarning path returns outfits without metadata', () => {
+  // When pool < MIN, the configWarning path is taken which skips metadata
+  const staticPool = createTestOutfits(2); // Less than MIN
+  const rulesResult = createStrictOnlyResult(staticPool);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  assertEquals(result.configWarning, true);
+  assertEquals(result.outfits.length, 2);
+
+  // configWarning path should not add noRepeatMeta
+  for (const outfit of result.outfits) {
+    const outfitWithMeta = outfit as OutfitWithMeta;
+    assertEquals(outfitWithMeta.noRepeatMeta, undefined);
+  }
+});
+
+Deno.test('applyFinalSelection: strict metadata repeatedItems is always empty array', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = staticPool.slice(0, 4);
+  const rulesResult = createStrictOnlyResult(strictFiltered);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  for (const outfit of result.outfits) {
+    const meta = (outfit as OutfitWithMeta).noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(meta.filterStatus, 'strict');
+    assertEquals(meta.repeatedItems, []);
+  }
+});
+
+Deno.test('applyFinalSelection: fallback repeatedItems contains item objects with id', () => {
+  const staticPool = createTestOutfits(5);
+  const fallbackOutfits = [
+    { outfit: staticPool[0], repeatedItemIds: ['item-id-1'] },
+    { outfit: staticPool[1], repeatedItemIds: ['item-id-2', 'item-id-3'] },
+    { outfit: staticPool[2], repeatedItemIds: ['item-id-4'] },
+  ];
+  const rulesResult = createMixedResult([], fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  assertEquals(result.fallbackCount, MIN_OUTFITS_PER_RESPONSE);
+
+  for (const outfit of result.outfits) {
+    const meta = (outfit as OutfitWithMeta).noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(meta.filterStatus, 'fallback');
+
+    // Each item in repeatedItems should have an id
+    for (const item of meta.repeatedItems) {
+      assertEquals(typeof item.id, 'string');
+      assertEquals(item.id.startsWith('item-id-'), true);
+    }
+  }
+});
+
+Deno.test('applyFinalSelection: metadata filterStatus is exactly strict or fallback', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0]];
+  const fallbackOutfits = [
+    { outfit: staticPool[1], repeatedItemIds: ['item-a'] },
+    { outfit: staticPool[2], repeatedItemIds: ['item-b'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  for (const outfit of result.outfits) {
+    const meta = (outfit as OutfitWithMeta).noRepeatMeta as OutfitNoRepeatMeta;
+    assertEquals(
+      meta.filterStatus === 'strict' || meta.filterStatus === 'fallback',
+      true,
+      `filterStatus should be 'strict' or 'fallback', got '${meta.filterStatus}'`
+    );
+  }
+});
+
+Deno.test('applyFinalSelection: only used fallbacks contribute to repeatedItemIds', () => {
+  const staticPool = createTestOutfits(5);
+  const strictFiltered = [staticPool[0], staticPool[1]]; // 2 strict
+  // 3 fallback candidates, but only 1 will be used to reach MIN
+  const fallbackOutfits = [
+    { outfit: staticPool[2], repeatedItemIds: ['used-item'] },
+    { outfit: staticPool[3], repeatedItemIds: ['unused-item-a'] },
+    { outfit: staticPool[4], repeatedItemIds: ['unused-item-b'] },
+  ];
+  const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
+
+  const result = applyFinalSelection(staticPool, rulesResult, true);
+
+  assertEquals(result.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+  assertEquals(result.fallbackCount, 1);
+
+  // Only the first fallback should have been used
+  assertEquals(result.repeatedItemIds.length, 1);
+  assertEquals(result.repeatedItemIds.includes('used-item'), true);
+  assertEquals(result.repeatedItemIds.includes('unused-item-a'), false);
+  assertEquals(result.repeatedItemIds.includes('unused-item-b'), false);
 });
 
 // ---------------------------------------------------------------------------
