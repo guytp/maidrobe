@@ -1773,6 +1773,409 @@ describe('StylingPreferencesScreen', () => {
         expect(mockLogError).toHaveBeenCalled();
       });
     });
+
+    describe('error display details', () => {
+      it('should display error text with assertive live region for accessibility', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          const errorText = getByText("Couldn't save. Please try again.");
+          expect(errorText.props.accessibilityLiveRegion).toBe('assertive');
+        });
+      });
+
+      it('should show error from mode change not just preset change', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Expand advanced section and change mode
+        fireEvent.press(getByLabelText('Advanced settings'));
+        fireEvent.press(getByLabelText('Exact outfit only'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+      });
+
+      it('should show error from custom days input save', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Expand advanced section and enter custom value
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+        fireEvent.changeText(customInput, '45');
+        fireEvent(customInput, 'blur');
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+      });
+    });
+
+    describe('retry button details', () => {
+      it('should have correct accessibility label on retry button', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          const retryButton = getByLabelText('Tap to retry');
+          expect(retryButton).toBeTruthy();
+        });
+      });
+
+      it('should have correct accessibility hint on retry button', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          const retryButton = getByLabelText('Tap to retry');
+          expect(retryButton.props.accessibilityHint).toBe('Retry saving your preferences');
+        });
+      });
+
+      it('should not show retry button when no error has occurred', () => {
+        const { queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(queryByLabelText('Tap to retry')).toBeNull();
+      });
+    });
+
+    describe('retry behaviour in depth', () => {
+      it('should clear error message when retry is initiated', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Set up success for retry
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 3 });
+
+        // Press retry
+        fireEvent.press(getByLabelText('Tap to retry'));
+
+        // Error should be cleared (either immediately or after success)
+        await waitFor(() => {
+          expect(queryByText("Couldn't save. Please try again.")).toBeNull();
+        });
+      });
+
+      it('should show success message after successful retry', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Set up success for retry
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 3 });
+
+        // Press retry
+        fireEvent.press(getByLabelText('Tap to retry'));
+
+        // Success message should appear
+        await waitFor(() => {
+          expect(getByText('Preferences saved')).toBeTruthy();
+        });
+
+        // Error should be gone
+        expect(queryByText("Couldn't save. Please try again.")).toBeNull();
+      });
+
+      it('should maintain error state when retry also fails', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger first error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Set up failure for retry too
+        mockMutateAsync.mockRejectedValueOnce(new Error('Still failing'));
+
+        // Press retry
+        fireEvent.press(getByLabelText('Tap to retry'));
+
+        // Error should still be visible after retry fails
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Retry button should still be available
+        expect(getByLabelText('Tap to retry')).toBeTruthy();
+      });
+
+      it('should hide retry button after successful save', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText, queryByLabelText } = render(
+          <StylingPreferencesScreen />,
+          {
+            wrapper: TestWrapper,
+          }
+        );
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText('Tap to retry')).toBeTruthy();
+        });
+
+        // Set up success for retry
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 3 });
+
+        // Press retry
+        fireEvent.press(getByLabelText('Tap to retry'));
+
+        // Retry button should disappear after success
+        await waitFor(() => {
+          expect(queryByLabelText('Tap to retry')).toBeNull();
+        });
+      });
+
+      it('should call mutation with correct data on retry', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error with 14 days preset
+        fireEvent.press(getByLabelText('14 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Clear mock and set up success
+        mockMutateAsync.mockClear();
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 14 });
+
+        // Press retry
+        fireEvent.press(getByLabelText('Tap to retry'));
+
+        // Should retry with the same 14-day value
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatDays: 14,
+              }),
+            })
+          );
+        });
+      });
+    });
+
+    describe('UI state during error', () => {
+      it('should keep preset buttons interactive during error state', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Set up success for next interaction
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 14 });
+
+        // Should still be able to press another preset
+        fireEvent.press(getByLabelText('14 days'));
+
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatDays: 14,
+              }),
+            })
+          );
+        });
+      });
+
+      it('should clear error when user makes a different selection', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Set up success for next interaction
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 14 });
+
+        // Make a different selection
+        fireEvent.press(getByLabelText('14 days'));
+
+        // Error should be cleared (new save in progress or succeeded)
+        await waitFor(() => {
+          expect(queryByText("Couldn't save. Please try again.")).toBeNull();
+        });
+      });
+
+      it('should allow back navigation during error state', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+        // Ensure canGoBack returns true (may have been set to false by earlier test)
+        mockRouter.canGoBack.mockReturnValue(true);
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Back button should still work
+        fireEvent.press(getByLabelText('Go back'));
+
+        expect(mockRouter.back).toHaveBeenCalled();
+      });
+
+      it('should allow advanced section toggle during error state', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, getByText, queryByLabelText } = render(
+          <StylingPreferencesScreen />,
+          {
+            wrapper: TestWrapper,
+          }
+        );
+
+        // Trigger error
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Should be able to expand advanced section
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        expect(getByLabelText('Key items')).toBeTruthy();
+        expect(getByLabelText('Exact outfit only')).toBeTruthy();
+
+        // Should be able to collapse it too
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        expect(queryByLabelText('Key items')).toBeNull();
+      });
+    });
+
+    describe('multiple error scenarios', () => {
+      it('should handle error followed by success followed by error', async () => {
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // First: error
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Second: success (via new selection, not retry)
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 14 });
+        fireEvent.press(getByLabelText('14 days'));
+
+        await waitFor(() => {
+          expect(queryByText("Couldn't save. Please try again.")).toBeNull();
+        });
+
+        // Third: error again
+        mockMutateAsync.mockRejectedValueOnce(new Error('Another error'));
+        fireEvent.press(getByLabelText('30 days'));
+
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+      });
+
+      it('should handle rapid successive errors gracefully', async () => {
+        mockMutateAsync.mockRejectedValue(new Error('Persistent error'));
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Rapid fire multiple changes
+        fireEvent.press(getByLabelText('3 days'));
+        fireEvent.press(getByLabelText('14 days'));
+        fireEvent.press(getByLabelText('30 days'));
+
+        // Should eventually show error
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // UI should not be frozen - retry button should be available
+        expect(getByLabelText('Tap to retry')).toBeTruthy();
+      });
+    });
   });
 
   describe('Loading State', () => {
