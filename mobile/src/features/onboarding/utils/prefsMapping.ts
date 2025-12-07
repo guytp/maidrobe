@@ -262,25 +262,6 @@ function mapNoRepeatDaysToWindow(days: number | null): NoRepeatWindow {
 }
 
 /**
- * Maps UI window to database no-repeat days.
- *
- * Reverse of mapNoRepeatDaysToWindow (for exact values only).
- *
- * Examples:
- * - 0 -> 0
- * - 7 -> 7
- * - 14 -> 14
- * - null -> null
- *
- * @param window - UI window value
- * @returns Exact days for database storage
- * @deprecated Use noRepeatDays directly instead of mapping from window buckets
- */
-function mapNoRepeatWindowToDays(window: NoRepeatWindow): number | null {
-  return window;
-}
-
-/**
  * Maps database no-repeat mode to UI form value.
  *
  * Validates that the mode is one of the known values, defaulting to 'item'
