@@ -103,9 +103,8 @@ function createMixedResult(
 ): ApplyNoRepeatRulesResult {
   return {
     strictFiltered: strictOutfits,
-    fallbackCandidates: fallbackOutfits.map(
-      (f: { outfit: Outfit; repeatedItemIds: string[] }) =>
-        createFallbackCandidate(f.outfit, f.repeatedItemIds)
+    fallbackCandidates: fallbackOutfits.map((f: { outfit: Outfit; repeatedItemIds: string[] }) =>
+      createFallbackCandidate(f.outfit, f.repeatedItemIds)
     ),
   };
 }
@@ -929,9 +928,7 @@ Deno.test('applyFinalSelection: fallback metadata contains correct repeatedItems
 Deno.test('applyFinalSelection: mixed selection has correct metadata for each type', () => {
   const staticPool = createTestOutfits(5);
   const strictFiltered = [staticPool[0], staticPool[1]]; // 2 strict
-  const fallbackOutfits = [
-    { outfit: staticPool[2], repeatedItemIds: ['item-3-repeated'] },
-  ]; // 1 fallback needed to reach MIN
+  const fallbackOutfits = [{ outfit: staticPool[2], repeatedItemIds: ['item-3-repeated'] }]; // 1 fallback needed to reach MIN
   const rulesResult = createMixedResult(strictFiltered, fallbackOutfits);
 
   const result = applyFinalSelection(staticPool, rulesResult, true);
@@ -1134,7 +1131,10 @@ Deno.test('applyFinalSelection: is pure - does not modify input arrays', () => {
 
   // Verify inputs were not mutated
   assertEquals(staticPool.length, originalStaticPoolLength);
-  assertEquals(staticPool.map((o: Outfit) => o.id), originalStaticPoolIds);
+  assertEquals(
+    staticPool.map((o: Outfit) => o.id),
+    originalStaticPoolIds
+  );
   assertEquals(rulesResult.strictFiltered.length, originalStrictLength);
   assertEquals(rulesResult.fallbackCandidates.length, originalFallbackLength);
 });
