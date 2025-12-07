@@ -7,8 +7,7 @@
  * Functions under test:
  * - clampNoRepeatDays: Clamps noRepeatDays to valid range [0, 90] (Story #364)
  * - bucketNoRepeatDays: Privacy-safe bucketing for observability (Story #364)
- * - applyNoRepeatFilter: Filters outfits by "all items recent" rule (Story #364)
- * - applyMinMaxSelection: MIN/MAX selection with fallback logic (Story #364)
+ * - applyFinalSelection: MIN/MAX selection with noRepeatRules integration (Story #364)
  * - parseContextParams: Parses and validates context parameters (Story #365)
  *
  * @module tests/get-outfit-recommendations
@@ -18,15 +17,23 @@ import { assertEquals } from 'std/assert/mod.ts';
 import {
   clampNoRepeatDays,
   bucketNoRepeatDays,
-  applyNoRepeatFilter,
-  applyMinMaxSelection,
+  applyFinalSelection,
   parseContextParams,
 } from '../supabase/functions/get-outfit-recommendations/index.ts';
-import type { Outfit } from '../supabase/functions/get-outfit-recommendations/types.ts';
+import type {
+  Outfit,
+  OutfitWithMeta,
+} from '../supabase/functions/get-outfit-recommendations/types.ts';
 import {
   DEFAULT_OCCASION,
   DEFAULT_TEMPERATURE_BAND,
+  MIN_OUTFITS_PER_RESPONSE,
+  MAX_OUTFITS_PER_RESPONSE,
 } from '../supabase/functions/get-outfit-recommendations/types.ts';
+import type {
+  ApplyNoRepeatRulesResult,
+  FallbackCandidate,
+} from '../supabase/functions/_shared/noRepeatRules.ts';
 
 // ============================================================================
 // Test Helpers
