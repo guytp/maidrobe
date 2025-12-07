@@ -531,15 +531,18 @@ async function fetchUserNoRepeatPrefs(
  * relevant entries. The noRepeatRules module will do the precise calendar-day
  * filtering using the targetDate.
  *
+ * Note: This uses UTC date via `toISOString()`. See `getTodayDateString()`
+ * for details on UTC vs local time considerations.
+ *
  * @param noRepeatDays - Number of days in the no-repeat window (1-90)
- * @returns ISO 8601 date string (YYYY-MM-DD) representing the cutoff
+ * @returns ISO 8601 date string (YYYY-MM-DD) representing the cutoff in UTC
  */
 function computeWearHistoryCutoffDate(noRepeatDays: number): string {
   const now = new Date();
   // Add buffer to ensure we get all relevant entries
   const cutoffMs = now.getTime() - (noRepeatDays + 1) * MS_PER_DAY;
   const cutoff = new Date(cutoffMs);
-  // Return YYYY-MM-DD format
+  // Return YYYY-MM-DD format (UTC)
   return cutoff.toISOString().split('T')[0];
 }
 
@@ -948,16 +951,31 @@ export function applyFinalSelection(
 export const applyMinMaxSelection = applyFinalSelection;
 
 /**
- * Gets today's date in YYYY-MM-DD format (user's local timezone).
+ * Gets today's date in YYYY-MM-DD format (UTC).
  *
  * This is used as the targetDate for the noRepeatRules module.
- * For the stub implementation, we use the server's local time.
- * Future versions may accept a client-provided timezone.
  *
- * @returns Today's date as YYYY-MM-DD string
+ * ## Time Semantics
+ *
+ * The current stub implementation uses **UTC date** via `toISOString()`.
+ * This means the returned date may differ from the user's local calendar
+ * date near midnight. For example:
+ * - At 11pm EST (04:00 UTC next day), this returns tomorrow's UTC date
+ * - At 1am EST (06:00 UTC), this returns today's UTC date
+ *
+ * ## Future Considerations
+ *
+ * Production implementations should accept a client-provided timezone
+ * or derive the user's timezone from their profile to ensure the
+ * targetDate matches the user's local calendar day. The noRepeatRules
+ * module expects dates in the user's local timezone for accurate
+ * calendar-day semantics.
+ *
+ * @returns Today's UTC date as YYYY-MM-DD string
  */
 function getTodayDateString(): string {
   const now = new Date();
+  // Note: toISOString() returns UTC time, not local time
   return now.toISOString().split('T')[0];
 }
 
