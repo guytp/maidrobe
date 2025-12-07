@@ -276,10 +276,30 @@ export function StylingPreferencesScreen(): React.JSX.Element {
    */
   const handlePresetPress = useCallback(
     (value: number) => {
+      /**
+       * DEPRECATION: noRepeatWindow dual-field migration (Story #446)
+       *
+       * This screen uses the new `noRepeatDays` field as the canonical source of truth
+       * for no-repeat window settings. The legacy `noRepeatWindow` field is explicitly
+       * set to null to signal that the new field should be used.
+       *
+       * Migration phases (see ADR-0001):
+       * - Phase 1 (current): Both fields exist, noRepeatDays is canonical
+       * - Phase 2 (future): noRepeatWindow becomes optional
+       * - Phase 3 (future): noRepeatWindow removed entirely
+       *
+       * Setting noRepeatWindow: null here ensures:
+       * 1. Legacy code paths that check noRepeatWindow skip their bucket logic
+       * 2. The PrefsFormData clearly indicates this is a "new model" save
+       * 3. toPrefsRow() uses noRepeatDays directly for database storage
+       *
+       * @see docs/adr/0001-no-repeat-preferences-model-migration.md
+       * @see src/features/onboarding/utils/prefsTypes.ts (NoRepeatWindow deprecation)
+       */
       const newFormData = {
         ...formData,
         noRepeatDays: value,
-        noRepeatWindow: null, // Clear legacy field
+        noRepeatWindow: null,
       };
       setFormData(newFormData);
       setCustomDaysInput(value.toString());
@@ -360,6 +380,15 @@ export function StylingPreferencesScreen(): React.JSX.Element {
 
     // Only save if value changed
     if (clamped !== formData.noRepeatDays) {
+      /**
+       * DEPRECATION: noRepeatWindow dual-field migration (Story #446)
+       *
+       * Same migration pattern as handlePresetPress - see detailed comment there.
+       * Setting noRepeatWindow: null signals that noRepeatDays is the canonical value.
+       *
+       * @see handlePresetPress for full deprecation documentation
+       * @see docs/adr/0001-no-repeat-preferences-model-migration.md
+       */
       const newFormData = {
         ...formData,
         noRepeatDays: clamped,

@@ -211,6 +211,24 @@ function joinExclusions(data: ExclusionsData): string[] {
 /**
  * Maps database no-repeat days to UI window bucket.
  *
+ * @deprecated This function is part of the legacy noRepeatWindow system.
+ * Story #446 introduced noRepeatDays as the canonical field. This function
+ * is retained for backward compatibility with the legacy PrefsScreen during
+ * the migration period.
+ *
+ * New code should:
+ * - Use noRepeatDays directly for reading/writing no-repeat preferences
+ * - Set noRepeatWindow: null when saving to signal new model usage
+ * - See StylingPreferencesScreen for the recommended pattern
+ *
+ * Migration timeline (ADR-0001):
+ * - Phase 1 (current): Both fields coexist, noRepeatDays canonical
+ * - Phase 2 (future): noRepeatWindow optional, update legacy screens
+ * - Phase 3 (future): Remove noRepeatWindow and this function
+ *
+ * @see docs/adr/0001-no-repeat-preferences-model-migration.md
+ * @see src/features/profile/components/StylingPreferencesScreen.tsx
+ *
  * Bucketing strategy:
  * - 0: Exact match (okay with repeats)
  * - 1-10: Map to 7 days (~1 week bucket)
@@ -380,6 +398,19 @@ export function toFormData(row: PrefsRow | null): PrefsFormData {
   return {
     colourTendency: mapColourPrefsToTendency(row.colour_prefs),
     exclusions: splitExclusions(row.exclusions),
+    /**
+     * DEPRECATION: noRepeatWindow is populated for backward compatibility only.
+     *
+     * The canonical value is noRepeatDays (below). noRepeatWindow uses bucket
+     * mapping which loses precision for non-standard values (e.g., 3, 30 days).
+     *
+     * New screens (StylingPreferencesScreen) should use noRepeatDays directly.
+     * Legacy screens (PrefsScreen) can continue using noRepeatWindow until
+     * migrated in Phase 2.
+     *
+     * @see mapNoRepeatDaysToWindow for deprecation details
+     * @see docs/adr/0001-no-repeat-preferences-model-migration.md
+     */
     noRepeatWindow: mapNoRepeatDaysToWindow(row.no_repeat_days),
     noRepeatDays: mapNoRepeatDaysToFormData(row.no_repeat_days),
     noRepeatMode: mapNoRepeatModeToFormData(row.no_repeat_mode),
@@ -488,13 +519,28 @@ export function hasAnyData(form: PrefsFormData): boolean {
     return true;
   }
 
-  // Check no-repeat days (legacy window check for backward compatibility)
-  // Skip check if noRepeatWindow is undefined (new code path doesn't use it)
+  /**
+   * DEPRECATION: Dual-field compatibility check for noRepeatWindow.
+   *
+   * This check handles two code paths during the migration period:
+   *
+   * 1. Legacy code (PrefsScreen): Sets noRepeatWindow to a bucket value (0, 7, 14)
+   *    - Check noRepeatWindow !== null to detect user selection
+   *
+   * 2. New code (StylingPreferencesScreen): Sets noRepeatWindow to null/undefined
+   *    - Skip the legacy check (noRepeatWindow is undefined or null)
+   *    - Fall through to noRepeatDays check below
+   *
+   * The noRepeatWindow check is skipped when undefined to allow new screens
+   * that only set noRepeatDays to work correctly.
+   *
+   * @see docs/adr/0001-no-repeat-preferences-model-migration.md
+   */
   if (form.noRepeatWindow !== undefined && form.noRepeatWindow !== null) {
     return true;
   }
 
-  // Check no-repeat days differs from default
+  // Check no-repeat days differs from default (canonical field)
   if (form.noRepeatDays !== DEFAULT_NO_REPEAT_DAYS) {
     return true;
   }
