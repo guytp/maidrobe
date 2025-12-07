@@ -172,8 +172,10 @@ export function PrefsScreen(): React.JSX.Element {
       });
 
       // Success: Emit analytics with privacy-safe flags
+      // Note: Using != null (loose equality) to handle both null and undefined,
+      // since noRepeatWindow is now optional in PrefsFormData (Story #446)
       trackPrefsSaved(
-        formData.noRepeatWindow !== null,
+        formData.noRepeatWindow != null,
         formData.colourTendency !== 'not_sure',
         formData.exclusions.checklist.length > 0 || formData.exclusions.freeText.trim().length > 0,
         formData.comfortNotes.trim().length > 0
