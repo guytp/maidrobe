@@ -2240,6 +2240,394 @@ describe('StylingPreferencesScreen', () => {
         expect(mockMutateAsync).toHaveBeenCalled();
       });
     });
+
+    describe('initial loading state details', () => {
+      it('should have correct accessibility label on loading indicator', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        const loadingIndicator = getByLabelText('Loading styling preferences...');
+        expect(loadingIndicator).toBeTruthy();
+      });
+
+      it('should not show advanced section toggle while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(queryByLabelText('Advanced settings')).toBeNull();
+      });
+
+      it('should not show mode selector while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { queryByLabelText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(queryByLabelText('Key items')).toBeNull();
+        expect(queryByLabelText('Exact outfit only')).toBeNull();
+        expect(queryByText('What should we avoid repeating?')).toBeNull();
+      });
+
+      it('should not show custom days input while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(queryByLabelText('Custom no-repeat window in days')).toBeNull();
+      });
+
+      it('should not show any preset buttons while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(queryByLabelText('Off (okay with repeats)')).toBeNull();
+        expect(queryByLabelText('3 days')).toBeNull();
+        expect(queryByLabelText('7 days')).toBeNull();
+        expect(queryByLabelText('14 days')).toBeNull();
+        expect(queryByLabelText('30 days')).toBeNull();
+      });
+
+      it('should not show no-repeat section description while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(
+          queryByText(/How long before we suggest the same items or outfits again/)
+        ).toBeNull();
+      });
+
+      it('should show back button while loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        expect(getByLabelText('Go back')).toBeTruthy();
+      });
+    });
+
+    describe('loading to loaded transition', () => {
+      it('should show content when loading completes', () => {
+        // Start with loaded state (default mock)
+        const { getByLabelText, queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Loading indicator should not be visible
+        expect(queryByLabelText('Loading styling preferences...')).toBeNull();
+
+        // Content should be visible
+        expect(getByLabelText('7 days')).toBeTruthy();
+        expect(getByLabelText('Advanced settings')).toBeTruthy();
+      });
+
+      it('should populate form with fetched data after loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_days: 14,
+            no_repeat_mode: 'outfit',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // 14 days preset should be selected
+        expect(getByLabelText('14 days').props.accessibilityState.checked).toBe(true);
+        expect(getByLabelText('7 days').props.accessibilityState.checked).toBe(false);
+
+        // Mode should be outfit when expanded
+        fireEvent.press(getByLabelText('Advanced settings'));
+        expect(getByLabelText('Exact outfit only').props.accessibilityState.checked).toBe(true);
+        expect(getByLabelText('Key items').props.accessibilityState.checked).toBe(false);
+      });
+
+      it('should use default values when no data exists after loading', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Default 7 days should be selected
+        expect(getByLabelText('7 days').props.accessibilityState.checked).toBe(true);
+
+        // Default item mode when expanded
+        fireEvent.press(getByLabelText('Advanced settings'));
+        expect(getByLabelText('Key items').props.accessibilityState.checked).toBe(true);
+      });
+    });
+
+    describe('saving state details', () => {
+      it('should show saving indicator with correct accessibility label', async () => {
+        // Create a promise that we can control
+        let resolvePromise: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolvePromise = resolve;
+        });
+        mockMutateAsync.mockReturnValueOnce(savePromise);
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger save
+        fireEvent.press(getByLabelText('3 days'));
+
+        // Saving indicator should appear with correct label
+        await waitFor(() => {
+          expect(getByLabelText('Saving...')).toBeTruthy();
+        });
+
+        // Resolve the promise to clean up
+        resolvePromise!({ ...mockPrefsData, no_repeat_days: 3 });
+      });
+
+      it('should show saving indicator during mode change', async () => {
+        let resolvePromise: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolvePromise = resolve;
+        });
+        mockMutateAsync.mockReturnValueOnce(savePromise);
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Expand advanced section and change mode
+        fireEvent.press(getByLabelText('Advanced settings'));
+        fireEvent.press(getByLabelText('Exact outfit only'));
+
+        // Saving indicator should appear
+        await waitFor(() => {
+          expect(getByLabelText('Saving...')).toBeTruthy();
+        });
+
+        // Resolve to clean up
+        resolvePromise!({ ...mockPrefsData, no_repeat_mode: 'outfit' });
+      });
+
+      it('should hide saving indicator after save completes successfully', async () => {
+        const { getByLabelText, queryByLabelText, getByText } = render(
+          <StylingPreferencesScreen />,
+          {
+            wrapper: TestWrapper,
+          }
+        );
+
+        // Trigger save
+        fireEvent.press(getByLabelText('3 days'));
+
+        // Wait for success message which indicates save completed
+        await waitFor(() => {
+          expect(getByText('Preferences saved')).toBeTruthy();
+        });
+
+        // Saving indicator should be gone
+        expect(queryByLabelText('Saving...')).toBeNull();
+      });
+
+      it('should hide saving indicator after save fails', async () => {
+        mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+
+        const { getByLabelText, queryByLabelText, getByText } = render(
+          <StylingPreferencesScreen />,
+          {
+            wrapper: TestWrapper,
+          }
+        );
+
+        // Trigger save that will fail
+        fireEvent.press(getByLabelText('3 days'));
+
+        // Wait for error message
+        await waitFor(() => {
+          expect(getByText("Couldn't save. Please try again.")).toBeTruthy();
+        });
+
+        // Saving indicator should be gone
+        expect(queryByLabelText('Saving...')).toBeNull();
+      });
+
+      it('should allow preset selection while save is in progress', async () => {
+        let resolvePromise: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolvePromise = resolve;
+        });
+        mockMutateAsync.mockReturnValueOnce(savePromise);
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger first save
+        fireEvent.press(getByLabelText('3 days'));
+
+        // Wait for saving state
+        await waitFor(() => {
+          expect(getByLabelText('Saving...')).toBeTruthy();
+        });
+
+        // Preset buttons should still be interactive (user can change selection)
+        // This triggers another save attempt
+        mockMutateAsync.mockResolvedValueOnce({ ...mockPrefsData, no_repeat_days: 14 });
+        fireEvent.press(getByLabelText('14 days'));
+
+        // Resolve first promise to clean up
+        resolvePromise!({ ...mockPrefsData, no_repeat_days: 3 });
+
+        // Verify second call was made
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+        });
+      });
+    });
+
+    describe('loading vs saving distinction', () => {
+      it('should show full-screen loading for initial fetch', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: true,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText, queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Full screen loading indicator should be visible
+        expect(getByLabelText('Loading styling preferences...')).toBeTruthy();
+
+        // No preset buttons should be visible
+        expect(queryByLabelText('7 days')).toBeNull();
+      });
+
+      it('should show header saving indicator for mutations, not full-screen loading', async () => {
+        let resolvePromise: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolvePromise = resolve;
+        });
+        mockMutateAsync.mockReturnValueOnce(savePromise);
+
+        const { getByLabelText, queryByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Trigger save
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          // Small header saving indicator should be visible
+          expect(getByLabelText('Saving...')).toBeTruthy();
+        });
+
+        // Full-screen loading should NOT be visible
+        expect(queryByLabelText('Loading styling preferences...')).toBeNull();
+
+        // Preset buttons should still be visible
+        expect(getByLabelText('7 days')).toBeTruthy();
+        expect(getByLabelText('14 days')).toBeTruthy();
+
+        // Clean up
+        resolvePromise!({ ...mockPrefsData, no_repeat_days: 3 });
+      });
+
+      it('should maintain content visibility during save operation', async () => {
+        let resolvePromise: (value: unknown) => void;
+        const savePromise = new Promise((resolve) => {
+          resolvePromise = resolve;
+        });
+        mockMutateAsync.mockReturnValueOnce(savePromise);
+
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Expand advanced section first
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        // Verify content is visible
+        expect(getByText('What should we avoid repeating?')).toBeTruthy();
+        expect(getByLabelText('Key items')).toBeTruthy();
+
+        // Trigger save
+        fireEvent.press(getByLabelText('3 days'));
+
+        await waitFor(() => {
+          expect(getByLabelText('Saving...')).toBeTruthy();
+        });
+
+        // Content should still be visible during save
+        expect(getByText('What should we avoid repeating?')).toBeTruthy();
+        expect(getByLabelText('Key items')).toBeTruthy();
+        expect(getByLabelText('Advanced settings')).toBeTruthy();
+
+        // Clean up
+        resolvePromise!({ ...mockPrefsData, no_repeat_days: 3 });
+      });
+    });
   });
 
   describe('Theme Integration', () => {
