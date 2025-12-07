@@ -590,6 +590,210 @@ describe('StylingPreferencesScreen', () => {
       expect(getByLabelText('Key items')).toBeTruthy();
       expect(getByLabelText('Exact outfit only')).toBeTruthy();
     });
+
+    it('should have collapsed accessibility state by default', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(false);
+    });
+
+    it('should show collapsed arrow indicator by default', () => {
+      const { getByText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Collapsed state shows right-pointing arrow
+      expect(getByText('▶')).toBeTruthy();
+    });
+
+    it('should show expanded arrow indicator when open', () => {
+      const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Initially collapsed
+      expect(getByText('▶')).toBeTruthy();
+
+      // Expand
+      fireEvent.press(getByLabelText('Advanced settings'));
+
+      // Should show down arrow
+      expect(getByText('▼')).toBeTruthy();
+      expect(queryByText('▶')).toBeNull();
+    });
+
+    it('should restore collapsed arrow indicator after closing', () => {
+      const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+
+      // Expand
+      fireEvent.press(advancedToggle);
+      expect(getByText('▼')).toBeTruthy();
+
+      // Collapse
+      fireEvent.press(advancedToggle);
+      expect(getByText('▶')).toBeTruthy();
+      expect(queryByText('▼')).toBeNull();
+    });
+
+    it('should have accessibility state expanded false after collapse', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+
+      // Expand
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(true);
+
+      // Collapse
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(false);
+    });
+
+    it('should hide all advanced elements when collapsed', () => {
+      const { queryByLabelText, queryByText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Custom days input should not be visible
+      expect(queryByLabelText('Custom no-repeat window in days')).toBeNull();
+
+      // Mode selector should not be visible
+      expect(queryByText('What should we avoid repeating?')).toBeNull();
+      expect(queryByLabelText('Key items')).toBeNull();
+      expect(queryByLabelText('Exact outfit only')).toBeNull();
+
+      // Range hint should not be visible
+      expect(queryByText('Enter a value from 0 to 90 days')).toBeNull();
+
+      // Custom window label should not be visible
+      expect(queryByText('Custom window:')).toBeNull();
+    });
+
+    it('should show all advanced elements when expanded', () => {
+      const { getByLabelText, getByText, getAllByText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Expand
+      fireEvent.press(getByLabelText('Advanced settings'));
+
+      // Custom days input should be visible
+      expect(getByLabelText('Custom no-repeat window in days')).toBeTruthy();
+
+      // Custom window label should be visible
+      expect(getByText('Custom window:')).toBeTruthy();
+
+      // Days suffix should be visible (multiple "days" texts exist from preset buttons)
+      const daysTexts = getAllByText('days');
+      expect(daysTexts.length).toBeGreaterThan(0);
+
+      // Range hint should be visible
+      expect(getByText('Enter a value from 0 to 90 days')).toBeTruthy();
+
+      // Mode section should be visible
+      expect(getByText('What should we avoid repeating?')).toBeTruthy();
+      expect(getByLabelText('Key items')).toBeTruthy();
+      expect(getByLabelText('Exact outfit only')).toBeTruthy();
+
+      // Mode descriptions should be visible
+      expect(
+        getByText(
+          'Avoid repeating your main pieces like tops and bottoms. More variety day-to-day.'
+        )
+      ).toBeTruthy();
+      expect(
+        getByText('Only avoid the exact same outfit combination. Individual items can repeat.')
+      ).toBeTruthy();
+    });
+
+    it('should maintain toggle state through multiple open/close cycles', () => {
+      const { getByLabelText, queryByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+
+      // Cycle 1: Open
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(true);
+      expect(getByLabelText('Custom no-repeat window in days')).toBeTruthy();
+
+      // Cycle 1: Close
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(false);
+      expect(queryByLabelText('Custom no-repeat window in days')).toBeNull();
+
+      // Cycle 2: Open
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(true);
+      expect(getByLabelText('Custom no-repeat window in days')).toBeTruthy();
+
+      // Cycle 2: Close
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(false);
+      expect(queryByLabelText('Custom no-repeat window in days')).toBeNull();
+
+      // Cycle 3: Open again to verify consistent behavior
+      fireEvent.press(advancedToggle);
+      expect(advancedToggle.props.accessibilityState.expanded).toBe(true);
+      expect(getByLabelText('Custom no-repeat window in days')).toBeTruthy();
+    });
+
+    it('should have correct accessibility hint on toggle button', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+      expect(advancedToggle.props.accessibilityHint).toBe('Expand or collapse advanced settings');
+    });
+
+    it('should have button accessibility role on toggle', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      const advancedToggle = getByLabelText('Advanced settings');
+      expect(advancedToggle.props.accessibilityRole).toBe('button');
+    });
+
+    it('should show mode options with radio accessibility role when expanded', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Expand
+      fireEvent.press(getByLabelText('Advanced settings'));
+
+      // Mode options should have radio role
+      const itemMode = getByLabelText('Key items');
+      const outfitMode = getByLabelText('Exact outfit only');
+
+      expect(itemMode.props.accessibilityRole).toBe('radio');
+      expect(outfitMode.props.accessibilityRole).toBe('radio');
+    });
+
+    it('should show custom input with current value when expanded', () => {
+      const { getByLabelText } = render(<StylingPreferencesScreen />, {
+        wrapper: TestWrapper,
+      });
+
+      // Expand
+      fireEvent.press(getByLabelText('Advanced settings'));
+
+      // Custom input should show current value (7 days default)
+      const customInput = getByLabelText('Custom no-repeat window in days');
+      expect(customInput.props.value).toBe('7');
+    });
   });
 
   describe('Custom Days Input Validation', () => {
