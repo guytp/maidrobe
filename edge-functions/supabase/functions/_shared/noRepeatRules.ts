@@ -39,12 +39,41 @@ export const DEFAULT_STRICT_MIN_COUNT = 3;
 // ============================================================================
 // Types
 // ============================================================================
+//
+// ## Type Duplication Strategy
+//
+// The `Item` and `Outfit` interfaces defined here intentionally duplicate
+// similar types from `get-outfit-recommendations/types.ts`. This is a
+// deliberate design decision to keep this module self-contained and reusable:
+//
+// - `Item` mirrors `RepeatedItemSummary` from types.ts
+// - `Outfit` mirrors the `Outfit` interface from types.ts
+//
+// By defining minimal local interfaces, this module:
+// 1. Avoids import dependencies on endpoint-specific types
+// 2. Can be reused by future AI recommendation engines
+// 3. Documents only the fields it actually requires
+//
+// ## Keeping Types in Sync
+//
+// If the canonical types in `types.ts` evolve (e.g., new required fields):
+// 1. Assess whether this module needs the new fields
+// 2. If yes, add the field to the local interface with documentation
+// 3. If no, the local interface remains unchanged (consumers handle mapping)
+//
+// The module's interfaces are intentionally minimal - they define the shape
+// this module *needs*, not the full shape the system *provides*.
+// ============================================================================
 
 /**
  * Minimal item representation for fallback metadata.
  *
  * Used to communicate which items would be repeated in fallback outfits.
  * The `name` field is optional and used for client-side display when available.
+ *
+ * Note: This interface mirrors `RepeatedItemSummary` from
+ * `get-outfit-recommendations/types.ts`. See "Type Duplication Strategy"
+ * comment above for rationale and sync guidance.
  */
 export interface Item {
   /** Unique identifier for the item (UUID) */
@@ -58,6 +87,10 @@ export interface Item {
  *
  * This interface defines the minimal shape required by the rules module.
  * It is compatible with the full Outfit type from the recommendation endpoint.
+ *
+ * Note: This interface mirrors the `Outfit` interface from
+ * `get-outfit-recommendations/types.ts`. See "Type Duplication Strategy"
+ * comment in the Types section header for rationale and sync guidance.
  */
 export interface Outfit {
   /** Unique identifier for this outfit (UUID) */
