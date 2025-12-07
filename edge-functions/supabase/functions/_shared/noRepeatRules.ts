@@ -209,14 +209,32 @@ export function daysBetween(targetDate: Date, wornDate: Date): number {
 /**
  * Determines if a wear event falls within the blocked window.
  *
- * Given a wear event on date D with noRepeatDays=N:
- * - Days D+1 through D+N are blocked
- * - D+N+1 onward is allowed
- * - Same-day (D) is allowed
+ * This is the single, reusable helper for time-window logic used by both
+ * item and outfit modes. It implements calendar-day semantics in the user's
+ * local timezone.
+ *
+ * ## Blocked Window Definition
+ *
+ * Given a wear event on date D with noRepeatDays=N, the blocked window is:
+ * - From: targetDate - noRepeatDays (inclusive), i.e., targetDate - N
+ * - To: targetDate - 1 (inclusive)
+ *
+ * Equivalently, from the perspective of the wear date D:
+ * - Days D+1 through D+N are blocked for recommendations
+ * - Day D+N+1 onward: the item/outfit is eligible again
+ * - Same-day repeats on D are allowed (v1 behaviour)
+ *
+ * ## Examples
+ *
+ * With noRepeatDays=7 and targetDate=2024-01-15:
+ * - Worn on 2024-01-15 (same day): NOT blocked (same-day allowed)
+ * - Worn on 2024-01-14 (1 day ago): BLOCKED (within window)
+ * - Worn on 2024-01-08 (7 days ago): BLOCKED (within window)
+ * - Worn on 2024-01-07 (8 days ago): NOT blocked (outside window)
  *
  * @param targetDate - Date for which recommendations are requested
  * @param wornDate - Date the outfit/item was worn
- * @param noRepeatDays - Number of days in the no-repeat window
+ * @param noRepeatDays - Number of days in the no-repeat window (N)
  * @returns true if the wear event blocks recommendations on targetDate
  */
 export function isWithinBlockedWindow(
@@ -358,10 +376,29 @@ interface RecentSets {
 /**
  * Builds sets of recently worn items and outfits from wear history.
  *
- * Only includes entries that fall within the blocked window relative to targetDate.
+ * This function derives `recentItemIds` and `recentOutfitIds` from wear history
+ * events occurring within the blocked window:
+ * - From: targetDate - noRepeatDays (inclusive)
+ * - To: targetDate - 1 (inclusive)
+ *
+ * The same time window is used for both item and outfit modes, ensuring
+ * consistent behaviour. The `isWithinBlockedWindow` helper is used to
+ * determine which entries fall within this window.
+ *
+ * ## Item Mode Usage
+ *
+ * The `recentItemIds` set contains all item IDs from wear history entries
+ * within the blocked window. Any candidate outfit with itemIds intersecting
+ * this set will be excluded from strictFiltered.
+ *
+ * ## Outfit Mode Usage
+ *
+ * The `recentOutfitIds` set contains all outfit IDs from wear history entries
+ * within the blocked window. Any candidate whose ID appears in this set will
+ * be excluded from strictFiltered.
  *
  * @param wearHistory - Array of wear history entries
- * @param targetDate - Parsed target date
+ * @param targetDate - Parsed target date (Date object at UTC midnight)
  * @param noRepeatDays - Number of days in the no-repeat window
  * @returns Sets of recent item IDs and outfit IDs
  */
@@ -405,14 +442,27 @@ function buildRecentSets(
 /**
  * Determines if a candidate outfit passes strict filtering.
  *
- * In item mode: passes if NONE of its items are in recentItemIds
- * In outfit mode: passes if its ID is NOT in recentOutfitIds
+ * This function implements the mode-specific exclusion logic:
+ *
+ * ## Item Mode
+ *
+ * A candidate is excluded from strictFiltered if ANY of its itemIds
+ * intersect with recentItemIds. This means if even one item in the
+ * candidate outfit was worn within the blocked window, the entire
+ * outfit is excluded.
+ *
+ * ## Outfit Mode
+ *
+ * A candidate is excluded from strictFiltered only if its exact
+ * outfit ID (candidate.id) appears in recentOutfitIds. Individual
+ * items may have been worn recently, but as long as this specific
+ * outfit combination wasn't worn, it passes.
  *
  * @param candidate - The outfit to check
  * @param mode - The no-repeat mode ('item' or 'outfit')
- * @param recentItemIds - Set of recently worn item IDs
- * @param recentOutfitIds - Set of recently worn outfit IDs
- * @returns true if the candidate passes strict filtering
+ * @param recentItemIds - Set of item IDs worn within the blocked window
+ * @param recentOutfitIds - Set of outfit IDs worn within the blocked window
+ * @returns true if the candidate passes strict filtering (not excluded)
  */
 function isCandidateStrict(
   candidate: Outfit,
