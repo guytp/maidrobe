@@ -71,6 +71,81 @@ The database `prefs` table already uses `no_repeat_days INTEGER` (0-180 range), 
    - Delete `NoRepeatWindow` type
    - Delete related validation schemas
 
+## Dual-Field Behaviour During Migration
+
+During Phase 1, both `noRepeatWindow` and `noRepeatDays` coexist in `PrefsFormData`. This section documents the read/write path behaviour to ensure consistency across the codebase.
+
+### Write Path (Saving Preferences)
+
+New screens (StylingPreferencesScreen) explicitly set `noRepeatWindow: null` when saving:
+
+```typescript
+// StylingPreferencesScreen.tsx - handlePresetPress
+const newFormData = {
+  ...formData,
+  noRepeatDays: value, // Canonical value (e.g., 3, 7, 30)
+  noRepeatWindow: null, // Explicitly null to signal new model
+};
+```
+
+**Why null the legacy field?**
+
+1. **Signal intent**: A `null` value indicates this save came from new code using `noRepeatDays`
+2. **Skip legacy logic**: Code checking `noRepeatWindow !== null` will correctly skip bucket-based behaviour
+3. **Clean data**: Prevents stale bucket values from conflicting with precise day values
+
+### Read Path (Loading Preferences)
+
+The `toFormData()` function populates both fields for backward compatibility:
+
+```typescript
+// prefsMapping.ts - toFormData
+return {
+  // ... other fields
+  noRepeatWindow: mapNoRepeatDaysToWindow(row.no_repeat_days), // Legacy (lossy)
+  noRepeatDays: mapNoRepeatDaysToFormData(row.no_repeat_days), // Canonical
+  noRepeatMode: mapNoRepeatModeToFormData(row.no_repeat_mode),
+};
+```
+
+**Key behaviours:**
+
+- `noRepeatDays` preserves the exact database value (e.g., 3, 25, 45)
+- `noRepeatWindow` maps to nearest bucket (0, 7, 14) or `null` if out of range
+- Legacy screens can continue reading `noRepeatWindow` without modification
+- New screens ignore `noRepeatWindow` and use `noRepeatDays` directly
+
+### Detection Logic (hasAnyData)
+
+The `hasAnyData()` function handles both old and new code paths:
+
+```typescript
+// prefsMapping.ts - hasAnyData
+// Legacy check: noRepeatWindow set to a bucket value
+if (form.noRepeatWindow !== undefined && form.noRepeatWindow !== null) {
+  return true;
+}
+
+// New check: noRepeatDays differs from default
+if (form.noRepeatDays !== DEFAULT_NO_REPEAT_DAYS) {
+  return true;
+}
+```
+
+This ensures:
+
+- Legacy saves (with `noRepeatWindow: 7`) are detected via the first check
+- New saves (with `noRepeatWindow: null, noRepeatDays: 30`) are detected via the second check
+
+### Summary Table
+
+| Operation              | Legacy Screen (PrefsScreen) | New Screen (StylingPreferencesScreen) |
+| ---------------------- | --------------------------- | ------------------------------------- |
+| Read `noRepeatWindow`  | ✅ Uses bucket value        | ❌ Ignores                            |
+| Read `noRepeatDays`    | ❌ Not used                 | ✅ Uses exact value                   |
+| Write `noRepeatWindow` | Sets bucket (0, 7, 14)      | Sets `null`                           |
+| Write `noRepeatDays`   | Derived from bucket         | Sets exact value                      |
+
 ## Consequences
 
 ### Positive
