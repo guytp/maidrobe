@@ -87,8 +87,21 @@ export type ColourTendency = ColourTag | 'not_sure';
 export type NoRepeatWindowPreset = 0 | 3 | 7 | 14 | 30 | null;
 
 /**
- * @deprecated Use NoRepeatWindowPreset for preset buttons.
- * Kept for backward compatibility with existing onboarding code.
+ * Legacy no-repeat window preset options.
+ *
+ * @deprecated Since Story #446 (2025-Q1). Use NoRepeatWindowPreset for preset buttons
+ * and noRepeatDays (number) for the actual value.
+ *
+ * Migration guide:
+ * - Replace NoRepeatWindow type with NoRepeatWindowPreset (adds 3 and 30 day options)
+ * - Replace noRepeatWindow field with noRepeatDays (number, 0-90 range)
+ * - The legacy 0/7/14/null bucket mapping is no longer needed; use exact days directly
+ *
+ * This type will be removed in a future release once all usages are migrated.
+ * Remaining usages: PrefsFormData.noRepeatWindow, onboarding PrefsScreen.
+ *
+ * @see NoRepeatWindowPreset for the updated preset type
+ * @see PrefsFormData.noRepeatDays for the replacement field
  */
 export type NoRepeatWindow = 0 | 7 | 14 | null;
 
@@ -205,8 +218,14 @@ export interface PrefsFormData {
   /** Items/styles user never wears */
   exclusions: ExclusionsData;
   /**
-   * Days to wait before repeating outfits (legacy preset bucket)
-   * @deprecated Use noRepeatDays for the actual value
+   * Days to wait before repeating outfits (legacy preset bucket).
+   *
+   * @deprecated Since Story #446 (2025-Q1). Use noRepeatDays for the actual value.
+   *
+   * This field used coarse buckets (0, 7, 14) while noRepeatDays stores exact values (0-90).
+   * The field will be made optional, then removed in a future release.
+   *
+   * Migration: Remove this field from form state; read/write noRepeatDays directly.
    */
   noRepeatWindow: NoRepeatWindow;
   /**

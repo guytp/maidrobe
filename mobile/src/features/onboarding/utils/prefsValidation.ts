@@ -74,7 +74,13 @@ export const ColourTendencySchema = z.enum(['neutrals', 'some_colour', 'bold_col
  * Schema for no-repeat window validation (legacy preset buckets).
  *
  * Validates that value is one of the preset buckets or null.
- * @deprecated Use NoRepeatDaysSchema for the actual value validation.
+ *
+ * @deprecated Since Story #446 (2025-Q1). Use NoRepeatDaysSchema for actual value validation
+ * or NoRepeatWindowPresetSchema for extended preset validation.
+ *
+ * This schema only supports the original 0/7/14 presets. New code should use:
+ * - NoRepeatWindowPresetSchema: Validates all preset values (0, 3, 7, 14, 30)
+ * - NoRepeatDaysSchema: Validates custom day input (0-90 range)
  */
 export const NoRepeatWindowSchema = z.union([z.literal(0), z.literal(7), z.literal(14), z.null()]);
 
