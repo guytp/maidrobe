@@ -190,14 +190,59 @@ export interface Outfit {
 }
 
 /**
+ * Lightweight item reference for repeated items in fallback outfits.
+ *
+ * Contains the minimal information needed for client display when
+ * an outfit includes items that were recently worn.
+ */
+export interface RepeatedItemSummary {
+  /** Item ID that would be repeated */
+  id: string;
+  /** Optional item name if readily available (may be undefined for stub) */
+  name?: string;
+}
+
+/**
+ * No-repeat filtering metadata for an outfit recommendation.
+ *
+ * This metadata is included with each outfit to indicate how it was
+ * selected relative to the user's no-repeat preferences.
+ */
+export interface OutfitNoRepeatMeta {
+  /**
+   * Classification of how the outfit passed filtering:
+   * - 'strict': Fully complies with no-repeat rules (no repeated items/outfits)
+   * - 'fallback': Included despite repeating some items (when strict pool too small)
+   */
+  filterStatus: 'strict' | 'fallback';
+  /**
+   * For fallback outfits: summary of items that would be repeated.
+   * Empty array for strict outfits.
+   */
+  repeatedItems: RepeatedItemSummary[];
+}
+
+/**
+ * Extended outfit with no-repeat filtering metadata.
+ *
+ * This interface extends the base Outfit with optional metadata about
+ * how the outfit relates to the user's no-repeat preferences.
+ * The metadata is additive and backwards-compatible.
+ */
+export interface OutfitWithMeta extends Outfit {
+  /** No-repeat filtering metadata (present when no-repeat rules applied) */
+  noRepeatMeta?: OutfitNoRepeatMeta;
+}
+
+/**
  * Response shape for the get-outfit-recommendations endpoint.
  *
  * Contains an array of outfit suggestions wrapped in a top-level object.
  * This structure allows for future expansion without breaking the contract.
  */
 export interface OutfitRecommendationsResponse {
-  /** Array of outfit suggestions (3-10 items) */
-  outfits: Outfit[];
+  /** Array of outfit suggestions (3-10 items), may include noRepeatMeta */
+  outfits: OutfitWithMeta[];
 }
 
 // ============================================================================
