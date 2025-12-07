@@ -58,6 +58,13 @@ import {
   DEFAULT_OCCASION,
   DEFAULT_TEMPERATURE_BAND,
 } from './types.ts';
+import {
+  applyNoRepeatRules,
+  type WearHistoryEntry,
+  type NoRepeatPrefs,
+  type ApplyNoRepeatRulesResult,
+  DEFAULT_STRICT_MIN_COUNT,
+} from '../_shared/noRepeatRules.ts';
 
 // ============================================================================
 // Constants
@@ -228,11 +235,18 @@ async function safeParseRequestBody(req: Request): Promise<unknown> {
 // This provides full type safety without needing custom interface definitions.
 
 /**
+ * Default no-repeat mode when not specified or invalid.
+ */
+const DEFAULT_NO_REPEAT_MODE: 'item' | 'outfit' = 'item';
+
+/**
  * Result of fetching user's no-repeat preferences.
  */
 interface NoRepeatPrefsResult {
   /** The clamped noRepeatDays value (0-90). */
   noRepeatDays: number;
+  /** The no-repeat mode ('item' or 'outfit'). */
+  noRepeatMode: 'item' | 'outfit';
   /** Whether default preferences are being used (due to missing record or lookup error). */
   usingDefaultPrefs: boolean;
 }
@@ -241,10 +255,8 @@ interface NoRepeatPrefsResult {
  * Result of fetching user's recent wear history.
  */
 interface WearHistoryResult {
-  /** Set of item IDs that have been worn within the no-repeat window. */
-  recentlyWornItemIds: Set<string>;
-  /** Map of item ID to most recent worn_at timestamp (ISO 8601). */
-  itemWornAtMap: Map<string, string>;
+  /** Wear history entries compatible with noRepeatRules module. */
+  wearHistory: WearHistoryEntry[];
   /** Whether the history lookup failed or timed out. */
   historyLookupFailed: boolean;
   /** Whether the row limit was reached (may have incomplete data). */
@@ -252,27 +264,19 @@ interface WearHistoryResult {
 }
 
 /**
- * Result of applying no-repeat filtering to outfit candidates.
- */
-interface NoRepeatFilterResult {
-  /** Outfits that passed the filter (at least one item not recently worn). */
-  eligible: Outfit[];
-  /** Outfits that were excluded (all items worn within the window). */
-  excluded: Outfit[];
-}
-
-/**
- * Result of applying MIN/MAX selection with fallback logic.
+ * Result of applying final selection with fallback logic.
  */
 interface SelectionResult {
   /** Final list of outfits to return (between 0 and MAX_OUTFITS). */
   outfits: Outfit[];
-  /** Number of outfits added back from excluded list via fallback. */
+  /** Number of outfits from fallback candidates used. */
   fallbackCount: number;
   /** Whether a configuration warning was triggered (pool too small). */
   configWarning: boolean;
   /** Whether a configuration error was triggered (pool empty). */
   configError: boolean;
+  /** IDs of items that would be repeated (for analytics). */
+  repeatedItemIds: string[];
 }
 
 // ============================================================================
@@ -358,12 +362,25 @@ export function bucketNoRepeatDays(days: number): NoRepeatDaysBucket {
 }
 
 /**
- * Fetches the user's noRepeatDays preference from the prefs table.
+ * Validates and normalizes the no_repeat_mode value.
+ *
+ * @param value - The raw no_repeat_mode value from the database
+ * @returns A valid 'item' or 'outfit' mode
+ */
+function normalizeNoRepeatMode(value: unknown): 'item' | 'outfit' {
+  if (value === 'item' || value === 'outfit') {
+    return value;
+  }
+  return DEFAULT_NO_REPEAT_MODE;
+}
+
+/**
+ * Fetches the user's no-repeat preferences from the prefs table.
  *
  * Implements degraded-mode behaviour:
- * - If the query fails, logs a warning and returns noRepeatDays = 0
- * - If no prefs record exists, logs a warning and returns noRepeatDays = 0
- * - Successfully retrieved values are clamped to [0, 90]
+ * - If the query fails, logs a warning and returns noRepeatDays = 0, mode = 'item'
+ * - If no prefs record exists, logs a warning and returns noRepeatDays = 0, mode = 'item'
+ * - Successfully retrieved values are clamped/normalized
  *
  * Security:
  * - Uses RLS via user JWT (automatic filtering by auth.uid())
@@ -372,9 +389,9 @@ export function bucketNoRepeatDays(days: number): NoRepeatDaysBucket {
  * @param supabase - Supabase client authenticated as the user
  * @param userId - The authenticated user's ID
  * @param logger - Structured logger for observability
- * @returns Promise resolving to NoRepeatPrefsResult with clamped value and failure flag
+ * @returns Promise resolving to NoRepeatPrefsResult with clamped/normalized values
  */
-async function fetchUserNoRepeatDays(
+async function fetchUserNoRepeatPrefs(
   supabase: SupabaseClient,
   userId: string,
   logger: StructuredLogger
@@ -385,7 +402,7 @@ async function fetchUserNoRepeatDays(
     // filtering as a defence-in-depth measure
     const { data, error } = await supabase
       .from('prefs')
-      .select('no_repeat_days')
+      .select('no_repeat_days, no_repeat_mode')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -398,11 +415,13 @@ async function fetchUserNoRepeatDays(
         metadata: {
           degraded_mode: true,
           default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+          default_no_repeat_mode: DEFAULT_NO_REPEAT_MODE,
         },
       });
 
       return {
         noRepeatDays: NO_REPEAT_DAYS_MIN,
+        noRepeatMode: DEFAULT_NO_REPEAT_MODE,
         usingDefaultPrefs: true,
       };
     }
@@ -414,39 +433,44 @@ async function fetchUserNoRepeatDays(
         metadata: {
           degraded_mode: true,
           default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+          default_no_repeat_mode: DEFAULT_NO_REPEAT_MODE,
         },
       });
 
       return {
         noRepeatDays: NO_REPEAT_DAYS_MIN,
+        noRepeatMode: DEFAULT_NO_REPEAT_MODE,
         usingDefaultPrefs: true,
       };
     }
 
-    // Successfully retrieved prefs - clamp the value
-    const rawValue = data.no_repeat_days;
-    const clampedValue = clampNoRepeatDays(rawValue);
+    // Successfully retrieved prefs - clamp and normalize values
+    const rawDays = data.no_repeat_days;
+    const clampedDays = clampNoRepeatDays(rawDays);
+    const normalizedMode = normalizeNoRepeatMode(data.no_repeat_mode);
 
     // Determine if actual range clamping was applied (value was outside [0, 90]).
     // We normalise the raw value to an integer first (matching clampNoRepeatDays behaviour)
     // to avoid false positives from type coercion (e.g., string "30" vs number 30) or
     // floating point differences (e.g., 30.5 floored to 30 is not "clamping").
     // was_clamped should only be true when the floored value fell outside the valid range.
-    const numericRaw = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    const numericRaw = typeof rawDays === 'number' ? rawDays : Number(rawDays);
     const flooredRaw = Number.isNaN(numericRaw) ? 0 : Math.floor(numericRaw);
-    const wasClamped = flooredRaw < NO_REPEAT_DAYS_MIN || flooredRaw > NO_REPEAT_DAYS_MAX;
+    const wasDaysClamped = flooredRaw < NO_REPEAT_DAYS_MIN || flooredRaw > NO_REPEAT_DAYS_MAX;
 
     logger.debug('prefs_loaded', {
       user_id: userId,
       metadata: {
-        no_repeat_days_clamped: clampedValue,
+        no_repeat_days_clamped: clampedDays,
+        no_repeat_mode: normalizedMode,
         // Log whether range clamping was applied (value was outside [0, 90])
-        was_clamped: wasClamped,
+        was_days_clamped: wasDaysClamped,
       },
     });
 
     return {
-      noRepeatDays: clampedValue,
+      noRepeatDays: clampedDays,
+      noRepeatMode: normalizedMode,
       usingDefaultPrefs: false,
     };
   } catch (err) {
@@ -459,11 +483,13 @@ async function fetchUserNoRepeatDays(
       metadata: {
         degraded_mode: true,
         default_no_repeat_days: NO_REPEAT_DAYS_MIN,
+        default_no_repeat_mode: DEFAULT_NO_REPEAT_MODE,
       },
     });
 
     return {
       noRepeatDays: NO_REPEAT_DAYS_MIN,
+      noRepeatMode: DEFAULT_NO_REPEAT_MODE,
       usingDefaultPrefs: true,
     };
   }
@@ -474,85 +500,88 @@ async function fetchUserNoRepeatDays(
 // ============================================================================
 
 /**
- * Computes the UTC cutoff timestamp for wear history queries.
+ * Computes the cutoff date for wear history queries.
+ *
+ * We add an extra buffer day to the query to ensure we capture all potentially
+ * relevant entries. The noRepeatRules module will do the precise calendar-day
+ * filtering using the targetDate.
  *
  * @param noRepeatDays - Number of days in the no-repeat window (1-90)
- * @returns ISO 8601 timestamp string representing the cutoff
+ * @returns ISO 8601 date string (YYYY-MM-DD) representing the cutoff
  */
-function computeWearHistoryCutoff(noRepeatDays: number): string {
-  const now = Date.now();
-  const cutoffMs = now - noRepeatDays * MS_PER_DAY;
-  return new Date(cutoffMs).toISOString();
+function computeWearHistoryCutoffDate(noRepeatDays: number): string {
+  const now = new Date();
+  // Add buffer to ensure we get all relevant entries
+  const cutoffMs = now.getTime() - (noRepeatDays + 1) * MS_PER_DAY;
+  const cutoff = new Date(cutoffMs);
+  // Return YYYY-MM-DD format
+  return cutoff.toISOString().split('T')[0];
 }
 
 /**
- * Result of extracting item IDs and timestamps from wear history rows.
- */
-interface WearHistoryExtraction {
-  /** Set of all unique item IDs found in the rows. */
-  itemIds: Set<string>;
-  /** Map of item ID to most recent worn_at timestamp. */
-  itemWornAtMap: Map<string, string>;
-}
-
-/**
- * Extracts item IDs and worn_at timestamps from wear history rows.
+ * Converts database wear history rows to WearHistoryEntry format.
  *
- * Each wear history row contains an `item_ids` array of item UUIDs and
- * a `worn_at` timestamp. This function:
- * - Flattens all item_ids into a single Set for O(1) lookups
- * - Builds a map from item ID to its most recent worn_at timestamp
- *
- * For the timestamp map, if an item appears in multiple rows, we keep
- * the most recent (lexicographically largest) ISO 8601 timestamp.
+ * Each row contains item_ids (array), outfit_id (UUID), and worn_date (DATE).
+ * This function transforms them into the format expected by the noRepeatRules module.
  *
  * @param rows - Array of wear history rows from the database
- * @returns Object with itemIds Set and itemWornAtMap
+ * @returns Array of WearHistoryEntry objects
  */
-function extractWearHistoryData(rows: Record<string, unknown>[]): WearHistoryExtraction {
-  const itemIds = new Set<string>();
-  const itemWornAtMap = new Map<string, string>();
+function convertToWearHistoryEntries(rows: Record<string, unknown>[]): WearHistoryEntry[] {
+  const entries: WearHistoryEntry[] = [];
 
   for (const row of rows) {
     const rowItemIds = row.item_ids;
-    const wornAt = row.worn_at;
+    const wornDate = row.worn_date;
+    const outfitId = row.outfit_id;
 
     // Validate that item_ids is an array
     if (!Array.isArray(rowItemIds)) {
       continue;
     }
 
-    // Validate worn_at is a string (ISO 8601 timestamp)
-    const wornAtStr = typeof wornAt === 'string' ? wornAt : null;
+    // Validate worn_date is a string (YYYY-MM-DD format from DATE column)
+    if (typeof wornDate !== 'string') {
+      continue;
+    }
 
-    // Process each item ID in this row
+    // Extract valid string item IDs
+    const itemIds: string[] = [];
     for (const itemId of rowItemIds) {
       if (typeof itemId === 'string' && itemId.length > 0) {
-        itemIds.add(itemId);
-
-        // Update the worn_at map if this is more recent
-        if (wornAtStr !== null) {
-          const existing = itemWornAtMap.get(itemId);
-          // ISO 8601 strings can be compared lexicographically
-          if (existing === undefined || wornAtStr > existing) {
-            itemWornAtMap.set(itemId, wornAtStr);
-          }
-        }
+        itemIds.push(itemId);
       }
     }
+
+    // Skip if no valid item IDs
+    if (itemIds.length === 0) {
+      continue;
+    }
+
+    const entry: WearHistoryEntry = {
+      itemIds,
+      wornDate,
+    };
+
+    // Add outfit ID if present (used for outfit mode matching)
+    if (typeof outfitId === 'string' && outfitId.length > 0) {
+      entry.outfitId = outfitId;
+    }
+
+    entries.push(entry);
   }
 
-  return { itemIds, itemWornAtMap };
+  return entries;
 }
 
 /**
- * Fetches the user's recent wear history within the no-repeat window.
+ * Fetches the user's recent wear history for no-repeat filtering.
  *
- * Queries the wear_history table for entries where worn_at >= cutoff,
- * then extracts item IDs and timestamps for filtering and recency scoring.
+ * Queries the wear_history table for entries within a generous window,
+ * then returns WearHistoryEntry[] compatible with the noRepeatRules module.
  *
  * Implements degraded-mode behaviour:
- * - If the query fails, logs an error and returns empty collections
+ * - If the query fails, logs an error and returns empty array
  * - If the row limit is reached, logs a warning but continues with available data
  * - The request proceeds even if history cannot be loaded
  *
@@ -561,15 +590,15 @@ function extractWearHistoryData(rows: Record<string, unknown>[]): WearHistoryExt
  * - Defensive userId filter as belt-and-suspenders protection
  *
  * Performance:
- * - Uses (user_id, worn_at) index for efficient range queries
+ * - Uses (user_id, worn_date) index for efficient range queries
  * - Bounded by WEAR_HISTORY_ROW_LIMIT to prevent unbounded reads
- * - Selects item_ids and worn_at columns for filtering and recency scoring
+ * - Selects item_ids, outfit_id, and worn_date for filtering
  *
  * @param supabase - Supabase client authenticated as the user
  * @param userId - The authenticated user's ID
  * @param noRepeatDays - Number of days in the no-repeat window (must be > 0)
  * @param logger - Structured logger for observability
- * @returns Promise resolving to WearHistoryResult with item IDs, timestamps, and status flags
+ * @returns Promise resolving to WearHistoryResult with entries and status flags
  */
 async function fetchRecentWearHistory(
   supabase: SupabaseClient,
@@ -577,13 +606,13 @@ async function fetchRecentWearHistory(
   noRepeatDays: number,
   logger: StructuredLogger
 ): Promise<WearHistoryResult> {
-  // Compute the cutoff timestamp
-  const cutoff = computeWearHistoryCutoff(noRepeatDays);
+  // Compute the cutoff date (with buffer)
+  const cutoffDate = computeWearHistoryCutoffDate(noRepeatDays);
 
   logger.debug('wear_history_query_start', {
     user_id: userId,
     metadata: {
-      cutoff_timestamp: cutoff,
+      cutoff_date: cutoffDate,
       row_limit: WEAR_HISTORY_ROW_LIMIT,
     },
   });
@@ -592,14 +621,14 @@ async function fetchRecentWearHistory(
     // Query wear_history table with defensive userId filter
     // RLS policies also enforce user_id = auth.uid(), but we add explicit
     // filtering as a defence-in-depth measure.
-    // Order by worn_at descending to get most recent entries first if limit is hit.
-    // Select both item_ids and worn_at for filtering and recency scoring.
+    // Order by worn_date descending to get most recent entries first if limit is hit.
+    // Select item_ids, outfit_id, and worn_date for the noRepeatRules module.
     const { data, error } = await supabase
       .from('wear_history')
-      .select('item_ids, worn_at')
+      .select('item_ids, outfit_id, worn_date')
       .eq('user_id', userId)
-      .gte('worn_at', cutoff)
-      .order('worn_at', { ascending: false })
+      .gte('worn_date', cutoffDate)
+      .order('worn_date', { ascending: false })
       .limit(WEAR_HISTORY_ROW_LIMIT);
 
     // Handle query errors
@@ -614,8 +643,7 @@ async function fetchRecentWearHistory(
       });
 
       return {
-        recentlyWornItemIds: new Set<string>(),
-        itemWornAtMap: new Map<string, string>(),
+        wearHistory: [],
         historyLookupFailed: true,
         rowLimitReached: false,
       };
@@ -631,17 +659,13 @@ async function fetchRecentWearHistory(
       });
 
       return {
-        recentlyWornItemIds: new Set<string>(),
-        itemWornAtMap: new Map<string, string>(),
+        wearHistory: [],
         historyLookupFailed: true,
         rowLimitReached: false,
       };
     }
 
     // Check if we hit the row limit.
-    // Using strict equality (===) because the query uses .limit(WEAR_HISTORY_ROW_LIMIT),
-    // so data.length can never exceed the limit. When data.length equals the limit,
-    // there may be additional rows that were not returned.
     const rowLimitReached = data.length === WEAR_HISTORY_ROW_LIMIT;
 
     if (rowLimitReached) {
@@ -650,26 +674,25 @@ async function fetchRecentWearHistory(
         metadata: {
           rows_returned: data.length,
           row_limit: WEAR_HISTORY_ROW_LIMIT,
-          cutoff_timestamp: cutoff,
+          cutoff_date: cutoffDate,
         },
       });
     }
 
-    // Extract item IDs and timestamps from the wear history rows
-    const { itemIds: recentlyWornItemIds, itemWornAtMap } = extractWearHistoryData(data);
+    // Convert to WearHistoryEntry format
+    const wearHistory = convertToWearHistoryEntries(data);
 
     logger.debug('wear_history_loaded', {
       user_id: userId,
       metadata: {
         rows_fetched: data.length,
-        unique_item_count: recentlyWornItemIds.size,
+        entries_converted: wearHistory.length,
         row_limit_reached: rowLimitReached,
       },
     });
 
     return {
-      recentlyWornItemIds,
-      itemWornAtMap,
+      wearHistory,
       historyLookupFailed: false,
       rowLimitReached,
     };
@@ -686,8 +709,7 @@ async function fetchRecentWearHistory(
     });
 
     return {
-      recentlyWornItemIds: new Set<string>(),
-      itemWornAtMap: new Map<string, string>(),
+      wearHistory: [],
       historyLookupFailed: true,
       rowLimitReached: false,
     };
@@ -695,142 +717,8 @@ async function fetchRecentWearHistory(
 }
 
 // ============================================================================
-// No-Repeat Filtering
+// Final Selection
 // ============================================================================
-
-/**
- * Checks whether ALL items in an outfit have been worn recently.
- *
- * An outfit is considered "fully recent" (and should be excluded) if
- * every item in its itemIds array exists in the recentlyWornItemIds set.
- * An outfit with at least one unworn item is considered eligible.
- *
- * Edge cases:
- * - Empty itemIds array → returns false (eligible, not filtered out)
- * - Empty recentlyWornItemIds → returns false (no history = all eligible)
- *
- * @param outfit - The outfit to check
- * @param recentlyWornItemIds - Set of item IDs worn within the no-repeat window
- * @returns true if all items were worn recently (should exclude), false otherwise
- */
-function isOutfitFullyRecent(outfit: Outfit, recentlyWornItemIds: Set<string>): boolean {
-  // Edge case: empty itemIds → treat as eligible (not filtered)
-  if (outfit.itemIds.length === 0) {
-    return false;
-  }
-
-  // Edge case: no wear history → all outfits are eligible
-  if (recentlyWornItemIds.size === 0) {
-    return false;
-  }
-
-  // Check if ALL items are in the recently worn set
-  // If we find any item NOT in the set, the outfit is eligible
-  return outfit.itemIds.every((itemId) => recentlyWornItemIds.has(itemId));
-}
-
-/**
- * Applies no-repeat filtering to a list of outfit candidates.
- *
- * Separates outfits into two lists:
- * - eligible: Outfits where at least one item has NOT been worn recently
- * - excluded: Outfits where ALL items have been worn within the window
- *
- * This is a pure function that can be reused by future AI engines.
- * The filtering logic follows the rule: "exclude outfits where EVERY item
- * has at least one wear event within the window."
- *
- * @param outfits - Array of outfit candidates to filter
- * @param recentlyWornItemIds - Set of item IDs worn within the no-repeat window
- * @returns NoRepeatFilterResult with eligible and excluded lists
- */
-export function applyNoRepeatFilter(
-  outfits: Outfit[],
-  recentlyWornItemIds: Set<string>
-): NoRepeatFilterResult {
-  const eligible: Outfit[] = [];
-  const excluded: Outfit[] = [];
-
-  for (const outfit of outfits) {
-    if (isOutfitFullyRecent(outfit, recentlyWornItemIds)) {
-      excluded.push(outfit);
-    } else {
-      eligible.push(outfit);
-    }
-  }
-
-  return { eligible, excluded };
-}
-
-// ============================================================================
-// Fallback Selection
-// ============================================================================
-
-/**
- * Sentinel value for outfits with no recency score.
- * Using empty string ensures these sort before any valid ISO 8601 timestamp
- * when sorting in ascending order (least recently worn first).
- */
-const NO_RECENCY_SCORE = '';
-
-/**
- * Computes the recency score for an outfit based on its items' wear history.
- *
- * The recency score is the most recent (maximum) worn_at timestamp among
- * all items in the outfit. This represents when the outfit was "last fully
- * represented in a wear event."
- *
- * Items not found in the map are treated as having no wear history,
- * which returns the NO_RECENCY_SCORE sentinel.
- *
- * @param outfit - The outfit to score
- * @param itemWornAtMap - Map of item ID to most recent worn_at timestamp
- * @returns The most recent worn_at timestamp, or NO_RECENCY_SCORE if none found
- */
-function computeOutfitRecencyScore(outfit: Outfit, itemWornAtMap: Map<string, string>): string {
-  let maxTimestamp = NO_RECENCY_SCORE;
-
-  for (const itemId of outfit.itemIds) {
-    const timestamp = itemWornAtMap.get(itemId);
-    if (timestamp !== undefined && timestamp > maxTimestamp) {
-      maxTimestamp = timestamp;
-    }
-  }
-
-  return maxTimestamp;
-}
-
-/**
- * Sorts outfits by recency score (ascending) with stable tie-breaking by ID.
- *
- * Outfits with no recency score (NO_RECENCY_SCORE) sort first, meaning
- * they are considered "least recently worn" and preferred for fallback.
- *
- * This is a pure function that returns a new sorted array.
- *
- * @param outfits - Array of outfits to sort
- * @param itemWornAtMap - Map of item ID to most recent worn_at timestamp
- * @returns New array sorted by ascending recency, then by outfit.id
- */
-function sortOutfitsByRecency(outfits: Outfit[], itemWornAtMap: Map<string, string>): Outfit[] {
-  // Compute scores once to avoid repeated calculations during sort
-  const scored = outfits.map((outfit) => ({
-    outfit,
-    score: computeOutfitRecencyScore(outfit, itemWornAtMap),
-  }));
-
-  // Sort by ascending recency score, then by outfit.id for stability
-  scored.sort((a, b) => {
-    // Primary: ascending recency score (empty string sorts first)
-    if (a.score !== b.score) {
-      return a.score < b.score ? -1 : 1;
-    }
-    // Secondary: stable sort by outfit.id
-    return a.outfit.id < b.outfit.id ? -1 : a.outfit.id > b.outfit.id ? 1 : 0;
-  });
-
-  return scored.map((s) => s.outfit);
-}
 
 /**
  * Applies deterministic ordering to outfits for consistent responses.
@@ -846,31 +734,25 @@ function applyDeterministicOrdering(outfits: Outfit[]): Outfit[] {
 }
 
 /**
- * Applies MIN/MAX selection with fallback logic to outfit candidates.
+ * Applies MIN/MAX selection using results from the noRepeatRules module.
  *
- * This function implements the full selection pipeline:
+ * This function implements the final selection pipeline:
  *
  * 1. If staticPool is empty → configError, return empty array
  * 2. If staticPool < MIN_OUTFITS → configWarning, return all static outfits
- * 3. If eligible ≥ MIN_OUTFITS → use eligible list
- * 4. If eligible < MIN_OUTFITS → add excluded outfits by ascending recency
- *    until reaching MIN_OUTFITS or exhausting excluded list
+ * 3. If strictFiltered ≥ MIN_OUTFITS → use strict results
+ * 4. If strictFiltered < MIN_OUTFITS → add from fallbackCandidates
+ *    (already sorted by fewest repeated items first)
  * 5. Apply deterministic ordering
  * 6. Truncate to MAX_OUTFITS
  *
- * This is a pure function that can be reused by future AI engines.
- *
  * @param staticPool - The full pool of outfit candidates before filtering
- * @param eligible - Outfits that passed the no-repeat filter
- * @param excluded - Outfits that were excluded by the no-repeat filter
- * @param itemWornAtMap - Map of item ID to worn_at timestamp for recency scoring
+ * @param rulesResult - Result from applyNoRepeatRules (strictFiltered + fallbackCandidates)
  * @returns SelectionResult with final outfits and status flags
  */
-export function applyMinMaxSelection(
+export function applyFinalSelection(
   staticPool: Outfit[],
-  eligible: Outfit[],
-  excluded: Outfit[],
-  itemWornAtMap: Map<string, string>
+  rulesResult: ApplyNoRepeatRulesResult
 ): SelectionResult {
   // Case 1: Empty static pool - configuration error
   if (staticPool.length === 0) {
@@ -879,6 +761,7 @@ export function applyMinMaxSelection(
       fallbackCount: 0,
       configWarning: false,
       configError: true,
+      repeatedItemIds: [],
     };
   }
 
@@ -891,29 +774,38 @@ export function applyMinMaxSelection(
       fallbackCount: 0,
       configWarning: true,
       configError: false,
+      repeatedItemIds: [],
     };
   }
+
+  const { strictFiltered, fallbackCandidates } = rulesResult;
 
   // Case 3 & 4: Normal operation with MIN_OUTFITS threshold
   let candidates: Outfit[];
   let fallbackCount = 0;
+  const repeatedItemIds = new Set<string>();
 
-  if (eligible.length >= MIN_OUTFITS_PER_RESPONSE) {
-    // Case 3: Enough eligible outfits - use them directly
-    candidates = eligible;
+  if (strictFiltered.length >= MIN_OUTFITS_PER_RESPONSE) {
+    // Case 3: Enough strict outfits - use them directly
+    candidates = strictFiltered;
   } else {
-    // Case 4: Not enough eligible - add from excluded by recency
-    candidates = [...eligible];
+    // Case 4: Not enough strict - add from fallbackCandidates
+    // fallbackCandidates are already sorted by ascending repeat count
+    candidates = [...strictFiltered];
     const needed = MIN_OUTFITS_PER_RESPONSE - candidates.length;
 
-    if (needed > 0 && excluded.length > 0) {
-      // Sort excluded by ascending recency (least recently worn first)
-      const sortedExcluded = sortOutfitsByRecency(excluded, itemWornAtMap);
+    if (needed > 0 && fallbackCandidates.length > 0) {
+      const toAdd = fallbackCandidates.slice(0, needed);
 
-      // Add outfits until we reach MIN_OUTFITS or exhaust excluded
-      const toAdd = sortedExcluded.slice(0, needed);
-      candidates = candidates.concat(toAdd);
-      fallbackCount = toAdd.length;
+      for (const fallback of toAdd) {
+        candidates.push(fallback.outfit);
+        fallbackCount++;
+
+        // Collect repeated item IDs for analytics
+        for (const item of fallback.repeatedItems) {
+          repeatedItemIds.add(item.id);
+        }
+      }
     }
   }
 
@@ -928,7 +820,22 @@ export function applyMinMaxSelection(
     fallbackCount,
     configWarning: false,
     configError: false,
+    repeatedItemIds: Array.from(repeatedItemIds),
   };
+}
+
+/**
+ * Gets today's date in YYYY-MM-DD format (user's local timezone).
+ *
+ * This is used as the targetDate for the noRepeatRules module.
+ * For the stub implementation, we use the server's local time.
+ * Future versions may accept a client-provided timezone.
+ *
+ * @returns Today's date as YYYY-MM-DD string
+ */
+function getTodayDateString(): string {
+  const now = new Date();
+  return now.toISOString().split('T')[0];
 }
 
 // ============================================================================
@@ -1232,27 +1139,26 @@ export async function handler(req: Request): Promise<Response> {
     });
 
     // ========================================================================
-    // Step 4: Fetch User Preferences (No-Repeat Window)
+    // Step 4: Fetch User Preferences (No-Repeat Window and Mode)
     // ========================================================================
 
-    // Fetch the user's noRepeatDays preference for filtering.
+    // Fetch the user's no-repeat preferences for filtering.
     // This call implements degraded-mode behaviour: if prefs cannot be
-    // retrieved, it returns noRepeatDays = 0 (no-repeat filtering disabled)
+    // retrieved, it returns noRepeatDays = 0, noRepeatMode = 'item'
     // and logs a warning. The request continues without failing.
-    const { noRepeatDays, usingDefaultPrefs } = await fetchUserNoRepeatDays(
+    const { noRepeatDays, noRepeatMode, usingDefaultPrefs } = await fetchUserNoRepeatPrefs(
       supabase,
       userId,
       logger
     );
 
     // Log the preference state for observability
-    // Note: The actual noRepeatDays value will be logged in bucketed form
-    // in the final observability step (Step 5 of the user story)
     if (usingDefaultPrefs) {
       logger.info('using_default_prefs', {
         user_id: userId,
         metadata: {
           no_repeat_days: noRepeatDays,
+          no_repeat_mode: noRepeatMode,
           reason: 'prefs_unavailable',
         },
       });
@@ -1262,9 +1168,8 @@ export async function handler(req: Request): Promise<Response> {
     // Step 5: Fetch Recent Wear History (if no-repeat enabled)
     // ========================================================================
 
-    // Track wear history state for filtering, recency scoring, and observability
-    let recentlyWornItemIds = new Set<string>();
-    let itemWornAtMap = new Map<string, string>();
+    // Track wear history state for filtering and observability
+    let wearHistory: WearHistoryEntry[] = [];
     let historyLookupFailed = false;
 
     // Only fetch wear history if noRepeatDays > 0 (no-repeat filtering enabled)
@@ -1272,8 +1177,7 @@ export async function handler(req: Request): Promise<Response> {
     if (noRepeatDays > 0) {
       const historyResult = await fetchRecentWearHistory(supabase, userId, noRepeatDays, logger);
 
-      recentlyWornItemIds = historyResult.recentlyWornItemIds;
-      itemWornAtMap = historyResult.itemWornAtMap;
+      wearHistory = historyResult.wearHistory;
       historyLookupFailed = historyResult.historyLookupFailed;
 
       // If history lookup failed, log that we're proceeding in degraded mode
@@ -1307,35 +1211,66 @@ export async function handler(req: Request): Promise<Response> {
     // The userId comes exclusively from the JWT, preventing any client override
     const candidateOutfits = generateStubbedOutfits(userId, effectiveContext);
 
-    // Apply no-repeat filtering based on user preferences and wear history
+    // Apply no-repeat filtering using the rules module
     // Filtering is skipped when:
     // - noRepeatDays = 0 (feature disabled by user or default)
     // - historyLookupFailed = true (degraded mode - treat as no filtering)
     const shouldApplyFiltering = noRepeatDays > 0 && !historyLookupFailed;
 
-    let eligible: Outfit[];
-    let excluded: Outfit[];
+    // Build prefs object for rules module
+    const noRepeatPrefs: NoRepeatPrefs = {
+      noRepeatDays,
+      noRepeatMode,
+    };
+
+    // Get today's date for the rules module
+    const targetDate = getTodayDateString();
+
+    // Apply the no-repeat rules using the shared module
+    let rulesResult: ApplyNoRepeatRulesResult;
 
     if (shouldApplyFiltering) {
-      const filterResult = applyNoRepeatFilter(candidateOutfits, recentlyWornItemIds);
-      eligible = filterResult.eligible;
-      excluded = filterResult.excluded;
+      rulesResult = applyNoRepeatRules({
+        candidates: candidateOutfits,
+        wearHistory,
+        prefs: noRepeatPrefs,
+        targetDate,
+        strictMinCount: DEFAULT_STRICT_MIN_COUNT,
+      });
 
-      logger.debug('no_repeat_filter_applied', {
+      // Emit analytics event: recommendations_filtered_by_no_repeat
+      const excludedCount = candidateOutfits.length - rulesResult.strictFiltered.length;
+      if (excludedCount > 0) {
+        logger.info('recommendations_filtered_by_no_repeat', {
+          user_id: userId,
+          metadata: {
+            candidates_count: candidateOutfits.length,
+            strict_count: rulesResult.strictFiltered.length,
+            excluded_count: excludedCount,
+            no_repeat_mode: noRepeatMode,
+            no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+          },
+        });
+      }
+
+      logger.debug('no_repeat_rules_applied', {
         user_id: userId,
         metadata: {
           candidates_count: candidateOutfits.length,
-          eligible_count: eligible.length,
-          excluded_count: excluded.length,
-          recently_worn_item_count: recentlyWornItemIds.size,
+          strict_count: rulesResult.strictFiltered.length,
+          fallback_candidates_count: rulesResult.fallbackCandidates.length,
+          no_repeat_mode: noRepeatMode,
+          target_date: targetDate,
         },
       });
     } else {
-      // No filtering - all candidates are eligible, none excluded
-      eligible = candidateOutfits;
-      excluded = [];
+      // No filtering - all candidates pass strict, no fallbacks needed
+      rulesResult = {
+        strictFiltered: [...candidateOutfits],
+        fallbackCandidates: [],
+      };
 
-      logger.debug('no_repeat_filter_skipped', {
+      logger.debug('no_repeat_rules_skipped', {
         user_id: userId,
         metadata: {
           reason: noRepeatDays === 0 ? 'feature_disabled' : 'degraded_mode',
@@ -1344,13 +1279,8 @@ export async function handler(req: Request): Promise<Response> {
       });
     }
 
-    // Apply MIN/MAX selection with fallback logic
-    const selectionResult = applyMinMaxSelection(
-      candidateOutfits,
-      eligible,
-      excluded,
-      itemWornAtMap
-    );
+    // Apply final selection with fallback logic
+    const selectionResult = applyFinalSelection(candidateOutfits, rulesResult);
 
     // Handle configuration error (empty static pool)
     if (selectionResult.configError) {
@@ -1376,13 +1306,13 @@ export async function handler(req: Request): Promise<Response> {
           config_error: true,
           // Context parameter observability (Story #365)
           context_provided: effectiveContext.wasProvided,
-          // Cast string literal union types to string for metadata type compatibility
           effective_occasion: effectiveContext.occasion as string,
           effective_temperature_band: effectiveContext.temperatureBand as string,
           // No-repeat observability fields (privacy-safe, bucketed)
           no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+          no_repeat_mode: noRepeatMode,
           static_pool_size: candidateOutfits.length,
-          filtered_pool_size: eligible.length,
+          strict_filtered_size: rulesResult.strictFiltered.length,
           final_pool_size: 0,
           fallback_applied: false,
           using_default_prefs: usingDefaultPrefs,
@@ -1404,14 +1334,17 @@ export async function handler(req: Request): Promise<Response> {
       });
     }
 
-    // Log fallback usage if any excluded outfits were added back
+    // Emit analytics event: no_repeat_fallback_triggered
     if (selectionResult.fallbackCount > 0) {
-      logger.debug('fallback_outfits_added', {
+      logger.info('no_repeat_fallback_triggered', {
         user_id: userId,
         metadata: {
           fallback_count: selectionResult.fallbackCount,
-          eligible_count: eligible.length,
+          strict_count: rulesResult.strictFiltered.length,
           final_count: selectionResult.outfits.length,
+          repeated_item_count: selectionResult.repeatedItemIds.length,
+          no_repeat_mode: noRepeatMode,
+          no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
         },
       });
     }
@@ -1469,13 +1402,13 @@ export async function handler(req: Request): Promise<Response> {
         outfit_count: outfits.length,
         // Context parameter observability (Story #365)
         context_provided: effectiveContext.wasProvided,
-        // Cast string literal union types to string for metadata type compatibility
         effective_occasion: effectiveContext.occasion as string,
         effective_temperature_band: effectiveContext.temperatureBand as string,
         // No-repeat observability fields (privacy-safe, bucketed)
         no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+        no_repeat_mode: noRepeatMode,
         static_pool_size: candidateOutfits.length,
-        filtered_pool_size: eligible.length,
+        strict_filtered_size: rulesResult.strictFiltered.length,
         final_pool_size: outfits.length,
         fallback_applied: selectionResult.fallbackCount > 0,
         using_default_prefs: usingDefaultPrefs,
