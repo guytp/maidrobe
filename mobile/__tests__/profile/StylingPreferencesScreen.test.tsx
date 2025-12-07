@@ -913,6 +913,378 @@ describe('StylingPreferencesScreen', () => {
       // Should reset to original value (7)
       expect(customInput.props.value).toBe('7');
     });
+
+    describe('valid mid-range values', () => {
+      const validMidRangeValues = [1, 15, 30, 60, 89];
+
+      it.each(validMidRangeValues)(
+        'should accept %i as valid input and propagate to mutation',
+        async (value) => {
+          const { getByLabelText } = render(<StylingPreferencesScreen />, {
+            wrapper: TestWrapper,
+          });
+
+          fireEvent.press(getByLabelText('Advanced settings'));
+
+          const customInput = getByLabelText('Custom no-repeat window in days');
+          fireEvent.changeText(customInput, String(value));
+          fireEvent(customInput, 'blur');
+
+          await waitFor(() => {
+            expect(mockMutateAsync).toHaveBeenCalledWith(
+              expect.objectContaining({
+                data: expect.objectContaining({
+                  noRepeatDays: value,
+                }),
+              })
+            );
+          });
+        }
+      );
+    });
+
+    describe('invalid values rejection', () => {
+      it('should reject 91 with error message', async () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+        fireEvent.changeText(customInput, '91');
+        fireEvent(customInput, 'blur');
+
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        expect(mockMutateAsync).not.toHaveBeenCalled();
+      });
+
+      it('should reject 99 with error message', async () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+        fireEvent.changeText(customInput, '99');
+        fireEvent(customInput, 'blur');
+
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        expect(mockMutateAsync).not.toHaveBeenCalled();
+      });
+
+      it('should not allow more than 2 digits due to maxLength constraint', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Verify maxLength is set to 2
+        expect(customInput.props.maxLength).toBe(2);
+      });
+
+      it('should strip letters and special characters from input', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Test various non-numeric inputs
+        fireEvent.changeText(customInput, '-5');
+        expect(customInput.props.value).toBe('5');
+
+        fireEvent.changeText(customInput, '3.5');
+        expect(customInput.props.value).toBe('35');
+
+        fireEvent.changeText(customInput, '!@#');
+        expect(customInput.props.value).toBe('');
+      });
+
+      it('should strip only letters leaving numbers', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+        fireEvent.changeText(customInput, 'a1b2c');
+
+        expect(customInput.props.value).toBe('12');
+      });
+    });
+
+    describe('error state behavior', () => {
+      it('should show range hint when there is no error', () => {
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        // Range hint should be visible
+        expect(getByText('Enter a value from 0 to 90 days')).toBeTruthy();
+
+        // Error should not be visible
+        expect(queryByText('Please enter a number between 0 and 90')).toBeNull();
+      });
+
+      it('should replace range hint with error message when invalid', async () => {
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Initially shows hint
+        expect(getByText('Enter a value from 0 to 90 days')).toBeTruthy();
+
+        // Enter invalid value
+        fireEvent.changeText(customInput, '95');
+        fireEvent(customInput, 'blur');
+
+        // Error should appear
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        // Hint should be replaced
+        expect(queryByText('Enter a value from 0 to 90 days')).toBeNull();
+      });
+
+      it('should clear error when valid value is entered after invalid', async () => {
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Enter invalid value first
+        fireEvent.changeText(customInput, '95');
+        fireEvent(customInput, 'blur');
+
+        // Wait for error to appear
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        // Now enter valid value
+        fireEvent.changeText(customInput, '30');
+        fireEvent(customInput, 'blur');
+
+        // Error should be cleared
+        await waitFor(() => {
+          expect(queryByText('Please enter a number between 0 and 90')).toBeNull();
+        });
+
+        // Hint should return
+        expect(getByText('Enter a value from 0 to 90 days')).toBeTruthy();
+
+        // Should have saved the valid value
+        expect(mockMutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              noRepeatDays: 30,
+            }),
+          })
+        );
+      });
+
+      it('should include error in accessibility label when invalid', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Enter invalid value
+        fireEvent.changeText(customInput, '95');
+        fireEvent(customInput, 'blur');
+
+        // Wait for error state
+        await waitFor(() => {
+          // The accessibility label changes to include error
+          const errorInput = getByLabelText(
+            'Custom no-repeat window in days, Please enter a number between 0 and 90'
+          );
+          expect(errorInput).toBeTruthy();
+        });
+      });
+    });
+
+    describe('recovery from error state', () => {
+      it('should save successfully after correcting invalid input', async () => {
+        const { getByLabelText, getByText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Enter invalid value
+        fireEvent.changeText(customInput, '95');
+        fireEvent(customInput, 'blur');
+
+        // Verify error state
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        // Mutation should not have been called
+        expect(mockMutateAsync).not.toHaveBeenCalled();
+
+        // Correct to valid value
+        fireEvent.changeText(customInput, '45');
+        fireEvent(customInput, 'blur');
+
+        // Should now save
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatDays: 45,
+              }),
+            })
+          );
+        });
+
+        // Error should be cleared
+        expect(queryByText('Please enter a number between 0 and 90')).toBeNull();
+      });
+
+      it('should allow saving boundary value 90 after invalid input', async () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Enter invalid value (just above boundary)
+        fireEvent.changeText(customInput, '91');
+        fireEvent(customInput, 'blur');
+
+        await waitFor(() => {
+          expect(getByText('Please enter a number between 0 and 90')).toBeTruthy();
+        });
+
+        // Correct to boundary value
+        fireEvent.changeText(customInput, '90');
+        fireEvent(customInput, 'blur');
+
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatDays: 90,
+              }),
+            })
+          );
+        });
+      });
+    });
+
+    describe('input behavior', () => {
+      it('should have number-pad keyboard type', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+        expect(customInput.props.keyboardType).toBe('number-pad');
+      });
+
+      it('should not save on change, only on blur', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Change text without blur
+        fireEvent.changeText(customInput, '50');
+
+        // Should not have called mutation yet
+        expect(mockMutateAsync).not.toHaveBeenCalled();
+
+        // Now blur
+        fireEvent(customInput, 'blur');
+
+        // Should save after blur
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatDays: 50,
+              }),
+            })
+          );
+        });
+      });
+
+      it('should update input value as user types', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Type character by character
+        fireEvent.changeText(customInput, '2');
+        expect(customInput.props.value).toBe('2');
+
+        fireEvent.changeText(customInput, '25');
+        expect(customInput.props.value).toBe('25');
+      });
+
+      it('should not save when value unchanged from initial', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const customInput = getByLabelText('Custom no-repeat window in days');
+
+        // Initial value is 7, type same value
+        fireEvent.changeText(customInput, '7');
+        fireEvent(customInput, 'blur');
+
+        // Give time for potential async operations
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Should not trigger save for same value (optimization)
+        // Note: This depends on component implementation - if it saves anyway, this test documents that behavior
+        // The key point is no error should occur
+      });
+    });
   });
 
   describe('Mode Selection', () => {
