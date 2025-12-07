@@ -930,25 +930,29 @@ const OUTFIT_TEMPLATES = [
   {
     itemIds: ['stub-blazer-navy-001', 'stub-tee-white-001', 'stub-chinos-tan-001'],
     reason:
-      'The navy blazer keeps this polished while the white tee and tan chinos stop it feeling too formal. Perfect balance of smart and relaxed.',
+      'The navy blazer keeps this polished while the white tee and tan chinos ' +
+      'stop it feeling too formal. Perfect balance of smart and relaxed.',
     context: 'Smart-casual client coffee',
   },
   {
     itemIds: ['stub-jacket-rain-001', 'stub-sweater-grey-001', 'stub-jeans-dark-001'],
     reason:
-      'Layering a lightweight sweater under a water-resistant jacket keeps you warm and dry. Dark jeans work in most settings if you need to head indoors.',
+      'Layering a lightweight sweater under a water-resistant jacket keeps you ' +
+      'warm and dry. Dark jeans work in most settings if you need to head indoors.',
     context: 'Rainy weekday commute',
   },
   {
     itemIds: ['stub-shirt-linen-001', 'stub-shorts-navy-001', 'stub-sneakers-white-001'],
     reason:
-      'A breathable linen shirt with tailored shorts strikes the right note—relaxed but put-together. White sneakers keep it fresh.',
+      'A breathable linen shirt with tailored shorts strikes the right note—relaxed ' +
+      'but put-together. White sneakers keep it fresh.',
     context: 'Weekend brunch',
   },
   {
     itemIds: ['stub-knit-cream-001', 'stub-shirt-oxford-001'],
     reason:
-      'A cream knit over a collared shirt gives you that effortlessly polished look from the waist up. Comfortable yet camera-ready.',
+      'A cream knit over a collared shirt gives you that effortlessly polished look ' +
+      'from the waist up. Comfortable yet camera-ready.',
     context: 'Video call from home',
   },
   {
@@ -959,7 +963,8 @@ const OUTFIT_TEMPLATES = [
       'stub-boots-chelsea-001',
     ],
     reason:
-      'The leather jacket adds edge while the all-black base keeps things sleek. Chelsea boots elevate it beyond everyday casual.',
+      'The leather jacket adds edge while the all-black base keeps things sleek. ' +
+      'Chelsea boots elevate it beyond everyday casual.',
     context: 'Evening drinks',
   },
 ];
