@@ -223,7 +223,8 @@ Deno.test('item mode: includes outfit when item worn outside window', () => {
   ];
 
   const wearHistory: WearHistoryEntry[] = [
-    createWearHistoryEntry(['item-a'], '2024-01-07'), // item-a worn 8 days ago (outside 7-day window)
+    // item-a worn 8 days ago (outside 7-day window)
+    createWearHistoryEntry(['item-a'], '2024-01-07'),
   ];
 
   const input: ApplyNoRepeatRulesInput = {

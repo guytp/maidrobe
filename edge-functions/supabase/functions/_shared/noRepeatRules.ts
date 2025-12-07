@@ -335,7 +335,12 @@ export function applyNoRepeatRules(input: ApplyNoRepeatRulesInput): ApplyNoRepea
   const nonStrictCandidates: Outfit[] = [];
 
   for (const candidate of candidates) {
-    const isStrict = isCandidateStrict(candidate, prefs.noRepeatMode, recentItemIds, recentOutfitIds);
+    const isStrict = isCandidateStrict(
+      candidate,
+      prefs.noRepeatMode,
+      recentItemIds,
+      recentOutfitIds
+    );
 
     if (isStrict) {
       strictFiltered.push(candidate);
