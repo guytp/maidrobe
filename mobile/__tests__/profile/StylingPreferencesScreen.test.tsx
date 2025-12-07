@@ -54,7 +54,10 @@ const mockPrefsData: PrefsRow = {
   comfort_notes: null,
 };
 
-const mockUseUserPrefs = jest.fn(() => ({
+const mockUseUserPrefs = jest.fn<
+  { data: PrefsRow | undefined; isLoading: boolean; isError: boolean; error: Error | null },
+  []
+>(() => ({
   data: mockPrefsData,
   isLoading: false,
   isError: false,
