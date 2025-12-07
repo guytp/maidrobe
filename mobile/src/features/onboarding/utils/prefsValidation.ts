@@ -154,7 +154,7 @@ export const ExclusionsDataSchema = z.object({
  * Validates complete PrefsFormData structure with all constraints:
  * - colourTendency: One of four options
  * - exclusions: Valid structure with known tags
- * - noRepeatWindow: One of preset buckets or null (legacy, deprecated)
+ * - noRepeatWindow: Optional, one of preset buckets or null (legacy, deprecated)
  * - noRepeatDays: Number 0-90 for custom input
  * - noRepeatMode: 'item' or 'outfit'
  * - comfortNotes: String with max length
@@ -167,7 +167,7 @@ export const ExclusionsDataSchema = z.object({
 export const PrefsFormDataSchema = z.object({
   colourTendency: ColourTendencySchema,
   exclusions: ExclusionsDataSchema,
-  noRepeatWindow: NoRepeatWindowSchema,
+  noRepeatWindow: NoRepeatWindowSchema.optional(),
   noRepeatDays: NoRepeatDaysUISchema,
   noRepeatMode: NoRepeatModeSchema,
   comfortNotes: z.string().max(MAX_COMFORT_NOTES_LENGTH, {

@@ -489,7 +489,8 @@ export function hasAnyData(form: PrefsFormData): boolean {
   }
 
   // Check no-repeat days (legacy window check for backward compatibility)
-  if (form.noRepeatWindow !== null) {
+  // Skip check if noRepeatWindow is undefined (new code path doesn't use it)
+  if (form.noRepeatWindow !== undefined && form.noRepeatWindow !== null) {
     return true;
   }
 

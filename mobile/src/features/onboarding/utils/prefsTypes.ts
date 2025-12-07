@@ -223,11 +223,12 @@ export interface PrefsFormData {
    * @deprecated Since Story #446 (2025-Q1). Use noRepeatDays for the actual value.
    *
    * This field used coarse buckets (0, 7, 14) while noRepeatDays stores exact values (0-90).
-   * The field will be made optional, then removed in a future release.
+   * This field is now optional and will be removed in a future release.
    *
    * Migration: Remove this field from form state; read/write noRepeatDays directly.
+   * New screens (StylingPreferencesScreen) do not use this field.
    */
-  noRepeatWindow: NoRepeatWindow;
+  noRepeatWindow?: NoRepeatWindow;
   /**
    * Exact number of days to wait before repeating items/outfits.
    * Range: 0-90 in UI (0 = off, allows immediate repeats).
@@ -324,7 +325,7 @@ export const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
     checklist: [],
     freeText: '',
   },
-  noRepeatWindow: null,
+  // noRepeatWindow omitted (deprecated, optional)
   noRepeatDays: DEFAULT_NO_REPEAT_DAYS,
   noRepeatMode: DEFAULT_NO_REPEAT_MODE,
   comfortNotes: '',
