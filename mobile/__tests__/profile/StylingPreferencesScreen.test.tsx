@@ -1353,6 +1353,331 @@ describe('StylingPreferencesScreen', () => {
 
       expect(getByText('(recommended)')).toBeTruthy();
     });
+
+    describe('initial render with different server states', () => {
+      it('should show outfit mode as selected when server returns outfit mode', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_mode: 'outfit',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const itemMode = getByLabelText('Key items');
+        const outfitMode = getByLabelText('Exact outfit only');
+
+        expect(itemMode.props.accessibilityState.checked).toBe(false);
+        expect(outfitMode.props.accessibilityState.checked).toBe(true);
+      });
+
+      it('should default to item mode when server mode is null', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_mode: null as unknown as 'item',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const itemMode = getByLabelText('Key items');
+        expect(itemMode.props.accessibilityState.checked).toBe(true);
+      });
+
+      it('should default to item mode when no prefs data exists', () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: undefined,
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const itemMode = getByLabelText('Key items');
+        const outfitMode = getByLabelText('Exact outfit only');
+
+        expect(itemMode.props.accessibilityState.checked).toBe(true);
+        expect(outfitMode.props.accessibilityState.checked).toBe(false);
+      });
+    });
+
+    describe('mode switching behaviour', () => {
+      it('should switch from outfit mode back to item mode', async () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_mode: 'outfit',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+        fireEvent.press(getByLabelText('Key items'));
+
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatMode: 'item',
+              }),
+            })
+          );
+        });
+      });
+
+      it('should track analytics when switching from outfit to item mode', async () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_mode: 'outfit',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+        fireEvent.press(getByLabelText('Key items'));
+
+        await waitFor(() => {
+          expect(mockTrackCaptureEvent).toHaveBeenCalledWith(
+            'no_repeat_prefs_changed',
+            expect.objectContaining({
+              metadata: expect.objectContaining({
+                previousNoRepeatMode: 'outfit',
+                newNoRepeatMode: 'item',
+              }),
+            })
+          );
+        });
+      });
+
+      it('should not trigger mutation when selecting already selected item mode', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const initialCallCount = mockMutateAsync.mock.calls.length;
+
+        fireEvent.press(getByLabelText('Key items'));
+
+        // Wait a tick to ensure no async call is triggered
+        await waitFor(() => {
+          expect(mockMutateAsync.mock.calls.length).toBe(initialCallCount);
+        });
+      });
+
+      it('should not trigger mutation when selecting already selected outfit mode', async () => {
+        mockUseUserPrefs.mockReturnValue({
+          data: {
+            ...mockPrefsData,
+            no_repeat_mode: 'outfit',
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        });
+
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const initialCallCount = mockMutateAsync.mock.calls.length;
+
+        fireEvent.press(getByLabelText('Exact outfit only'));
+
+        await waitFor(() => {
+          expect(mockMutateAsync.mock.calls.length).toBe(initialCallCount);
+        });
+      });
+
+      it('should complete full round-trip mode switching', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        // Start at item mode (default)
+        const itemMode = getByLabelText('Key items');
+        const outfitMode = getByLabelText('Exact outfit only');
+        expect(itemMode.props.accessibilityState.checked).toBe(true);
+
+        // Switch to outfit mode
+        fireEvent.press(outfitMode);
+
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatMode: 'outfit',
+              }),
+            })
+          );
+        });
+
+        // Switch back to item mode
+        fireEvent.press(itemMode);
+
+        await waitFor(() => {
+          expect(mockMutateAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+              data: expect.objectContaining({
+                noRepeatMode: 'item',
+              }),
+            })
+          );
+        });
+      });
+    });
+
+    describe('visual state and accessibility', () => {
+      it('should have radio accessibility role for both mode options', () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const itemMode = getByLabelText('Key items');
+        const outfitMode = getByLabelText('Exact outfit only');
+
+        expect(itemMode.props.accessibilityRole).toBe('radio');
+        expect(outfitMode.props.accessibilityRole).toBe('radio');
+      });
+
+      it('should update accessibility state when mode changes', async () => {
+        const { getByLabelText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        const itemMode = getByLabelText('Key items');
+        const outfitMode = getByLabelText('Exact outfit only');
+
+        // Initial state
+        expect(itemMode.props.accessibilityState.checked).toBe(true);
+        expect(outfitMode.props.accessibilityState.checked).toBe(false);
+
+        // Change to outfit mode
+        fireEvent.press(outfitMode);
+
+        // Re-query elements after state change
+        await waitFor(() => {
+          const updatedItemMode = getByLabelText('Key items');
+          const updatedOutfitMode = getByLabelText('Exact outfit only');
+          expect(updatedItemMode.props.accessibilityState.checked).toBe(false);
+          expect(updatedOutfitMode.props.accessibilityState.checked).toBe(true);
+        });
+      });
+
+      it('should show mode descriptions for both options', () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        expect(
+          getByText(
+            'Avoid repeating your main pieces like tops and bottoms. More variety day-to-day.'
+          )
+        ).toBeTruthy();
+        expect(
+          getByText('Only avoid the exact same outfit combination. Individual items can repeat.')
+        ).toBeTruthy();
+      });
+
+      it('should show mode section title', () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        expect(getByText('What should we avoid repeating?')).toBeTruthy();
+      });
+    });
+
+    describe('mode selector visibility', () => {
+      it('should not show mode selector when advanced section is collapsed', () => {
+        const { queryByLabelText, queryByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        // Don't expand advanced section
+        expect(queryByLabelText('Key items')).toBeNull();
+        expect(queryByLabelText('Exact outfit only')).toBeNull();
+        expect(queryByText('What should we avoid repeating?')).toBeNull();
+      });
+
+      it('should show mode selector when advanced section is expanded', () => {
+        const { getByLabelText, getByText } = render(<StylingPreferencesScreen />, {
+          wrapper: TestWrapper,
+        });
+
+        fireEvent.press(getByLabelText('Advanced settings'));
+
+        expect(getByLabelText('Key items')).toBeTruthy();
+        expect(getByLabelText('Exact outfit only')).toBeTruthy();
+        expect(getByText('What should we avoid repeating?')).toBeTruthy();
+      });
+
+      it('should hide mode selector when advanced section is collapsed after being open', () => {
+        const { getByLabelText, queryByLabelText, queryByText } = render(
+          <StylingPreferencesScreen />,
+          {
+            wrapper: TestWrapper,
+          }
+        );
+
+        // Expand
+        fireEvent.press(getByLabelText('Advanced settings'));
+        expect(getByLabelText('Key items')).toBeTruthy();
+
+        // Collapse
+        fireEvent.press(getByLabelText('Advanced settings'));
+        expect(queryByLabelText('Key items')).toBeNull();
+        expect(queryByLabelText('Exact outfit only')).toBeNull();
+        expect(queryByText('What should we avoid repeating?')).toBeNull();
+      });
+    });
   });
 
   describe('Error Handling and Retry', () => {
