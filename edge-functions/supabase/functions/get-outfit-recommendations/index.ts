@@ -46,7 +46,6 @@ import {
 import {
   type Outfit,
   type OutfitWithMeta,
-  type OutfitNoRepeatMeta,
   type RepeatedItemSummary,
   type OutfitRecommendationsResponse,
   type RequestOutcome,
