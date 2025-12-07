@@ -93,7 +93,103 @@ jobs:
         run: npm ci
 
       - name: Run tests
+        id: test
+        continue-on-error: true
         run: npm run mobile:test:ci
+
+      - name: Summarise test failures
+        if: steps.test.outcome == 'failure'
+        working-directory: mobile
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+
+          // Read test results JSON
+          let results;
+          try {
+            results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+          } catch (e) {
+            console.log('Could not read test-results.json:', e.message);
+            process.exit(0);
+          }
+
+          // Collect failures
+          const failures = [];
+          for (const testResult of results.testResults || []) {
+            const filePath = testResult.name.replace(process.cwd() + '/', '');
+            for (const assertionResult of testResult.assertionResults || []) {
+              if (assertionResult.status === 'failed') {
+                failures.push({
+                  file: filePath,
+                  test: assertionResult.ancestorTitles.concat(assertionResult.title).join(' > '),
+                  messages: assertionResult.failureMessages || []
+                });
+              }
+            }
+          }
+
+          if (failures.length === 0) {
+            console.log('No test failures found in results.');
+            process.exit(0);
+          }
+
+          // Build summary markdown
+          let summary = '## ❌ Failed Tests Summary\n\n';
+          summary += `**${failures.length} test(s) failed**\n\n`;
+
+          // Group by file
+          const byFile = {};
+          for (const f of failures) {
+            if (!byFile[f.file]) byFile[f.file] = [];
+            byFile[f.file].push(f);
+          }
+
+          for (const [file, tests] of Object.entries(byFile)) {
+            summary += `### \`${file}\`\n\n`;
+            for (const t of tests) {
+              summary += `- **${t.test}**\n`;
+              if (t.messages.length > 0) {
+                // Truncate long error messages and clean ANSI codes
+                let msg = t.messages[0]
+                  .replace(/\x1b\[[0-9;]*m/g, '')
+                  .split('\n')
+                  .slice(0, 10)
+                  .join('\n');
+                if (msg.length > 500) msg = msg.substring(0, 500) + '...';
+                summary += `  \`\`\`\n  ${msg.split('\n').join('\n  ')}\n  \`\`\`\n`;
+              }
+            }
+            summary += '\n';
+          }
+
+          // Write to GitHub Step Summary
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+          if (summaryFile) {
+            fs.appendFileSync(summaryFile, summary);
+            console.log('Test failure summary written to GitHub Step Summary');
+          }
+
+          // Also output to console for logs
+          console.log('\n' + '='.repeat(60));
+          console.log('FAILED TESTS SUMMARY');
+          console.log('='.repeat(60) + '\n');
+          for (const f of failures) {
+            console.log(`FAIL: ${f.file}`);
+            console.log(`  Test: ${f.test}`);
+            if (f.messages.length > 0) {
+              const shortMsg = f.messages[0]
+                .replace(/\x1b\[[0-9;]*m/g, '')
+                .split('\n')[0]
+                .substring(0, 200);
+              console.log(`  Error: ${shortMsg}`);
+            }
+            console.log('');
+          }
+          EOF
+
+      - name: Fail if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
 
   edge_lint:
     name: Edge Functions Lint
