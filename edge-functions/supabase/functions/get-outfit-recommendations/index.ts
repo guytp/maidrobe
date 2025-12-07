@@ -849,8 +849,14 @@ export function applyFinalSelection(
   let fallbackCount = 0;
   const repeatedItemIds = new Set<string>();
 
+  // Track selected outfit IDs to prevent duplicates (defence-in-depth)
+  // The noRepeatRules module already excludes strict outfits from fallbacks,
+  // but this guard protects against edge cases and future changes.
+  const selectedOutfitIds = new Set<string>();
+
   // Add strict outfits with metadata
   for (const outfit of strictFiltered) {
+    selectedOutfitIds.add(outfit.id);
     if (includeMetadata) {
       candidates.push(addStrictMeta(outfit));
     } else {
@@ -863,14 +869,26 @@ export function applyFinalSelection(
     const needed = MIN_OUTFITS_PER_RESPONSE - strictFiltered.length;
 
     if (needed > 0 && fallbackCandidates.length > 0) {
-      const toAdd = fallbackCandidates.slice(0, needed);
+      let added = 0;
 
-      for (const fallback of toAdd) {
+      for (const fallback of fallbackCandidates) {
+        if (added >= needed) {
+          break;
+        }
+
+        // Skip if already selected (defence-in-depth against duplicates)
+        if (selectedOutfitIds.has(fallback.outfit.id)) {
+          continue;
+        }
+
+        selectedOutfitIds.add(fallback.outfit.id);
+
         if (includeMetadata) {
           candidates.push(addFallbackMeta(fallback));
         } else {
           candidates.push(fallback.outfit);
         }
+        added++;
         fallbackCount++;
 
         // Collect repeated item IDs for analytics
