@@ -45,6 +45,9 @@ import {
 } from '../_shared/structuredLogger.ts';
 import {
   type Outfit,
+  type OutfitWithMeta,
+  type OutfitNoRepeatMeta,
+  type RepeatedItemSummary,
   type OutfitRecommendationsResponse,
   type RequestOutcome,
   type OccasionKey,
@@ -63,6 +66,7 @@ import {
   type WearHistoryEntry,
   type NoRepeatPrefs,
   type ApplyNoRepeatRulesResult,
+  type FallbackCandidate,
   DEFAULT_STRICT_MIN_COUNT,
 } from '../_shared/noRepeatRules.ts';
 
@@ -267,8 +271,8 @@ interface WearHistoryResult {
  * Result of applying final selection with fallback logic.
  */
 interface SelectionResult {
-  /** Final list of outfits to return (between 0 and MAX_OUTFITS). */
-  outfits: Outfit[];
+  /** Final list of outfits with no-repeat metadata (between 0 and MAX_OUTFITS). */
+  outfits: OutfitWithMeta[];
   /** Number of outfits from fallback candidates used. */
   fallbackCount: number;
   /** Whether a configuration warning was triggered (pool too small). */
@@ -734,25 +738,86 @@ function applyDeterministicOrdering(outfits: Outfit[]): Outfit[] {
 }
 
 /**
+ * Converts a FallbackCandidate's repeatedItems to RepeatedItemSummary[].
+ *
+ * @param fallback - The fallback candidate containing repeated items
+ * @returns Array of RepeatedItemSummary for the response
+ */
+function toRepeatedItemSummaries(fallback: FallbackCandidate): RepeatedItemSummary[] {
+  return fallback.repeatedItems.map((item) => ({
+    id: item.id,
+    // Include name if available (may be undefined in stub)
+    ...(item.name !== undefined && { name: item.name }),
+  }));
+}
+
+/**
+ * Adds no-repeat metadata to an outfit, marking it as strict.
+ *
+ * @param outfit - The base outfit
+ * @returns Outfit with strict noRepeatMeta
+ */
+function addStrictMeta(outfit: Outfit): OutfitWithMeta {
+  return {
+    ...outfit,
+    noRepeatMeta: {
+      filterStatus: 'strict',
+      repeatedItems: [],
+    },
+  };
+}
+
+/**
+ * Adds no-repeat metadata to a fallback outfit.
+ *
+ * @param fallback - The fallback candidate with repeated items
+ * @returns Outfit with fallback noRepeatMeta
+ */
+function addFallbackMeta(fallback: FallbackCandidate): OutfitWithMeta {
+  return {
+    ...fallback.outfit,
+    noRepeatMeta: {
+      filterStatus: 'fallback',
+      repeatedItems: toRepeatedItemSummaries(fallback),
+    },
+  };
+}
+
+/**
+ * Applies deterministic ordering to outfits with metadata.
+ *
+ * @param outfits - Array of outfits with metadata to sort
+ * @returns New array sorted by outfit.id
+ */
+function applyDeterministicOrderingWithMeta(outfits: OutfitWithMeta[]): OutfitWithMeta[] {
+  return [...outfits].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/**
  * Applies MIN/MAX selection using results from the noRepeatRules module.
  *
  * This function implements the final selection pipeline:
  *
  * 1. If staticPool is empty → configError, return empty array
- * 2. If staticPool < MIN_OUTFITS → configWarning, return all static outfits
- * 3. If strictFiltered ≥ MIN_OUTFITS → use strict results
- * 4. If strictFiltered < MIN_OUTFITS → add from fallbackCandidates
+ * 2. If staticPool < MIN_OUTFITS → configWarning, return all static outfits (no metadata)
+ * 3. If strictFiltered ≥ MIN_OUTFITS → use strict results with 'strict' metadata
+ * 4. If strictFiltered < MIN_OUTFITS → add from fallbackCandidates with 'fallback' metadata
  *    (already sorted by fewest repeated items first)
  * 5. Apply deterministic ordering
  * 6. Truncate to MAX_OUTFITS
  *
+ * Each outfit includes noRepeatMeta indicating whether it's strict or fallback,
+ * and for fallback outfits, a summary of repeated items.
+ *
  * @param staticPool - The full pool of outfit candidates before filtering
  * @param rulesResult - Result from applyNoRepeatRules (strictFiltered + fallbackCandidates)
+ * @param includeMetadata - Whether to include noRepeatMeta (false when filtering disabled)
  * @returns SelectionResult with final outfits and status flags
  */
 export function applyFinalSelection(
   staticPool: Outfit[],
-  rulesResult: ApplyNoRepeatRulesResult
+  rulesResult: ApplyNoRepeatRulesResult,
+  includeMetadata: boolean = true
 ): SelectionResult {
   // Case 1: Empty static pool - configuration error
   if (staticPool.length === 0) {
@@ -766,7 +831,7 @@ export function applyFinalSelection(
   }
 
   // Case 2: Static pool smaller than MIN_OUTFITS - configuration warning
-  // Skip all filtering and fallback logic, return full pool
+  // Skip all filtering and fallback logic, return full pool without metadata
   if (staticPool.length < MIN_OUTFITS_PER_RESPONSE) {
     const ordered = applyDeterministicOrdering(staticPool);
     return {
@@ -781,24 +846,32 @@ export function applyFinalSelection(
   const { strictFiltered, fallbackCandidates } = rulesResult;
 
   // Case 3 & 4: Normal operation with MIN_OUTFITS threshold
-  let candidates: Outfit[];
+  const candidates: OutfitWithMeta[] = [];
   let fallbackCount = 0;
   const repeatedItemIds = new Set<string>();
 
-  if (strictFiltered.length >= MIN_OUTFITS_PER_RESPONSE) {
-    // Case 3: Enough strict outfits - use them directly
-    candidates = strictFiltered;
-  } else {
-    // Case 4: Not enough strict - add from fallbackCandidates
-    // fallbackCandidates are already sorted by ascending repeat count
-    candidates = [...strictFiltered];
-    const needed = MIN_OUTFITS_PER_RESPONSE - candidates.length;
+  // Add strict outfits with metadata
+  for (const outfit of strictFiltered) {
+    if (includeMetadata) {
+      candidates.push(addStrictMeta(outfit));
+    } else {
+      candidates.push(outfit);
+    }
+  }
+
+  // If not enough strict, add from fallbackCandidates
+  if (strictFiltered.length < MIN_OUTFITS_PER_RESPONSE) {
+    const needed = MIN_OUTFITS_PER_RESPONSE - strictFiltered.length;
 
     if (needed > 0 && fallbackCandidates.length > 0) {
       const toAdd = fallbackCandidates.slice(0, needed);
 
       for (const fallback of toAdd) {
-        candidates.push(fallback.outfit);
+        if (includeMetadata) {
+          candidates.push(addFallbackMeta(fallback));
+        } else {
+          candidates.push(fallback.outfit);
+        }
         fallbackCount++;
 
         // Collect repeated item IDs for analytics
@@ -810,7 +883,7 @@ export function applyFinalSelection(
   }
 
   // Step 5: Apply deterministic ordering
-  const ordered = applyDeterministicOrdering(candidates);
+  const ordered = applyDeterministicOrderingWithMeta(candidates);
 
   // Step 6: Truncate to MAX_OUTFITS
   const truncated = ordered.slice(0, MAX_OUTFITS_PER_RESPONSE);
@@ -1238,21 +1311,6 @@ export async function handler(req: Request): Promise<Response> {
         strictMinCount: DEFAULT_STRICT_MIN_COUNT,
       });
 
-      // Emit analytics event: recommendations_filtered_by_no_repeat
-      const excludedCount = candidateOutfits.length - rulesResult.strictFiltered.length;
-      if (excludedCount > 0) {
-        logger.info('recommendations_filtered_by_no_repeat', {
-          user_id: userId,
-          metadata: {
-            candidates_count: candidateOutfits.length,
-            strict_count: rulesResult.strictFiltered.length,
-            excluded_count: excludedCount,
-            no_repeat_mode: noRepeatMode,
-            no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
-          },
-        });
-      }
-
       logger.debug('no_repeat_rules_applied', {
         user_id: userId,
         metadata: {
@@ -1280,7 +1338,27 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     // Apply final selection with fallback logic
-    const selectionResult = applyFinalSelection(candidateOutfits, rulesResult);
+    // Include per-outfit metadata only when filtering was actually applied
+    const selectionResult = applyFinalSelection(
+      candidateOutfits,
+      rulesResult,
+      shouldApplyFiltering
+    );
+
+    // Emit analytics event: recommendations_filtered_by_no_repeat
+    // This event is emitted on EVERY call when filtering is enabled (per spec)
+    if (shouldApplyFiltering) {
+      logger.info('recommendations_filtered_by_no_repeat', {
+        user_id: userId,
+        metadata: {
+          total_candidates: candidateOutfits.length,
+          strict_kept_count: rulesResult.strictFiltered.length,
+          fallback_used: selectionResult.fallbackCount > 0,
+          no_repeat_days: noRepeatDays,
+          no_repeat_mode: noRepeatMode,
+        },
+      });
+    }
 
     // Handle configuration error (empty static pool)
     if (selectionResult.configError) {
@@ -1334,17 +1412,17 @@ export async function handler(req: Request): Promise<Response> {
       });
     }
 
-    // Emit analytics event: no_repeat_fallback_triggered
+    // Emit analytics event: no_repeat_fallback_triggered (when fallbacks used)
     if (selectionResult.fallbackCount > 0) {
       logger.info('no_repeat_fallback_triggered', {
         user_id: userId,
         metadata: {
+          total_candidates: candidateOutfits.length,
+          strict_kept_count: rulesResult.strictFiltered.length,
           fallback_count: selectionResult.fallbackCount,
-          strict_count: rulesResult.strictFiltered.length,
-          final_count: selectionResult.outfits.length,
+          // Additional context for debugging
           repeated_item_count: selectionResult.repeatedItemIds.length,
           no_repeat_mode: noRepeatMode,
-          no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
         },
       });
     }
