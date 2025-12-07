@@ -345,9 +345,11 @@ export function applyNoRepeatRules(input: ApplyNoRepeatRulesInput): ApplyNoRepea
   }
 
   // Build fallback candidates with repeated items metadata
-  // This is done regardless of strictFiltered count for consistent output
+  // When strict filtering is too strong (fewer than strictMinCount results),
+  // we re-evaluate ALL original candidates to provide fallbacks sorted by
+  // how many items they would repeat
   const fallbackCandidates = buildFallbackCandidates(
-    nonStrictCandidates,
+    candidates,
     recentItemIds,
     strictFiltered.length,
     strictMinCount
@@ -488,21 +490,33 @@ function isCandidateStrict(
 /**
  * Builds the fallback candidates array with repeated items metadata.
  *
- * Candidates are sorted by ascending repeat count (fewest first),
- * with deterministic tie-breaking by outfit ID.
+ * When strict filtering is too strong (strictCount < strictMinCount), this
+ * function re-evaluates ALL original candidates without hard exclusion. For
+ * each candidate, it computes the intersection between its itemIds and
+ * recentItemIds to determine repeatedItems.
  *
- * Note: Fallback candidates are generated from non-strict candidates only.
- * When strictFiltered already meets strictMinCount, an empty array is returned
- * for efficiency, though the output shape remains consistent.
+ * ## Sorting
  *
- * @param nonStrictCandidates - Candidates that failed strict filtering
- * @param recentItemIds - Set of recently worn item IDs
+ * Candidates are sorted by ascending repeat count (fewest repeats first),
+ * with deterministic tie-breaking by outfit ID. This means:
+ * - Candidates with 0 repeated items come first (same as strict candidates)
+ * - Candidates with 1 repeated item come next
+ * - And so on...
+ *
+ * ## When Strict Filtering is Sufficient
+ *
+ * When strictCount >= strictMinCount, an empty array is returned for
+ * efficiency. The output shape remains consistent (always FallbackCandidate[])
+ * so callers can rely on the structure without additional checks.
+ *
+ * @param allCandidates - All original outfit candidates (before filtering)
+ * @param recentItemIds - Set of item IDs worn within the blocked window
  * @param strictCount - Number of candidates that passed strict filtering
  * @param strictMinCount - Minimum threshold for strict results
- * @returns Sorted array of fallback candidates with metadata
+ * @returns Sorted array of fallback candidates with repeatedItems metadata
  */
 function buildFallbackCandidates(
-  nonStrictCandidates: Outfit[],
+  allCandidates: Outfit[],
   recentItemIds: Set<string>,
   strictCount: number,
   strictMinCount: number
@@ -514,7 +528,8 @@ function buildFallbackCandidates(
   }
 
   // Build fallback candidates with repeated items metadata
-  const fallbacks: FallbackCandidate[] = nonStrictCandidates.map((outfit) => {
+  // Re-evaluate ALL candidates to compute their repeatedItems intersection
+  const fallbacks: FallbackCandidate[] = allCandidates.map((outfit) => {
     const repeatedItems: Item[] = [];
 
     for (const itemId of outfit.itemIds) {
