@@ -38,6 +38,7 @@ logs/
 coverage/
 *.lcov
 .nyc_output
+test-results.json
 
 # Environment variables
 .env
