@@ -70,6 +70,28 @@ import {
 } from '../_shared/noRepeatRules.ts';
 
 // ============================================================================
+// Re-exports for Test Surface
+// ============================================================================
+//
+// These exports provide a consistent public API for testing. They expose
+// the no-repeat filtering functionality through the endpoint module,
+// allowing tests to exercise the behavior without importing from internal
+// shared modules directly.
+//
+// - applyNoRepeatFilter: Re-export of applyNoRepeatRules for filtering tests
+// - applyMinMaxSelection: Alias for applyFinalSelection (legacy naming)
+// ============================================================================
+
+/**
+ * Re-export of applyNoRepeatRules for test surface consistency.
+ *
+ * This allows tests to import the no-repeat filtering function from the
+ * endpoint module rather than the internal shared module, providing a
+ * cleaner public API for testing the recommendation flow.
+ */
+export { applyNoRepeatRules as applyNoRepeatFilter };
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -913,6 +935,17 @@ export function applyFinalSelection(
     repeatedItemIds: Array.from(repeatedItemIds),
   };
 }
+
+/**
+ * Alias for applyFinalSelection for test surface consistency.
+ *
+ * This provides an alternative name that may be used in tests or
+ * documentation referring to the MIN/MAX selection logic. Both names
+ * reference the same underlying function.
+ *
+ * @see applyFinalSelection
+ */
+export const applyMinMaxSelection = applyFinalSelection;
 
 /**
  * Gets today's date in YYYY-MM-DD format (user's local timezone).
