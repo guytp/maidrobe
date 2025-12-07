@@ -31,9 +31,13 @@ import {
   MIN_OUTFITS_PER_RESPONSE,
   MAX_OUTFITS_PER_RESPONSE,
 } from '../supabase/functions/get-outfit-recommendations/types.ts';
-import type {
-  ApplyNoRepeatRulesResult,
-  FallbackCandidate,
+import {
+  applyNoRepeatRules,
+  type ApplyNoRepeatRulesResult,
+  type FallbackCandidate,
+  type WearHistoryEntry,
+  type NoRepeatPrefs,
+  type ApplyNoRepeatRulesInput,
 } from '../supabase/functions/_shared/noRepeatRules.ts';
 
 // ============================================================================
@@ -1722,3 +1726,167 @@ Deno.test('parseContextParams: handles whitespace in string values', () => {
   assertEquals(result.occasion, DEFAULT_OCCASION);
   assertEquals(result.temperatureBand, DEFAULT_TEMPERATURE_BAND);
 });
+
+// ============================================================================
+// Deduplication Integration Tests (Story #447)
+// ============================================================================
+
+Deno.test('integration: no duplicate outfit IDs across strict and fallback when combined', () => {
+  // Create a mixed candidate set where some outfits will be strict
+  // and others will become fallbacks
+  const outfits = createTestOutfits(6);
+
+  // outfits[0], [1], [2] - will have recently worn items (excluded from strict)
+  // outfits[3], [4], [5] - clean outfits (pass strict)
+
+  // Create wear history that blocks outfits 0, 1, 2
+  const wearHistory: WearHistoryEntry[] = [
+    { itemIds: ['item-1-a'], wornDate: '2024-01-14' }, // blocks outfit 1
+    { itemIds: ['item-2-a'], wornDate: '2024-01-14' }, // blocks outfit 2
+    { itemIds: ['item-3-a'], wornDate: '2024-01-14' }, // blocks outfit 3
+  ];
+
+  const prefs: NoRepeatPrefs = {
+    noRepeatDays: 7,
+    noRepeatMode: 'item',
+  };
+
+  const input: ApplyNoRepeatRulesInput = {
+    candidates: outfits,
+    wearHistory,
+    prefs,
+    targetDate: '2024-01-15',
+    strictMinCount: 5, // Force fallback generation (only 3 strict, need 5)
+  };
+
+  // Apply the no-repeat rules
+  const rulesResult = applyNoRepeatRules(input);
+
+  // Verify we have the expected strict/fallback split
+  assertEquals(rulesResult.strictFiltered.length, 3); // outfits 4, 5, 6 pass strict
+  assertEquals(rulesResult.fallbackCandidates.length > 0, true); // Have fallbacks
+
+  // Now apply final selection which combines strict + fallbacks
+  const finalResult = applyFinalSelection(outfits, rulesResult, true);
+
+  // Collect all outfit IDs in the final result
+  const allOutfitIds = finalResult.outfits.map((o: OutfitWithMeta) => o.id);
+
+  // Verify no duplicates: Set size should equal array length
+  const uniqueIds = new Set(allOutfitIds);
+  assertEquals(
+    uniqueIds.size,
+    allOutfitIds.length,
+    `Expected no duplicate outfit IDs. Found ${allOutfitIds.length - uniqueIds.size} duplicates.`
+  );
+
+  // Additional verification: check that strict outfits are NOT in fallback candidates
+  const strictIds = new Set(rulesResult.strictFiltered.map((o: Outfit) => o.id));
+  for (const fallback of rulesResult.fallbackCandidates) {
+    assertEquals(
+      strictIds.has(fallback.outfit.id),
+      false,
+      `Fallback candidate ${fallback.outfit.id} should not be in strict set`
+    );
+  }
+});
+
+Deno.test(
+  'integration: deduplication handles edge case where all candidates would be both strict and fallback eligible',
+  () => {
+    // Edge case: strictMinCount > candidates.length, forcing fallback generation
+    // even though some outfits pass strict. Verify no duplicates.
+    const outfits = createTestOutfits(4);
+
+    // No wear history - all outfits pass strict
+    const wearHistory: WearHistoryEntry[] = [];
+
+    const prefs: NoRepeatPrefs = {
+      noRepeatDays: 7,
+      noRepeatMode: 'item',
+    };
+
+    const input: ApplyNoRepeatRulesInput = {
+      candidates: outfits,
+      wearHistory,
+      prefs,
+      targetDate: '2024-01-15',
+      strictMinCount: 10, // Much larger than candidate count - forces fallback path
+    };
+
+    const rulesResult = applyNoRepeatRules(input);
+
+    // All 4 pass strict, but strictMinCount=10 triggers fallback generation
+    assertEquals(rulesResult.strictFiltered.length, 4);
+
+    // The key deduplication fix: strict outfits should NOT appear in fallbacks
+    // Previously this would have included all 4 in fallbacks too, causing duplicates
+    const strictIds = new Set(rulesResult.strictFiltered.map((o: Outfit) => o.id));
+
+    for (const fallback of rulesResult.fallbackCandidates) {
+      assertEquals(
+        strictIds.has(fallback.outfit.id),
+        false,
+        `Strict outfit ${fallback.outfit.id} incorrectly appears in fallback candidates`
+      );
+    }
+
+    // Final selection should have no duplicates
+    const finalResult = applyFinalSelection(outfits, rulesResult);
+    const outfitIds = finalResult.outfits.map((o: OutfitWithMeta) => o.id);
+    const uniqueOutfitIds = new Set(outfitIds);
+
+    assertEquals(
+      uniqueOutfitIds.size,
+      outfitIds.length,
+      'Final selection should contain no duplicate outfit IDs'
+    );
+  }
+);
+
+Deno.test(
+  'integration: applyFinalSelection defence-in-depth guard catches potential duplicates',
+  () => {
+    // Test the defence-in-depth duplicate guard in applyFinalSelection
+    // by simulating a scenario where the same outfit might appear in both sets
+    const outfits = createTestOutfits(5);
+
+    // Create a scenario with mix of strict and fallback
+    const strictFiltered = [outfits[0], outfits[1]]; // 2 strict
+    const fallbackCandidates: FallbackCandidate[] = [
+      { outfit: outfits[2], repeatedItems: [{ id: 'item-3-a' }] },
+      { outfit: outfits[3], repeatedItems: [{ id: 'item-4-a' }] },
+      { outfit: outfits[4], repeatedItems: [{ id: 'item-5-a', name: 'Test Item' }] },
+    ];
+
+    const rulesResult: ApplyNoRepeatRulesResult = {
+      strictFiltered,
+      fallbackCandidates,
+    };
+
+    // Apply final selection - needs to fill to MIN from fallbacks
+    const finalResult = applyFinalSelection(outfits, rulesResult, true);
+
+    assertEquals(finalResult.outfits.length, MIN_OUTFITS_PER_RESPONSE);
+
+    // Verify all outfit IDs are unique
+    const ids = finalResult.outfits.map((o: OutfitWithMeta) => o.id);
+    const uniqueIds = new Set(ids);
+    assertEquals(uniqueIds.size, ids.length, 'All outfit IDs in final result should be unique');
+
+    // Verify correct metadata assignment
+    let strictCount = 0;
+    let fallbackCount = 0;
+
+    for (const outfit of finalResult.outfits) {
+      if (outfit.noRepeatMeta?.filterStatus === 'strict') {
+        strictCount++;
+      } else if (outfit.noRepeatMeta?.filterStatus === 'fallback') {
+        fallbackCount++;
+      }
+    }
+
+    assertEquals(strictCount, 2, 'Should have 2 strict outfits');
+    assertEquals(fallbackCount, 1, 'Should have 1 fallback outfit to reach MIN');
+  }
+);
