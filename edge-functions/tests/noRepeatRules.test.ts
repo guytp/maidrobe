@@ -16,6 +16,7 @@
  * - (c) Same-day wear event handling
  * - (d) noRepeatDays = 0 behaviour
  * - (e) Fallback generation when all candidates excluded
+ * - (f) Deduplication - strict outfits excluded from fallbacks
  *
  * @module tests/noRepeatRules
  */
@@ -564,10 +565,11 @@ Deno.test('fallback: generated when all candidates excluded (strictFiltered empt
 });
 
 Deno.test('fallback: includes accurate repeatedItems lists', () => {
+  // All candidates have at least one recently worn item, so none pass strict
   const candidates = [
     createTestOutfit(1, ['item-a', 'item-b']), // Both items worn
     createTestOutfit(2, ['item-a', 'item-c']), // Only item-a worn
-    createTestOutfit(3, ['item-d', 'item-e']), // Neither worn
+    createTestOutfit(3, ['item-b', 'item-d']), // Only item-b worn
   ];
 
   const wearHistory: WearHistoryEntry[] = [
@@ -584,6 +586,12 @@ Deno.test('fallback: includes accurate repeatedItems lists', () => {
 
   const result = applyNoRepeatRules(input);
 
+  // All candidates fail strict (all have at least one worn item)
+  assertEquals(result.strictFiltered.length, 0);
+
+  // All candidates should be in fallbacks
+  assertEquals(result.fallbackCandidates.length, 3);
+
   // Find each outfit in fallbacks
   const fallback1 = result.fallbackCandidates.find(
     (f: FallbackCandidate) => f.outfit.id === candidates[0].id
@@ -598,7 +606,7 @@ Deno.test('fallback: includes accurate repeatedItems lists', () => {
   // Verify repeatedItems accuracy
   assertEquals(fallback1?.repeatedItems.length, 2); // item-a and item-b
   assertEquals(fallback2?.repeatedItems.length, 1); // item-a only
-  assertEquals(fallback3?.repeatedItems.length, 0); // No repeats
+  assertEquals(fallback3?.repeatedItems.length, 1); // item-b only
 
   // Verify item IDs in repeatedItems
   const fallback1ItemIds = fallback1?.repeatedItems.map((i: Item) => i.id).sort();
@@ -606,14 +614,18 @@ Deno.test('fallback: includes accurate repeatedItems lists', () => {
 
   const fallback2ItemIds = fallback2?.repeatedItems.map((i: Item) => i.id);
   assertEquals(fallback2ItemIds, ['item-a']);
+
+  const fallback3ItemIds = fallback3?.repeatedItems.map((i: Item) => i.id);
+  assertEquals(fallback3ItemIds, ['item-b']);
 });
 
 Deno.test('fallback: sorted by ascending repeat count', () => {
+  // All candidates have at least one recently worn item (no strict passes)
   const candidates = [
     createTestOutfit(1, ['item-a', 'item-b', 'item-c']), // 3 repeats
     createTestOutfit(2, ['item-a']), // 1 repeat
     createTestOutfit(3, ['item-a', 'item-b']), // 2 repeats
-    createTestOutfit(4, ['item-d']), // 0 repeats
+    createTestOutfit(4, ['item-c']), // 1 repeat
   ];
 
   const wearHistory: WearHistoryEntry[] = [
@@ -630,9 +642,18 @@ Deno.test('fallback: sorted by ascending repeat count', () => {
 
   const result = applyNoRepeatRules(input);
 
-  // Verify sort order: fewest repeats first
-  assertEquals(result.fallbackCandidates[0].repeatedItems.length, 0); // outfit 4
-  assertEquals(result.fallbackCandidates[1].repeatedItems.length, 1); // outfit 2
+  // All candidates fail strict filtering
+  assertEquals(result.strictFiltered.length, 0);
+
+  // All 4 candidates should be in fallbacks
+  assertEquals(result.fallbackCandidates.length, 4);
+
+  // Verify sort order: fewest repeats first, then by outfit ID for ties
+  // outfit 2 (1 repeat, ID ...002) and outfit 4 (1 repeat, ID ...004)
+  assertEquals(result.fallbackCandidates[0].repeatedItems.length, 1); // outfit 2
+  assertEquals(result.fallbackCandidates[0].outfit.id, candidates[1].id);
+  assertEquals(result.fallbackCandidates[1].repeatedItems.length, 1); // outfit 4
+  assertEquals(result.fallbackCandidates[1].outfit.id, candidates[3].id);
   assertEquals(result.fallbackCandidates[2].repeatedItems.length, 2); // outfit 3
   assertEquals(result.fallbackCandidates[3].repeatedItems.length, 3); // outfit 1
 });
@@ -716,8 +737,15 @@ Deno.test('fallback: generated when strictFiltered below strictMinCount', () => 
   // Only outfit 3 passes strict (1 < 3)
   assertEquals(result.strictFiltered.length, 1);
 
-  // Fallbacks should be generated for ALL candidates
-  assertEquals(result.fallbackCandidates.length, 3);
+  // Fallbacks should be generated for non-strict candidates only
+  // (outfit 3 is in strict, so only outfits 1 and 2 are in fallbacks)
+  assertEquals(result.fallbackCandidates.length, 2);
+
+  // Verify fallback contents: should only contain outfits 1 and 2
+  const fallbackIds = result.fallbackCandidates.map((f: FallbackCandidate) => f.outfit.id);
+  assertEquals(fallbackIds.includes(candidates[0].id), true); // outfit 1
+  assertEquals(fallbackIds.includes(candidates[1].id), true); // outfit 2
+  assertEquals(fallbackIds.includes(candidates[2].id), false); // outfit 3 in strict
 });
 
 Deno.test('fallback: uses DEFAULT_STRICT_MIN_COUNT when not specified', () => {
@@ -742,6 +770,89 @@ Deno.test('fallback: uses DEFAULT_STRICT_MIN_COUNT when not specified', () => {
   assertEquals(result.fallbackCandidates.length, 2);
   assertEquals(DEFAULT_STRICT_MIN_COUNT, 3);
 });
+
+// ============================================================================
+// (f) Deduplication Tests - Strict outfits excluded from fallbacks
+// ============================================================================
+
+Deno.test('fallback: strict outfits are excluded from fallback candidates', () => {
+  // This test verifies the key deduplication behavior:
+  // Outfits that pass strict filtering should NEVER appear in fallbackCandidates
+  const candidates = [
+    createTestOutfit(1, ['item-a']), // Will fail strict (item-a worn)
+    createTestOutfit(2, ['item-b']), // Will fail strict (item-b worn)
+    createTestOutfit(3, ['item-c']), // Will pass strict (item-c not worn)
+    createTestOutfit(4, ['item-d']), // Will pass strict (item-d not worn)
+  ];
+
+  const wearHistory: WearHistoryEntry[] = [
+    createWearHistoryEntry(['item-a', 'item-b'], '2024-01-14'),
+  ];
+
+  const input: ApplyNoRepeatRulesInput = {
+    candidates,
+    wearHistory,
+    prefs: createItemModePrefs(7),
+    targetDate: '2024-01-15',
+    strictMinCount: 5, // Force fallback generation (only 2 strict, need 5)
+  };
+
+  const result = applyNoRepeatRules(input);
+
+  // 2 outfits pass strict (outfit 3 and 4)
+  assertEquals(result.strictFiltered.length, 2);
+
+  // Build set of strict outfit IDs
+  const strictIds = new Set(result.strictFiltered.map((o: Outfit) => o.id));
+  assertEquals(strictIds.has(candidates[2].id), true); // outfit 3 in strict
+  assertEquals(strictIds.has(candidates[3].id), true); // outfit 4 in strict
+
+  // Fallbacks should contain ONLY non-strict candidates (outfits 1 and 2)
+  assertEquals(result.fallbackCandidates.length, 2);
+
+  // Verify NO strict outfit appears in fallbacks
+  for (const fallback of result.fallbackCandidates) {
+    assertEquals(
+      strictIds.has(fallback.outfit.id),
+      false,
+      `Strict outfit ${fallback.outfit.id} should not appear in fallbackCandidates`
+    );
+  }
+
+  // Verify fallbacks contain only the non-strict outfits
+  const fallbackIds = result.fallbackCandidates.map((f: FallbackCandidate) => f.outfit.id);
+  assertEquals(fallbackIds.includes(candidates[0].id), true); // outfit 1
+  assertEquals(fallbackIds.includes(candidates[1].id), true); // outfit 2
+});
+
+Deno.test(
+  'fallback: empty fallbacks when all candidates pass strict and strictMinCount not met',
+  () => {
+    // Edge case: all candidates pass strict, but strictCount < strictMinCount
+    // With deduplication, fallbacks should be empty since all are in strict
+    const candidates = [createTestOutfit(1, ['item-a']), createTestOutfit(2, ['item-b'])];
+
+    // No wear history - all items are clean
+    const wearHistory: WearHistoryEntry[] = [];
+
+    const input: ApplyNoRepeatRulesInput = {
+      candidates,
+      wearHistory,
+      prefs: createItemModePrefs(7),
+      targetDate: '2024-01-15',
+      strictMinCount: 5, // Need 5, only have 2 candidates total
+    };
+
+    const result = applyNoRepeatRules(input);
+
+    // Both candidates pass strict
+    assertEquals(result.strictFiltered.length, 2);
+
+    // Fallbacks should be empty - all candidates are already in strict
+    // This is the key deduplication behavior: we don't duplicate strict outfits in fallbacks
+    assertEquals(result.fallbackCandidates.length, 0);
+  }
+);
 
 // ============================================================================
 // Edge Cases and Integration Tests
