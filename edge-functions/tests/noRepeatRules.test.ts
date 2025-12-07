@@ -27,10 +27,12 @@ import {
   isWithinBlockedWindow,
   applyNoRepeatRules,
   DEFAULT_STRICT_MIN_COUNT,
+  type Item,
   type Outfit,
   type WearHistoryEntry,
   type NoRepeatPrefs,
   type ApplyNoRepeatRulesInput,
+  type FallbackCandidate,
 } from '../supabase/functions/_shared/noRepeatRules.ts';
 
 // ============================================================================
@@ -241,9 +243,7 @@ Deno.test('item mode: includes outfit when item worn outside window', () => {
 });
 
 Deno.test('item mode: excludes outfit when ANY item worn within window', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a', 'item-b', 'item-c']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a', 'item-b', 'item-c'])];
 
   const wearHistory: WearHistoryEntry[] = [
     createWearHistoryEntry(['item-b'], '2024-01-14'), // Only item-b worn recently
@@ -263,9 +263,7 @@ Deno.test('item mode: excludes outfit when ANY item worn within window', () => {
 });
 
 Deno.test('item mode: works with multiple noRepeatDays values', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a'])];
 
   const wearHistory: WearHistoryEntry[] = [
     createWearHistoryEntry(['item-a'], '2024-01-12'), // 3 days ago
@@ -370,9 +368,7 @@ Deno.test('outfit mode: includes outfit when items worn but not exact outfit', (
 // ============================================================================
 
 Deno.test('same-day wear: item mode allows same-day repeat', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a', 'item-b']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a', 'item-b'])];
 
   const wearHistory: WearHistoryEntry[] = [
     createWearHistoryEntry(['item-a'], '2024-01-15'), // Same day as target
@@ -413,9 +409,7 @@ Deno.test('same-day wear: outfit mode allows same-day repeat', () => {
 });
 
 Deno.test('same-day wear: next day IS blocked', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a', 'item-b']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a', 'item-b'])];
 
   const wearHistory: WearHistoryEntry[] = [
     createWearHistoryEntry(['item-a'], '2024-01-14'), // Day before target
@@ -435,16 +429,12 @@ Deno.test('same-day wear: next day IS blocked', () => {
 });
 
 Deno.test('same-day wear: day N+1 after wear is eligible again', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a', 'item-b']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a', 'item-b'])];
 
   // With noRepeatDays=3, worn on Jan 12
   // Blocked: Jan 13, 14, 15 (days 1, 2, 3)
   // Eligible: Jan 16 (day 4 = N+1)
-  const wearHistory: WearHistoryEntry[] = [
-    createWearHistoryEntry(['item-a'], '2024-01-12'),
-  ];
+  const wearHistory: WearHistoryEntry[] = [createWearHistoryEntry(['item-a'], '2024-01-12')];
 
   // Target is Jan 16 - should be eligible
   const inputEligible: ApplyNoRepeatRulesInput = {
@@ -595,9 +585,15 @@ Deno.test('fallback: includes accurate repeatedItems lists', () => {
   const result = applyNoRepeatRules(input);
 
   // Find each outfit in fallbacks
-  const fallback1 = result.fallbackCandidates.find((f) => f.outfit.id === candidates[0].id);
-  const fallback2 = result.fallbackCandidates.find((f) => f.outfit.id === candidates[1].id);
-  const fallback3 = result.fallbackCandidates.find((f) => f.outfit.id === candidates[2].id);
+  const fallback1 = result.fallbackCandidates.find(
+    (f: FallbackCandidate) => f.outfit.id === candidates[0].id
+  );
+  const fallback2 = result.fallbackCandidates.find(
+    (f: FallbackCandidate) => f.outfit.id === candidates[1].id
+  );
+  const fallback3 = result.fallbackCandidates.find(
+    (f: FallbackCandidate) => f.outfit.id === candidates[2].id
+  );
 
   // Verify repeatedItems accuracy
   assertEquals(fallback1?.repeatedItems.length, 2); // item-a and item-b
@@ -605,10 +601,10 @@ Deno.test('fallback: includes accurate repeatedItems lists', () => {
   assertEquals(fallback3?.repeatedItems.length, 0); // No repeats
 
   // Verify item IDs in repeatedItems
-  const fallback1ItemIds = fallback1?.repeatedItems.map((i) => i.id).sort();
+  const fallback1ItemIds = fallback1?.repeatedItems.map((i: Item) => i.id).sort();
   assertEquals(fallback1ItemIds, ['item-a', 'item-b']);
 
-  const fallback2ItemIds = fallback2?.repeatedItems.map((i) => i.id);
+  const fallback2ItemIds = fallback2?.repeatedItems.map((i: Item) => i.id);
   assertEquals(fallback2ItemIds, ['item-a']);
 });
 
@@ -677,9 +673,7 @@ Deno.test('fallback: empty when strictFiltered meets strictMinCount', () => {
     createTestOutfit(4, ['item-d']), // Only this one has worn items
   ];
 
-  const wearHistory: WearHistoryEntry[] = [
-    createWearHistoryEntry(['item-d'], '2024-01-14'),
-  ];
+  const wearHistory: WearHistoryEntry[] = [createWearHistoryEntry(['item-d'], '2024-01-14')];
 
   const input: ApplyNoRepeatRulesInput = {
     candidates,
@@ -727,10 +721,7 @@ Deno.test('fallback: generated when strictFiltered below strictMinCount', () => 
 });
 
 Deno.test('fallback: uses DEFAULT_STRICT_MIN_COUNT when not specified', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a']),
-    createTestOutfit(2, ['item-b']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a']), createTestOutfit(2, ['item-b'])];
 
   const wearHistory: WearHistoryEntry[] = [
     createWearHistoryEntry(['item-a', 'item-b'], '2024-01-14'),
@@ -771,10 +762,7 @@ Deno.test('handles empty candidates array', () => {
 });
 
 Deno.test('handles empty wear history', () => {
-  const candidates = [
-    createTestOutfit(1, ['item-a']),
-    createTestOutfit(2, ['item-b']),
-  ];
+  const candidates = [createTestOutfit(1, ['item-a']), createTestOutfit(2, ['item-b'])];
 
   const input: ApplyNoRepeatRulesInput = {
     candidates,
@@ -828,9 +816,7 @@ Deno.test('long noRepeatDays window (30 days)', () => {
   const candidates = [createTestOutfit(1, ['item-a'])];
 
   // Worn 29 days ago - should be blocked with 30-day window
-  const wearHistory: WearHistoryEntry[] = [
-    createWearHistoryEntry(['item-a'], '2024-01-01'),
-  ];
+  const wearHistory: WearHistoryEntry[] = [createWearHistoryEntry(['item-a'], '2024-01-01')];
 
   const input: ApplyNoRepeatRulesInput = {
     candidates,
