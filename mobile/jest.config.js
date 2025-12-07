@@ -18,4 +18,9 @@ module.exports = {
   // CI reliability settings
   testTimeout: 10000,
   maxWorkers: '50%',
+  // In CI, add custom reporter to write JSON results for failure summary parsing
+  // while preserving default reporter output. The CI env var is set by GitHub Actions.
+  ...(process.env.CI && {
+    reporters: ['default', '<rootDir>/jest-results-processor.js'],
+  }),
 };
