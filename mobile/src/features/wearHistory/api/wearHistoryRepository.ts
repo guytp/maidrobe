@@ -19,6 +19,7 @@
  */
 
 import { supabase } from '../../../services/supabase';
+import { logSuccess, logError, type ErrorClassification } from '../../../core/telemetry';
 import {
   type WearHistoryRow,
   type CreateWearEventPayload,
@@ -28,6 +29,34 @@ import {
   WEAR_HISTORY_PROJECTION,
   DEFAULT_WEAR_HISTORY_PAGE_SIZE,
 } from '../types';
+
+// ============================================================================
+// Logging Constants
+// ============================================================================
+
+/**
+ * Feature name for telemetry logging.
+ */
+const FEATURE_NAME = 'wearHistory';
+
+/**
+ * Maps WearHistoryError codes to telemetry ErrorClassification.
+ */
+function mapErrorCodeToClassification(
+  code: 'network' | 'server' | 'auth' | 'validation' | 'unknown'
+): ErrorClassification {
+  switch (code) {
+    case 'network':
+      return 'network';
+    case 'auth':
+    case 'validation':
+      return 'user';
+    case 'server':
+    case 'unknown':
+    default:
+      return 'server';
+  }
+}
 
 /**
  * Error thrown when wear history operations fail.
@@ -183,6 +212,8 @@ export async function createOrUpdateWearEvent(
   wornDate: string,
   payload: CreateWearEventPayload
 ): Promise<WearHistoryRow> {
+  const startTime = Date.now();
+
   // Validate required parameters
   if (!userId || !isValidUuid(userId)) {
     throw new WearHistoryError('Invalid user ID', 'validation');
@@ -245,31 +276,97 @@ export async function createOrUpdateWearEvent(
 
     if (error) {
       const errorCode = classifySupabaseError(error);
-      throw new WearHistoryError(
+      const wearHistoryError = new WearHistoryError(
         `Failed to create/update wear event: ${error.message}`,
         errorCode,
         error
       );
+
+      // Log failure at repository level with full context
+      logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+        feature: FEATURE_NAME,
+        operation: 'createOrUpdateWearEvent',
+        metadata: {
+          userId,
+          outfitId,
+          wornDate,
+          source: payload.source,
+          itemCount: payload.item_ids.length,
+          errorCode,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
 
     if (!data) {
-      throw new WearHistoryError('No data returned from upsert operation', 'server');
+      const wearHistoryError = new WearHistoryError(
+        'No data returned from upsert operation',
+        'server'
+      );
+
+      logError(wearHistoryError, 'server', {
+        feature: FEATURE_NAME,
+        operation: 'createOrUpdateWearEvent',
+        metadata: {
+          userId,
+          outfitId,
+          wornDate,
+          source: payload.source,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
+
+    // Log success at repository level
+    const latencyMs = Date.now() - startTime;
+    const isUpdate = data.created_at !== data.updated_at;
+
+    logSuccess(FEATURE_NAME, 'createOrUpdateWearEvent', {
+      latency: latencyMs,
+      data: {
+        userId,
+        outfitId,
+        wornDate,
+        source: payload.source,
+        itemCount: payload.item_ids.length,
+        isUpdate,
+        eventId: data.id,
+      },
+    });
 
     return data as WearHistoryRow;
   } catch (error) {
-    // Re-throw WearHistoryError as-is
+    // Re-throw WearHistoryError as-is (already logged above)
     if (error instanceof WearHistoryError) {
       throw error;
     }
 
-    // Wrap unexpected errors
+    // Wrap and log unexpected errors
     const errorCode = classifySupabaseError(error);
-    throw new WearHistoryError(
+    const wearHistoryError = new WearHistoryError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
       errorCode,
       error
     );
+
+    logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+      feature: FEATURE_NAME,
+      operation: 'createOrUpdateWearEvent',
+      metadata: {
+        userId,
+        outfitId,
+        wornDate,
+        source: payload.source,
+        errorCode,
+        latencyMs: Date.now() - startTime,
+      },
+    });
+
+    throw wearHistoryError;
   }
 }
 
@@ -300,6 +397,7 @@ export async function getWearHistoryForUser(
   userId: string,
   params: GetWearHistoryParams = {}
 ): Promise<GetWearHistoryResponse> {
+  const startTime = Date.now();
   const { limit = DEFAULT_WEAR_HISTORY_PAGE_SIZE, offset = 0 } = params;
 
   // Validate required parameters
@@ -327,11 +425,25 @@ export async function getWearHistoryForUser(
 
     if (error) {
       const errorCode = classifySupabaseError(error);
-      throw new WearHistoryError(
+      const wearHistoryError = new WearHistoryError(
         `Failed to fetch wear history: ${error.message}`,
         errorCode,
         error
       );
+
+      logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+        feature: FEATURE_NAME,
+        operation: 'getWearHistoryForUser',
+        metadata: {
+          userId,
+          limit,
+          offset,
+          errorCode,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
 
     // Safe cast - Supabase returns data matching our projection
@@ -342,24 +454,51 @@ export async function getWearHistoryForUser(
     const loadedCount = offset + events.length;
     const hasMore = loadedCount < total;
 
+    // Log success
+    logSuccess(FEATURE_NAME, 'getWearHistoryForUser', {
+      latency: Date.now() - startTime,
+      data: {
+        userId,
+        limit,
+        offset,
+        eventCount: events.length,
+        total,
+        hasMore,
+      },
+    });
+
     return {
       events,
       total,
       hasMore,
     };
   } catch (error) {
-    // Re-throw WearHistoryError as-is
+    // Re-throw WearHistoryError as-is (already logged above)
     if (error instanceof WearHistoryError) {
       throw error;
     }
 
-    // Wrap unexpected errors
+    // Wrap and log unexpected errors
     const errorCode = classifySupabaseError(error);
-    throw new WearHistoryError(
+    const wearHistoryError = new WearHistoryError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
       errorCode,
       error
     );
+
+    logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+      feature: FEATURE_NAME,
+      operation: 'getWearHistoryForUser',
+      metadata: {
+        userId,
+        limit,
+        offset,
+        errorCode,
+        latencyMs: Date.now() - startTime,
+      },
+    });
+
+    throw wearHistoryError;
   }
 }
 
@@ -383,6 +522,8 @@ export async function getWearHistoryEventById(
   userId: string,
   eventId: string
 ): Promise<WearHistoryRow | null> {
+  const startTime = Date.now();
+
   // Validate required parameters
   if (!userId || !isValidUuid(userId)) {
     throw new WearHistoryError('Invalid user ID', 'validation');
@@ -402,27 +543,63 @@ export async function getWearHistoryEventById(
 
     if (error) {
       const errorCode = classifySupabaseError(error);
-      throw new WearHistoryError(
+      const wearHistoryError = new WearHistoryError(
         `Failed to fetch wear history event: ${error.message}`,
         errorCode,
         error
       );
+
+      logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+        feature: FEATURE_NAME,
+        operation: 'getWearHistoryEventById',
+        metadata: {
+          userId,
+          eventId,
+          errorCode,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
+
+    // Log success (including not-found case)
+    logSuccess(FEATURE_NAME, 'getWearHistoryEventById', {
+      latency: Date.now() - startTime,
+      data: {
+        userId,
+        eventId,
+        found: data !== null,
+      },
+    });
 
     return data as WearHistoryRow | null;
   } catch (error) {
-    // Re-throw WearHistoryError as-is
+    // Re-throw WearHistoryError as-is (already logged above)
     if (error instanceof WearHistoryError) {
       throw error;
     }
 
-    // Wrap unexpected errors
+    // Wrap and log unexpected errors
     const errorCode = classifySupabaseError(error);
-    throw new WearHistoryError(
+    const wearHistoryError = new WearHistoryError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
       errorCode,
       error
     );
+
+    logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+      feature: FEATURE_NAME,
+      operation: 'getWearHistoryEventById',
+      metadata: {
+        userId,
+        eventId,
+        errorCode,
+        latencyMs: Date.now() - startTime,
+      },
+    });
+
+    throw wearHistoryError;
   }
 }
 
@@ -457,6 +634,8 @@ export async function getLatestWearEventForOutfit(
   userId: string,
   outfitId: string
 ): Promise<WearHistoryRow | null> {
+  const startTime = Date.now();
+
   // Validate required parameters
   if (!userId || !isValidUuid(userId)) {
     throw new WearHistoryError('Invalid user ID', 'validation');
@@ -479,27 +658,64 @@ export async function getLatestWearEventForOutfit(
 
     if (error) {
       const errorCode = classifySupabaseError(error);
-      throw new WearHistoryError(
+      const wearHistoryError = new WearHistoryError(
         `Failed to fetch latest wear event for outfit: ${error.message}`,
         errorCode,
         error
       );
+
+      logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+        feature: FEATURE_NAME,
+        operation: 'getLatestWearEventForOutfit',
+        metadata: {
+          userId,
+          outfitId,
+          errorCode,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
+
+    // Log success (including not-found case)
+    logSuccess(FEATURE_NAME, 'getLatestWearEventForOutfit', {
+      latency: Date.now() - startTime,
+      data: {
+        userId,
+        outfitId,
+        found: data !== null,
+        lastWornDate: data?.worn_date,
+      },
+    });
 
     return data as WearHistoryRow | null;
   } catch (error) {
-    // Re-throw WearHistoryError as-is
+    // Re-throw WearHistoryError as-is (already logged above)
     if (error instanceof WearHistoryError) {
       throw error;
     }
 
-    // Wrap unexpected errors
+    // Wrap and log unexpected errors
     const errorCode = classifySupabaseError(error);
-    throw new WearHistoryError(
+    const wearHistoryError = new WearHistoryError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
       errorCode,
       error
     );
+
+    logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+      feature: FEATURE_NAME,
+      operation: 'getLatestWearEventForOutfit',
+      metadata: {
+        userId,
+        outfitId,
+        errorCode,
+        latencyMs: Date.now() - startTime,
+      },
+    });
+
+    throw wearHistoryError;
   }
 }
 
@@ -539,6 +755,8 @@ export async function getWearHistoryForWindow(
   fromDate: string,
   toDate: string
 ): Promise<GetWearHistoryWindowResponse> {
+  const startTime = Date.now();
+
   // Validate required parameters
   if (!userId || !isValidUuid(userId)) {
     throw new WearHistoryError('Invalid user ID', 'validation');
@@ -570,29 +788,69 @@ export async function getWearHistoryForWindow(
 
     if (error) {
       const errorCode = classifySupabaseError(error);
-      throw new WearHistoryError(
+      const wearHistoryError = new WearHistoryError(
         `Failed to fetch wear history window: ${error.message}`,
         errorCode,
         error
       );
+
+      // Log with full context for diagnosing no-repeat filtering issues
+      logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+        feature: FEATURE_NAME,
+        operation: 'getWearHistoryForWindow',
+        metadata: {
+          userId,
+          fromDate,
+          toDate,
+          errorCode,
+          latencyMs: Date.now() - startTime,
+        },
+      });
+
+      throw wearHistoryError;
     }
 
     // Safe cast - Supabase returns data matching our projection
     const events = (data ?? []) as WearHistoryRow[];
 
+    // Log success with context for no-repeat window analysis
+    logSuccess(FEATURE_NAME, 'getWearHistoryForWindow', {
+      latency: Date.now() - startTime,
+      data: {
+        userId,
+        fromDate,
+        toDate,
+        eventCount: events.length,
+      },
+    });
+
     return { events };
   } catch (error) {
-    // Re-throw WearHistoryError as-is
+    // Re-throw WearHistoryError as-is (already logged above)
     if (error instanceof WearHistoryError) {
       throw error;
     }
 
-    // Wrap unexpected errors
+    // Wrap and log unexpected errors
     const errorCode = classifySupabaseError(error);
-    throw new WearHistoryError(
+    const wearHistoryError = new WearHistoryError(
       error instanceof Error ? error.message : 'An unexpected error occurred',
       errorCode,
       error
     );
+
+    logError(wearHistoryError, mapErrorCodeToClassification(errorCode), {
+      feature: FEATURE_NAME,
+      operation: 'getWearHistoryForWindow',
+      metadata: {
+        userId,
+        fromDate,
+        toDate,
+        errorCode,
+        latencyMs: Date.now() - startTime,
+      },
+    });
+
+    throw wearHistoryError;
   }
 }
