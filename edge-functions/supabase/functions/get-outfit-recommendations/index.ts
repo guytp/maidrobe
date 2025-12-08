@@ -48,6 +48,7 @@ import {
   type OutfitWithMeta,
   type RepeatedItemSummary,
   type OutfitRecommendationsResponse,
+  type NoRepeatFilteringMeta,
   type RequestOutcome,
   type OccasionKey,
   type EffectiveContext,
@@ -1506,7 +1507,22 @@ export async function handler(req: Request): Promise<Response> {
     // Step 7: Construct and Validate Response
     // ========================================================================
 
+    // Build the response with optional no-repeat filtering metadata
+    // The metadata is only included when filtering was actually applied,
+    // enabling client-side analytics for story #448 observability
     const response: OutfitRecommendationsResponse = { outfits };
+
+    if (shouldApplyFiltering) {
+      const noRepeatFilteringMeta: NoRepeatFilteringMeta = {
+        totalCandidates: candidateOutfits.length,
+        strictKeptCount: rulesResult.strictFiltered.length,
+        fallbackUsed: selectionResult.fallbackCount > 0,
+        fallbackCount: selectionResult.fallbackCount,
+        noRepeatDays,
+        noRepeatMode,
+      };
+      response.noRepeatFilteringMeta = noRepeatFilteringMeta;
+    }
 
     // Validate response against contract (catches programming errors)
     // Note: Validation is skipped for config edge cases (empty pool, small pool)
