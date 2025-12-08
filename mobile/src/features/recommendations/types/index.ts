@@ -261,6 +261,19 @@ export const OutfitRecommendationsResponseSchema = z.object({
    * Only present when filtering was actually applied (noRepeatDays > 0).
    */
   noRepeatFilteringMeta: NoRepeatFilteringMetaSchema.optional(),
+  /**
+   * Indicates whether the response was generated in degraded mode.
+   *
+   * When true, the no-repeat filtering was skipped due to wear history
+   * being unavailable (e.g., database timeout, Supabase unavailability).
+   * The recommendations are still valid but may include recently worn items.
+   *
+   * This flag enables the client to optionally surface a subtle UX indicator
+   * that wear history checks are temporarily degraded.
+   *
+   * Only present and true when degradation occurred; absent when normal.
+   */
+  degradedMode: z.boolean().optional(),
 });
 
 // ============================================================================

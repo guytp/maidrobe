@@ -130,6 +130,18 @@ export interface UseOutfitRecommendationsResult {
   hasData: boolean;
 
   /**
+   * Whether the last successful response was generated in degraded mode.
+   *
+   * When true, the no-repeat filtering was skipped on the server due to
+   * wear history being unavailable. The recommendations are still valid
+   * but may include recently worn items.
+   *
+   * UI can optionally show a subtle indicator when this is true.
+   * Resets to false when a new successful non-degraded response is received.
+   */
+  isDegradedMode: boolean;
+
+  /**
    * Trigger a recommendation fetch with optional context parameters.
    *
    * @param contextParams - Optional context parameters (occasion, temperatureBand)
@@ -294,6 +306,10 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // Track OTEL span ID for recommendation fetch (p95 target: <300ms with no-repeat)
   const spanIdRef = useRef<string | null>(null);
 
+  // Track degraded mode state from the last successful response
+  // True when the server indicates wear history was unavailable
+  const isDegradedModeRef = useRef<boolean>(false);
+
   // Query configuration - returns full response to access noRepeatFilteringMeta
   const query = useQuery<OutfitRecommendationsResponse, FetchRecommendationsError>({
     queryKey: outfitRecommendationsQueryKey.user(userId ?? ''),
@@ -388,6 +404,10 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         // Resetting isOfflineRef ensures consumers receive accurate connectivity status.
         lastSuccessfulOutfitsRef.current = response.outfits;
         isOfflineRef.current = false;
+
+        // Track degraded mode state from response
+        // True when server couldn't access wear history for no-repeat filtering
+        isDegradedModeRef.current = response.degradedMode === true;
 
         // End span with success and performance attributes
         if (spanIdRef.current) {
@@ -712,6 +732,7 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
     }
     lastSuccessfulOutfitsRef.current = [];
     isOfflineRef.current = false;
+    isDegradedModeRef.current = false;
   }, [queryClient, userId]);
 
   return {
@@ -723,6 +744,7 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
     errorMessage,
     isOffline: isOfflineRef.current,
     hasData: query.data?.outfits !== undefined || lastSuccessfulOutfitsRef.current.length > 0,
+    isDegradedMode: isDegradedModeRef.current,
     fetchRecommendations,
     reset,
   };

@@ -1329,12 +1329,15 @@ export async function handler(req: Request): Promise<Response> {
 
       // If history lookup failed, log that we're proceeding in degraded mode
       // (treating as if noRepeatDays = 0, i.e., no filtering)
+      // Uses warn severity for alerting - this indicates service degradation
       if (historyLookupFailed) {
-        logger.info('using_degraded_mode', {
+        logger.warn('using_degraded_mode', {
           user_id: userId,
           metadata: {
             reason: 'wear_history_unavailable',
             effective_no_repeat_days: 0,
+            requested_no_repeat_days: noRepeatDays,
+            no_repeat_mode: noRepeatMode,
           },
         });
       }
@@ -1543,6 +1546,13 @@ export async function handler(req: Request): Promise<Response> {
         noRepeatMode,
       };
       response.noRepeatFilteringMeta = noRepeatFilteringMeta;
+    }
+
+    // Include degradedMode flag when wear history lookup failed
+    // This allows the client to optionally surface a UX indicator that
+    // no-repeat filtering is temporarily unavailable
+    if (historyLookupFailed && noRepeatDays > 0) {
+      response.degradedMode = true;
     }
 
     // Validate response against contract (catches programming errors)

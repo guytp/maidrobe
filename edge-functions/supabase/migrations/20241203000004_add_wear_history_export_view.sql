@@ -117,6 +117,11 @@ COMMENT ON VIEW public.user_wear_history_export_view IS
 --   SELECT id, has_onboarded, role, created_at, updated_at
 --   FROM profiles WHERE id = auth.uid();
 --
+--   -- User styling preferences (story #446)
+--   SELECT user_id, no_repeat_days, no_repeat_mode, colour_prefs, exclusions,
+--          comfort_notes, created_at, updated_at
+--   FROM prefs WHERE user_id = auth.uid();
+--
 --   -- Wardrobe items
 --   SELECT id, name, tags, type, colour, pattern, fabric, season, fit,
 --          original_key, clean_key, thumb_key, created_at, updated_at
@@ -131,6 +136,19 @@ COMMENT ON VIEW public.user_wear_history_export_view IS
 --   3. Package results into JSON or ZIP format
 --   4. Optionally include signed URLs for image download
 --   5. Send via secure channel or provide download link
+--
+-- DATA LIFECYCLE SUMMARY (GDPR Compliance):
+--
+-- All user-owned tables use ON DELETE CASCADE from auth.users, ensuring
+-- complete data removal on account deletion:
+--   - profiles (id → auth.users.id) - CASCADE
+--   - prefs (user_id → auth.users.id) - CASCADE
+--   - items (user_id → auth.users.id) - CASCADE
+--   - wear_history (user_id → auth.users.id) - CASCADE
+--   - image_processing_jobs (item_id → items.id) - CASCADE (indirect)
+--   - attribute_detection_jobs (item_id → items.id) - CASCADE (indirect)
+--
+-- Note: Storage objects require separate cleanup (not part of CASCADE).
 --
 -- Future implementation should create an Edge Function that orchestrates
 -- this export process and handles image retrieval from storage.
