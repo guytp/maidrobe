@@ -1374,6 +1374,8 @@ export async function handler(req: Request): Promise<Response> {
     const targetDate = getTodayDateString();
 
     // Apply the no-repeat rules using the shared module
+    // Track timing for p95 performance monitoring (target: filtering should be fast)
+    const noRepeatFilterStartTime = Date.now();
     let rulesResult: ApplyNoRepeatRulesResult;
 
     if (shouldApplyFiltering) {
@@ -1418,6 +1420,25 @@ export async function handler(req: Request): Promise<Response> {
       rulesResult,
       shouldApplyFiltering
     );
+
+    // Calculate no-repeat filtering duration (includes rules + selection)
+    const noRepeatFilterDurationMs = Date.now() - noRepeatFilterStartTime;
+
+    // Log no-repeat filtering performance for p95 monitoring
+    // This dedicated timing log enables tracking filter latency separate from total request
+    logger.info('no_repeat_filter_completed', {
+      user_id: userId,
+      duration_ms: noRepeatFilterDurationMs,
+      metadata: {
+        filtering_applied: shouldApplyFiltering,
+        total_candidates: candidateOutfits.length,
+        strict_kept_count: rulesResult.strictFiltered.length,
+        fallback_count: selectionResult.fallbackCount,
+        wear_history_count: wearHistory.length,
+        no_repeat_mode: noRepeatMode,
+        no_repeat_days_bucket: bucketNoRepeatDays(noRepeatDays),
+      },
+    });
 
     // Emit analytics event: recommendations_filtered_by_no_repeat
     // This event is emitted on EVERY call when filtering is enabled (per spec)

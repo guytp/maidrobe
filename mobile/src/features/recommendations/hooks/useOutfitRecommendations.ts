@@ -33,6 +33,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
 import { logError, trackRecommendationEvent, trackCaptureEvent } from '../../../core/telemetry';
+import { startSpan, endSpan, SpanStatusCode } from '../../../core/telemetry/otel';
 import { getAppEnvironment } from '../../../core/featureFlags/config';
 import {
   getOutfitRecommendationStubFlagSync,
@@ -290,16 +291,32 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // Track flag result at time of request for telemetry
   const flagResultRef = useRef<OutfitRecommendationStubFlagResult | null>(null);
 
+  // Track OTEL span ID for recommendation fetch (p95 target: <300ms with no-repeat)
+  const spanIdRef = useRef<string | null>(null);
+
   // Query configuration - returns full response to access noRepeatFilteringMeta
   const query = useQuery<OutfitRecommendationsResponse, FetchRecommendationsError>({
     queryKey: outfitRecommendationsQueryKey.user(userId ?? ''),
 
     queryFn: async ({ signal }) => {
+      // Start OTEL span for p95 monitoring (target: <300ms with no-repeat filtering)
+      // Span tracks full recommendation lifecycle including network, DB, and filtering
+      spanIdRef.current = startSpan('recommendations.fetch', {
+        'recommendations.user_id': userId || 'unauthenticated',
+        'recommendations.occasion': contextParamsRef.current?.occasion || 'none',
+        'recommendations.temperature_band': contextParamsRef.current?.temperatureBand || 'none',
+      });
+
       // Pre-flight offline check
       const offline = await checkIsOffline();
       isOfflineRef.current = offline;
 
       if (offline) {
+        // End span with error for offline state
+        if (spanIdRef.current) {
+          endSpan(spanIdRef.current, SpanStatusCode.ERROR, {}, 'Device offline');
+          spanIdRef.current = null;
+        }
         throw new FetchRecommendationsError(
           'You appear to be offline. Please check your connection.',
           'network',
@@ -328,6 +345,11 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
       try {
         // Check if React Query's signal is already aborted
         if (signal?.aborted) {
+          // End span for early cancellation
+          if (spanIdRef.current) {
+            endSpan(spanIdRef.current, SpanStatusCode.ERROR, {}, 'Request cancelled');
+            spanIdRef.current = null;
+          }
           throw new FetchRecommendationsError('Request was cancelled', 'network', 'cancelled');
         }
 
@@ -336,6 +358,11 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
 
         // Check timeout before fetch
         if (timeoutController.signal.aborted) {
+          // End span for timeout
+          if (spanIdRef.current) {
+            endSpan(spanIdRef.current, SpanStatusCode.ERROR, {}, 'Request timed out');
+            spanIdRef.current = null;
+          }
           throw new FetchRecommendationsError(
             'Request timed out. Please try again.',
             'network',
@@ -362,12 +389,51 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         lastSuccessfulOutfitsRef.current = response.outfits;
         isOfflineRef.current = false;
 
+        // End span with success and performance attributes
+        if (spanIdRef.current) {
+          const latency = Date.now() - requestStartTimeRef.current;
+          const noRepeatEnabled = response.noRepeatFilteringMeta !== undefined;
+          endSpan(spanIdRef.current, SpanStatusCode.OK, {
+            'recommendations.outfit_count': response.outfits.length,
+            'recommendations.no_repeat_enabled': noRepeatEnabled,
+            'recommendations.latency_ms': latency,
+            ...(noRepeatEnabled && response.noRepeatFilteringMeta
+              ? {
+                  'recommendations.no_repeat_total_candidates':
+                    response.noRepeatFilteringMeta.totalCandidates,
+                  'recommendations.no_repeat_strict_kept':
+                    response.noRepeatFilteringMeta.strictKeptCount,
+                  'recommendations.no_repeat_fallback_used':
+                    response.noRepeatFilteringMeta.fallbackUsed,
+                }
+              : {}),
+          });
+          spanIdRef.current = null;
+        }
+
         // Return full response to access noRepeatFilteringMeta for analytics
         return response;
       } catch (error) {
         // Clean up timeout and event listener
         clearTimeout(timeoutId);
         signal?.removeEventListener('abort', abortHandler);
+
+        // End span with error status
+        if (spanIdRef.current) {
+          const latency = Date.now() - requestStartTimeRef.current;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorCode = error instanceof FetchRecommendationsError ? error.code : 'unknown';
+          endSpan(
+            spanIdRef.current,
+            SpanStatusCode.ERROR,
+            {
+              'recommendations.error_code': errorCode,
+              'recommendations.latency_ms': latency,
+            },
+            errorMessage
+          );
+          spanIdRef.current = null;
+        }
 
         // Handle the error based on what caused the abort:
         // 1. Timeout: didTimeout is true - throw a timeout error

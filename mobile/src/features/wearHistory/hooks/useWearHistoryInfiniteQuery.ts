@@ -14,9 +14,14 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useStore } from '../../../core/state/store';
 import { logError, trackCaptureEvent, type ErrorClassification } from '../../../core/telemetry';
+import { startSpan, endSpan, SpanStatusCode } from '../../../core/telemetry/otel';
 import { getWearHistoryForUser, WearHistoryError } from '../api/wearHistoryRepository';
 import { wearHistoryQueryKey, QUERY_KEY_NO_USER } from '../api/wearHistoryClient';
-import { type GetWearHistoryResponse, type WearHistoryRow, DEFAULT_WEAR_HISTORY_PAGE_SIZE } from '../types';
+import {
+  type GetWearHistoryResponse,
+  type WearHistoryRow,
+  DEFAULT_WEAR_HISTORY_PAGE_SIZE,
+} from '../types';
 
 // ============================================================================
 // Hook Types
@@ -186,49 +191,86 @@ export function useWearHistoryInfiniteQuery(
       // Track query start time for accurate latency measurement
       const queryStartTime = Date.now();
 
+      // Start OTEL span for p95 monitoring (target: <200ms)
+      // Span tracks full query lifecycle including network and DB time
+      const spanId = startSpan('wear_history.query', {
+        'wear_history.user_id': userId || 'unauthenticated',
+        'wear_history.page_size': pageSize,
+        'wear_history.offset': pageParam as number,
+        'wear_history.is_first_page': pageParam === 0,
+      });
+
       if (!userId) {
+        endSpan(spanId, SpanStatusCode.ERROR, {}, 'User not authenticated');
         throw new WearHistoryError('User not authenticated', 'auth');
       }
 
-      const result = await getWearHistoryForUser(userId, {
-        limit: pageSize,
-        offset: pageParam as number,
-      });
-
-      // Calculate latency for this request
-      const latency = Date.now() - queryStartTime;
-
-      // Track successful load for first page
-      if (pageParam === 0) {
-        trackCaptureEvent('wear_history_loaded', {
-          userId,
-          latencyMs: latency,
-          metadata: {
-            eventCount: result.events.length,
-            totalEvents: result.total,
-          },
+      try {
+        const result = await getWearHistoryForUser(userId, {
+          limit: pageSize,
+          offset: pageParam as number,
         });
 
-        // Track time to first event for observability
-        if (result.events.length > 0) {
-          trackCaptureEvent('wear_history_time_to_first_event', {
+        // Calculate latency for this request
+        const latency = Date.now() - queryStartTime;
+
+        // End span with success and performance attributes
+        endSpan(spanId, SpanStatusCode.OK, {
+          'wear_history.result_count': result.events.length,
+          'wear_history.total_count': result.total,
+          'wear_history.has_more': result.hasMore,
+          'wear_history.latency_ms': latency,
+        });
+
+        // Track successful load for first page
+        if (pageParam === 0) {
+          trackCaptureEvent('wear_history_loaded', {
             userId,
             latencyMs: latency,
+            metadata: {
+              eventCount: result.events.length,
+              totalEvents: result.total,
+            },
+          });
+
+          // Track time to first event for observability
+          if (result.events.length > 0) {
+            trackCaptureEvent('wear_history_time_to_first_event', {
+              userId,
+              latencyMs: latency,
+            });
+          }
+        } else {
+          // Track pagination event with latency
+          trackCaptureEvent('wear_history_pagination_triggered', {
+            userId,
+            latencyMs: latency,
+            metadata: {
+              page: Math.floor((pageParam as number) / pageSize),
+              eventCount: result.events.length,
+            },
           });
         }
-      } else {
-        // Track pagination event with latency
-        trackCaptureEvent('wear_history_pagination_triggered', {
-          userId,
-          latencyMs: latency,
-          metadata: {
-            page: Math.floor((pageParam as number) / pageSize),
-            eventCount: result.events.length,
-          },
-        });
-      }
 
-      return result;
+        return result;
+      } catch (error) {
+        // End span with error status
+        const latency = Date.now() - queryStartTime;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = error instanceof WearHistoryError ? error.code : 'unknown';
+
+        endSpan(
+          spanId,
+          SpanStatusCode.ERROR,
+          {
+            'wear_history.error_code': errorCode,
+            'wear_history.latency_ms': latency,
+          },
+          errorMessage
+        );
+
+        throw error;
+      }
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
