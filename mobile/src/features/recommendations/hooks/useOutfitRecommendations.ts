@@ -32,7 +32,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { logError, trackRecommendationEvent } from '../../../core/telemetry';
+import { logError, trackRecommendationEvent, trackCaptureEvent } from '../../../core/telemetry';
 import { getAppEnvironment } from '../../../core/featureFlags/config';
 import {
   getOutfitRecommendationStubFlagSync,
@@ -44,7 +44,11 @@ import {
   FetchRecommendationsError,
   type FetchRecommendationsErrorCode,
 } from '../api/fetchOutfitRecommendations';
-import { type OutfitSuggestion, type ContextParams } from '../types';
+import {
+  type OutfitSuggestion,
+  type ContextParams,
+  type OutfitRecommendationsResponse,
+} from '../types';
 import { checkIsOffline } from './useNetworkStatus';
 
 /**
@@ -286,8 +290,8 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   // Track flag result at time of request for telemetry
   const flagResultRef = useRef<OutfitRecommendationStubFlagResult | null>(null);
 
-  // Query configuration
-  const query = useQuery<OutfitSuggestion[], FetchRecommendationsError>({
+  // Query configuration - returns full response to access noRepeatFilteringMeta
+  const query = useQuery<OutfitRecommendationsResponse, FetchRecommendationsError>({
     queryKey: outfitRecommendationsQueryKey.user(userId ?? ''),
 
     queryFn: async ({ signal }) => {
@@ -358,7 +362,8 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         lastSuccessfulOutfitsRef.current = response.outfits;
         isOfflineRef.current = false;
 
-        return response.outfits;
+        // Return full response to access noRepeatFilteringMeta for analytics
+        return response;
       } catch (error) {
         // Clean up timeout and event listener
         clearTimeout(timeoutId);
@@ -524,6 +529,7 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         if (result.data) {
           const latencyMs = Date.now() - requestStartTimeRef.current;
           const flagResult = flagResultRef.current;
+          const response = result.data;
 
           trackRecommendationEvent('outfit_recommendation_request_succeeded', {
             userId,
@@ -532,11 +538,38 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
             flagSource: flagResult?.source,
             userRole: flagResult?.userRole,
             endpoint: 'get-outfit-recommendations',
-            outfitCount: result.data.length,
+            outfitCount: response.outfits.length,
             latencyMs,
             occasion: contextParams?.occasion,
             temperatureBand: contextParams?.temperatureBand,
           });
+
+          // Emit no-repeat filtering analytics events (story #448)
+          // These events are only emitted when the response includes filtering metadata,
+          // which indicates no-repeat rules were actually applied (noRepeatDays > 0)
+          if (response.noRepeatFilteringMeta) {
+            const meta = response.noRepeatFilteringMeta;
+
+            // Emit recommendations_filtered_by_no_repeat for every call with filtering
+            trackCaptureEvent('recommendations_filtered_by_no_repeat', {
+              userId,
+              totalCandidates: meta.totalCandidates,
+              strictKeptCount: meta.strictKeptCount,
+              fallbackUsed: meta.fallbackUsed,
+              noRepeatDays: meta.noRepeatDays,
+              noRepeatMode: meta.noRepeatMode,
+            });
+
+            // Emit no_repeat_fallback_triggered only when fallbacks were actually used
+            if (meta.fallbackUsed && meta.fallbackCount > 0) {
+              trackCaptureEvent('no_repeat_fallback_triggered', {
+                userId,
+                totalCandidates: meta.totalCandidates,
+                strictKeptCount: meta.strictKeptCount,
+                fallbackCount: meta.fallbackCount,
+              });
+            }
+          }
         }
       } catch {
         // Track failure event after query completes with error
@@ -609,14 +642,14 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
   }, [queryClient, userId]);
 
   return {
-    outfits: query.data ?? lastSuccessfulOutfitsRef.current,
+    outfits: query.data?.outfits ?? lastSuccessfulOutfitsRef.current,
     lastSuccessfulOutfits: lastSuccessfulOutfitsRef.current,
     isLoading: query.isFetching,
     isError: query.isError,
     errorType,
     errorMessage,
     isOffline: isOfflineRef.current,
-    hasData: query.data !== undefined || lastSuccessfulOutfitsRef.current.length > 0,
+    hasData: query.data?.outfits !== undefined || lastSuccessfulOutfitsRef.current.length > 0,
     fetchRecommendations,
     reset,
   };

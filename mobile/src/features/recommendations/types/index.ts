@@ -210,12 +210,35 @@ export const OutfitSuggestionSchema = z.object({
 });
 
 /**
+ * Zod schema for no-repeat filtering metadata (story #448).
+ *
+ * This metadata is included in the response when no-repeat filtering
+ * was actually applied (noRepeatDays > 0). It enables client-side
+ * analytics events for observability.
+ */
+export const NoRepeatFilteringMetaSchema = z.object({
+  /** Total candidate outfits before filtering was applied */
+  totalCandidates: z.number(),
+  /** Number of outfits that passed strict no-repeat filtering */
+  strictKeptCount: z.number(),
+  /** Whether any fallback outfits were included in the final selection */
+  fallbackUsed: z.boolean(),
+  /** Number of fallback outfits used (0 if no fallbacks) */
+  fallbackCount: z.number(),
+  /** User's no-repeat days setting that was applied */
+  noRepeatDays: z.number(),
+  /** User's no-repeat mode setting ('item' | 'outfit') */
+  noRepeatMode: z.enum(['item', 'outfit']),
+});
+
+/**
  * Zod schema for validating the full API response from get-outfit-recommendations.
  *
  * Validates:
  * - Response has an 'outfits' array
  * - Array contains between MIN_OUTFITS_PER_RESPONSE and MAX_OUTFITS_PER_RESPONSE items
  * - Each item passes OutfitSuggestionSchema validation
+ * - Optional noRepeatFilteringMeta for analytics (story #448)
  *
  * @example
  * ```typescript
@@ -233,6 +256,11 @@ export const OutfitRecommendationsResponseSchema = z.object({
     .array(OutfitSuggestionSchema)
     .min(MIN_OUTFITS_PER_RESPONSE, 'recommendations.validation.tooFewOutfits')
     .max(MAX_OUTFITS_PER_RESPONSE, 'recommendations.validation.tooManyOutfits'),
+  /**
+   * Summary of no-repeat filtering applied to recommendations.
+   * Only present when filtering was actually applied (noRepeatDays > 0).
+   */
+  noRepeatFilteringMeta: NoRepeatFilteringMetaSchema.optional(),
 });
 
 // ============================================================================
@@ -264,6 +292,14 @@ export const OutfitRecommendationsResponseSchema = z.object({
  * ```
  */
 export type OutfitSuggestion = z.infer<typeof OutfitSuggestionSchema>;
+
+/**
+ * No-repeat filtering metadata from the recommendation response (story #448).
+ *
+ * Used by client-side analytics to emit observability events for
+ * recommendations_filtered_by_no_repeat and no_repeat_fallback_triggered.
+ */
+export type NoRepeatFilteringMeta = z.infer<typeof NoRepeatFilteringMetaSchema>;
 
 /**
  * Response shape from the get-outfit-recommendations Edge Function.

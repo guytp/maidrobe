@@ -235,6 +235,28 @@ export interface OutfitWithMeta extends Outfit {
 }
 
 /**
+ * Summary metadata about no-repeat filtering applied to recommendations.
+ *
+ * This metadata enables client-side analytics for no-repeat filtering
+ * observability (story #448). It is only included when filtering was
+ * actually applied (noRepeatDays > 0 and history lookup succeeded).
+ */
+export interface NoRepeatFilteringMeta {
+  /** Total candidate outfits before filtering was applied */
+  totalCandidates: number;
+  /** Number of outfits that passed strict no-repeat filtering */
+  strictKeptCount: number;
+  /** Whether any fallback outfits were included in the final selection */
+  fallbackUsed: boolean;
+  /** Number of fallback outfits used (0 if no fallbacks) */
+  fallbackCount: number;
+  /** User's no-repeat days setting that was applied */
+  noRepeatDays: number;
+  /** User's no-repeat mode setting ('item' | 'outfit') */
+  noRepeatMode: 'item' | 'outfit';
+}
+
+/**
  * Response shape for the get-outfit-recommendations endpoint.
  *
  * Contains an array of outfit suggestions wrapped in a top-level object.
@@ -243,6 +265,12 @@ export interface OutfitWithMeta extends Outfit {
 export interface OutfitRecommendationsResponse {
   /** Array of outfit suggestions (3-10 items), may include noRepeatMeta */
   outfits: OutfitWithMeta[];
+  /**
+   * Summary of no-repeat filtering applied to recommendations.
+   * Only present when filtering was actually applied (noRepeatDays > 0).
+   * Used by client for analytics event emission.
+   */
+  noRepeatFilteringMeta?: NoRepeatFilteringMeta;
 }
 
 // ============================================================================
