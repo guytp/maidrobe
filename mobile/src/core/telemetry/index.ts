@@ -378,7 +378,10 @@ export type CaptureEventType =
   | 'outfit_detail_mark_worn_again_tapped'
   // Styling preferences events (story #446)
   | 'styling_preferences_navigation_clicked'
-  | 'no_repeat_prefs_changed';
+  | 'no_repeat_prefs_changed'
+  // No-repeat filtering observability events (story #448)
+  | 'recommendations_filtered_by_no_repeat'
+  | 'no_repeat_fallback_triggered';
 
 /**
  * Metadata for authentication event logging.
@@ -840,6 +843,39 @@ export interface CaptureEventMetadata {
    * Time from screen mount to first item rendered in wardrobe grid
    */
   gridFirstPaintMs?: number;
+  // ============================================================================
+  // No-repeat filtering observability fields (story #448)
+  // ============================================================================
+  /**
+   * Total candidate outfits before no-repeat filtering was applied.
+   * Used in recommendations_filtered_by_no_repeat and no_repeat_fallback_triggered events.
+   */
+  totalCandidates?: number;
+  /**
+   * Number of outfits that passed strict no-repeat filtering.
+   * Used in recommendations_filtered_by_no_repeat and no_repeat_fallback_triggered events.
+   */
+  strictKeptCount?: number;
+  /**
+   * Whether fallback outfits (with repeated items) were included in recommendations.
+   * Used in recommendations_filtered_by_no_repeat event.
+   */
+  fallbackUsed?: boolean;
+  /**
+   * Number of fallback outfits used when strict filtering was insufficient.
+   * Used in no_repeat_fallback_triggered event.
+   */
+  fallbackCount?: number;
+  /**
+   * User's no-repeat days setting (0-90).
+   * Used in recommendations_filtered_by_no_repeat event.
+   */
+  noRepeatDays?: number;
+  /**
+   * User's no-repeat mode setting.
+   * Used in recommendations_filtered_by_no_repeat event.
+   */
+  noRepeatMode?: 'item' | 'outfit';
   /** Additional non-PII metadata */
   metadata?: Record<string, unknown>;
 }
