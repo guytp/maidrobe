@@ -577,7 +577,14 @@ export function useOutfitRecommendations(): UseOutfitRecommendationsResult {
         const flagResult = flagResultRef.current;
 
         // Determine error type from query.error (set by React Query)
-        let errorTypeValue: 'auth' | 'network' | 'offline' | 'server' | 'schema' | 'timeout' | 'unknown' = 'unknown';
+        let errorTypeValue:
+          | 'auth'
+          | 'network'
+          | 'offline'
+          | 'server'
+          | 'schema'
+          | 'timeout'
+          | 'unknown' = 'unknown';
         let errorCode: string | undefined;
         let correlationId: string | undefined;
 
