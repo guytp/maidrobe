@@ -933,29 +933,6 @@
         "retryHint": "Tap to retry loading wear history"
       }
     },
-    "profile": {
-      "title": "Profile",
-      "sections": {
-        "activity": "Activity",
-        "preferences": "Preferences"
-      },
-      "navigation": {
-        "wearHistory": "Wear history",
-        "wearHistoryDescription": "See what you've worn and when",
-        "wearHistoryLabel": "View wear history",
-        "wearHistoryHint": "Navigate to see what you've worn and when",
-        "stylingPreferences": "Styling preferences",
-        "stylingPreferencesDescription": "Manage outfit repeat settings",
-        "stylingPreferencesLabel": "View styling preferences",
-        "stylingPreferencesHint": "Navigate to manage how often outfits and items can repeat"
-      },
-      "accessibility": {
-        "screenLabel": "Profile screen",
-        "screenHint": "Access your profile features and settings",
-        "backButton": "Go back",
-        "backButtonHint": "Return to home screen"
-      }
-    },
     "stylingPreferences": {
       "title": "Styling Preferences",
       "loading": "Loading styling preferences...",
