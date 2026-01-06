@@ -53,6 +53,30 @@ resource "aws_db_parameter_group" "buzz_tutor_tls_enforcement" {
     value = "3072"  # NIST SP 800-52r2 compliant
   }
 
+  # SQL Server Audit Configuration (Step 6 - GDPR/PCI DSS compliance)
+  parameter {
+    name  = "rds.sql_server_audit_level"
+    value = "ALL"  # Capture all operations (NONE, FAILED_LOGIN_ONLY, ALL)
+  }
+
+  # Enable audit log publication to CloudWatch
+  parameter {
+    name  = "rds.sql_server_audit_logs"
+    value = "1"  # Enable audit log export to CloudWatch
+  }
+
+  # Configure maximum audit file size (balance performance and storage)
+  parameter {
+    name  = "rds.max_audit_file_size"
+    value = "100"  # MB, balance between file count and size
+  }
+
+  # Create audit file every 100 MB or daily, whichever comes first
+  parameter {
+    name  = "rds.audit_file_rotation"
+    value = "size_and_time"  # Rotate by both size and time
+  }
+
   tags = {
     Application   = "buzz-tutor"
     Environment   = each.key
@@ -152,7 +176,7 @@ resource "aws_db_instance" "buzz_tutor_sql_server_tls" {
   parameter_group_name = aws_db_parameter_group.buzz_tutor_tls_enforcement[each.key].name
 
   # Performance & Monitoring
-  enabled_cloudwatch_logs_exports = ["error", "general"]
+  enabled_cloudwatch_logs_exports = ["error", "general", "audit"]  # Added "audit" for compliance
   performance_insights_enabled          = true
   performance_insights_kms_key_id       = aws_kms_key.buzz_tutor_tde[each.key].arn
   performance_insights_retention_period = 7
