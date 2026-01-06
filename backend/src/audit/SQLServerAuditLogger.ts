@@ -12,12 +12,12 @@ import { v4 as uuidv4 } from 'uuid';
 import * as AWS from 'aws-sdk';
 
 export type AuditEventType = 
-  | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'  -- Data operations
-  | 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED'  -- Auth events
-  | 'KEY_CREATE' | 'KEY_ROTATE' | 'KEY_REVOKE'  -- Key management
-  | 'GDPR_RIGHT_TO_ACCESS' | 'GDPR_RIGHT_TO_ERASURE' | 'GDPR_DATA_EXPORT'  -- GDPR compliance
-  | 'PAYMENT_PROCESSED' | 'PAYMENT_FAILED' | 'PAYMENT_REFUNDED'  -- Payment operations
-  | 'SECURITY_ALERT' | 'UNAUTHORIZED_ACCESS' | 'SUSPICIOUS_ACTIVITY';  -- Security
+  | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'  // Data operations
+  | 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED'  // Auth events
+  | 'KEY_CREATE' | 'KEY_ROTATE' | 'KEY_REVOKE'  // Key management
+  | 'GDPR_RIGHT_TO_ACCESS' | 'GDPR_RIGHT_TO_ERASURE' | 'GDPR_DATA_EXPORT'  // GDPR compliance
+  | 'PAYMENT_PROCESSED' | 'PAYMENT_FAILED' | 'PAYMENT_REFUNDED'  // Payment operations
+  | 'SECURITY_ALERT' | 'UNAUTHORIZED_ACCESS' | 'SUSPICIOUS_ACTIVITY';  // Security
 
 export interface AuditLogEntry {
   eventType: AuditEventType;

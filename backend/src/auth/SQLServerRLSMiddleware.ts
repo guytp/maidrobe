@@ -9,6 +9,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { TokenManager, JwtPayload } from './TokenManager';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Extended request interface with authentication context
@@ -35,8 +36,8 @@ export class SQLServerRLSMiddleware {
    * JWT authentication middleware
    * Validates JWT and attaches user context to request
    */
-  authenticateJWT(): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  authenticateJWT(): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       try {
         const authHeader = req.headers.authorization;
         
@@ -84,8 +85,8 @@ export class SQLServerRLSMiddleware {
    * Equivalent to PostgreSQL: USING (auth.uid() = user_id)
    * @param tableAlias - SQL table alias for WHERE clause construction
    */
-  requireOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  requireOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const userId = req.user?.sub;
       
       if (!userId) {
@@ -130,8 +131,8 @@ export class SQLServerRLSMiddleware {
    * Enforces that INSERTs can only create records for the authenticated user
    * Equivalent to PostgreSQL: WITH CHECK (auth.uid() = user_id)
    */
-  validateInsertOwnership(): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  validateInsertOwnership(): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const userId = req.user?.sub;
       const body = req.body;
 
@@ -168,8 +169,8 @@ export class SQLServerRLSMiddleware {
    * Service role bypass for administrative operations
    * Equivalent to PostgreSQL service_role (bypasses RLS)
    */
-  requireServiceRole(): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  requireServiceRole(): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const user = req.user;
       
       if (!user) {
@@ -202,8 +203,8 @@ export class SQLServerRLSMiddleware {
    * Allows queries without user filter but logs access
    * @param tableAlias - SQL table alias
    */
-  optionalOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  optionalOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const userId = req.user?.sub;
       
       if (userId) {
@@ -231,8 +232,8 @@ export class SQLServerRLSMiddleware {
    * Multi-tenant isolation for tutor accounts
    * Ensures tutors can only access their students' data (not other tutors')
    */
-  requireTutorOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  requireTutorOwnership(tableAlias: string = 't'): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const userId = req.user?.sub;
       const roles = req.user?.roles || [];
 
@@ -277,8 +278,8 @@ export class SQLServerRLSMiddleware {
    * Log query access for audit purposes
    * Useful for SELECT operations that bypass RLS
    */
-  logQueryAccess(tableName: string): (req: AuthenticatedRequest, res: Response, next: NextFunction) => void {
-    return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  logQueryAccess(tableName: string): (req: AuthenticatedRequest, _res: Response, next: NextFunction) => void {
+    return async (req: AuthenticatedRequest, _res: Response, next: NextFunction) => {
       const userId = req.user?.sub;
       const correlationId = req.user?.correlationId || uuidv4();
 

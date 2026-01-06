@@ -239,7 +239,7 @@ export class KMSService {
       // Create a new key version for replacement
       await this.kms.scheduleKeyDeletion({
         KeyId: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
-        PendingWindowInDays: 7  -- 7-day recovery window
+        PendingWindowInDays: 7  // 7-day recovery window
       }).promise();
 
       const revocationResult: KeyRevocationResult = {

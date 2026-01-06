@@ -98,7 +98,7 @@ export function initializeTelemetry(config: TelemetryConfig): void {
       maxExportBatchSize: 100,
       scheduledDelayMillis: 5000
     })
-  });
+  );
 
   // Configure Propagator for distributed tracing
   tracerProvider.register({
