@@ -9,7 +9,51 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USERS TABLE - CORE USER MANAGEMENT
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Table: public.users
 -- Purpose: Central user identity and authentication data
@@ -57,7 +101,51 @@ CREATE TABLE IF NOT EXISTS public.users (
 );
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USERS TABLE INDEXES
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Unique index for active user emails
 -- Prevents duplicate active accounts with same email
@@ -87,7 +175,51 @@ CREATE INDEX IF NOT EXISTS idx_users_is_deleted
   ON public.users(is_deleted);
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USERS TABLE SECURITY (RLS)
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Enable Row Level Security on users table
 -- This is mandatory for all application tables to prevent unauthorized access
@@ -134,7 +266,51 @@ CREATE POLICY "Service role can manage users"
   WITH CHECK (true);
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USERS TABLE DOCUMENTATION
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 COMMENT ON TABLE public.users IS 'Core user table for Buzz A Tutor platform. Supports multiple user types (students, tutors, parents/guardians, admins, institutional users) with soft-delete capability and full audit trail. Integrates with Supabase Auth for authentication.';
 
@@ -152,7 +328,51 @@ COMMENT ON COLUMN public.users.updated_at IS 'Timestamp when record was last upd
 COMMENT ON COLUMN public.users.updated_by IS 'User ID who last updated this record. NULL for system operations. Foreign key with ON DELETE SET NULL. Supports audit trail compliance.';
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- AUTO-UPDATE TRIGGER FOR USERS TABLE
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Verify handle_updated_at() function exists
 -- This function was created in previous migrations (20241118000001_create_profiles_table.sql)
@@ -169,7 +389,51 @@ CREATE TRIGGER set_updated_at
   EXECUTE FUNCTION public.handle_updated_at();
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- ROLES TABLE - RBAC FOUNDATION
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Table: public.roles
 -- Purpose: Define platform-wide roles for RBAC system
@@ -201,7 +465,51 @@ CREATE TABLE IF NOT EXISTS public.roles (
 );
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- ROLES TABLE INDEXES
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Create index on code for efficient lookups
 -- Used for: role assignment, permission checks, UI dropdowns
@@ -209,7 +517,51 @@ CREATE TABLE IF NOT EXISTS public.roles (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_code_unique ON public.roles(code);
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- ROLES TABLE SECURITY (RLS)
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Enable RLS on roles table
 -- All authenticated users need to view roles (UI dropdowns, assignment screens)
@@ -234,7 +586,51 @@ CREATE POLICY "Service role can manage roles"
   WITH CHECK (true);
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- ROLES TABLE DOCUMENTATION
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 COMMENT ON TABLE public.roles IS 'RBAC role definitions for Buzz A Tutor platform. Defines platform-wide roles (e.g., STUDENT, TUTOR, PARENT, ADMIN) used for access control. Supports future permissions model and role hierarchies. Flat structure in database; application layer handles hierarchy logic if needed.';
 
@@ -248,7 +644,51 @@ COMMENT ON COLUMN public.roles.updated_at IS 'Timestamp when role was last updat
 COMMENT ON COLUMN public.roles.updated_by IS 'User ID who last updated this role. FK to users.id. NULL for system updates. ON DELETE SET NULL.';
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- AUTO-UPDATE TRIGGER FOR ROLES TABLE
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Drop existing trigger if it exists (for idempotency)
 DROP TRIGGER IF EXISTS set_updated_at ON public.roles;
@@ -259,7 +699,51 @@ CREATE TRIGGER set_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- AUTO-UPDATE TRIGGER FOR USER_ROLES TABLE
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Drop existing trigger if it exists (for idempotency)
 DROP TRIGGER IF EXISTS set_updated_at ON public.user_roles;
@@ -271,7 +755,51 @@ CREATE TRIGGER set_updated_at
   EXECUTE FUNCTION public.handle_updated_at();
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- AUTO-UPDATE TRIGGER FOR USER_SETTINGS TABLE
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- Drop existing trigger if it exists (for idempotency)
 DROP TRIGGER IF EXISTS set_updated_at ON public.user_settings;
@@ -284,8 +812,74 @@ CREATE TRIGGER set_updated_at
 
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- USER_ROLES TABLE - JOIN TABLE FOR RBAC
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.user_roles (
@@ -330,7 +924,51 @@ COMMENT ON COLUMN public.user_roles.created_at IS 'Timestamp when created, auto-
 COMMENT ON COLUMN public.user_roles.updated_at IS 'Auto-managed by trigger.';
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USER_SETTINGS TABLE - PER-USER PREFERENCES
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS public.user_settings (
@@ -395,6 +1033,28 @@ COMMENT ON COLUMN public.user_settings.updated_at IS 'Auto-managed by trigger.';
 COMMENT ON COLUMN public.user_settings.updated_by IS 'Updater FK, ON DELETE SET NULL.';
 
 -- VERIFICATION QUERIES
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- These queries can be run manually in Supabase SQL editor to verify the migration
 -- Uncomment and execute to test the schema after migration runs
@@ -545,7 +1205,51 @@ VALUES ('TEST_STUDENT', 'Duplicate Role', 'Should fail');
 
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USER_ROLES TABLE VERIFICATION (7 queries)
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 
 -- 26. Verify user_roles table structure
@@ -610,7 +1314,51 @@ DELETE FROM public.roles WHERE code = 'TEST_STUDENT';
 -- This confirms RESTRICT is working
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- USER_SETTINGS TABLE VERIFICATION (8 queries)
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 
 -- 35. Verify user_settings table structure
@@ -694,7 +1442,51 @@ WHERE code LIKE 'TEST_%';
 */
 
 -- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+-- ============================================================================
 -- MIGRATION COMPLETE
+-- ============================================================================
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+-- DROP INDEX IF EXISTS idx_users_unique_email_active;
+-- DROP INDEX IF EXISTS idx_users_auth_provider_lookup;
+-- DROP INDEX IF EXISTS idx_users_status;
+-- DROP INDEX IF EXISTS idx_users_is_deleted;
+-- DROP INDEX IF EXISTS idx_roles_code_unique;
+-- DROP INDEX IF EXISTS idx_user_roles_user_id;
+-- DROP INDEX IF EXISTS idx_user_roles_role_id;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
 -- All 4 tables are now ready for production use:
 --   - public.users (core user management)
