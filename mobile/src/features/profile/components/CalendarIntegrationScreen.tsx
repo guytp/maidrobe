@@ -370,8 +370,8 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
         <Pressable
           style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           onPress={handleBack}
-          accessibilityLabel={t('screens.profile.accessibility.backButton')}
-          accessibilityHint={t('screens.profile.accessibility.backButtonHint')}
+          accessibilityLabel={t('screens.profile.calendar.accessibility.backButton')}
+          accessibilityHint={t('screens.profile.calendar.accessibility.backButtonHint')}
           accessibilityRole="button"
         >
           <Text style={styles.backIcon}>{'<'}</Text>

@@ -333,7 +333,9 @@
         "errorLoading": "Failed to load calendar status",
         "accessibility": {
           "screenLabel": "Calendar Integration screen",
-          "screenHint": "Manage your Google Calendar connection"
+          "screenHint": "Manage your Google Calendar connection",
+          "backButton": "Go back",
+          "backButtonHint": "Return to profile screen"
         }
       }
     },
