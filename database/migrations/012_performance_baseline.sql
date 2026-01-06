@@ -317,3 +317,4 @@ PRINT '1. Run: EXEC dbo.TrackQueryPerformance to establish baselines'
 PRINT '2. Configure CloudWatch metrics for real-time monitoring'
 PRINT '3. Set up application-level APM integration'
 PRINT '4. Run automated performance test script'
+GO
