@@ -24,6 +24,77 @@ import { useCalendarIntegration } from '../hooks/useCalendarIntegration';
 import type { CalendarIntegration } from '../types';
 
 /**
+ * Component that renders the calendar connection status.
+ *
+ * Shows different states based on the integration status:
+ * - Loading: Activity indicator
+ * - Connected: Green text with email address
+ * - Disconnected: Gray text indicating no connection
+ * - Error: Red text indicating connection failed
+ */
+function CalendarStatus(): JSX.Element {
+  const { colors } = useTheme();
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        subtitle: {
+          fontSize: 14,
+          color: colors.textSecondary,
+          marginTop: 4,
+        },
+      }),
+    [colors]
+  );
+
+  const { integration, isLoading, isError } = useCalendarIntegration('google');
+
+  if (isLoading) {
+    return (
+      <ActivityIndicator
+        size="small"
+        color={colors.textSecondary}
+        style={{ marginTop: 4 }}
+      />
+    );
+  }
+
+  if (isError) {
+    return (
+      <Text
+        style={[styles.subtitle, { color: colors.error }]}
+        allowFontScaling
+        maxFontSizeMultiplier={1.5}
+      >
+        {t('screens.profile.navigation.googleCalendarError')}
+      </Text>
+    );
+  }
+
+  if (integration?.isConnected) {
+    return (
+      <Text
+        style={[styles.subtitle, { color: colors.success }]}
+        allowFontScaling
+        maxFontSizeMultiplier={1.5}
+      >
+        {t('screens.profile.navigation.googleCalendarConnected')}
+        {integration.connectedEmail && ` • ${integration.connectedEmail}`}
+      </Text>
+    );
+  }
+
+  return (
+    <Text
+      style={styles.subtitle}
+      allowFontScaling
+      maxFontSizeMultiplier={1.5}
+    >
+      {t('screens.profile.navigation.googleCalendarDisconnected')}
+    </Text>
+  );
+}
+
+/**
  * Minimum touch target size for accessibility (WCAG 2.1 AA).
  */
 const TOUCH_TARGET_SIZE = 44;
@@ -138,63 +209,7 @@ export function ProfileScreen(): React.JSX.Element {
     }, NAVIGATION_DEBOUNCE_MS);
   }, [router, user?.id]);
 
-  /**
-   * Subcomponent that renders the calendar connection status.
-   *
-   * Shows different states based on the integration status:
-   * - Loading: Activity indicator
-   * - Connected: Green text with email address
-   * - Disconnected: Gray text indicating no connection
-   * - Error: Red text indicating connection failed
-   */
-  const CalendarConnectionStatus = useCallback(() => {
-    const { integration, isLoading, isError } = useCalendarIntegration('google');
 
-    if (isLoading) {
-      return (
-        <ActivityIndicator
-          size="small"
-          color={colors.textSecondary}
-          style={{ marginTop: 4 }}
-        />
-      );
-    }
-
-    if (isError) {
-      return (
-        <Text
-          style={[styles.navigationItemSubtitle, { color: colors.error }]}
-          allowFontScaling
-          maxFontSizeMultiplier={1.5}
-        >
-          {t('screens.profile.navigation.googleCalendarError')}
-        </Text>
-      );
-    }
-
-    if (integration?.isConnected) {
-      return (
-        <Text
-          style={[styles.navigationItemSubtitle, { color: colors.success }]}
-          allowFontScaling
-          maxFontSizeMultiplier={1.5}
-        >
-          {t('screens.profile.navigation.googleCalendarConnected')}
-          {integration.connectedEmail && ` • ${integration.connectedEmail}`}
-        </Text>
-      );
-    }
-
-    return (
-      <Text
-        style={styles.navigationItemSubtitle}
-        allowFontScaling
-        maxFontSizeMultiplier={1.5}
-      >
-        {t('screens.profile.navigation.googleCalendarDisconnected')}
-      </Text>
-    );
-  }, [colors]);
 
   const styles = useMemo(
     () =>
@@ -431,7 +446,7 @@ export function ProfileScreen(): React.JSX.Element {
               >
                 {t('screens.profile.navigation.googleCalendar')}
               </Text>
-              <CalendarConnectionStatus />
+              <CalendarStatus />
             </View>
             <Text style={styles.navigationItemArrow}>→</Text>
           </Pressable>
