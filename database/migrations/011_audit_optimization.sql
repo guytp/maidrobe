@@ -606,3 +606,4 @@ PRINT '2. Schedule dbo.VerifyAuditHealth weekly (Sun 2 AM UTC)'
 PRINT '3. Monitor CloudWatch dashboard: buzz-tutor-audit-monitoring-*'
 PRINT '4. Configure Splunk alerts for unauthorized access, bulk export'
 PRINT '5. Review costs monthly with: EXEC dbo.EstimateAuditStorage'
+GO

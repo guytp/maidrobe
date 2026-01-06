@@ -796,3 +796,4 @@ PRINT '2. Run: EXEC dbo.GetGDPRComplianceReport @DaysBack = 7'
 PRINT '3. Run: EXEC dbo.GetPCIDSSComplianceReport @DaysBack = 7'
 PRINT '4. Schedule daily summarization: EXEC dbo.SummarizeAuditLogs'
 PRINT '5. Configure SIEM integration (Splunk)'
+GO

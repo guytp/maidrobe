@@ -5,36 +5,6 @@
 # ============================================
 
 # ============================================
-# Variables for SIEM Configuration
-# ============================================
-
-variable "splunk_host" {
-  description = "Splunk HTTP Event Collector (HEC) host endpoint"
-  type        = string
-  default     = "https://your-splunk-hec-endpoint.splunkcloud.com:8088"
-  sensitive   = true
-}
-
-variable "splunk_hec_token" {
-  description = "Splunk HTTP Event Collector token (store in Secrets Manager)"
-  type        = string
-  sensitive   = true
-  default     = ""  # Override with actual token
-}
-
-variable "splunk_index" {
-  description = "Splunk index for Buzz Tutor audit logs"
-  type        = string
-  default     = "aws_buzz_tutor_audit"
-}
-
-variable "siem_enabled" {
-  description = "Enable/disable SIEM integration"
-  type        = bool
-  default     = true
-}
-
-# ============================================
 # AWS Secrets Manager for Splunk Credentials
 # ============================================
 
