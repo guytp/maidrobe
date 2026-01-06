@@ -1,6 +1,6 @@
 /**
  * SQL Server Configuration for Buzz A Tutor
- * 
+ *
  * Centralized configuration for SQL Server connections, encryption, and security
  * @module config/sql-server-config
  */
@@ -12,7 +12,7 @@ export interface SQLServerConfig {
   port: number;
   username: string;
   password: string;
-  
+
   // TLS/SSL configuration for encryption in transit
   encryption: {
     enabled: boolean;
@@ -20,16 +20,16 @@ export interface SQLServerConfig {
     hostNameInCertificate: string;
     tlsVersion: '1.2' | '1.3';
   };
-  
+
   // Always Encrypted settings
   alwaysEncrypted: {
     enabled: boolean;
-    columnEncryptionKeyCacheTtl: number;  // seconds
+    columnEncryptionKeyCacheTtl: number; // seconds
     keyStoreAuthentication: 'KeyVaultManagedIdentity' | 'KeyVaultClientSecret';
-    keyStorePrincipalId?: string;  // For managed identity
-    keyVaultUrl?: string;  // For client secret
+    keyStorePrincipalId?: string | undefined; // For managed identity
+    keyVaultUrl?: string | undefined; // For client secret
   };
-  
+
   // Connection pool settings
   pool: {
     min: number;
@@ -38,7 +38,7 @@ export interface SQLServerConfig {
     createTimeoutMillis: number;
     idleTimeoutMillis: number;
   };
-  
+
   // Audit and telemetry
   audit: {
     enabled: boolean;
@@ -53,39 +53,43 @@ export interface SQLServerConfig {
  */
 export function getSQLServerConfig(environment: string): SQLServerConfig {
   const baseConfig = {
-    server: process.env.SQL_SERVER_HOST || 'buzz-tutor-sql-server.cluster-xyz.us-east-1.rds.amazonaws.com',
-    database: process.env.SQL_SERVER_DATABASE || 'BuzzTutorProd',
-    port: parseInt(process.env.SQL_SERVER_PORT || '1433'),
-    username: process.env.SQL_SERVER_USERNAME || 'sqladmin',
-    password: process.env.SQL_SERVER_PASSWORD!, // From AWS Secrets Manager
-    
+    server:
+      process.env['SQL_SERVER_HOST'] ||
+      'buzz-tutor-sql-server.cluster-xyz.us-east-1.rds.amazonaws.com',
+    database: process.env['SQL_SERVER_DATABASE'] || 'BuzzTutorProd',
+    port: parseInt(process.env['SQL_SERVER_PORT'] || '1433'),
+    username: process.env['SQL_SERVER_USERNAME'] || 'sqladmin',
+    password: process.env['SQL_SERVER_PASSWORD']!, // From AWS Secrets Manager
+
     encryption: {
-      enabled: true,  // TLS 1.2+ enforcement
-      trustServerCertificate: false,  // Enforce certificate validation
-      hostNameInCertificate: process.env.SQL_SERVER_HOST || 'buzz-tutor-sql-server.cluster-xyz.us-east-1.rds.amazonaws.com',
-      tlsVersion: '1.2' as const
+      enabled: true, // TLS 1.2+ enforcement
+      trustServerCertificate: false, // Enforce certificate validation
+      hostNameInCertificate:
+        process.env['SQL_SERVER_HOST'] ||
+        'buzz-tutor-sql-server.cluster-xyz.us-east-1.rds.amazonaws.com',
+      tlsVersion: '1.2' as const,
     },
-    
+
     alwaysEncrypted: {
       enabled: true,
-      columnEncryptionKeyCacheTtl: 3600,  // 1 hour
+      columnEncryptionKeyCacheTtl: 3600, // 1 hour
       keyStoreAuthentication: 'KeyVaultManagedIdentity' as const,
-      keyStorePrincipalId: process.env.MANAGED_IDENTITY_CLIENT_ID
+      keyStorePrincipalId: process.env['MANAGED_IDENTITY_CLIENT_ID'],
     },
-    
+
     pool: {
       min: 2,
       max: 20,
       acquireTimeoutMillis: 30000,
       createTimeoutMillis: 30000,
-      idleTimeoutMillis: 30000
+      idleTimeoutMillis: 30000,
     },
-    
+
     audit: {
       enabled: true,
       logLevel: 'ALL' as const,
-      cloudWatchLogGroup: process.env.CLOUDWATCH_AUDIT_LOG_GROUP || '/buzz-tutor/audit'
-    }
+      cloudWatchLogGroup: process.env['CLOUDWATCH_AUDIT_LOG_GROUP'] || '/buzz-tutor/audit',
+    },
   };
 
   switch (environment) {
@@ -96,13 +100,13 @@ export function getSQLServerConfig(environment: string): SQLServerConfig {
         database: 'BuzzTutorDev',
         encryption: {
           ...baseConfig.encryption,
-          enabled: false,  // Dev environment may not require TLS
-          trustServerCertificate: true
+          enabled: false, // Dev environment may not require TLS
+          trustServerCertificate: true,
         },
         alwaysEncrypted: {
           ...baseConfig.alwaysEncrypted,
-          enabled: false  // Encryption disabled in dev for easier debugging
-        }
+          enabled: false, // Encryption disabled in dev for easier debugging
+        },
       };
 
     case 'staging':
@@ -111,8 +115,8 @@ export function getSQLServerConfig(environment: string): SQLServerConfig {
         database: 'BuzzTutorStaging',
         audit: {
           ...baseConfig.audit,
-          logLevel: 'SECURITY' as const  // Only log security events in staging
-        }
+          logLevel: 'SECURITY' as const, // Only log security events in staging
+        },
       };
 
     case 'production':
@@ -130,7 +134,7 @@ export function buildConnectionString(config: SQLServerConfig): string {
   const encryptionOption = config.encryption.enabled ? 'true' : 'false';
   const trustServerCertOption = config.encryption.trustServerCertificate ? 'true' : 'false';
   const hostNameOption = config.encryption.enabled ? config.encryption.hostNameInCertificate : '';
-  
+
   // Build connection string
   const connectionString = [
     `Server=${config.server},${config.port}`,
@@ -141,8 +145,10 @@ export function buildConnectionString(config: SQLServerConfig): string {
     `TrustServerCertificate=${trustServerCertOption}`,
     hostNameOption ? `HostNameInCertificate=${hostNameOption}` : '',
     `Connection Timeout=30`,
-    `MultipleActiveResultSets=true`
-  ].filter(Boolean).join(';');
+    `MultipleActiveResultSets=true`,
+  ]
+    .filter(Boolean)
+    .join(';');
 
   return connectionString;
 }
@@ -152,38 +158,38 @@ export function buildConnectionString(config: SQLServerConfig): string {
  */
 export interface KMSConfig {
   // CMK ARNs for different data classifications
-  userDataCMKArn: string;        // For Users, UserProfiles, ChatLogs
-  paymentDataCMKArn: string;     // For Payments (PCI DSS isolation)
-  sessionDataCMKArn: string;     // For SessionHistory
-  auditDataCMKArn: string;       // For AuditLog
-  
+  userDataCMKArn: string; // For Users, UserProfiles, ChatLogs
+  paymentDataCMKArn: string; // For Payments (PCI DSS isolation)
+  sessionDataCMKArn: string; // For SessionHistory
+  auditDataCMKArn: string; // For AuditLog
+
   // Key rotation settings
   autoKeyRotation: boolean;
   rotationIntervalDays: number;
   enableRotationNotification: boolean;
-  
+
   // Emergency access
   emergencyKeyAccessRoleArn: string;
-  emergencyAccessNotification: string[];  // Email/SNS topics
+  emergencyAccessNotification: string[]; // Email/SNS topics
 }
 
 export function getKMSConfig(): KMSConfig {
   return {
-    userDataCMKArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
-    paymentDataCMKArn: process.env.AWS_KMS_PAYMENT_DATA_CMK_ARN!,
-    sessionDataCMKArn: process.env.AWS_KMS_SESSION_DATA_CMK_ARN!,
-    auditDataCMKArn: process.env.AWS_KMS_AUDIT_DATA_CMK_ARN!,
-    
+    userDataCMKArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
+    paymentDataCMKArn: process.env['AWS_KMS_PAYMENT_DATA_CMK_ARN']!,
+    sessionDataCMKArn: process.env['AWS_KMS_SESSION_DATA_CMK_ARN']!,
+    auditDataCMKArn: process.env['AWS_KMS_AUDIT_DATA_CMK_ARN']!,
+
     autoKeyRotation: true,
     rotationIntervalDays: 90,
     enableRotationNotification: true,
-    
-    emergencyKeyAccessRoleArn: process.env.EMERGENCY_KEY_ACCESS_ROLE_ARN!,
+
+    emergencyKeyAccessRoleArn: process.env['EMERGENCY_KEY_ACCESS_ROLE_ARN']!,
     emergencyAccessNotification: [
-      process.env.SECURITY_TEAM_EMAIL!,
-      process.env.COMPLIANCE_TEAM_EMAIL!,
-      process.env.ALERT_SNS_TOPIC_ARN!
-    ]
+      process.env['SECURITY_TEAM_EMAIL']!,
+      process.env['COMPLIANCE_TEAM_EMAIL']!,
+      process.env['ALERT_SNS_TOPIC_ARN']!,
+    ],
   };
 }
 
@@ -192,18 +198,18 @@ export function getKMSConfig(): KMSConfig {
  * Based on non-functional requirements
  */
 export interface PerformanceConfig {
-  maxQueryLatency: number;  // 100ms per user story
-  maxCPUOverhead: number;   // 5% per user story
+  maxQueryLatency: number; // 100ms per user story
+  maxCPUOverhead: number; // 5% per user story
   slowQueryThreshold: number;
   measureEncryptionOverhead: boolean;
 }
 
 export function getPerformanceConfig(): PerformanceConfig {
   return {
-    maxQueryLatency: 100,  // milliseconds
-    maxCPUOverhead: 5,     // percentage
-    slowQueryThreshold: 50,  // milliseconds (warning threshold)
-    measureEncryptionOverhead: true
+    maxQueryLatency: 100, // milliseconds
+    maxCPUOverhead: 5, // percentage
+    slowQueryThreshold: 50, // milliseconds (warning threshold)
+    measureEncryptionOverhead: true,
   };
 }
 
@@ -226,12 +232,12 @@ export function getGDPRConfig(): GDPRConfig {
   return {
     dataRetentionDays: {
       standard: 30,
-      payment: 2555,  // 7 years for financial data
-      audit: 2555,    // 7 years for audit trails
-      chat: 90        // User-configurable, 90 days default
+      payment: 2555, // 7 years for financial data
+      audit: 2555, // 7 years for audit trails
+      chat: 90, // User-configurable, 90 days default
     },
-    rightToErasureGracePeriodDays: 30,  // 30 days before permanent deletion
+    rightToErasureGracePeriodDays: 30, // 30 days before permanent deletion
     dataExportFormat: 'JSON',
-    privacyByDesign: true
+    privacyByDesign: true,
   };
 }

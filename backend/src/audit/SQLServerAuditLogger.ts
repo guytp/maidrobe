@@ -1,43 +1,78 @@
 /**
  * SQL Server Audit Logger for Buzz A Tutor
- * 
+ *
  * Replaces Supabase structured logging with SQL Server-based audit trail
  * Integrates with CloudWatch Logs for SIEM integration
  * Implements GDPR and PCI DSS compliance logging requirements
- * 
+ *
  * @module audit/SQLServerAuditLogger
  */
 
 import { v4 as uuidv4 } from 'uuid';
 import * as AWS from 'aws-sdk';
 
-export type AuditEventType = 
-  | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'  // Data operations
-  | 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED' | 'TOKEN_GENERATION_FAILED'  // Auth events
-  | 'TOKEN_VERIFIED' | 'TOKEN_VERIFY_FAILED' | 'TOKEN_REFRESHED' | 'TOKEN_REFRESH_FAILED'  // Token validation
-  | 'SESSION_INVALIDATED' | 'SESSION_INVALIDATION_FAILED'  // Session management
-  | 'KEY_CREATE' | 'KEY_ROTATE' | 'KEY_REVOKE'  // Key management
-  | 'GDPR_RIGHT_TO_ACCESS' | 'GDPR_RIGHT_TO_ERASURE' | 'GDPR_DATA_EXPORT'  // GDPR compliance
-  | 'PAYMENT_PROCESSED' | 'PAYMENT_FAILED' | 'PAYMENT_REFUNDED'  // Payment operations
-  | 'SECURITY_ALERT' | 'UNAUTHORIZED_ACCESS' | 'SUSPICIOUS_ACTIVITY';  // Security
+export type AuditEventType =
+  | 'SELECT'
+  | 'INSERT'
+  | 'UPDATE'
+  | 'DELETE' // Data operations
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'TOKEN_GENERATED'
+  | 'TOKEN_REFRESHED'
+  | 'TOKEN_REVOKED'
+  | 'TOKEN_GENERATION_FAILED' // Auth events
+  | 'TOKEN_VERIFIED'
+  | 'TOKEN_VERIFY_FAILED'
+  | 'TOKEN_REFRESHED'
+  | 'TOKEN_REFRESH_FAILED' // Token validation
+  | 'SESSION_INVALIDATED'
+  | 'SESSION_INVALIDATION_FAILED' // Session management
+  | 'KEY_CREATE'
+  | 'KEY_ROTATE'
+  | 'KEY_REVOKE' // Key management
+  | 'GDPR_RIGHT_TO_ACCESS'
+  | 'GDPR_RIGHT_TO_ERASURE'
+  | 'GDPR_DATA_EXPORT' // GDPR compliance
+  | 'PAYMENT_PROCESSED'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_REFUNDED' // Payment operations
+  | 'SECURITY_ALERT'
+  | 'UNAUTHORIZED_ACCESS'
+  | 'SUSPICIOUS_ACTIVITY'; // Security
 
 export interface AuditLogEntry {
   eventType: AuditEventType;
-  userId?: string;
-  tableName?: string;
-  recordId?: string;
-  operationDetails?: string;  // JSON string
-  clientIPAddress?: string;
-  userAgent?: string;
+  userId?: string | undefined;
+  tableName?: string | undefined;
+  recordId?: string | undefined;
+  operationDetails?: string; // JSON string
+  clientIPAddress?: string | undefined;
+  userAgent?: string | undefined;
   correlationId: string;
-  legalBasis?: 'consent' | 'contract' | 'legitimate_interest' | 'legal_obligation' | 'vital_interest';
-  timestamp?: Date;
+  legalBasis?:
+    | 'consent'
+    | 'contract'
+    | 'legitimate_interest'
+    | 'legal_obligation'
+    | 'vital_interest'
+    | undefined;
+  timestamp?: Date | undefined;
 }
 
 export interface AuthEventAuditLog extends AuditLogEntry {
-  eventType: 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED' | 
-             'TOKEN_GENERATION_FAILED' | 'TOKEN_VERIFIED' | 'TOKEN_VERIFY_FAILED' | 
-             'TOKEN_REFRESH_FAILED' | 'SESSION_INVALIDATED' | 'SESSION_INVALIDATION_FAILED';
+  eventType:
+    | 'LOGIN'
+    | 'LOGOUT'
+    | 'TOKEN_GENERATED'
+    | 'TOKEN_REFRESHED'
+    | 'TOKEN_REVOKED'
+    | 'TOKEN_GENERATION_FAILED'
+    | 'TOKEN_VERIFIED'
+    | 'TOKEN_VERIFY_FAILED'
+    | 'TOKEN_REFRESH_FAILED'
+    | 'SESSION_INVALIDATED'
+    | 'SESSION_INVALIDATION_FAILED';
   sessionId?: string;
   roles?: string[];
   clientInfo?: {
@@ -61,12 +96,13 @@ export interface KeyManagementAuditLog extends AuditLogEntry {
  */
 export class SQLServerAuditLogger {
   private cloudWatch: AWS.CloudWatchLogs;
-  private readonly AUDIT_LOG_GROUP = process.env.CLOUDWATCH_AUDIT_LOG_GROUP || '/buzz-tutor/audit';
+  private readonly AUDIT_LOG_GROUP =
+    process.env['CLOUDWATCH_AUDIT_LOG_GROUP'] || '/buzz-tutor/audit';
 
   constructor() {
     this.cloudWatch = new AWS.CloudWatchLogs({
-      region: process.env.AWS_REGION || 'us-east-1',
-      apiVersion: '2014-03-28'
+      region: process.env['AWS_REGION'] || 'us-east-1',
+      apiVersion: '2014-03-28',
     });
   }
 
@@ -86,22 +122,22 @@ export class SQLServerAuditLogger {
       await this.forwardToCloudWatch({
         ...logEntry,
         timestamp,
-        correlationId
+        correlationId,
       });
 
       console.log(`[AuditLogger] Logged ${logEntry.eventType} event`, {
         userId: logEntry.userId,
         tableName: logEntry.tableName,
-        correlationId
+        correlationId,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       console.error(`[AuditLogger] Failed to log audit event`, {
         eventType: logEntry.eventType,
         userId: logEntry.userId,
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       // In production, this might send an alert to security team
@@ -117,19 +153,21 @@ export class SQLServerAuditLogger {
   async logAuthEvent(
     eventType: AuthEventAuditLog['eventType'],
     metadata: {
-      userId?: string;
-      sessionId?: string;
-      oldSessionId?: string;
-      newSessionId?: string;
-      roles?: string[];
+      userId?: string | undefined;
+      sessionId?: string | undefined;
+      oldSessionId?: string | undefined;
+      newSessionId?: string | undefined;
+      roles?: string[] | undefined;
       correlationId: string;
-      clientInfo?: {
-        ipAddress: string;
-        userAgent: string;
-        deviceFingerprint: string;
-      };
-      errorCode?: string;
-      errorMessage?: string;
+      clientInfo?:
+        | {
+            ipAddress: string;
+            userAgent: string;
+            deviceFingerprint: string;
+          }
+        | undefined;
+      errorCode?: string | undefined;
+      errorMessage?: string | undefined;
     }
   ): Promise<void> {
     const logEntry: AuthEventAuditLog = {
@@ -143,8 +181,8 @@ export class SQLServerAuditLogger {
         roles: metadata.roles,
         clientInfo: metadata.clientInfo,
         errorCode: metadata.errorCode,
-        errorMessage: metadata.errorMessage
-      })
+        errorMessage: metadata.errorMessage,
+      }),
     };
 
     await this.logAuditEvent(logEntry);
@@ -188,8 +226,8 @@ export class SQLServerAuditLogger {
         query: details.query,
         parameters: details.parameters,
         rowCount: details.rowCount,
-        clientInfo: details.clientInfo
-      })
+        clientInfo: details.clientInfo,
+      }),
     };
 
     await this.logAuditEvent(logEntry);
@@ -215,7 +253,7 @@ export class SQLServerAuditLogger {
     userId: string,
     correlationId: string,
     details?: {
-      requestedBy?: string;  // For admin-initiated requests
+      requestedBy?: string; // For admin-initiated requests
       reason?: string;
       dataExported?: boolean;
       deletionScheduled?: boolean;
@@ -227,11 +265,11 @@ export class SQLServerAuditLogger {
       correlationId,
       legalBasis: 'legal_obligation',
       operationDetails: JSON.stringify({
-        requestedBy: details?.requestedBy || userId,  // If self-service, same as userId
+        requestedBy: details?.requestedBy || userId, // If self-service, same as userId
         reason: details?.reason,
         dataExported: details?.dataExported,
-        deletionScheduled: details?.deletionScheduled
-      })
+        deletionScheduled: details?.deletionScheduled,
+      }),
     };
 
     await this.logAuditEvent(logEntry);
@@ -267,15 +305,15 @@ export class SQLServerAuditLogger {
       tableName: 'dbo.Payments',
       recordId: paymentId,
       correlationId: uuidv4(),
-      legalBasis: 'contract',  // Payment processing is contractual
+      legalBasis: 'contract', // Payment processing is contractual
       operationDetails: JSON.stringify({
         amount,
         currency: details.currency,
         paymentMethod: details.paymentMethod,
         status: details.status,
         errorCode: details.errorCode,
-        gatewayResponse: details.gatewayResponse
-      })
+        gatewayResponse: details.gatewayResponse,
+      }),
     };
 
     await this.logAuditEvent(logEntry);
@@ -307,9 +345,9 @@ export class SQLServerAuditLogger {
         userAgent: details.userAgent,
         description: details.description,
         attemptedAction: details.attemptedAction,
-        riskScore: details.riskScore
+        riskScore: details.riskScore,
       }),
-      clientIPAddress: details.ipAddress
+      clientIPAddress: details.ipAddress,
     };
 
     // Log immediately (don't await) for security alerts
@@ -329,9 +367,9 @@ export class SQLServerAuditLogger {
     await this.batchInsertIntoSQLServer(logEntries);
 
     // 2. Batch forward to CloudWatch
-    const cloudWatchEntries = logEntries.map(entry => ({
+    const cloudWatchEntries = logEntries.map((entry) => ({
       ...entry,
-      timestamp: entry.timestamp || new Date()
+      timestamp: entry.timestamp || new Date(),
     }));
 
     await this.batchForwardToCloudWatch(cloudWatchEntries);
@@ -342,34 +380,38 @@ export class SQLServerAuditLogger {
   private async insertIntoSQLServerAudit(logEntry: AuditLogEntry): Promise<void> {
     // Implementation depends on SQL client library (tedious, mssql, etc.)
     // Example SQL:
-    // INSERT INTO dbo.AuditLog (EventType, UserId, TableName, RecordId, 
+    // INSERT INTO dbo.AuditLog (EventType, UserId, TableName, RecordId,
     //   OperationDetails, ClientIPAddress, UserAgent, CorrelationId, LegalBasis, CreatedAt)
-    // VALUES (@eventType, @userId, @tableName, @recordId, @operationDetails, 
+    // VALUES (@eventType, @userId, @tableName, @recordId, @operationDetails,
     //   @clientIPAddress, @userAgent, @correlationId, @legalBasis, SYSUTCDATETIME())
 
     console.log('[SQLServerAuditLogger] Inserting audit record', {
       eventType: logEntry.eventType,
-      userId: logEntry.userId
+      userId: logEntry.userId,
     });
   }
 
   private async forwardToCloudWatch(logEntry: AuditLogEntry): Promise<void> {
     try {
-      await this.cloudWatch.putLogEvents({
-        logGroupName: this.AUDIT_LOG_GROUP,
-        logStreamName: 'audit-events',
-        logEvents: [{
-          timestamp: Date.now(),
-          message: JSON.stringify({
-            ...logEntry,
-            timestamp: logEntry.timestamp?.toISOString()
-          })
-        }]
-      }).promise();
+      await this.cloudWatch
+        .putLogEvents({
+          logGroupName: this.AUDIT_LOG_GROUP,
+          logStreamName: 'audit-events',
+          logEvents: [
+            {
+              timestamp: Date.now(),
+              message: JSON.stringify({
+                ...logEntry,
+                timestamp: logEntry.timestamp?.toISOString(),
+              }),
+            },
+          ],
+        })
+        .promise();
     } catch (error) {
       console.error('[SQLServerAuditLogger] Failed to forward to CloudWatch', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        eventType: logEntry.eventType
+        eventType: logEntry.eventType,
       });
     }
   }
@@ -378,53 +420,52 @@ export class SQLServerAuditLogger {
     // Bulk insert implementation
     // Use table-valued parameters for efficiency
     console.log('[SQLServerAuditLogger] Bulk inserting audit records', {
-      count: logEntries.length
+      count: logEntries.length,
     });
   }
 
   private async batchForwardToCloudWatch(logEntries: AuditLogEntry[]): Promise<void> {
     try {
-      const logEvents = logEntries.map(entry => ({
+      const logEvents = logEntries.map((entry) => ({
         timestamp: Date.now(),
         message: JSON.stringify({
           ...entry,
-          timestamp: entry.timestamp?.toISOString()
-        })
+          timestamp: entry.timestamp?.toISOString(),
+        }),
       }));
 
-      await this.cloudWatch.putLogEvents({
-        logGroupName: this.AUDIT_LOG_GROUP,
-        logStreamName: 'audit-events-bulk',
-        logEvents
-      }).promise();
+      await this.cloudWatch
+        .putLogEvents({
+          logGroupName: this.AUDIT_LOG_GROUP,
+          logStreamName: 'audit-events-bulk',
+          logEvents,
+        })
+        .promise();
     } catch (error) {
       console.error('[SQLServerAuditLogger] Bulk CloudWatch forward failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        count: logEntries.length
+        count: logEntries.length,
       });
     }
   }
 
-  private determineLegalBasis(
-    operation: string,
-    tableName: string
-  ): AuditLogEntry['legalBasis'] {
+  private determineLegalBasis(operation: string, tableName: string): AuditLogEntry['legalBasis'] {
     if (tableName === 'dbo.Payments' || operation.includes('PAYMENT')) {
-      return 'contract';  // Payment processing is contractual
+      return 'contract'; // Payment processing is contractual
     }
 
     if (tableName === 'dbo.Users' || tableName === 'dbo.UserProfiles') {
       if (operation === 'SELECT') {
-        return 'legitimate_interest';  // User viewing own profile
+        return 'legitimate_interest'; // User viewing own profile
       }
-      return 'consent';  // User updating own data
+      return 'consent'; // User updating own data
     }
 
     if (operation.startsWith('GDPR_')) {
-      return 'legal_obligation';  // GDPR compliance
+      return 'legal_obligation'; // GDPR compliance
     }
 
-    return 'legitimate_interest';  // Default
+    return 'legitimate_interest'; // Default
   }
 
   /**
@@ -441,9 +482,9 @@ export class SQLServerAuditLogger {
   }): Promise<AuditLogEntry[]> {
     // Query dbo.AuditLog with filters
     // Implementation depends on SQL client
-    
+
     console.log('[SQLServerAuditLogger] Querying audit logs', filters);
-    
+
     return [];
   }
 
@@ -467,28 +508,28 @@ export class SQLServerAuditLogger {
           purpose: 'User authentication and session management',
           categoriesOfData: ['UserId', 'SessionTokenHash', 'IPAddress'],
           legalBasis: 'legitimate_interest',
-          retentionPeriod: '7 days (session) or until logout'
+          retentionPeriod: '7 days (session) or until logout',
         },
         {
           purpose: 'Payment processing',
           categoriesOfData: ['PaymentToken', 'LastFourDigits', 'BillingAddress'],
           legalBasis: 'contract',
-          retentionPeriod: '7 years (legal requirement)'
+          retentionPeriod: '7 years (legal requirement)',
         },
         {
           purpose: 'Chat tutoring sessions',
           categoriesOfData: ['MessageContent', 'ChatRoom'],
           legalBasis: 'contract',
-          retentionPeriod: '90 days standard, user configurable'
+          retentionPeriod: '90 days standard, user configurable',
         },
         {
           purpose: 'GDPR compliance (right to access)',
           categoriesOfData: ['All user data'],
           legalBasis: 'legal_obligation',
-          retentionPeriod: 'Until request fulfilled'
-        }
+          retentionPeriod: 'Until request fulfilled',
+        },
       ],
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
 
     return report;

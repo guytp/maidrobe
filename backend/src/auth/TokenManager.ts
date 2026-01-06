@@ -1,9 +1,9 @@
 /**
  * Token Manager for Buzz A Tutor
- * 
+ *
  * Replaces Supabase Auth with custom JWT-based authentication
  * Integrates with AWS KMS for secure key storage and SQL Server for session management
- * 
+ *
  * @module auth/TokenManager
  */
 
@@ -22,14 +22,14 @@ export interface TokenPair {
 }
 
 export interface JwtPayload {
-  sub: string;  // UserId
+  sub: string; // UserId
   roles: string[];
   iss: string;
   aud: string;
   iat: number;
   exp: number;
   correlationId: string;
-  sessionId?: string;
+  sessionId?: string | undefined;
 }
 
 export interface SessionData {
@@ -56,13 +56,13 @@ export interface TokenValidationResult {
  * Token Manager handles JWT lifecycle and SQL Server session management
  */
 export class TokenManager {
-  private kmsService: KMSService;
+  private _kmsService: KMSService;
   private auditLogger: SQLServerAuditLogger;
-  private readonly ACCESS_TOKEN_EXPIRY = '1h';      // 1 hour
-  private readonly REFRESH_TOKEN_EXPIRY_DAYS = 7;   // 7 days
+  private readonly ACCESS_TOKEN_EXPIRY = '1h'; // 1 hour
+  private readonly _REFRESH_TOKEN_EXPIRY_DAYS = 7; // 7 days
 
   constructor() {
-    this.kmsService = new KMSService();
+    this._kmsService = new KMSService();
     this.auditLogger = new SQLServerAuditLogger();
   }
 
@@ -90,7 +90,7 @@ export class TokenManager {
     const spanId = startSpan('token.generate', {
       'auth.userId': userId,
       'auth.operation': 'generate_tokens',
-      'auth.correlationId': correlationId
+      'auth.correlationId': correlationId,
     });
 
     try {
@@ -111,15 +111,13 @@ export class TokenManager {
         iss: 'buzz-a-tutor',
         aud: 'buzz-a-tutor-api',
         correlationId,
-        sessionId
+        sessionId,
       };
 
       // Sign access token
-      const accessToken = jwt.sign(
-        accessTokenPayload,
-        signingKey,
-        { expiresIn: this.ACCESS_TOKEN_EXPIRY }
-      );
+      const accessToken = jwt.sign(accessTokenPayload, signingKey, {
+        expiresIn: this.ACCESS_TOKEN_EXPIRY,
+      });
 
       // Create session in SQL Server
       await this.createSession({
@@ -127,7 +125,7 @@ export class TokenManager {
         userId,
         refreshTokenHash,
         correlationId,
-        ...clientInfo
+        ...clientInfo,
       });
 
       // Log successful token generation
@@ -136,36 +134,36 @@ export class TokenManager {
         correlationId,
         sessionId,
         roles,
-        clientInfo
+        clientInfo,
       });
 
       // End telemetry span successfully
       endSpan(spanId, SpanStatusCode.OK, {
         'auth.token_type': 'access_and_refresh',
-        'auth.session_id': sessionId
+        'auth.session_id': sessionId,
       });
 
       console.log(`[TokenManager] Generated tokens for user ${userId}`, {
         sessionId,
         correlationId,
-        roles
+        roles,
       });
 
       return {
         accessToken,
         refreshToken,
-        expiresIn: 3600,  // 1 hour in seconds
-        tokenType: 'Bearer'
+        expiresIn: 3600, // 1 hour in seconds
+        tokenType: 'Bearer',
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Log failure
       await this.auditLogger.logAuthEvent('TOKEN_GENERATION_FAILED', {
         userId,
         correlationId,
         errorCode: 'TOKEN_GENERATION_ERROR',
-        errorMessage
+        errorMessage,
       });
 
       // End telemetry span with error
@@ -173,7 +171,7 @@ export class TokenManager {
 
       console.error(`[TokenManager] Failed to generate tokens for user ${userId}`, {
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       throw error;
@@ -187,7 +185,7 @@ export class TokenManager {
    */
   async verifyToken(token: string): Promise<TokenValidationResult> {
     const spanId = startSpan('token.verify', {
-      'auth.operation': 'verify_token'
+      'auth.operation': 'verify_token',
     });
 
     try {
@@ -199,7 +197,7 @@ export class TokenManager {
 
       // Verify session is still active in database
       const session = await this.getActiveSession(payload.sub, payload.sessionId!);
-      
+
       if (!session) {
         throw new Error('Session not found or expired');
       }
@@ -216,27 +214,27 @@ export class TokenManager {
       await this.auditLogger.logAuthEvent('TOKEN_VERIFIED', {
         userId: payload.sub,
         correlationId: payload.correlationId,
-        sessionId: payload.sessionId
+        sessionId: payload.sessionId || undefined,
       });
 
       // End telemetry span successfully
       endSpan(spanId, SpanStatusCode.OK, {
         'auth.userId': payload.sub,
-        'auth.session_id': payload.sessionId
+        'auth.session_id': payload.sessionId || 'unknown',
       });
 
       return {
         valid: true,
-        payload
+        payload,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Log verification failure
       await this.auditLogger.logAuthEvent('TOKEN_VERIFY_FAILED', {
         correlationId: uuidv4(),
         errorCode: 'INVALID_TOKEN',
-        errorMessage
+        errorMessage,
       });
 
       // End telemetry span with error
@@ -245,7 +243,7 @@ export class TokenManager {
       return {
         valid: false,
         error: errorMessage,
-        errorCode: 'INVALID_TOKEN'
+        errorCode: 'INVALID_TOKEN',
       };
     }
   }
@@ -265,13 +263,13 @@ export class TokenManager {
     const spanId = startSpan('token.refresh', {
       'auth.userId': userId,
       'auth.operation': 'refresh_token',
-      'auth.correlationId': correlationId
+      'auth.correlationId': correlationId,
     });
 
     try {
       // Find active session with matching refresh token
       const session = await this.findSessionByRefreshToken(userId, refreshToken);
-      
+
       if (!session) {
         throw new Error('Invalid or expired refresh token');
       }
@@ -282,19 +280,14 @@ export class TokenManager {
       }
 
       // Generate new tokens
-      const tokens = await this.generateTokens(
-        userId,
-        session.Roles.split(','),
-        correlationId,
-        {
-          ipAddress: session.ClientIPAddress,
-          userAgent: session.UserAgent,
-          deviceFingerprint: session.DeviceFingerprint,
-          country: session.Country,
-          region: session.Region,
-          city: session.City
-        }
-      );
+      const tokens = await this.generateTokens(userId, session.Roles.split(','), correlationId, {
+        ipAddress: session.ClientIPAddress,
+        userAgent: session.UserAgent,
+        deviceFingerprint: session.DeviceFingerprint,
+        country: session.Country,
+        region: session.Region,
+        city: session.City,
+      });
 
       // Invalidate old session
       await this.invalidateSession(session.SessionId, correlationId);
@@ -304,29 +297,29 @@ export class TokenManager {
         userId,
         correlationId,
         oldSessionId: session.SessionId,
-        newSessionId: this.extractSessionId(tokens.accessToken)
+        newSessionId: this.extractSessionId(tokens.accessToken),
       });
 
       // End telemetry span successfully
       endSpan(spanId, SpanStatusCode.OK, {
-        'auth.token_refreshed': true
+        'auth.token_refreshed': true,
       });
 
       console.log(`[TokenManager] Refreshed token for user ${userId}`, {
         oldSessionId: session.SessionId,
-        correlationId
+        correlationId,
       });
 
       return tokens;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Log refresh failure
       await this.auditLogger.logAuthEvent('TOKEN_REFRESH_FAILED', {
         userId,
         correlationId,
         errorCode: 'TOKEN_REFRESH_ERROR',
-        errorMessage
+        errorMessage,
       });
 
       // End telemetry span with error
@@ -334,7 +327,7 @@ export class TokenManager {
 
       console.error(`[TokenManager] Failed to refresh token for user ${userId}`, {
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       throw error;
@@ -349,26 +342,26 @@ export class TokenManager {
   async invalidateSession(sessionId: string, correlationId: string): Promise<void> {
     const spanId = startSpan('session.invalidate', {
       'auth.operation': 'invalidate_session',
-      'auth.session_id': sessionId
+      'auth.session_id': sessionId,
     });
 
     try {
       // Update session to inactive in SQL Server
       // This would be an UPDATE query
-      
+
       await this.auditLogger.logAuthEvent('SESSION_INVALIDATED', {
         sessionId,
-        correlationId
+        correlationId,
       });
 
       endSpan(spanId, SpanStatusCode.OK);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       await this.auditLogger.logAuthEvent('SESSION_INVALIDATION_FAILED', {
         sessionId,
         correlationId,
-        errorMessage
+        errorMessage,
       });
 
       endSpan(spanId, SpanStatusCode.ERROR, {}, errorMessage);
@@ -380,12 +373,12 @@ export class TokenManager {
   private async getSigningKeyFromKms(): Promise<string> {
     // In production, fetch from AWS Secrets Manager or KMS
     // For development, use environment variable
-    const signingKey = process.env.JWT_SIGNING_KEY;
-    
+    const signingKey = process.env['JWT_SIGNING_KEY'];
+
     if (!signingKey) {
       throw new Error('JWT signing key not configured');
     }
-    
+
     return signingKey;
   }
 
@@ -394,20 +387,20 @@ export class TokenManager {
     // Implementation depends on SQL client library
     console.log(`[TokenManager] Creating session ${sessionData.sessionId}`, {
       userId: sessionData.userId,
-      correlationId: sessionData.correlationId
+      correlationId: sessionData.correlationId,
     });
   }
 
-  private async getActiveSession(userId: string, sessionId: string): Promise<any> {
+  private async getActiveSession(_userId: string, _sessionId: string): Promise<any> {
     // Query dbo.SessionHistory for active session
     return null;
   }
 
-  private async updateSessionActivity(sessionId: string): Promise<void> {
+  private async updateSessionActivity(_sessionId: string): Promise<void> {
     // Update LastActivityAt in dbo.SessionHistory
   }
 
-  private async findSessionByRefreshToken(userId: string, refreshToken: string): Promise<any> {
+  private async findSessionByRefreshToken(_userId: string, _refreshToken: string): Promise<any> {
     // Find session by userId and refresh token hash
     return null;
   }

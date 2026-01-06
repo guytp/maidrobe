@@ -1,10 +1,10 @@
 /**
  * SQL Server Telemetry Module for Buzz A Tutor
- * 
+ *
  * Replaces Supabase simulated telemetry with real OpenTelemetry implementation
  * Integrates with AWS X-Ray and CloudWatch for comprehensive observability
  * Implements performance tracking for encryption and query operations
- * 
+ *
  * @module telemetry/SQLServerTelemetry
  */
 
@@ -25,7 +25,7 @@ import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk
 export enum SpanStatusCode {
   UNSET = 0,
   OK = 1,
-  ERROR = 2
+  ERROR = 2,
 }
 
 /**
@@ -36,17 +36,17 @@ export interface TelemetryConfig {
   serviceVersion: string;
   environment: 'development' | 'staging' | 'production';
   awsRegion: string;
-  metricsExportInterval: number;  // milliseconds
+  metricsExportInterval: number; // milliseconds
 }
 
 /**
  * Performance metrics for SQL Server operations
  */
 export interface SQLServerPerformanceMetrics {
-  queryLatency: number;      // milliseconds
+  queryLatency: number; // milliseconds
   encryptionOverhead: number; // milliseconds
-  cpuUsage: number;           // percentage
-  memoryUsage: number;        // MB
+  cpuUsage: number; // percentage
+  memoryUsage: number; // MB
   rowCount: number;
   operationType: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'KEY_ROTATION';
   tableName: string;
@@ -76,19 +76,19 @@ export function initializeTelemetry(config: TelemetryConfig): void {
     [SemanticResourceAttributes.SERVICE_VERSION]: config.serviceVersion,
     [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: config.environment,
     'cloud.provider': 'aws',
-    'cloud.region': config.awsRegion
+    'cloud.region': config.awsRegion,
   });
 
   // Initialize Tracer Provider
   const tracerProvider = new NodeTracerProvider({
     resource,
-    idGenerator: new AWSXRayIdGenerator()  // AWS X-Ray compatible IDs
+    idGenerator: new AWSXRayIdGenerator(), // AWS X-Ray compatible IDs
   });
 
   // Configure AWS X-Ray Exporter
   const xrayExporter = new AWSXRaySpanExporter({
     resource,
-    region: config.awsRegion
+    region: config.awsRegion,
   });
 
   // Add Span Processor
@@ -96,13 +96,13 @@ export function initializeTelemetry(config: TelemetryConfig): void {
     new BatchSpanProcessor(xrayExporter, {
       maxQueueSize: 1000,
       maxExportBatchSize: 100,
-      scheduledDelayMillis: 5000
+      scheduledDelayMillis: 5000,
     })
   );
 
   // Configure Propagator for distributed tracing
   tracerProvider.register({
-    propagator: new AWSXRayPropagator()
+    propagator: new AWSXRayPropagator(),
   });
 
   // Initialize global tracer
@@ -111,17 +111,17 @@ export function initializeTelemetry(config: TelemetryConfig): void {
   // Initialize Meter Provider for metrics
   const metricExporter = new OTLPMetricExporter({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4317',
-    credentials: require('@grpc/grpc-js').credentials.createInsecure()
+    credentials: require('@grpc/grpc-js').credentials.createInsecure(),
   });
 
   const metricReader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
-    exportIntervalMillis: config.metricsExportInterval
+    exportIntervalMillis: config.metricsExportInterval,
   });
 
   const meterProvider = new MeterProvider({
     resource,
-    readers: [metricReader]
+    readers: [metricReader],
   });
 
   // Initialize global meter
@@ -132,7 +132,7 @@ export function initializeTelemetry(config: TelemetryConfig): void {
   console.log('[SQLServerTelemetry] Initialized successfully', {
     serviceName: config.serviceName,
     environment: config.environment,
-    region: config.awsRegion
+    region: config.awsRegion,
   });
 }
 
@@ -155,9 +155,12 @@ export function startSpan(
 
   // Mark as active span if needed
   if (attributes?.['isRootSpan']) {
-    opentelemetry.context.with(opentelemetry.trace.setSpan(opentelemetry.context.active(), span), () => {
-      // Span is now active in context
-    });
+    opentelemetry.context.with(
+      opentelemetry.trace.setSpan(opentelemetry.context.active(), span),
+      () => {
+        // Span is now active in context
+      }
+    );
   }
 
   return spanId;
@@ -182,7 +185,7 @@ export function endSpan(
 
   // Get current span (simplified - in real implementation would track spans)
   const currentSpan = opentelemetry.trace.getSpan(opentelemetry.context.active());
-  
+
   if (!currentSpan) {
     return;
   }
@@ -198,7 +201,7 @@ export function endSpan(
   if (statusCode !== SpanStatusCode.UNSET) {
     currentSpan.setStatus({
       code: statusCode as number,
-      message: statusMessage
+      message: statusMessage,
     });
   }
 
@@ -222,14 +225,14 @@ export function recordException(
   }
 
   const currentSpan = opentelemetry.trace.getSpan(opentelemetry.context.active());
-  
+
   if (!currentSpan) {
     return;
   }
 
   // Record exception
   currentSpan.recordException(error);
-  
+
   // Add error attributes
   currentSpan.setAttribute('error.type', error.name);
   currentSpan.setAttribute('error.message', error.message);
@@ -244,7 +247,7 @@ export function recordException(
   // Set status to error
   currentSpan.setStatus({
     code: SpanStatusCode.ERROR,
-    message: error.message
+    message: error.message,
   });
 }
 
@@ -262,7 +265,7 @@ export function addSpanAttributes(
   }
 
   const currentSpan = opentelemetry.trace.getSpan(opentelemetry.context.active());
-  
+
   if (!currentSpan) {
     return;
   }
@@ -285,65 +288,65 @@ export function trackSQLServerPerformance(metrics: SQLServerPerformanceMetrics):
   const queryLatencyHistogram = meter.createHistogram('sqlserver.query.duration', {
     description: 'SQL Server query duration',
     unit: 'ms',
-    valueType: opentelemetry.ValueType.DOUBLE
+    valueType: opentelemetry.ValueType.DOUBLE,
   });
 
   // Create histogram for encryption overhead
   const encryptionOverheadHistogram = meter.createHistogram('sqlserver.encryption.duration', {
     description: 'SQL Server encryption/decryption overhead',
     unit: 'ms',
-    valueType: opentelemetry.ValueType.DOUBLE
+    valueType: opentelemetry.ValueType.DOUBLE,
   });
 
   // Create gauges for resource usage
   const cpuGauge = meter.createObservableGauge('sqlserver.cpu.percent', {
     description: 'SQL Server CPU usage percentage',
     unit: '%',
-    valueType: opentelemetry.ValueType.DOUBLE
+    valueType: opentelemetry.ValueType.DOUBLE,
   });
 
   const memoryGauge = meter.createObservableGauge('sqlserver.memory.mb', {
     description: 'SQL Server memory usage in MB',
     unit: 'MB',
-    valueType: opentelemetry.ValueType.DOUBLE
+    valueType: opentelemetry.ValueType.DOUBLE,
   });
 
   // Record measurements
   queryLatencyHistogram.record(metrics.queryLatency, {
     'operation.type': metrics.operationType,
     'table.name': metrics.tableName,
-    'is.encrypted': metrics.isEncrypted
+    'is.encrypted': metrics.isEncrypted,
   });
 
   encryptionOverheadHistogram.record(metrics.encryptionOverhead, {
     'operation.type': metrics.operationType,
-    'table.name': metrics.tableName
+    'table.name': metrics.tableName,
   });
 
   // Set observable gauges
   cpuGauge.addCallback((observableResult) => {
     observableResult.observe(metrics.cpuUsage, {
       'operation.type': metrics.operationType,
-      'table.name': metrics.tableName
+      'table.name': metrics.tableName,
     });
   });
 
   memoryGauge.addCallback((observableResult) => {
     observableResult.observe(metrics.memoryUsage, {
       'operation.type': metrics.operationType,
-      'table.name': metrics.tableName
+      'table.name': metrics.tableName,
     });
   });
 
   // Counter for row count
   const rowCountCounter = meter.createCounter('sqlserver.rows.processed', {
     description: 'Number of rows processed',
-    valueType: opentelemetry.ValueType.INT
+    valueType: opentelemetry.ValueType.INT,
   });
 
   rowCountCounter.add(metrics.rowCount, {
     'operation.type': metrics.operationType,
-    'table.name': metrics.tableName
+    'table.name': metrics.tableName,
   });
 }
 
@@ -368,10 +371,10 @@ export async function measureEncryptionOverhead(
   if (isEncrypted) {
     // Measure encryption/decryption specifically
     const encryptionStart = Date.now();
-    
+
     // Simulate encryption overhead (in reality, this would be measured from driver)
-    await new Promise(resolve => setTimeout(resolve, 10)); // 10ms simulated overhead
-    
+    await new Promise((resolve) => setTimeout(resolve, 10)); // 10ms simulated overhead
+
     encryptionTime = Date.now() - encryptionStart;
   }
 
@@ -381,17 +384,17 @@ export async function measureEncryptionOverhead(
   trackSQLServerPerformance({
     queryLatency: totalLatency,
     encryptionOverhead: encryptionTime,
-    cpuUsage: 0,  // Would be actual CPU usage
-    memoryUsage: 0,  // Would be actual memory usage
-    rowCount: 1,  // Would be actual row count
+    cpuUsage: 0, // Would be actual CPU usage
+    memoryUsage: 0, // Would be actual memory usage
+    rowCount: 1, // Would be actual row count
     operationType: operation as any,
     tableName,
-    isEncrypted
+    isEncrypted,
   });
 
   return {
     queryLatency: totalLatency,
-    encryptionOverhead: encryptionTime
+    encryptionOverhead: encryptionTime,
   };
 }
 
@@ -403,7 +406,7 @@ export async function measureEncryptionOverhead(
 export function createCorrelationContext(correlationId: string): opentelemetry.Context {
   const span = tracer.startSpan('correlation-root');
   span.setAttribute('correlation.id', correlationId);
-  
+
   return opentelemetry.trace.setSpan(opentelemetry.context.active(), span);
 }
 

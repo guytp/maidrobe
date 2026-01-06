@@ -8,15 +8,15 @@ declare module 'express' {
     query: { [key: string]: string };
     ip: string;
   }
-  
+
   export interface Response {
     status(code: number): Response;
     json(data: any): Response;
   }
-  
+
   export interface NextFunction {
     (err?: any): void;
   }
-  
+
   export function Router(): any;
 }

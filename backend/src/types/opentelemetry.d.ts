@@ -9,24 +9,24 @@ declare module '@opentelemetry/api' {
   export interface Tracer {}
   export interface Span {}
   export interface SpanContext {}
-  
+
   export interface Context {}
-  
+
   export interface MetricRecord {}
   export interface MetricReader {}
   export interface MetricExporter {}
-  
+
   export class SpanStatusCode {
     static readonly UNSET: 0;
     static readonly OK: 1;
     static readonly ERROR: 2;
   }
-  
+
   export enum ValueType {
     INT = 0,
     DOUBLE = 1,
   }
-  
+
   export function context(): Context;
   export function getSpan(context: Context): Span | undefined;
   export function setSpan(context: Context, span: Span): Context;

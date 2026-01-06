@@ -33,7 +33,10 @@ declare module 'aws-sdk' {
 
   export class CloudWatchLogs {
     constructor(config?: CloudWatchLogsConfig);
-    putLogEvents(params: PutLogEventsRequest, callback?: (err: any, data: PutLogEventsResponse) => void): any;
+    putLogEvents(
+      params: PutLogEventsRequest,
+      callback?: (err: any, data: PutLogEventsResponse) => void
+    ): any;
     putLogEvents(params: PutLogEventsRequest): Promise<PutLogEventsResponse>;
   }
 
@@ -78,19 +81,33 @@ declare module 'aws-sdk' {
 
   export class KMS {
     constructor(config?: KMSConfig);
-    scheduleKeyRotation(params: ScheduleKeyRotationRequest, callback?: (err: any, data: any) => void): any;
+    scheduleKeyRotation(
+      params: ScheduleKeyRotationRequest,
+      callback?: (err: any, data: any) => void
+    ): any;
     scheduleKeyRotation(params: ScheduleKeyRotationRequest): Promise<any>;
-    
+
     disableKey(params: DisableKeyRequest, callback?: (err: any, data: any) => void): any;
     disableKey(params: DisableKeyRequest): Promise<any>;
-    
-    scheduleKeyDeletion(params: ScheduleKeyDeletionRequest, callback?: (err: any, data: any) => void): any;
+
+    scheduleKeyDeletion(
+      params: ScheduleKeyDeletionRequest,
+      callback?: (err: any, data: any) => void
+    ): any;
     scheduleKeyDeletion(params: ScheduleKeyDeletionRequest): Promise<any>;
-    
-    getKeyRotationStatus(params: GetKeyRotationStatusRequest, callback?: (err: any, data: GetKeyRotationStatusResponse) => void): any;
-    getKeyRotationStatus(params: GetKeyRotationStatusRequest): Promise<GetKeyRotationStatusResponse>;
-    
-    describeKey(params: DescribeKeyRequest, callback?: (err: any, data: DescribeKeyResponse) => void): any;
+
+    getKeyRotationStatus(
+      params: GetKeyRotationStatusRequest,
+      callback?: (err: any, data: GetKeyRotationStatusResponse) => void
+    ): any;
+    getKeyRotationStatus(
+      params: GetKeyRotationStatusRequest
+    ): Promise<GetKeyRotationStatusResponse>;
+
+    describeKey(
+      params: DescribeKeyRequest,
+      callback?: (err: any, data: DescribeKeyResponse) => void
+    ): any;
     describeKey(params: DescribeKeyRequest): Promise<DescribeKeyResponse>;
   }
 }
@@ -118,8 +135,16 @@ declare module 'jsonwebtoken' {
     subject?: string;
   }
 
-  export function sign(payload: string | Buffer | object, secretOrPrivateKey: string, options?: SignOptions): string;
-  export function verify(token: string, secretOrPublicKey: string, options?: VerifyOptions): object | string;
+  export function sign(
+    payload: string | Buffer | object,
+    secretOrPrivateKey: string,
+    options?: SignOptions
+  ): string;
+  export function verify(
+    token: string,
+    secretOrPublicKey: string,
+    options?: VerifyOptions
+  ): object | string;
   export function decode(token: string, options?: { complete?: boolean; json?: boolean }): any;
 }
 

@@ -1,9 +1,9 @@
 /**
  * Always Encrypted Configuration for Tedious Driver
- * 
+ *
  * Configures SQL Server driver for transparent encryption/decryption
  * using AWS KMS via the 'mssql' driver wrapper for Tedious
- * 
+ *
  * @module config/always-encrypted-config
  */
 
@@ -69,18 +69,18 @@ export interface AlwaysEncryptedConfig {
  */
 export function getAlwaysEncryptedConfig(environment: string): AlwaysEncryptedConfig {
   switch (environment) {
- case 'production':
+    case 'production':
       return {
         enabled: true,
         encryptionKeyCache: {
           enabled: true,
           ttl: 3600000, // 1 hour
-          maxSize: 100,  // Cache up to 100 keys
+          maxSize: 100, // Cache up to 100 keys
         },
         performance: {
           metadataCachingEnabled: true,
           metadataLookupTimeout: 5000,
-          forceColumnEncryption: true,  // Enforce encryption in production
+          forceColumnEncryption: true, // Enforce encryption in production
         },
         debugMode: false,
       };
@@ -91,7 +91,7 @@ export function getAlwaysEncryptedConfig(environment: string): AlwaysEncryptedCo
         encryptionKeyCache: {
           enabled: true,
           ttl: 3600000, // 1 hour
-          maxSize: 50,  // Smaller cache for staging
+          maxSize: 50, // Smaller cache for staging
         },
         performance: {
           metadataCachingEnabled: true,
@@ -145,19 +145,19 @@ export function configureConnectionForAlwaysEncrypted(
       ...config.options,
       // Enable Always Encrypted
       columnEncryptionSetting: true,
-      
+
       // Enable encryption
       encrypt: true,
       trustServerCertificate: false,
-      
+
       // Performance settings
       useColumnNames: false,
       camelCaseColumns: false,
-      
+
       // Connection timeouts for encryption operations
       connectionTimeout: 30000,
       requestTimeout: 30000,
-      
+
       // Row collection settings
       rowCollectionOnDone: false,
       rowCollectionOnRequestCompletion: false,
@@ -250,7 +250,7 @@ export interface EncryptionPerformanceMetrics {
  * Decorator to monitor encryption performance
  */
 export function withEncryptionMonitoring(
-  target: any,
+  _target: any,
   propertyKey: string,
   descriptor: PropertyDescriptor
 ) {
@@ -269,7 +269,7 @@ export function withEncryptionMonitoring(
 
     try {
       const result = await originalMethod.apply(this, args);
-      
+
       const endTime = Date.now();
       metrics.totalLatency = endTime - startTime;
 

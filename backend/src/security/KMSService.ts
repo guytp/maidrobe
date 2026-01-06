@@ -1,14 +1,14 @@
 /**
  * AWS KMS Key Management Service for Buzz A Tutor
- * 
+ *
  * Provides encryption key lifecycle management for SQL Server Always Encrypted
  * Integrates with AWS RDS SQL Server and AWS KMS for key rotation and revocation
- * 
+ *
  * @module security/KMSService
  */
 
 import * as AWS from 'aws-sdk';
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid'; // Reserved for future use
 
 export interface EncryptionKeySet {
   userId: string;
@@ -39,7 +39,7 @@ export interface KeyRevocationResult {
 export interface KeyManagementAuditLog {
   keyName: string;
   operation: 'CREATE' | 'ROTATE' | 'REVOKE' | 'ACCESS';
-  performedBy: string;  // IAM Role ARN or User ID
+  performedBy: string; // IAM Role ARN or User ID
   userId?: string;
   reason?: string;
   oldKeyVersion?: number;
@@ -54,12 +54,12 @@ export interface KeyManagementAuditLog {
 export class KMSService {
   private kms: AWS.KMS;
   private readonly KEY_ROTATION_DAYS = 90;
-  private readonly auditTable = 'dbo.EncryptionKeyAudit';
+  private readonly _auditTable = 'dbo.EncryptionKeyAudit';
 
   constructor() {
     this.kms = new AWS.KMS({
-      region: process.env.AWS_REGION || 'us-east-1',
-      apiVersion: '2014-11-01'
+      region: process.env['AWS_REGION'] || 'us-east-1',
+      apiVersion: '2014-11-01',
     });
   }
 
@@ -69,17 +69,14 @@ export class KMSService {
    * @param correlationId - Request correlation ID for audit trail
    * @returns EncryptionKeySet with key metadata
    */
-  async initializeUserEncryption(
-    userId: string, 
-    correlationId: string
-  ): Promise<EncryptionKeySet> {
+  async initializeUserEncryption(userId: string, correlationId: string): Promise<EncryptionKeySet> {
     const performedBy = this.getCurrentIAMRole();
     const keySet: EncryptionKeySet = {
       userId,
       cekName: `CEK_User_${userId.replace(/-/g, '')}`,
-      cmkArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
+      cmkArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
       createdAt: new Date(),
-      version: 1
+      version: 1,
     };
 
     try {
@@ -95,18 +92,18 @@ export class KMSService {
         kmsKeyArn: keySet.cmkArn,
         success: true,
         correlationId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       console.log(`[KMSService] Initialized encryption for user ${userId}`, {
         keyName: keySet.cekName,
-        correlationId
+        correlationId,
       });
 
       return keySet;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       await this.logKeyOperation({
         keyName: keySet.cekName,
         operation: 'CREATE',
@@ -117,12 +114,12 @@ export class KMSService {
         success: false,
         errorMessage,
         correlationId,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       console.error(`[KMSService] Failed to initialize encryption for user ${userId}`, {
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       throw error;
@@ -144,21 +141,26 @@ export class KMSService {
   ): Promise<KeyRotationResult> {
     const performedBy = this.getCurrentIAMRole();
     const rotationTime = new Date();
-    
+
     try {
       // Verify rotation period has elapsed (90 days)
       const lastRotation = await this.getLastKeyRotation(cekName);
       if (lastRotation) {
-        const daysSinceRotation = (rotationTime.getTime() - lastRotation.getTime()) / (1000 * 60 * 60 * 24);
+        const daysSinceRotation =
+          (rotationTime.getTime() - lastRotation.getTime()) / (1000 * 60 * 60 * 24);
         if (daysSinceRotation < this.KEY_ROTATION_DAYS) {
-          throw new Error(`Key rotation not yet due. Days since last rotation: ${daysSinceRotation.toFixed(0)} < ${this.KEY_ROTATION_DAYS}`);
+          throw new Error(
+            `Key rotation not yet due. Days since last rotation: ${daysSinceRotation.toFixed(0)} < ${this.KEY_ROTATION_DAYS}`
+          );
         }
       }
 
       // Trigger KMS key rotation
-      const rotateResult = await this.kms.scheduleKeyRotation({
-        KeyId: process.env.AWS_KMS_USER_DATA_CMK_ARN!
-      }).promise();
+      const _rotateResult = await this.kms
+        .scheduleKeyRotation({
+          KeyId: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
+        })
+        .promise();
 
       const oldVersion = await this.getCurrentKeyVersion(cekName);
       const newVersion = (oldVersion || 0) + 1;
@@ -170,7 +172,7 @@ export class KMSService {
         oldKeyVersion: oldVersion || 1,
         newKeyVersion: newVersion,
         rotatedAt: rotationTime,
-        correlationId
+        correlationId,
       };
 
       await this.logKeyOperation({
@@ -181,38 +183,38 @@ export class KMSService {
         reason: `Automated ${this.KEY_ROTATION_DAYS}-day key rotation`,
         oldKeyVersion: oldVersion || 1,
         newKeyVersion: newVersion,
-        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
+        kmsKeyArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
         success: true,
         correlationId,
-        timestamp: rotationTime
+        timestamp: rotationTime,
       });
 
       console.log(`[KMSService] Rotated encryption key ${cekName}`, {
         oldVersion: oldVersion || 1,
         newVersion,
-        correlationId
+        correlationId,
       });
 
       return rotationResult;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       await this.logKeyOperation({
         keyName: cekName,
         operation: 'ROTATE',
         performedBy,
         userId,
         reason: `Automated ${this.KEY_ROTATION_DAYS}-day key rotation`,
-        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
+        kmsKeyArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
         success: false,
         errorMessage,
         correlationId,
-        timestamp: rotationTime
+        timestamp: rotationTime,
       });
 
       console.error(`[KMSService] Failed to rotate key ${cekName}`, {
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       throw error;
@@ -236,21 +238,25 @@ export class KMSService {
 
     try {
       // Disable the KMS key
-      await this.kms.disableKey({
-        KeyId: process.env.AWS_KMS_USER_DATA_CMK_ARN!
-      }).promise();
+      await this.kms
+        .disableKey({
+          KeyId: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
+        })
+        .promise();
 
       // Create a new key version for replacement
-      await this.kms.scheduleKeyDeletion({
-        KeyId: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
-        PendingWindowInDays: 7  // 7-day recovery window
-      }).promise();
+      await this.kms
+        .scheduleKeyDeletion({
+          KeyId: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
+          PendingWindowInDays: 7, // 7-day recovery window
+        })
+        .promise();
 
       const revocationResult: KeyRevocationResult = {
         success: true,
         keyName: cekName,
         revokedAt: revocationTime,
-        reason
+        reason,
       };
 
       await this.logKeyOperation({
@@ -258,16 +264,16 @@ export class KMSService {
         operation: 'REVOKE',
         performedBy,
         reason,
-        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
+        kmsKeyArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
         success: true,
         correlationId,
-        timestamp: revocationTime
+        timestamp: revocationTime,
       });
 
       console.error(`[KMSService] EMERGENCY KEY REVOCATION: ${cekName}`, {
         reason,
         correlationId,
-        revokedAt: revocationTime
+        revokedAt: revocationTime,
       });
 
       return revocationResult;
@@ -279,16 +285,16 @@ export class KMSService {
         operation: 'REVOKE',
         performedBy,
         reason,
-        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
+        kmsKeyArn: process.env['AWS_KMS_USER_DATA_CMK_ARN']!,
         success: false,
         errorMessage,
         correlationId,
-        timestamp: revocationTime
+        timestamp: revocationTime,
       });
 
       console.error(`[KMSService] Failed to revoke key ${cekName}`, {
         error: errorMessage,
-        correlationId
+        correlationId,
       });
 
       throw error;
@@ -298,7 +304,7 @@ export class KMSService {
   /**
    * Get current KMS key version from SQL Server audit log
    */
-  private async getCurrentKeyVersion(cekName: string): Promise<number | null> {
+  private async getCurrentKeyVersion(_cekName: string): Promise<number | null> {
     // This would query the SQL Server database
     // Implementation depends on your SQL client library
     // For now, returning null to indicate unknown
@@ -308,7 +314,7 @@ export class KMSService {
   /**
    * Get last key rotation date from audit log
    */
-  private async getLastKeyRotation(cekName: string): Promise<Date | null> {
+  private async getLastKeyRotation(_cekName: string): Promise<Date | null> {
     // Query SQL Server for last rotation
     // Implementation depends on your SQL client library
     return null;
@@ -323,7 +329,7 @@ export class KMSService {
     console.log(`[KMSService-Audit] ${logEntry.operation} on ${logEntry.keyName}`, {
       success: logEntry.success,
       correlationId: logEntry.correlationId,
-      userId: logEntry.userId
+      userId: logEntry.userId,
     });
   }
 
@@ -333,7 +339,9 @@ export class KMSService {
   private getCurrentIAMRole(): string {
     // In Lambda/ECS: get from IAM metadata
     // In development: from environment variable
-    return process.env.AWS_IAM_ROLE_ARN || 'arn:aws:iam::${AWS_ACCOUNT}:role/BuzzTutorApplicationRole';
+    return (
+      process.env['AWS_IAM_ROLE_ARN'] || 'arn:aws:iam::${AWS_ACCOUNT}:role/BuzzTutorApplicationRole'
+    );
   }
 
   /**
@@ -346,20 +354,16 @@ export class KMSService {
     try {
       // Query for keys due for rotation (90 days)
       // This would query dbo.EncryptionKeyAudit for keys needing rotation
-      
+
       const keysDueForRotation = await this.getKeysDueForRotation();
-      
+
       for (const keyInfo of keysDueForRotation) {
         try {
-          await this.rotateColumnEncryptionKey(
-            keyInfo.cekName,
-            keyInfo.userId,
-            correlationId
-          );
+          await this.rotateColumnEncryptionKey(keyInfo.cekName, keyInfo.userId, correlationId);
         } catch (error) {
           console.error(`[KMSService] Failed to rotate key ${keyInfo.cekName}`, {
             error: error instanceof Error ? error.message : 'Unknown error',
-            correlationId
+            correlationId,
           });
           // Continue with other keys even if one fails
         }
@@ -367,18 +371,18 @@ export class KMSService {
 
       console.log(`[KMSService] Completed scheduled key rotation check`, {
         keysProcessed: keysDueForRotation.length,
-        correlationId
+        correlationId,
       });
     } catch (error) {
       console.error(`[KMSService] Failed to perform scheduled rotations`, {
         error: error instanceof Error ? error.message : 'Unknown error',
-        correlationId
+        correlationId,
       });
       throw error;
     }
   }
 
-  private async getKeysDueForRotation(): Promise<Array<{cekName: string, userId: string}>> {
+  private async getKeysDueForRotation(): Promise<Array<{ cekName: string; userId: string }>> {
     // Query SQL Server for keys where last rotation > 90 days ago
     // Implementation depends on SQL client
     return [];

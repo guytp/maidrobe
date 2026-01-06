@@ -1,13 +1,13 @@
 /**
  * SQL Server Connection Manager with Always Encrypted
- * 
+ *
  * Manages database connections with transparent encryption/decryption
  * using SQL Server Always Encrypted via the mssql driver
- * 
+ *
  * @module database/SQLServerConnectionManager
  */
 
-import * as mssql from'mssql';
+import * as mssql from 'mssql';
 import { config } from 'dotenv';
 import {
   getAlwaysEncryptedConfig,
@@ -40,7 +40,7 @@ export class SQLServerConnectionManager {
   private environment: string;
 
   constructor(private readonly config: SQLServerConnectionConfig) {
-    this.environment = config.environment || process.env.NODE_ENV || 'development';
+    this.environment = config.environment || process.env['NODE_ENV'] || 'development';
     this.aeConfig = getAlwaysEncryptedConfig(this.environment);
 
     // Create base pool config
@@ -62,8 +62,6 @@ export class SQLServerConnectionManager {
       pool: {
         min: 2,
         max: 20,
-        acquireTimeoutMillis: 30000,
-        createTimeoutMillis: 30000,
         idleTimeoutMillis: 30000,
       },
     };
@@ -74,7 +72,7 @@ export class SQLServerConnectionManager {
       this.aeConfig
     );
 
-    this.pool = new mssql.ConnectionPool(configuredConfig);
+    this.pool = new mssql.ConnectionPool(configuredConfig as any);
   }
 
   /**
@@ -132,18 +130,18 @@ export class SQLServerConnectionManager {
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
           if (value === null) {
-            request.input(key, mssql.NVarChar, null);
+            request.input(key, (mssql as any).TYPES.NVarChar, null);
           } else if (typeof value === 'string') {
             // Use NVarChar for encrypted string columns
-            request.input(key, mssql.NVarChar, value);
+            request.input(key, (mssql as any).TYPES.NVarChar, value);
           } else if (typeof value === 'number') {
-            request.input(key, mssql.Int, value);
+            request.input(key, (mssql as any).TYPES.Int, value);
           } else if (typeof value === 'boolean') {
-            request.input(key, mssql.Bit, value);
+            request.input(key, (mssql as any).TYPES.Bit, value);
           } else if (value instanceof Date) {
-            request.input(key, mssql.DateTime2, value);
+            request.input(key, (mssql as any).TYPES.DateTime2, value);
           } else {
-            request.input(key, value);
+            request.input(key, (mssql as any).TYPES.NVarChar, value);
           }
         });
       }
@@ -169,9 +167,14 @@ export class SQLServerConnectionManager {
         error: errorMessage,
       });
 
-      endSpan(spanId, SpanStatusCode.ERROR, {
-        'db.query.latency': latency,
-      }, errorMessage);
+      endSpan(
+        spanId,
+        SpanStatusCode.ERROR,
+        {
+          'db.query.latency': latency,
+        },
+        errorMessage
+      );
 
       throw error;
     }
@@ -197,18 +200,18 @@ export class SQLServerConnectionManager {
       // Add parameters with explicit types for encrypted columns
       Object.entries(params).forEach(([key, value]) => {
         if (value === null) {
-          request.input(key, mssql.NVarChar, null);
+          request.input(key, (mssql as any).TYPES.NVarChar, null);
         } else if (typeof value === 'string') {
           // Use NVarChar for encrypted string columns
-          request.input(key, mssql.NVarChar, value);
+          request.input(key, (mssql as any).TYPES.NVarChar, value);
         } else if (typeof value === 'number') {
-          request.input(key, mssql.Int, value);
+          request.input(key, (mssql as any).TYPES.Int, value);
         } else if (typeof value === 'boolean') {
-          request.input(key, mssql.Bit, value);
+          request.input(key, (mssql as any).TYPES.Bit, value);
         } else if (value instanceof Date) {
-          request.input(key, mssql.DateTime2, value);
+          request.input(key, (mssql as any).TYPES.DateTime2, value);
         } else {
-          request.input(key, mssql.NVarChar, String(value));
+          request.input(key, (mssql as any).TYPES.NVarChar, String(value));
         }
       });
 
@@ -219,12 +222,13 @@ export class SQLServerConnectionManager {
 
       // Detect if encryption was involved (looking for PII column patterns)
       const encryptedColumns = Object.keys(params).filter(
-        key => typeof params[key] === 'string' && 
-               (key.toLowerCase().includes('email') || 
-                key.toLowerCase().includes('name') || 
-                key.toLowerCase().includes('address') || 
-                key.toLowerCase().includes('token') ||
-                key.toLowerCase().includes('phone'))
+        (key) =>
+          typeof params[key] === 'string' &&
+          (key.toLowerCase().includes('email') ||
+            key.toLowerCase().includes('name') ||
+            key.toLowerCase().includes('address') ||
+            key.toLowerCase().includes('token') ||
+            key.toLowerCase().includes('phone'))
       );
 
       endSpan(spanId, SpanStatusCode.OK, {
@@ -249,9 +253,14 @@ export class SQLServerConnectionManager {
         error: errorMessage,
       });
 
-      endSpan(spanId, SpanStatusCode.ERROR, {
-        'db.query.latency': latency,
-      }, errorMessage);
+      endSpan(
+        spanId,
+        SpanStatusCode.ERROR,
+        {
+          'db.query.latency': latency,
+        },
+        errorMessage
+      );
 
       throw error;
     }
@@ -275,7 +284,7 @@ export class SQLServerConnectionManager {
       // Add parameters
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
-          request.input(key, value);
+          request.input(key, (mssql as any).TYPES.NVarChar, String(value));
         });
       }
 
@@ -320,7 +329,9 @@ let connectionManager: SQLServerConnectionManager | null = null;
 /**
  * Gets or creates connection manager
  */
-export function getConnectionManager(config: SQLServerConnectionConfig): SQLServerConnectionManager {
+export function getConnectionManager(
+  config: SQLServerConnectionConfig
+): SQLServerConnectionManager {
   if (!connectionManager) {
     connectionManager = new SQLServerConnectionManager(config);
   }

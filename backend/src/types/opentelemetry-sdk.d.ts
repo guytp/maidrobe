@@ -22,7 +22,7 @@ declare module '@opentelemetry/sdk-trace-base' {
   import { SpanProcessor, SpanExporter, TracerProvider } from '@opentelemetry/api';
 
   export abstract class SpanProcessor {}
-  
+
   export interface IdGenerator {
     generateSpanId(): string;
     generateTraceId(): string;
@@ -43,7 +43,7 @@ declare module '@opentelemetry/sdk-trace-base' {
 
 declare module '@opentelemetry/id-generator-aws-xray' {
   import { IdGenerator } from '@opentelemetry/sdk-trace-base';
-  
+
   export class AWSXRayIdGenerator implements IdGenerator {
     generateSpanId(): string;
     generateTraceId(): string;
