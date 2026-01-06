@@ -5,7 +5,7 @@
 # Step 8: Package security configuration for penetration testing
 # ============================================
 
-set -e
+set -euo pipefail
 
 # ============================================================================
 # CONFIGURATION
@@ -701,6 +701,9 @@ upload_to_s3() {
 }
 
 main() {
+    # Initialize package filename with default value
+    PACKAGE_FILENAME="security-testing-package-$(date +%Y%m%d-%H%M%S).tar.gz"
+    
     log_info "Starting Security Testing Package Generation"
     log_info "Environment: $ENVIRONMENT"
     log_info "AWS Region: $AWS_REGION"
