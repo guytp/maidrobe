@@ -82,8 +82,6 @@ resource "aws_security_group" "buzz_tutor_sql_server" {
     security_groups = [aws_security_group.buzz_tutor_app_tier[each.key].id]
   }
 
-  # Deny public access (handled by RDS instance publicly_accessible = false)
-  
   # Allow outbound traffic only for required services
   egress {
     description = "HTTPS for AWS services (CloudWatch, S3, Secrets Manager)"
@@ -236,13 +234,9 @@ resource "aws_secretsmanager_secret_version" "buzz_tutor_sql_credentials" {
 # Certificate Validation Configuration
 # ============================================
 
-# Import AWS RDS certificates for production environments
-# This ensures proper certificate chain validation
-
 locals {
   rds_certificates = {
     us-east-1 = "rds-ca-rsa2048-g1"  # Update with latest CA certificate
-    # Add other regions as needed
   }
 }
 
@@ -270,7 +264,7 @@ resource "aws_secretsmanager_secret_version" "buzz_tutor_tls_config" {
     certificate_validation = true
     trust_server_cert      = false
     ca_certificate         = lookup(local.rds_certificates, var.aws_region, "rds-ca-rsa2048-g1")
-    cert_store_location    = "/etc/ssl/certs"  # Linux path, adjust for Windows if needed
+    cert_store_location    = "/etc/ssl/certs"
   })
 }
 
@@ -303,24 +297,8 @@ resource "aws_cloudwatch_metric_alarm" "tls_connection_failure" {
   }
 }
 
-resource "aws_cloudwatch_log_metric_filter" "tls_connection_filter" {
-  for_each = var.environments
-
-  name           = "buzz-tutor-tls-connections-${each.key}"
-  pattern        = "[encrypt_option, session_id]"
-  log_group_name = "/aws/rds/instance/${aws_db_instance.buzz_tutor_sql_server_tls[each.key].identifier}/error"
-
-  metric_transformation {
-    name      = "UnencryptedConnectionAttempts"
-    namespace = "BuzzTutor/Security"
-    value     = "1"
-    unit      = "Count"
-  }
-}
-
 # ============================================
 # Compliance and Security Outputs
-
 # ============================================
 output "tls_enforced" {
   description = "TLS enforcement status per environment"
@@ -344,77 +322,12 @@ output "ca_certificate_info" {
 }
 
 # ============================================
-# Lifecycle Policies for Security
+# Data Sources
 # ============================================
-
-# Automatic rotation of RDS certificates
-resource "aws_db_instance_automated_backups_replication" "buzz_tutor_backup_replication" {
-  for_each = { for env, config in var.sql_server_config : env => config if env == "production" }
-
-  source_db_instance_arn = aws_db_instance.buzz_tutor_sql_server_tls[each.key].arn
-  retention_period       = 7
-  kms_key_id             = aws_kms_key.buzz_tutor_tde[each.key].arn
+data "aws_sns_topic" "alerts" {
+  name = var.sns_alert_topic
 }
 
-# ============================================
-# Terraform Module Documentation
-# ============================================
-
-/**
- * TLS 1.2+ Enforcement for SQL Server - Implementation Guide
- * 
- * This module enforces TLS encryption for all client connections to RDS SQL Server.
- * 
- * Key Features:
- * - RDS Parameter Group enforces TLS 1.2+ at database level
- * - Security groups restrict network access
- * - Certificate validation required
- * - Comprehensive monitoring and alerting
- * 
- * Required Provider Configuration:
- * ```hcl
- * provider "aws" {
- *   region = "us-east-1"
- *   default_tags {
- *     Application = "buzz-tutor"
- *   }
- * }
- * ```
- * 
- * Required Variables:
- * - var.aws_region
- * - var.environments (map of environment names)
- * - var.sql_server_config (map of SQL Server configurations)
- * - var.sql_server_credentials (map of SQL Server credentials)
- * - var.vpc_id
- * - var.sns_alert_topic
- * 
- * Usage:
- * 1. Apply parameter group: terraform apply -target=aws_db_parameter_group.buzz_tutor_tls_enforcement
- * 2. Update RDS instances: terraform apply
- * 3. Reboot instances for parameter group changes to take effect
- * 4. Verify encryption: Run verify_rds_tls.sql queries
- * 
- * Verification:
- * ```bash
- * # Check parameter group is applied
- * aws rds describe-db-parameters --db-parameter-group-name buzz-tutor-tls-enforcement-production
- * 
- * # Verify instance reboot status
- * aws rds describe-db-instances --db-instance-identifier buzz-tutor-sql-server-tls-production
- * 
- * # Check logs for connection encryption
- * aws logs filter-log-events --log-group-name /aws/rds/instance/buzz-tutor-sql-server-tls-production/error
- * ```
- * 
- * Compliance:
- * - PCI DSS Requirement 4.1: Strong cryptography during transmission
- * - HIPAA Security Rule: Encryption of ePHI in transit
- * - GDPR Article 32: Security of processing
- * - SOC 2: Encryption and key management
- * 
- * Monitoring:
- * - CloudWatch alarm: tls_connection_failure
- * - Log metric filter: UnencryptedConnectionAttempts
- * - RDS Performance Insights: Connection monitoring
- */
+data "aws_vpc" "main" {
+  id = var.vpc_id
+}
