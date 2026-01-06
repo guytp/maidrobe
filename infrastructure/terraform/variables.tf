@@ -113,9 +113,9 @@ variable "kms_rotation_enabled" {
 }
 
 variable "kms_rotation_period" {
-  description = "KMS key rotation period in days"
+  description = "KMS key rotation period in days (90 days for compliance with PCI DSS and security best practices)"
   type        = number
-  default     = 365
+  default     = 90
 }
 
 # ============================================
