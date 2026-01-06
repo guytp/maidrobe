@@ -45,9 +45,7 @@ export const DEFAULT_USER_ROLE: UserRole = 'standard';
  * Validates that a role value is one of the allowed cohort types.
  * Defaults to 'standard' if the value is missing or invalid.
  */
-export const UserRoleSchema = z
-  .enum(['internal', 'beta', 'standard'])
-  .catch('standard');
+export const UserRoleSchema = z.enum(['internal', 'beta', 'standard']).catch('standard');
 
 /**
  * Zod schema for validating profile data from Supabase.

@@ -93,7 +93,7 @@ Deno.test('Invalid request body returns 400', async () => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${jwt}`,
+      Authorization: `Bearer ${jwt}`,
     },
     body: '{ invalid json }',
   });

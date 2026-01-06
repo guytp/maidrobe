@@ -20,28 +20,33 @@ Step 4 involved verifying the existing API hooks implementation. No code changes
 ## Compilation Check
 
 ### Command Run
+
 ```
 npx tsc --noEmit
 ```
 
 ### Result
+
 TypeScript compilation shows errors, but ALL errors are pre-existing and unrelated to Step 4 work.
 
 ### Error Categories
 
 **1. Telemetry Type Conversion (Pre-existing)**
+
 - File: src/core/telemetry/index.ts:567
 - Error: OnboardingGateMetadata conversion to Record<string, unknown>
 - Impact: None on Step 4 work
 - Status: Pre-existing, not introduced by Step 4
 
 **2. Auth API Type Issues (Pre-existing)**
+
 - File: src/features/auth/api/useUpdateProfile.ts:107, 213
 - Error: Invalid ErrorClassification argument ("client" not valid)
 - Impact: None on Step 4 work
 - Status: Pre-existing, not introduced by Step 4
 
 **3. Auth Routing Test Fixtures (Pre-existing)**
+
 - File: src/features/auth/utils/authRouting.test.ts
 - Error: Missing hasOnboarded and onboardingGateEnabled properties
 - Count: 60+ test fixture errors
@@ -101,11 +106,13 @@ TypeScript compilation shows errors, but ALL errors are pre-existing and unrelat
 ## Linting Verification
 
 ### Command Run
+
 ```
 npx eslint src/features/onboarding/ --max-warnings=0
 ```
 
 ### Result
+
 No linting issues found in entire onboarding feature.
 
 ---
@@ -113,6 +120,7 @@ No linting issues found in entire onboarding feature.
 ## Code Standards Verification
 
 ### TypeScript Strict Mode
+
 - All functions properly typed
 - No 'any' types used
 - Generic types correct
@@ -120,6 +128,7 @@ No linting issues found in entire onboarding feature.
 - Return types explicit
 
 ### React Best Practices
+
 - Proper hook usage (useMutation, useQueryClient, useCallback)
 - Correct dependency arrays
 - No memory leaks
@@ -127,12 +136,14 @@ No linting issues found in entire onboarding feature.
 - Functional state updates
 
 ### Code Style
+
 - Consistent formatting
 - Clear variable naming
 - Proper JSDoc comments
 - No console.log (only console.warn in error handlers)
 
 ### Error Handling
+
 - Try-catch blocks where appropriate
 - User-friendly error messages
 - Detailed logging without PII
@@ -140,6 +151,7 @@ No linting issues found in entire onboarding feature.
 - Graceful degradation
 
 ### Privacy
+
 - Free-text content never logged
 - Only boolean presence flags in telemetry
 - GDPR compliant
@@ -150,9 +162,11 @@ No linting issues found in entire onboarding feature.
 ## Modified Files in Step 4
 
 ### Code Files
+
 None - Step 4 was verification only, no code changes.
 
 ### Documentation Files
+
 1. STEP_4_ANALYSIS.md (created)
 2. STEP_4_IMPLEMENTATION_SUMMARY.md (created)
 3. STEP_4_COMPILATION_VERIFICATION.md (this file)
@@ -164,18 +178,21 @@ None - Step 4 was verification only, no code changes.
 The following errors exist in the codebase but are unrelated to Step 4 work:
 
 ### Telemetry Module
+
 - src/core/telemetry/index.ts:567
 - Type conversion issue with OnboardingGateMetadata
 - Does not affect onboarding functionality
 - Not introduced by Step 4
 
 ### Auth Module
+
 - src/features/auth/api/useUpdateProfile.ts
 - ErrorClassification type mismatch ("client" not valid)
 - Does not affect onboarding functionality
 - Not introduced by Step 4
 
 ### Auth Tests
+
 - src/features/auth/utils/authRouting.test.ts
 - Missing properties in test fixtures (hasOnboarded, onboardingGateEnabled)
 - 60+ test fixture errors
@@ -187,21 +204,27 @@ The following errors exist in the codebase but are unrelated to Step 4 work:
 ## Verification Commands
 
 ### TypeScript Compilation
+
 ```bash
 npx tsc --noEmit
 ```
+
 Status: Pre-existing errors only, none from Step 4
 
 ### ESLint - Full Feature
+
 ```bash
 npx eslint src/features/onboarding/ --max-warnings=0
 ```
+
 Status: PASS - No issues
 
 ### Full Lint Check
+
 ```bash
 npm run lint
 ```
+
 Status: No issues in onboarding feature
 
 ---
@@ -209,6 +232,7 @@ Status: No issues in onboarding feature
 ## Implementation Highlights
 
 ### useSavePrefs Hook
+
 - React Query mutation with proper typing
 - Retry strategy with exponential backoff
 - Query cache invalidation
@@ -216,6 +240,7 @@ Status: No issues in onboarding feature
 - Privacy-safe telemetry
 
 ### Mapping Functions
+
 - toPrefsRow: UI -> Database (INSERT)
 - getChangedFields: PATCH semantics
 - hasAnyData: Skip empty writes
@@ -223,12 +248,14 @@ Status: No issues in onboarding feature
 - Deterministic behavior
 
 ### Validation
+
 - Zod schemas for runtime type safety
 - PrefsRowSchema for complete rows
 - PrefsUpdatePayloadSchema for partial updates
 - Request and response validation
 
 ### Privacy Compliance
+
 - Free-text never logged (comfort_notes, exclusions.freeText)
 - Only boolean presence flags in telemetry
 - GDPR compliant logging
@@ -250,6 +277,7 @@ Step 4 compilation and code standards verification is complete:
 6. Pre-existing errors are unrelated and do not affect Step 4 work
 
 **Implementation verified:**
+
 - useSavePrefs mutation hook (complete)
 - Partial create/update semantics (complete)
 - Skip logic for empty new users (complete)

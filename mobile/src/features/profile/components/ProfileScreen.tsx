@@ -48,13 +48,7 @@ function CalendarStatus(): JSX.Element {
   const { integration, isLoading, isError } = useCalendarIntegration('google');
 
   if (isLoading) {
-    return (
-      <ActivityIndicator
-        size="small"
-        color={colors.textSecondary}
-        style={{ marginTop: 4 }}
-      />
-    );
+    return <ActivityIndicator size="small" color={colors.textSecondary} style={{ marginTop: 4 }} />;
   }
 
   if (isError) {
@@ -83,11 +77,7 @@ function CalendarStatus(): JSX.Element {
   }
 
   return (
-    <Text
-      style={styles.subtitle}
-      allowFontScaling
-      maxFontSizeMultiplier={1.5}
-    >
+    <Text style={styles.subtitle} allowFontScaling maxFontSizeMultiplier={1.5}>
       {t('screens.profile.navigation.googleCalendarDisconnected')}
     </Text>
   );
@@ -207,8 +197,6 @@ export function ProfileScreen(): React.JSX.Element {
       isNavigatingRef.current = false;
     }, NAVIGATION_DEBOUNCE_MS);
   }, [router, user?.id]);
-
-
 
   const styles = useMemo(
     () =>
@@ -330,17 +318,10 @@ export function ProfileScreen(): React.JSX.Element {
       </View>
 
       {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Activity Section */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.sections.activity')}
           </Text>
 
@@ -356,11 +337,7 @@ export function ProfileScreen(): React.JSX.Element {
             accessibilityRole="button"
           >
             <View style={styles.navigationItemContent}>
-              <Text
-                style={styles.navigationItemTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.navigationItemTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.wearHistory')}
               </Text>
               <Text
@@ -377,11 +354,7 @@ export function ProfileScreen(): React.JSX.Element {
 
         {/* Preferences Section */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.sections.preferences')}
           </Text>
 
@@ -397,11 +370,7 @@ export function ProfileScreen(): React.JSX.Element {
             accessibilityRole="button"
           >
             <View style={styles.navigationItemContent}>
-              <Text
-                style={styles.navigationItemTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.navigationItemTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.stylingPreferences')}
               </Text>
               <Text
@@ -418,11 +387,7 @@ export function ProfileScreen(): React.JSX.Element {
 
         {/* Integrations Section */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.sections.integrations')}
           </Text>
 
@@ -438,11 +403,7 @@ export function ProfileScreen(): React.JSX.Element {
             accessibilityRole="button"
           >
             <View style={styles.navigationItemContent}>
-              <Text
-                style={styles.navigationItemTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.navigationItemTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.googleCalendar')}
               </Text>
               <CalendarStatus />

@@ -338,7 +338,13 @@ describe('useRequestPasswordReset', () => {
 
     it('should calculate remaining seconds correctly', async () => {
       const oldestAttempt = currentTime - 5000;
-      const attempts = [oldestAttempt, currentTime - 4000, currentTime - 3000, currentTime - 2000, currentTime - 1000];
+      const attempts = [
+        oldestAttempt,
+        currentTime - 4000,
+        currentTime - 3000,
+        currentTime - 2000,
+        currentTime - 1000,
+      ];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
       const { result } = renderHook(() => useRequestPasswordReset(), { wrapper: createWrapper() });

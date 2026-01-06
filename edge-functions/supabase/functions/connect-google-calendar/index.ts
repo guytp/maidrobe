@@ -182,10 +182,7 @@ function isValidUuid(value: string): boolean {
 /**
  * Creates a JSON response with CORS headers
  */
-function jsonResponse<T extends ConnectCalendarResponse>(
-  body: T,
-  status: number
-): Response {
+function jsonResponse<T extends ConnectCalendarResponse>(body: T, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -349,13 +346,7 @@ export async function handler(req: Request): Promise<Response> {
     // Extract authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return errorResponse(
-        logger,
-        'auth_header_missing',
-        'Not authenticated',
-        'auth',
-        401
-      );
+      return errorResponse(logger, 'auth_header_missing', 'Not authenticated', 'auth', 401);
     }
 
     const userJwt = authHeader.replace('Bearer ', '');
@@ -486,13 +477,7 @@ export async function handler(req: Request): Promise<Response> {
         error_message: error instanceof Error ? error.message : 'Unknown error',
       });
 
-      return errorResponse(
-        logger,
-        'encryption_error',
-        'Failed to encrypt tokens',
-        'server',
-        500
-      );
+      return errorResponse(logger, 'encryption_error', 'Failed to encrypt tokens', 'server', 500);
     }
 
     logger.info('tokens_encrypted');

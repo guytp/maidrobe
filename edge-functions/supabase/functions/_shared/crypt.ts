@@ -83,7 +83,9 @@ export function encryptToken(plaintext: string, key: string): string {
     // Return base64-encoded string
     return btoa(String.fromCharCode(...combined));
   } catch (error) {
-    throw new Error(`Token encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `Token encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -137,7 +139,10 @@ export function decryptToken(ciphertext: string, key: string): string | null {
     return new TextDecoder().decode(await plaintext);
   } catch (error) {
     // Log error without exposing ciphertext
-    console.error('[Crypt] Decryption failed:', error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      '[Crypt] Decryption failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     return null;
   }
 }
@@ -164,11 +169,7 @@ export interface EncryptedToken {
  * @param keyId - Optional key identifier for rotation
  * @returns Encrypted token with metadata
  */
-export function encryptTokenData(
-  plaintext: string,
-  key: string,
-  keyId?: string
-): EncryptedToken {
+export function encryptTokenData(plaintext: string, key: string, keyId?: string): EncryptedToken {
   return {
     ciphertext: encryptToken(plaintext, key),
     algorithm: 'AES-256-GCM',

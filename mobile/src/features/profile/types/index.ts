@@ -230,9 +230,7 @@ export interface UpdateTokensParams {
  * // integration.accessToken is undefined (intentionally excluded)
  * ```
  */
-export function fromCalendarIntegrationRow(
-  row: CalendarIntegrationRow
-): CalendarIntegration {
+export function fromCalendarIntegrationRow(row: CalendarIntegrationRow): CalendarIntegration {
   return {
     id: row.id,
     userId: row.user_id,

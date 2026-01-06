@@ -25,10 +25,7 @@ export {
   type UseWearHistoryInfiniteQueryResult,
 } from './useWearHistoryInfiniteQuery';
 
-export {
-  useWearHistoryEvent,
-  type UseWearHistoryEventResult,
-} from './useWearHistoryEvent';
+export { useWearHistoryEvent, type UseWearHistoryEventResult } from './useWearHistoryEvent';
 
 export {
   useLatestWearEventForOutfit,

@@ -148,7 +148,7 @@ describe('resetAttemptRateLimit', () => {
     it('should allow third attempt (2/3 used)', async () => {
       const attempts = [
         currentTime - 10000, // 10 seconds ago
-        currentTime - 5000,  // 5 seconds ago
+        currentTime - 5000, // 5 seconds ago
       ];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
@@ -161,8 +161,8 @@ describe('resetAttemptRateLimit', () => {
     it('should block fourth attempt (3/3 used, limit reached)', async () => {
       const attempts = [
         currentTime - 10000, // 10 seconds ago
-        currentTime - 5000,  // 5 seconds ago
-        currentTime - 1000,  // 1 second ago
+        currentTime - 5000, // 5 seconds ago
+        currentTime - 1000, // 1 second ago
       ];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
@@ -252,8 +252,8 @@ describe('resetAttemptRateLimit', () => {
         currentTime - WINDOW_MS - 5000, // Expired
         currentTime - WINDOW_MS - 3000, // Expired
         currentTime - WINDOW_MS - 1000, // Expired
-        currentTime - 5000,              // Valid
-        currentTime - 1000,              // Valid
+        currentTime - 5000, // Valid
+        currentTime - 1000, // Valid
       ];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
@@ -547,11 +547,7 @@ describe('resetAttemptRateLimit', () => {
 
     it('should enforce time-based expiration to prevent infinite blocking', async () => {
       // Create 3 attempts at limit
-      const attempts = [
-        currentTime - WINDOW_MS + 1000,
-        currentTime - 5000,
-        currentTime - 1000,
-      ];
+      const attempts = [currentTime - WINDOW_MS + 1000, currentTime - 5000, currentTime - 1000];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
       // Should be blocked
@@ -644,11 +640,7 @@ describe('resetAttemptRateLimit', () => {
     });
 
     it('should handle exactly MAX_ATTEMPTS in storage', async () => {
-      const attempts = [
-        currentTime - 10000,
-        currentTime - 5000,
-        currentTime - 1000,
-      ];
+      const attempts = [currentTime - 10000, currentTime - 5000, currentTime - 1000];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
       const result = await checkResetAttemptRateLimit('test-token');

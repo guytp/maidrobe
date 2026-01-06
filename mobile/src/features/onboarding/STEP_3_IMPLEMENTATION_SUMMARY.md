@@ -32,11 +32,13 @@ All requirements for Step 3 have been satisfied by the existing implementation. 
 ## Requirements Verification
 
 ### Requirement 1: React Query for Server Data
+
 **Spec:** "Use React Query (via @tanstack/react-query) to fetch the user's existing preferences from Supabase on mount"
 
 **Verification:** PASS
 
 **Implementation:**
+
 - useUserPrefs hook (useUserPrefs.ts:85-162)
   - React Query hook with proper cache key pattern
   - Cache key: `['prefs', userId ?? 'anonymous']` (line 90)
@@ -48,25 +50,30 @@ All requirements for Step 3 have been satisfied by the existing implementation. 
   - Only runs when user authenticated (line 160)
 
 - PrefsScreen integration (PrefsScreen.tsx:63)
+
   ```typescript
   const { data: prefsRow, isLoading, error } = useUserPrefs();
   ```
+
   - Destructures data, loading state, and error
   - Returns PrefsRow | null | undefined
   - undefined during initial fetch, null if no prefs exist
 
 **Cache Configuration:**
+
 - staleTime: 30000ms (30 seconds)
 - gcTime: 300000ms (5 minutes)
 - enabled: !!userId (only when authenticated)
 
 **Error Handling:**
+
 - Network errors: Classified and logged, user-friendly message
 - Server errors: Classified and logged, user-friendly message
 - Schema errors: Zod validation, logged with metadata
 - All errors thrown as Error objects with getUserFriendlyMessage
 
 ### Requirement 2: Component State for In-Screen Edits
+
 **Spec:** "Use component-level useState to hold editable form fields"
 
 **Verification:** PASS
@@ -89,6 +96,7 @@ const [errorMessage, setErrorMessage] = useState<string | null>(null);
 ```
 
 **State Variables:**
+
 1. **formData** (line 69)
    - Type: PrefsFormData
    - Purpose: Current user edits (live state)
@@ -116,6 +124,7 @@ const [errorMessage, setErrorMessage] = useState<string | null>(null);
    - Used for: Error banner rendering (line 342)
 
 **Event Handlers Updating formData:**
+
 - handleColourTendencyChange (line 100)
 - handleExclusionToggle (line 104)
 - handleExclusionsFreeTextChange (line 116)
@@ -125,6 +134,7 @@ const [errorMessage, setErrorMessage] = useState<string | null>(null);
 All handlers use functional state updates to ensure latest state.
 
 ### Requirement 3: Initialize State from Fetched Data
+
 **Spec:** "When data arrives from React Query, map it to your local form shape using toFormData"
 
 **Verification:** PASS
@@ -144,6 +154,7 @@ useEffect(() => {
 ```
 
 **Flow:**
+
 1. useUserPrefs returns prefsRow (undefined → null | PrefsRow)
 2. Effect waits for prefsRow !== undefined (data loaded)
 3. Calls toFormData(prefsRow) to transform database → UI
@@ -206,15 +217,17 @@ export function toFormData(row: PrefsRow | null): PrefsFormData {
    - Examples:
      - "some notes" → "some notes"
      - null → ""
-     - "  spaces  " → "spaces"
+     - " spaces " → "spaces"
 
 **Deterministic Properties:**
+
 - Same input always produces same output
 - No side effects
 - No async operations
 - Reversible with toPrefsRow/toUpdatePayload
 
 ### Requirement 4: Display Loading and Error States
+
 **Spec:** "If isLoading is true, show a spinner. If error is non-null, show an error message"
 
 **Verification:** PASS
@@ -222,6 +235,7 @@ export function toFormData(row: PrefsRow | null): PrefsFormData {
 **Implementation:**
 
 #### Loading State
+
 PrefsScreen.tsx lines 328-340:
 
 ```typescript
@@ -242,6 +256,7 @@ if (isLoading) {
 ```
 
 **Properties:**
+
 - Centered spinner (flex: 1, justifyContent/alignItems: center)
 - Uses theme primary color
 - Accessible with descriptive label
@@ -249,6 +264,7 @@ if (isLoading) {
 - Returns early, prevents form rendering during load
 
 #### Error State
+
 PrefsScreen.tsx lines 342-376:
 
 ```typescript
@@ -286,6 +302,7 @@ if (error) {
 ```
 
 **Properties:**
+
 - Error title in error color (theme-aware)
 - Displays error.message (user-friendly from getUserFriendlyMessage)
 - Helper text guides user to continue
@@ -296,11 +313,13 @@ if (error) {
 
 **Error Messages:**
 From getUserFriendlyMessage function:
+
 - Network errors: Connection issue message
 - Server errors: Service unavailable message
 - Schema errors: Unexpected response message
 
 **Non-blocking Philosophy:**
+
 - Fetch errors show message but don't block onboarding
 - Save errors in handleNext (lines 167-196) are non-blocking:
   - Log error with details
@@ -313,6 +332,7 @@ From getUserFriendlyMessage function:
 ## Additional State Management Features
 
 ### 1. Zustand Store Integration
+
 PrefsScreen.tsx line 60:
 
 ```typescript
@@ -320,6 +340,7 @@ const userId = useStore((state) => state.user?.id);
 ```
 
 **Purpose:**
+
 - Access authenticated user ID
 - Used for useUserPrefs enabled flag
 - Global app state (not onboarding-specific)
@@ -328,6 +349,7 @@ const userId = useStore((state) => state.user?.id);
 **Store Location:** src/core/state/store.ts
 
 ### 2. Analytics State Tracking
+
 PrefsScreen.tsx lines 75, 90-97:
 
 ```typescript
@@ -343,12 +365,14 @@ useEffect(() => {
 ```
 
 **Purpose:**
+
 - Prevent duplicate prefs_viewed events
 - Track isResume flag (true if returning user)
 - Fire once per mount
 - useRef prevents re-initialization
 
 ### 3. Save State Management
+
 PrefsScreen.tsx line 66:
 
 ```typescript
@@ -356,12 +380,14 @@ const savePrefs = useSavePrefs();
 ```
 
 **Mutation Hook:**
+
 - Returns mutation function from React Query
 - Used in handleNext (line 161)
 - Handles both INSERT (new users) and UPDATE (existing users)
 - Optimistic updates disabled (not needed for onboarding)
 
 **Save Logic Flow (lines 140-196):**
+
 1. Check if user has data (hasAnyData)
 2. For new users (no prefsRow): Only save if hasAnyData is true
 3. For existing users: Compute changed fields via getChangedFields
@@ -370,6 +396,7 @@ const savePrefs = useSavePrefs();
 6. On error: Log, set errorMessage, still navigate forward
 
 ### 4. In-Session State Preservation
+
 **How state persists during navigation:**
 
 1. **Within PrefsScreen:**
@@ -443,6 +470,7 @@ useUserPrefs (React Query)
 ## Code Quality Verification
 
 ### TypeScript Strict Mode
+
 - All state properly typed:
   - formData: PrefsFormData
   - initialFormData: PrefsFormData
@@ -453,6 +481,7 @@ useUserPrefs (React Query)
 - Generic types for useState properly inferred
 
 ### React Best Practices
+
 - useState for local component state
 - useEffect for side effects (data initialization, analytics)
 - useRef for non-reactive tracking (analytics guard)
@@ -461,12 +490,14 @@ useUserPrefs (React Query)
 - Early returns for loading/error states
 
 ### Performance
+
 - Memoized styles (useMemo, line 208)
 - React Query caching prevents redundant fetches
 - useRef prevents re-initialization of hasTrackedView
 - Efficient state updates (only changed fields)
 
 ### Error Handling
+
 - Try-catch in save logic (line 167)
 - Non-blocking errors (always navigate forward)
 - User-friendly error messages
@@ -480,6 +511,7 @@ useUserPrefs (React Query)
 ### State Management Tests
 
 **Manual Testing Checklist:**
+
 - [ ] Initial load shows spinner (isLoading true)
 - [ ] New users see default form (empty)
 - [ ] Returning users see saved prefs
@@ -491,12 +523,14 @@ useUserPrefs (React Query)
 - [ ] React Query cache works (no duplicate fetches)
 
 **Unit Tests:**
+
 - useUserPrefs hook tests exist
 - toFormData mapping tests exist
 - PrefsRowSchema validation tests exist
 - All mapping functions have test coverage
 
 **Integration Tests:**
+
 - Form state updates on user input
 - Data initialization on mount
 - Save operation end-to-end
@@ -506,6 +540,7 @@ useUserPrefs (React Query)
 ## Files Involved
 
 ### Verified (No Changes)
+
 1. mobile/src/features/onboarding/components/PrefsScreen.tsx
    - State management: lines 59-87
    - Loading state: lines 328-340
@@ -549,6 +584,7 @@ All requirements for Step 3 have been fully satisfied by the existing implementa
 4. ✅ Display loading and error states (early returns with spinner/message)
 
 **Additional Features:**
+
 - Zustand integration for user ID
 - Analytics state tracking
 - Save mutation with smart logic

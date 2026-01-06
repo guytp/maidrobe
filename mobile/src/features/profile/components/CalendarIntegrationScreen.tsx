@@ -148,12 +148,9 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       const { supabase } = await import('@/services/supabase');
 
       // Call the disconnect Edge Function
-      const { error } = await supabase.functions.invoke(
-        'disconnect-google-calendar',
-        {
-          body: { provider: 'google' },
-        }
-      );
+      const { error } = await supabase.functions.invoke('disconnect-google-calendar', {
+        body: { provider: 'google' },
+      });
 
       if (error) {
         console.error('Disconnect error:', error);
@@ -220,7 +217,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       }
     } catch (error) {
       console.error('OAuth error:', error);
-      
+
       trackCaptureEvent('calendar_oauth_failed', {
         userId: user?.id,
         provider: 'google',
@@ -432,9 +429,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
   if (isError) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>
-          {t('screens.profile.calendar.errorLoading')}
-        </Text>
+        <Text style={styles.errorText}>{t('screens.profile.calendar.errorLoading')}</Text>
       </View>
     );
   }
@@ -472,36 +467,20 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       </View>
 
       {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Status Card */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.calendar.statusSection')}
           </Text>
 
           <View style={styles.statusCard}>
             <View style={styles.statusHeader}>
-              <Text
-                style={styles.statusTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.statusTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.googleCalendar')}
               </Text>
 
-              <View
-                style={[
-                  styles.statusBadge,
-                  !isConnected && styles.statusBadgeDisconnected,
-                ]}
-              >
+              <View style={[styles.statusBadge, !isConnected && styles.statusBadgeDisconnected]}>
                 <Text
                   style={[
                     styles.statusBadgeText,
@@ -518,20 +497,12 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
             </View>
 
             {connectedEmail && (
-              <Text
-                style={styles.statusEmail}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.statusEmail} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {connectedEmail}
               </Text>
             )}
 
-            <Text
-              style={styles.statusSubtitle}
-              allowFontScaling
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.statusSubtitle} allowFontScaling maxFontSizeMultiplier={1.5}>
               {isConnected
                 ? t('screens.profile.calendar.connectedDescription')
                 : t('screens.profile.calendar.disconnectedDescription')}
@@ -556,11 +527,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
             {isDisconnecting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text
-                style={styles.actionButtonText}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.actionButtonText} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.calendar.disconnectButton')}
               </Text>
             )}
@@ -577,11 +544,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
             accessibilityHint={t('screens.profile.calendar.connectButtonHint')}
             accessibilityRole="button"
           >
-            <Text
-              style={styles.actionButtonText}
-              allowFontScaling
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.actionButtonText} allowFontScaling maxFontSizeMultiplier={1.5}>
               {t('screens.profile.calendar.connectButton')}
             </Text>
           </Pressable>

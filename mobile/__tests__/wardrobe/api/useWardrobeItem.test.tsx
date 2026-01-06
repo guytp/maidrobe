@@ -35,11 +35,7 @@ jest.mock('../../../src/features/wardrobe/api/fetchWardrobeItem', () => ({
     public readonly mockCode: string;
     public readonly mockOriginalError?: unknown;
 
-    constructor(
-      message: string,
-      mockCode: string,
-      mockOriginalError?: unknown
-    ) {
+    constructor(message: string, mockCode: string, mockOriginalError?: unknown) {
       super(message);
       this.name = 'FetchWardrobeItemError';
       this.mockCode = mockCode;
@@ -111,10 +107,7 @@ describe('useWardrobeItem', () => {
     it('returns item data on successful fetch', async () => {
       mockFetchModule.fetchWardrobeItem.mockResolvedValueOnce(mockItemDetail);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123' }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123' }), { wrapper });
 
       // Initially loading
       expect(result.current.isLoading).toBe(true);
@@ -133,10 +126,7 @@ describe('useWardrobeItem', () => {
     it('passes correct params to fetchWardrobeItem', async () => {
       mockFetchModule.fetchWardrobeItem.mockResolvedValueOnce(mockItemDetail);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123' }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123' }), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -160,17 +150,11 @@ describe('useWardrobeItem', () => {
     });
 
     it('handles network errors', async () => {
-      const networkError = new mockFetchModule.FetchWardrobeItemError(
-        'Network error',
-        'network'
-      );
+      const networkError = new mockFetchModule.FetchWardrobeItemError('Network error', 'network');
       // Use mockRejectedValue (not Once) because network errors are retried
       mockFetchModule.fetchWardrobeItem.mockRejectedValue(networkError);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123' }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123' }), { wrapper });
 
       // Fast-forward through retry delays
       for (let i = 0; i < 4; i++) {
@@ -195,10 +179,9 @@ describe('useWardrobeItem', () => {
       );
       mockFetchModule.fetchWardrobeItem.mockRejectedValueOnce(notFoundError);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'nonexistent-item' }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'nonexistent-item' }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -209,17 +192,11 @@ describe('useWardrobeItem', () => {
     });
 
     it('handles server errors', async () => {
-      const serverError = new mockFetchModule.FetchWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockFetchModule.FetchWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockFetchModule.fetchWardrobeItem.mockRejectedValue(serverError);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123' }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123' }), { wrapper });
 
       // Fast-forward through retry delays
       for (let i = 0; i < 4; i++) {
@@ -239,10 +216,9 @@ describe('useWardrobeItem', () => {
 
   describe('enabled option', () => {
     it('does not fetch when enabled is false', async () => {
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123', enabled: false }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123', enabled: false }), {
+        wrapper,
+      });
 
       // Wait a bit to ensure no fetch happens
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -254,10 +230,9 @@ describe('useWardrobeItem', () => {
     it('fetches when enabled is true', async () => {
       mockFetchModule.fetchWardrobeItem.mockResolvedValueOnce(mockItemDetail);
 
-      const { result } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123', enabled: true }),
-        { wrapper }
-      );
+      const { result } = renderHook(() => useWardrobeItem({ itemId: 'item-123', enabled: true }), {
+        wrapper,
+      });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -284,10 +259,9 @@ describe('useWardrobeItem', () => {
       unmount();
 
       // Second render - should use cache
-      const { result: result2 } = renderHook(
-        () => useWardrobeItem({ itemId: 'item-123' }),
-        { wrapper }
-      );
+      const { result: result2 } = renderHook(() => useWardrobeItem({ itemId: 'item-123' }), {
+        wrapper,
+      });
 
       // Should have data immediately from cache
       expect(result2.current.item).toEqual(mockItemDetail);

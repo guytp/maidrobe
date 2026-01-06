@@ -1,4 +1,7 @@
-import { logAuthErrorToSentry, isAuthErrorLoggingAvailable } from '../../src/features/auth/utils/logAuthErrorToSentry';
+import {
+  logAuthErrorToSentry,
+  isAuthErrorLoggingAvailable,
+} from '../../src/features/auth/utils/logAuthErrorToSentry';
 import type { NormalizedAuthError } from '../../src/features/auth/utils/authErrorTypes';
 import type { AuthErrorLoggingContext } from '../../src/features/auth/utils/logAuthErrorToSentry';
 import { getFlagConfig } from '../../src/core/featureFlags/config';
@@ -196,7 +199,11 @@ describe('logAuthErrorToSentry', () => {
         minVersion: '0.0.0',
         message: '',
       });
-      (getSentryClient as jest.Mock).mockReturnValue({ enabled: false, dsn: undefined, environment: 'development' });
+      (getSentryClient as jest.Mock).mockReturnValue({
+        enabled: false,
+        dsn: undefined,
+        environment: 'development',
+      });
 
       const error: NormalizedAuthError = {
         category: 'network',
@@ -314,7 +321,11 @@ describe('logAuthErrorToSentry', () => {
         minVersion: '0.0.0',
         message: '',
       });
-      (getSentryClient as jest.Mock).mockReturnValue({ enabled: true, dsn: 'test', environment: 'test' });
+      (getSentryClient as jest.Mock).mockReturnValue({
+        enabled: true,
+        dsn: 'test',
+        environment: 'test',
+      });
 
       const result = isAuthErrorLoggingAvailable();
 
@@ -327,7 +338,11 @@ describe('logAuthErrorToSentry', () => {
         minVersion: '0.0.0',
         message: '',
       });
-      (getSentryClient as jest.Mock).mockReturnValue({ enabled: true, dsn: 'test', environment: 'test' });
+      (getSentryClient as jest.Mock).mockReturnValue({
+        enabled: true,
+        dsn: 'test',
+        environment: 'test',
+      });
 
       const result = isAuthErrorLoggingAvailable();
 
@@ -340,7 +355,11 @@ describe('logAuthErrorToSentry', () => {
         minVersion: '0.0.0',
         message: '',
       });
-      (getSentryClient as jest.Mock).mockReturnValue({ enabled: false, dsn: undefined, environment: 'test' });
+      (getSentryClient as jest.Mock).mockReturnValue({
+        enabled: false,
+        dsn: undefined,
+        environment: 'test',
+      });
 
       const result = isAuthErrorLoggingAvailable();
 

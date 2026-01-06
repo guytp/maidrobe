@@ -50,6 +50,7 @@ No linting errors or warnings found in onboardingAnalytics.ts. All pre-existing 
 ### 3. Export Verification
 
 **Verified exports in index.ts:**
+
 ```typescript
 // src/features/onboarding/index.ts (lines 47-49)
 trackPrefsViewed,
@@ -62,6 +63,7 @@ All three functions are properly exported from the feature module.
 ### 4. Import Verification
 
 **Verified imports in PrefsScreen.tsx:**
+
 ```typescript
 // src/features/onboarding/components/PrefsScreen.tsx (line 28)
 import { trackPrefsViewed, trackPrefsSaved, trackPrefsSkipped } from '../utils/onboardingAnalytics';
@@ -72,30 +74,36 @@ PrefsScreen successfully imports all three analytics functions.
 ### 5. Function Signatures
 
 **trackPrefsViewed:**
+
 ```typescript
-export function trackPrefsViewed(isResume: boolean): void
+export function trackPrefsViewed(isResume: boolean): void;
 ```
+
 - Location: Line 303
 - Parameters: isResume (boolean)
 - Emits: onboarding.prefs_viewed with step, isResume, timestamp
 
 **trackPrefsSaved:**
+
 ```typescript
 export function trackPrefsSaved(
   noRepeatSet: boolean,
   colourTendencySelected: boolean,
   exclusionsSelected: boolean,
   notesPresent: boolean
-): void
+): void;
 ```
+
 - Location: Line 365
 - Parameters: Four boolean flags (privacy-safe, no PII)
 - Emits: onboarding.prefs_saved with step, flags, timestamp
 
 **trackPrefsSkipped:**
+
 ```typescript
-export function trackPrefsSkipped(): void
+export function trackPrefsSkipped(): void;
 ```
+
 - Location: Line 550
 - Parameters: None
 - Emits: onboarding.prefs_skipped with step, timestamp
@@ -105,6 +113,7 @@ export function trackPrefsSkipped(): void
 All three functions follow the established pattern in the file:
 
 **Pattern Adherence:**
+
 - Fire-and-forget operation with try-catch block
 - Use logSuccess() for telemetry
 - Include step identifier in metadata
@@ -114,12 +123,14 @@ All three functions follow the established pattern in the file:
 - Privacy-safe (no PII logged)
 
 **JSDoc Documentation:**
+
 - Complete function documentation
 - Parameter descriptions
 - Return type specified
 - Usage notes provided
 
 **Error Handling:**
+
 ```typescript
 try {
   logSuccess('onboarding', 'event_name', { data: {...} });
@@ -150,7 +161,7 @@ These errors existed before the changes and are not introduced by the analytics 
 
 The following linting issues exist in the codebase but are NOT related to the analytics changes:
 
-1. **__tests__/** files - @typescript-eslint/no-explicit-any warnings (test mocks)
+1. \***\*tests**/\*\* files - @typescript-eslint/no-explicit-any warnings (test mocks)
 2. **src/features/auth/utils/** - Unused variables, case declarations (multiple files)
 
 No linting issues found in onboardingAnalytics.ts after the changes.
@@ -162,6 +173,7 @@ No linting issues found in onboardingAnalytics.ts after the changes.
 ### 1. PrefsScreen.tsx Integration
 
 **Usage of trackPrefsViewed:**
+
 ```typescript
 // Line 94 in PrefsScreen.tsx
 useEffect(() => {
@@ -182,6 +194,7 @@ Called when user taps "Skip this step" button.
 ### 2. Feature Module Exports
 
 All three functions properly exported via:
+
 - Direct export from onboardingAnalytics.ts
 - Re-export from index.ts
 - Available to all feature consumers
@@ -191,19 +204,23 @@ All three functions properly exported via:
 ## Commits
 
 ### Commit 1: Fix Analytics Functions
+
 **Hash:** db99030
 **Message:** fix(onboarding): complete analytics tracking functions for prefs step
 
 **Changes:**
+
 - Fixed trackPrefsSaved() syntax errors
 - Fixed trackPrefsSkipped() syntax errors
 - Added trackPrefsViewed() implementation
 
 ### Commit 2: Documentation
+
 **Hash:** 4fa16a3
 **Message:** docs(onboarding): add Step 1 analysis and review documentation
 
 **Changes:**
+
 - Added STEP_1_ANALYSIS_COMPLETE.md with comprehensive review
 
 ---

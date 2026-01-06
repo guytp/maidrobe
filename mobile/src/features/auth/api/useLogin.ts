@@ -158,7 +158,6 @@ async function recordAttempt(): Promise<void> {
   await setAttempts(attempts);
 }
 
-
 /**
  * React Query mutation hook for user login with email and password.
  *
@@ -537,14 +536,16 @@ export function useLogin() {
       // This enables auth state restoration and offline trust window logic
       // Include hasOnboarded in bundle for offline resilience (Story #95)
       // Cast to Session type - we know this comes from Supabase signInWithPassword
-      saveSessionFromSupabase(data.session as Session, new Date().toISOString(), hasOnboarded).catch(
-        (error) => {
-          // Log error but don't throw - session save failures are non-critical
-          // User is still authenticated in current session
-          // eslint-disable-next-line no-console
-          console.error('[Login] Failed to save session bundle:', error);
-        }
-      );
+      saveSessionFromSupabase(
+        data.session as Session,
+        new Date().toISOString(),
+        hasOnboarded
+      ).catch((error) => {
+        // Log error but don't throw - session save failures are non-critical
+        // User is still authenticated in current session
+        // eslint-disable-next-line no-console
+        console.error('[Login] Failed to save session bundle:', error);
+      });
 
       // Log structured auth event for observability
       // SECURITY: Do NOT log the session object - it contains access_token and refresh_token

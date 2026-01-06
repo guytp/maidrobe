@@ -1,4 +1,7 @@
-import { checkPasswordReuse, PASSWORD_HISTORY_LIMIT } from '../../src/features/auth/utils/passwordReuse';
+import {
+  checkPasswordReuse,
+  PASSWORD_HISTORY_LIMIT,
+} from '../../src/features/auth/utils/passwordReuse';
 import { supabase } from '../../src/services/supabase';
 
 // Mock dependencies
@@ -116,10 +119,10 @@ describe('passwordReuse', () => {
         isReused: false,
         error: 'Unable to verify password history',
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[PasswordReuse] Edge Function error:',
-        { message: 'Function execution failed', status: 500 }
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[PasswordReuse] Edge Function error:', {
+        message: 'Function execution failed',
+        status: 500,
+      });
     });
 
     it('should fail-open when Edge Function returns network error', async () => {
@@ -201,10 +204,9 @@ describe('passwordReuse', () => {
         isReused: false,
         error: 'Invalid response from password check service',
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[PasswordReuse] Invalid response format:',
-        { isReused: 'true' }
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[PasswordReuse] Invalid response format:', {
+        isReused: 'true',
+      });
     });
 
     it('should fail-open when isReused is a number instead of boolean', async () => {
@@ -233,10 +235,9 @@ describe('passwordReuse', () => {
         isReused: false,
         error: 'Invalid response from password check service',
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[PasswordReuse] Invalid response format:',
-        { someOtherField: 'value' }
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('[PasswordReuse] Invalid response format:', {
+        someOtherField: 'value',
+      });
     });
 
     it('should fail-open when response is an empty object', async () => {
@@ -256,9 +257,7 @@ describe('passwordReuse', () => {
 
   describe('checkPasswordReuse - Network and unexpected errors', () => {
     it('should fail-open when invoke throws an exception', async () => {
-      (supabase.functions.invoke as jest.Mock).mockRejectedValue(
-        new Error('Network error')
-      );
+      (supabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       const result = await checkPasswordReuse('user-exception', 'Password123!');
 
@@ -273,9 +272,7 @@ describe('passwordReuse', () => {
     });
 
     it('should fail-open when invoke throws a non-Error exception', async () => {
-      (supabase.functions.invoke as jest.Mock).mockRejectedValue(
-        'Unexpected string error'
-      );
+      (supabase.functions.invoke as jest.Mock).mockRejectedValue('Unexpected string error');
 
       const result = await checkPasswordReuse('user-string-error', 'Password123!');
 
@@ -425,9 +422,7 @@ describe('passwordReuse', () => {
     });
 
     it('should not expose password in returned error messages', async () => {
-      (supabase.functions.invoke as jest.Mock).mockRejectedValue(
-        new Error('Network error')
-      );
+      (supabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       const sensitivePassword = 'MyPassword123!';
       const result = await checkPasswordReuse('user-123', sensitivePassword);
@@ -509,9 +504,7 @@ describe('passwordReuse', () => {
     });
 
     it('should always return isReused as boolean in fail-open scenarios', async () => {
-      (supabase.functions.invoke as jest.Mock).mockRejectedValue(
-        new Error('Network error')
-      );
+      (supabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Network error'));
 
       const result = await checkPasswordReuse('user-123', 'Password123!');
 

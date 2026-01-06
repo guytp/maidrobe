@@ -199,11 +199,7 @@ checkFileContains(
   'setPayload action exists'
 );
 
-checkFileContains(
-  'src/core/state/captureSlice.ts',
-  /clearPayload/,
-  'clearPayload action exists'
-);
+checkFileContains('src/core/state/captureSlice.ts', /clearPayload/, 'clearPayload action exists');
 
 checkFileContains(
   'src/features/wardrobe/components/CaptureCameraScreen.tsx',
@@ -269,11 +265,7 @@ checkFileContains(
   'Payload read from store'
 );
 
-checkFileContains(
-  'app/crop/index.tsx',
-  /isCaptureImagePayload/,
-  'Type guard used for validation'
-);
+checkFileContains('app/crop/index.tsx', /isCaptureImagePayload/, 'Type guard used for validation');
 
 checkFileContains(
   'app/crop/index.tsx',
@@ -287,11 +279,7 @@ checkFileContains(
   'Invalid payload cleanup in useEffect'
 );
 
-checkFileContains(
-  'app/crop/index.tsx',
-  /if \(!isValid\)/,
-  'Error state for invalid payload'
-);
+checkFileContains('app/crop/index.tsx', /if \(!isValid\)/, 'Error state for invalid payload');
 
 checkFileContains(
   'app/crop/index.tsx',
@@ -305,17 +293,9 @@ checkFileContains(
   'Error message for invalid payload'
 );
 
-checkFileContains(
-  'app/crop/index.tsx',
-  /handleGoBack/,
-  'Go back handler exists'
-);
+checkFileContains('app/crop/index.tsx', /handleGoBack/, 'Go back handler exists');
 
-checkFileContains(
-  'app/crop/index.tsx',
-  /clearPayload\(\)/,
-  'Payload cleared in handleGoBack'
-);
+checkFileContains('app/crop/index.tsx', /clearPayload\(\)/, 'Payload cleared in handleGoBack');
 
 checkFileContains(
   'app/crop/index.tsx',
@@ -340,11 +320,7 @@ checkFileContains(
   'Payload cleared in resetCapture'
 );
 
-checkFileContains(
-  'app/crop/index.tsx',
-  /clearPayload\(\)/,
-  'clearPayload called in crop screen'
-);
+checkFileContains('app/crop/index.tsx', /clearPayload\(\)/, 'clearPayload called in crop screen');
 
 checkFileContains(
   'src/features/wardrobe/components/CaptureScreen.tsx',
@@ -369,11 +345,7 @@ checkFileContains(
   'CaptureImagePayload interface exported'
 );
 
-checkFileContains(
-  'src/core/types/capture.ts',
-  /uri: string/,
-  'CaptureImagePayload has uri field'
-);
+checkFileContains('src/core/types/capture.ts', /uri: string/, 'CaptureImagePayload has uri field');
 
 checkFileContains(
   'src/core/types/capture.ts',
@@ -494,7 +466,10 @@ checkFileContains(
 );
 
 // More specific checks for no API calls
-const cameraScreenPath = path.join(MOBILE_DIR, 'src/features/wardrobe/components/CaptureCameraScreen.tsx');
+const cameraScreenPath = path.join(
+  MOBILE_DIR,
+  'src/features/wardrobe/components/CaptureCameraScreen.tsx'
+);
 const galleryPickerPath = path.join(MOBILE_DIR, 'src/features/wardrobe/hooks/useGalleryPicker.ts');
 const cropScreenPath = path.join(MOBILE_DIR, 'app/crop/index.tsx');
 

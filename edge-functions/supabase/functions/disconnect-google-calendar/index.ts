@@ -162,10 +162,7 @@ function isValidUuid(value: string): boolean {
 /**
  * Creates a JSON response with CORS headers
  */
-function jsonResponse<T extends DisconnectCalendarResponse>(
-  body: T,
-  status: number
-): Response {
+function jsonResponse<T extends DisconnectCalendarResponse>(body: T, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -241,9 +238,7 @@ async function revokeGoogleTokens(
     // Google returns 200 on success, 400 on invalid token
     // Both are acceptable - 400 means token is already revoked or invalid
     if (!response.ok && response.status !== 400) {
-      throw new Error(
-        `Google revocation API error: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`Google revocation API error: ${response.status} ${response.statusText}`);
     }
 
     // Success or token already revoked
@@ -330,13 +325,7 @@ export async function handler(req: Request): Promise<Response> {
     // Extract authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return errorResponse(
-        logger,
-        'auth_header_missing',
-        'Not authenticated',
-        'auth',
-        401
-      );
+      return errorResponse(logger, 'auth_header_missing', 'Not authenticated', 'auth', 401);
     }
 
     const userJwt = authHeader.replace('Bearer ', '');
@@ -448,7 +437,10 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     const typedIntegration = integration as CalendarIntegrationRow;
-    const userLogger = withContext(logger, { user_id: userId, integration_id: typedIntegration.id });
+    const userLogger = withContext(logger, {
+      user_id: userId,
+      integration_id: typedIntegration.id,
+    });
 
     // Attempt to revoke tokens with Google
     // Do this BEFORE clearing from DB to ensure we try to revoke
@@ -505,7 +497,9 @@ export async function handler(req: Request): Promise<Response> {
       {
         success: true,
         correlationId,
-        integration: updatedIntegration ? toIntegrationData(updatedIntegration as CalendarIntegrationRow) : undefined,
+        integration: updatedIntegration
+          ? toIntegrationData(updatedIntegration as CalendarIntegrationRow)
+          : undefined,
       },
       200
     );

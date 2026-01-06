@@ -21,6 +21,7 @@ Step 7 requires wiring the onboarding gate decisions and completion path into ex
 ## Requirement 1: Analytics Wrapper Integration
 
 ### Required Events
+
 - onboarding_gate.shown
 - onboarding_gate.route_onboarding
 - onboarding_gate.route_home
@@ -76,6 +77,7 @@ export function trackOnboardingGateEvent(
 ```
 
 **Event Types Defined:** `mobile/src/core/telemetry/index.ts:273-276`
+
 ```typescript
 export type OnboardingGateEventType =
   | 'onboarding_gate.shown'
@@ -84,6 +86,7 @@ export type OnboardingGateEventType =
 ```
 
 **Metadata Interface:** `mobile/src/core/telemetry/index.ts:482-493`
+
 ```typescript
 export interface OnboardingGateMetadata {
   userId?: string;
@@ -99,6 +102,7 @@ export interface OnboardingGateMetadata {
 **Central Routing Gate:** `mobile/app/index.tsx:186-225`
 
 1. **Gate Shown Event (Lines 189-196):**
+
 ```typescript
 if (targetRoute === 'onboarding' || targetRoute === 'home') {
   trackOnboardingGateEvent('onboarding_gate.shown', {
@@ -111,6 +115,7 @@ if (targetRoute === 'onboarding' || targetRoute === 'home') {
 ```
 
 2. **Route Onboarding Event (Lines 206-214):**
+
 ```typescript
 if (targetRoute === 'onboarding') {
   trackOnboardingGateEvent('onboarding_gate.route_onboarding', {
@@ -124,6 +129,7 @@ if (targetRoute === 'onboarding') {
 ```
 
 3. **Route Home Event (Lines 218-225):**
+
 ```typescript
 if (onboardingGateResult.enabled) {
   trackOnboardingGateEvent('onboarding_gate.route_home', {
@@ -142,6 +148,7 @@ if (onboardingGateResult.enabled) {
 ## Requirement 2: Feature Flag Exposure
 
 ### Required Flag
+
 - onboarding.gate
 
 ### Implementation Status: COMPLETE
@@ -159,6 +166,7 @@ export type FeatureFlagName =
 ```
 
 **Documentation:** `mobile/src/core/featureFlags/index.ts:93-94`
+
 ```
 - onboarding.gate: Onboarding gate routing (routes new users to onboarding flow)
 ```
@@ -166,10 +174,12 @@ export type FeatureFlagName =
 **Configuration:** `mobile/src/core/featureFlags/config.ts:101-122`
 
 Environment Variables:
+
 - EXPO_PUBLIC_FEATURE_ONBOARDING_GATE_ENABLED (default: true)
 - EXPO_PUBLIC_FEATURE_ONBOARDING_GATE_MIN_VERSION (default: 0.0.0)
 
 **Flag Conversion Logic:**
+
 ```typescript
 export function getFlagConfig(flagName: FeatureFlagName): FlagConfig {
   // Convert flag name to environment variable format
@@ -189,15 +199,18 @@ export function getFlagConfig(flagName: FeatureFlagName): FlagConfig {
 ```
 
 **API Functions:**
+
 1. Async: checkFeatureFlag('onboarding.gate')
 2. Sync: checkFeatureFlagSync('onboarding.gate')
 
 **Usage in Gate:** `mobile/app/index.tsx:183`
+
 ```typescript
 const onboardingGateResult = checkFeatureFlagSync('onboarding.gate');
 ```
 
 **Usage in Routing Logic:** `mobile/src/features/auth/store/sessionSlice.ts`
+
 ```typescript
 import { checkFeatureFlagSync } from '../../../core/featureFlags';
 
@@ -240,6 +253,7 @@ const route = deriveInitialRouteFromAuthState({
    - Gate decision uses fresh server data + current flag state
 
 **Code Flow:**
+
 ```typescript
 // app/index.tsx
 export default function Index(): React.JSX.Element {
@@ -264,9 +278,7 @@ export default function Index(): React.JSX.Element {
 **Routing Function Integration:** `mobile/src/features/auth/utils/authRouting.ts:271-298`
 
 ```typescript
-export function deriveInitialRouteFromAuthState(
-  input: AuthRoutingInput
-): AuthRoute {
+export function deriveInitialRouteFromAuthState(input: AuthRoutingInput): AuthRoute {
   if (!input.isAuthenticated) return 'login';
   if (!input.isVerified) return 'verify';
 
@@ -280,12 +292,14 @@ export function deriveInitialRouteFromAuthState(
 ```
 
 **Flag Disabled Behavior:**
+
 - When onboarding.gate = false, all users route to home
 - Existing onboarded users: no change (already route to home)
 - New users (hasOnboarded=false): skip onboarding, route to home
 - Onboarding screens remain accessible via deep links (not enforced)
 
 **Flag Enabled Behavior:**
+
 - When onboarding.gate = true, routing based on hasOnboarded
 - hasOnboarded=false: route to onboarding
 - hasOnboarded=true: route to home
@@ -342,6 +356,7 @@ export function sanitizeAuthMetadata(metadata: Record<string, unknown>): Record<
 ```
 
 **Applied to Gate Events:** `mobile/src/core/telemetry/index.ts:567`
+
 ```typescript
 export function trackOnboardingGateEvent(
   eventType: OnboardingGateEventType,
@@ -354,6 +369,7 @@ export function trackOnboardingGateEvent(
 ```
 
 **Safe Metadata Fields:**
+
 - userId: UUID (safe to log, no PII)
 - hasOnboarded: boolean flag (safe)
 - gateEnabled: boolean flag (safe)
@@ -361,6 +377,7 @@ export function trackOnboardingGateEvent(
 - timestamp: ISO date string (safe)
 
 **Excluded Fields:**
+
 - Passwords: never logged
 - Tokens: never logged
 - Sessions: never logged
@@ -369,6 +386,7 @@ export function trackOnboardingGateEvent(
 **Onboarding Analytics:** `mobile/src/features/onboarding/utils/onboardingAnalytics.ts`
 
 All onboarding events use logSuccess() which does NOT log PII:
+
 - step names (strings)
 - timestamps (ISO dates)
 - completedSteps/skippedSteps (arrays of step names)
@@ -388,12 +406,14 @@ All onboarding events use logSuccess() which does NOT log PII:
 **Auth Restore Resilience:** `mobile/src/features/auth/utils/authRestore.ts`
 
 Multi-tier fallback strategy for hasOnboarded:
+
 1. **Primary:** Fresh fetch from public.profiles
 2. **Fallback 1:** Retry with exponential backoff (3 attempts)
 3. **Fallback 2:** Use cached value from session bundle (offline resilience)
 4. **Fallback 3:** Default to false for new users
 
 **Offline Routing:**
+
 - Gate reads hasOnboarded from Zustand store (populated during restore)
 - Cached session bundle includes hasOnboarded from last online session
 - Offline users can launch app and route correctly using cached data
@@ -425,6 +445,7 @@ export async function checkFeatureFlag(flagName: FeatureFlagName): Promise<Featu
 ```
 
 **Fail-Safe Defaults:**
+
 - Flag read errors: default to enabled=true (gate active)
 - Environment variable missing: default to enabled=true
 - Version parsing errors: default to 0.0.0 (no restriction)
@@ -432,17 +453,18 @@ export async function checkFeatureFlag(flagName: FeatureFlagName): Promise<Featu
 
 **Gate Behavior Under Failures:**
 
-| Failure Scenario | hasOnboarded Source | Flag State | Gate Behavior |
-|------------------|---------------------|------------|---------------|
-| Network timeout during restore | Cached from bundle | Default: enabled | Routes using cached hasOnboarded |
-| Profile fetch fails (new user) | Defaults to false | Default: enabled | Routes to onboarding (safe) |
-| Flag system error | N/A | Fail-safe: enabled | Routes based on hasOnboarded |
-| Both flag and profile fail | Defaults to false | Fail-safe: enabled | Routes to onboarding (safe) |
-| Offline cold start (existing user) | Cached from bundle | From env vars | Routes using cached data |
+| Failure Scenario                   | hasOnboarded Source | Flag State         | Gate Behavior                    |
+| ---------------------------------- | ------------------- | ------------------ | -------------------------------- |
+| Network timeout during restore     | Cached from bundle  | Default: enabled   | Routes using cached hasOnboarded |
+| Profile fetch fails (new user)     | Defaults to false   | Default: enabled   | Routes to onboarding (safe)      |
+| Flag system error                  | N/A                 | Fail-safe: enabled | Routes based on hasOnboarded     |
+| Both flag and profile fail         | Defaults to false   | Fail-safe: enabled | Routes to onboarding (safe)      |
+| Offline cold start (existing user) | Cached from bundle  | From env vars      | Routes using cached data         |
 
 **Primary Routing Experience Protection:**
 
 For onboarded users (hasOnboarded=true):
+
 1. hasOnboarded=true persisted in session bundle
 2. Offline startup loads from bundle
 3. Gate evaluates: hasOnboarded=true -> route to home
@@ -450,6 +472,7 @@ For onboarded users (hasOnboarded=true):
 5. Gate decision uses cached authoritative data
 
 For new users (hasOnboarded=false):
+
 1. First launch: no cached data
 2. Profile fetch required (online)
 3. If offline: default to false (safe, routes to onboarding)
@@ -459,6 +482,7 @@ For new users (hasOnboarded=false):
 **Analytics Resilience:**
 
 **Gate Events:** `mobile/src/core/telemetry/index.ts:562-605`
+
 ```typescript
 export function trackOnboardingGateEvent(...): void {
   // Fire-and-forget pattern
@@ -473,6 +497,7 @@ export function trackOnboardingGateEvent(...): void {
 **Onboarding Events:** `mobile/src/features/onboarding/utils/onboardingAnalytics.ts`
 
 All analytics functions use try-catch with silent failure:
+
 ```typescript
 export function trackStepViewed(step: OnboardingStep, isResume: boolean): void {
   try {
@@ -487,6 +512,7 @@ export function trackStepViewed(step: OnboardingStep, isResume: boolean): void {
 **Completion Events:** `mobile/src/features/onboarding/utils/completeOnboarding.ts`
 
 Analytics emissions are fire-and-forget:
+
 ```typescript
 // Fire-and-forget analytics (lines 323-355)
 void trackOnboardingEvent('onboarding.completion_initiated', { ... });
@@ -497,6 +523,7 @@ void trackOnboardingEvent('onboarding.skipped_all', { ... });
 **Backend Update Resilience:** `mobile/src/features/onboarding/utils/completeOnboarding.ts`
 
 Retry logic for profile update:
+
 ```typescript
 await retryWithBackoff(
   async () => {
@@ -516,10 +543,12 @@ await retryWithBackoff(
 ```
 
 Error classification:
+
 - Transient (retry): network errors, timeouts, 5xx, 408, 429, 502, 503, 504
 - Permanent (fail immediately): RLS violations, 4xx errors, invalid data
 
 Navigation occurs regardless of backend success:
+
 ```typescript
 // Step 6: Navigate to home REGARDLESS of backend outcome
 void router.replace('/home');

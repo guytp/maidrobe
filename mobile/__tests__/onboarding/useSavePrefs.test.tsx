@@ -1,7 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { type ReactNode } from 'react';
-import { useSavePrefs, type SavePrefsRequest } from '../../src/features/onboarding/api/useSavePrefs';
+import {
+  useSavePrefs,
+  type SavePrefsRequest,
+} from '../../src/features/onboarding/api/useSavePrefs';
 import { supabase } from '../../src/services/supabase';
 import { logError, logSuccess } from '../../src/core/telemetry';
 import type { PrefsRow, PrefsFormData } from '../../src/features/onboarding/utils/prefsTypes';
@@ -159,11 +162,7 @@ describe('useSavePrefs', () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
       // Should not have logged validation errors
-      expect(mockLogError).not.toHaveBeenCalledWith(
-        expect.anything(),
-        'schema',
-        expect.anything()
-      );
+      expect(mockLogError).not.toHaveBeenCalledWith(expect.anything(), 'schema', expect.anything());
     });
   });
 
@@ -256,11 +255,7 @@ describe('useSavePrefs', () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
       // Should not have logged validation errors
-      expect(mockLogError).not.toHaveBeenCalledWith(
-        expect.anything(),
-        'schema',
-        expect.anything()
-      );
+      expect(mockLogError).not.toHaveBeenCalledWith(expect.anything(), 'schema', expect.anything());
     });
   });
 

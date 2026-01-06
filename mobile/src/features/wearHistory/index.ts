@@ -77,8 +77,4 @@ export { WearHistoryScreen } from './components';
 export { WearEventCard, type WearEventCardProps } from './components';
 
 // Utils
-export {
-  groupWearEventsByDate,
-  formatDateLabel,
-  type WearHistorySection,
-} from './utils';
+export { groupWearEventsByDate, formatDateLabel, type WearHistorySection } from './utils';

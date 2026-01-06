@@ -49,6 +49,7 @@ const handleOnboardingComplete = useCallback(
 **Usage Points:**
 
 1. **Success screen completion** (`_layout.tsx:146-148`):
+
    ```typescript
    if (currentStep === 'success') {
      handleOnboardingComplete(); // isGlobalSkip = false
@@ -81,6 +82,7 @@ void router.replace('/home');
 ```
 
 **Flow:**
+
 1. Analytics events emitted (fire-and-forget)
 2. Backend update attempted with retry logic
 3. On success: Cache invalidation + state updates
@@ -100,6 +102,7 @@ void router.replace('/home');
 **Implementation:**
 
 **Toast State:** `_layout.tsx:81-87`
+
 ```typescript
 const [syncFailureToast, setSyncFailureToast] = useState<{
   visible: boolean;
@@ -111,6 +114,7 @@ const [syncFailureToast, setSyncFailureToast] = useState<{
 ```
 
 **Callback Integration:** `_layout.tsx:126-131`
+
 ```typescript
 onSyncFailure: (message) => {
   setSyncFailureToast({
@@ -121,6 +125,7 @@ onSyncFailure: (message) => {
 ```
 
 **Toast Rendering:** `_layout.tsx:491-503`
+
 ```typescript
 <Toast
   visible={syncFailureToast.visible}
@@ -137,6 +142,7 @@ onSyncFailure: (message) => {
 ```
 
 **Toast Component:** `mobile/src/core/components/Toast.tsx`
+
 - Accessible (accessibilityLiveRegion, screen reader support)
 - Auto-dismisses after 5 seconds
 - Manual dismissal via tap
@@ -144,11 +150,10 @@ onSyncFailure: (message) => {
 - WCAG 2.1 AA compliant
 
 **Failure Message:** `completeOnboarding.ts:484-488`
+
 ```typescript
 if (onSyncFailure) {
-  onSyncFailure(
-    'Onboarding saved locally. Profile sync will retry automatically.'
-  );
+  onSyncFailure('Onboarding saved locally. Profile sync will retry automatically.');
 }
 ```
 
@@ -163,6 +168,7 @@ if (onSyncFailure) {
 **Implementation:** `completeOnboarding.ts` includes comprehensive telemetry:
 
 **Success Events:**
+
 ```typescript
 // Line 390-398
 logSuccess('onboarding', 'onboarding_complete_backend_sync_success', {
@@ -177,6 +183,7 @@ logSuccess('onboarding', 'onboarding_complete_backend_sync_success', {
 ```
 
 **Error Events:**
+
 ```typescript
 // Line 471-482
 logError(finalError as Error, 'server', {
@@ -194,6 +201,7 @@ logError(finalError as Error, 'server', {
 ```
 
 **Analytics Events:**
+
 ```typescript
 // Lines 323-330, 332-341, 343-355
 trackOnboardingEvent('onboarding.completed', {...});
@@ -212,6 +220,7 @@ trackOnboardingEvent('onboarding.completion_initiated', {...});
 **Implementation:** `completeOnboarding.ts:135-234`
 
 **Retry Configuration:**
+
 ```typescript
 await retryWithBackoff(
   async () => {
@@ -222,15 +231,16 @@ await retryWithBackoff(
     if (error) throw error;
   },
   {
-    maxAttempts: 3,        // 1 initial + 2 retries
-    baseDelay: 1000,       // 1 second
-    maxDelay: 4000,        // 4 seconds max
+    maxAttempts: 3, // 1 initial + 2 retries
+    baseDelay: 1000, // 1 second
+    maxDelay: 4000, // 4 seconds max
     shouldRetry: isTransientSupabaseError,
   }
 );
 ```
 
 **Backoff Algorithm:** Exponential with jitter
+
 ```typescript
 // completeOnboarding.ts:189-197
 const exponentialDelay = Math.min(baseDelay * Math.pow(2, attemptNumber - 1), maxDelay);
@@ -241,11 +251,13 @@ await new Promise((resolve) => setTimeout(resolve, delay));
 ```
 
 **Delay Progression:**
+
 - Attempt 1: Immediate
 - Attempt 2: ~1000ms + jitter (300ms variance)
 - Attempt 3: ~2000ms + jitter (600ms variance)
 
 **Error Classification:** `completeOnboarding.ts:93-132`
+
 ```typescript
 function isTransientSupabaseError(error: unknown): boolean {
   // Network errors (ECONNRESET, ETIMEDOUT, ENOTFOUND)
@@ -279,12 +291,14 @@ if (hasOnboarded) {
 ```
 
 **Execution Context:**
+
 - Called during `restoreAuthStateOnLaunch()` in `app/_layout.tsx:16`
 - Runs on every cold start before routing decisions
 - Fetches profile from server (includes `has_onboarded`)
 - Calls `resetOnboardingState()` if `hasOnboarded=true`
 
 **State Reset Function:** `mobile/src/features/onboarding/store/onboardingSlice.ts`
+
 ```typescript
 resetOnboardingState: () => {
   set({
@@ -297,6 +311,7 @@ resetOnboardingState: () => {
 ```
 
 **Routing Gate Integration:** `mobile/app/onboarding/_layout.tsx:246-263`
+
 ```typescript
 if (hasOnboarded) {
   // User has already completed onboarding - redirect to home
@@ -304,12 +319,15 @@ if (hasOnboarded) {
   resetOnboardingState();
   try {
     router.replace('/home');
-  } catch (error) { /* error handling */ }
+  } catch (error) {
+    /* error handling */
+  }
   return;
 }
 ```
 
 **Flow:**
+
 1. Auth restore fetches `hasOnboarded` from server
 2. If `true`, calls `resetOnboardingState()` (clears local progress)
 3. Routing gate checks `hasOnboarded`, redirects to `/home` if `true`
@@ -322,17 +340,17 @@ if (hasOnboarded) {
 
 ## Integration Points Summary
 
-| Integration Point | File | Line(s) | Status |
-|-------------------|------|---------|--------|
-| Import useCompleteOnboarding hook | `app/onboarding/_layout.tsx` | 8 | ✅ |
-| Call hook in layout | `app/onboarding/_layout.tsx` | 75 | ✅ |
-| Success screen completion | `app/onboarding/_layout.tsx` | 146-148 | ✅ |
-| Global skip completion | `app/onboarding/_layout.tsx` | 179-181 | ✅ |
-| Toast state management | `app/onboarding/_layout.tsx` | 81-87 | ✅ |
-| Toast callback integration | `app/onboarding/_layout.tsx` | 126-131 | ✅ |
-| Toast component render | `app/onboarding/_layout.tsx` | 491-503 | ✅ |
-| Server state precedence (auth restore) | `src/features/auth/utils/authRestore.ts` | 333-335 | ✅ |
-| Server state precedence (gate) | `app/onboarding/_layout.tsx` | 246-263 | ✅ |
+| Integration Point                      | File                                     | Line(s) | Status |
+| -------------------------------------- | ---------------------------------------- | ------- | ------ |
+| Import useCompleteOnboarding hook      | `app/onboarding/_layout.tsx`             | 8       | ✅     |
+| Call hook in layout                    | `app/onboarding/_layout.tsx`             | 75      | ✅     |
+| Success screen completion              | `app/onboarding/_layout.tsx`             | 146-148 | ✅     |
+| Global skip completion                 | `app/onboarding/_layout.tsx`             | 179-181 | ✅     |
+| Toast state management                 | `app/onboarding/_layout.tsx`             | 81-87   | ✅     |
+| Toast callback integration             | `app/onboarding/_layout.tsx`             | 126-131 | ✅     |
+| Toast component render                 | `app/onboarding/_layout.tsx`             | 491-503 | ✅     |
+| Server state precedence (auth restore) | `src/features/auth/utils/authRestore.ts` | 333-335 | ✅     |
+| Server state precedence (gate)         | `app/onboarding/_layout.tsx`             | 246-263 | ✅     |
 
 ---
 
@@ -352,6 +370,7 @@ if (hasOnboarded) {
 ### Testing Coverage
 
 The implementation includes:
+
 - Error classification logic (transient vs permanent)
 - Retry mechanism with exponential backoff
 - State precedence enforcement
@@ -365,15 +384,15 @@ The implementation includes:
 
 ## Acceptance Criteria Coverage
 
-| Criterion | Description | Status |
-|-----------|-------------|--------|
-| AC1 | Database schema includes has_onboarded | ✅ Step 1 |
-| AC2 | Post-login routing uses hasOnboarded | ✅ Steps 3-4 |
-| AC3 | Onboarding completion sets hasOnboarded=true | ✅ Step 5-6 |
-| AC4 | Retry logic with error handling | ✅ Step 5-6 |
-| AC5 | Server state precedence | ✅ Step 6 |
-| AC6 | Analytics hook points | ✅ Steps 3-6 |
-| AC7 | Feature flag behavior | ✅ Steps 3-4 |
+| Criterion | Description                                  | Status       |
+| --------- | -------------------------------------------- | ------------ |
+| AC1       | Database schema includes has_onboarded       | ✅ Step 1    |
+| AC2       | Post-login routing uses hasOnboarded         | ✅ Steps 3-4 |
+| AC3       | Onboarding completion sets hasOnboarded=true | ✅ Step 5-6  |
+| AC4       | Retry logic with error handling              | ✅ Step 5-6  |
+| AC5       | Server state precedence                      | ✅ Step 6    |
+| AC6       | Analytics hook points                        | ✅ Steps 3-6 |
+| AC7       | Feature flag behavior                        | ✅ Steps 3-4 |
 
 ---
 

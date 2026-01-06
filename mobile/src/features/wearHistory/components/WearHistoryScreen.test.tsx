@@ -122,7 +122,13 @@ jest.mock('./WearEventCard', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
   const { Text: MockText, Pressable: MockPressable } = require('react-native');
   return {
-    WearEventCard: ({ event, onPress }: { event: { id: string; context: string | null; worn_date: string }; onPress?: (e: unknown) => void }) => (
+    WearEventCard: ({
+      event,
+      onPress,
+    }: {
+      event: { id: string; context: string | null; worn_date: string };
+      onPress?: (e: unknown) => void;
+    }) => (
       <MockPressable onPress={() => onPress?.(event)} testID={`wear-event-${event.id}`}>
         <MockText>{event.context || 'No context'}</MockText>
         <MockText>{event.worn_date}</MockText>

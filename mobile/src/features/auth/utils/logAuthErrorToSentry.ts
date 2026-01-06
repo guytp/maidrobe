@@ -273,10 +273,7 @@ function mapAuthSeverityToSentry(severity: AuthErrorSeverity): SentrySeverity {
  * @param rawError - Original error (for stack trace)
  * @returns Error instance for Sentry
  */
-function createErrorForSentry(
-  errorResult: NormalizedAuthError,
-  rawError: unknown
-): Error {
+function createErrorForSentry(errorResult: NormalizedAuthError, rawError: unknown): Error {
   // Create error with normalized category as message
   // This ensures we never send raw Supabase errors to Sentry
   const message = `Auth error: ${errorResult.category}`;

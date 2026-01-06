@@ -35,11 +35,7 @@ jest.mock('../../../src/features/wardrobe/api/deleteWardrobeItem', () => ({
     public readonly mockCode: string;
     public readonly mockOriginalError?: unknown;
 
-    constructor(
-      message: string,
-      mockCode: string,
-      mockOriginalError?: unknown
-    ) {
+    constructor(message: string, mockCode: string, mockOriginalError?: unknown) {
       super(message);
       this.name = 'DeleteWardrobeItemError';
       this.mockCode = mockCode;
@@ -180,10 +176,7 @@ describe('useDeleteWardrobeItem', () => {
     });
 
     it('handles network errors', async () => {
-      const networkError = new mockDeleteModule.DeleteWardrobeItemError(
-        'Network error',
-        'network'
-      );
+      const networkError = new mockDeleteModule.DeleteWardrobeItemError('Network error', 'network');
       // Use mockRejectedValue (not Once) because network errors are retried
       mockDeleteModule.deleteWardrobeItem.mockRejectedValue(networkError);
 
@@ -208,10 +201,7 @@ describe('useDeleteWardrobeItem', () => {
     });
 
     it('handles auth errors', async () => {
-      const authError = new mockDeleteModule.DeleteWardrobeItemError(
-        'Not authorized',
-        'auth'
-      );
+      const authError = new mockDeleteModule.DeleteWardrobeItemError('Not authorized', 'auth');
       mockDeleteModule.deleteWardrobeItem.mockRejectedValueOnce(authError);
 
       const { result } = renderHook(() => useDeleteWardrobeItem(), { wrapper });
@@ -228,10 +218,7 @@ describe('useDeleteWardrobeItem', () => {
     });
 
     it('handles server errors', async () => {
-      const serverError = new mockDeleteModule.DeleteWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockDeleteModule.DeleteWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 
@@ -256,10 +243,7 @@ describe('useDeleteWardrobeItem', () => {
     });
 
     it('emits telemetry events on failure', async () => {
-      const serverError = new mockDeleteModule.DeleteWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockDeleteModule.DeleteWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 
@@ -301,10 +285,7 @@ describe('useDeleteWardrobeItem', () => {
     });
 
     it('logs errors to observability stack', async () => {
-      const serverError = new mockDeleteModule.DeleteWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockDeleteModule.DeleteWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockDeleteModule.deleteWardrobeItem.mockRejectedValue(serverError);
 

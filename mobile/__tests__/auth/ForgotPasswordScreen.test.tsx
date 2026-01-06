@@ -358,10 +358,9 @@ describe('ForgotPasswordScreen', () => {
 
   describe('Form Submission Flow', () => {
     it('should show validation error when submitting invalid email', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -388,15 +387,17 @@ describe('ForgotPasswordScreen', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(mockResetPasswordForEmail).toHaveBeenCalledWith('user@example.com', expect.any(Object));
+        expect(mockResetPasswordForEmail).toHaveBeenCalledWith(
+          'user@example.com',
+          expect.any(Object)
+        );
       });
     });
 
     it('should show success view after successful submission', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -500,10 +501,9 @@ describe('ForgotPasswordScreen', () => {
       const attempts = [now - 1000, now - 2000, now - 3000, now - 4000, now - 5000];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -523,10 +523,9 @@ describe('ForgotPasswordScreen', () => {
       const attempts = [now - 1000, now - 2000, now - 3000, now - 4000, now - 5000];
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(attempts));
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -607,10 +606,9 @@ describe('ForgotPasswordScreen', () => {
 
   describe('Success View - Enumeration-Safe Responses', () => {
     it('should display generic success message after submission', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -624,10 +622,9 @@ describe('ForgotPasswordScreen', () => {
     });
 
     it('should show check email instructions in success view', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -643,10 +640,9 @@ describe('ForgotPasswordScreen', () => {
     });
 
     it('should show spam folder reminder in success view', async () => {
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -665,10 +661,9 @@ describe('ForgotPasswordScreen', () => {
         error: null,
       });
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -722,10 +717,9 @@ describe('ForgotPasswordScreen', () => {
     it('should display network error message', async () => {
       mockResetPasswordForEmail.mockRejectedValue(new Error('Network error'));
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -778,10 +772,9 @@ describe('ForgotPasswordScreen', () => {
     it('should allow retry after error by keeping form view visible', async () => {
       mockResetPasswordForEmail.mockRejectedValueOnce(new Error('Network error'));
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -863,10 +856,9 @@ describe('ForgotPasswordScreen', () => {
         () => new Promise((resolve) => setTimeout(() => resolve({ data: {}, error: null }), 100))
       );
 
-      const { getByPlaceholderText, getByLabelText, getByText } = render(
-        <ForgotPasswordScreen />,
-        { wrapper: TestWrapper }
-      );
+      const { getByPlaceholderText, getByLabelText, getByText } = render(<ForgotPasswordScreen />, {
+        wrapper: TestWrapper,
+      });
 
       const emailInput = getByPlaceholderText('your@email.com');
       const submitButton = getByLabelText('Send reset link button');
@@ -1010,7 +1002,10 @@ describe('ForgotPasswordScreen', () => {
       fireEvent.press(submitButton);
 
       await waitFor(() => {
-        expect(mockResetPasswordForEmail).toHaveBeenCalledWith('user+test@example.com', expect.any(Object));
+        expect(mockResetPasswordForEmail).toHaveBeenCalledWith(
+          'user+test@example.com',
+          expect.any(Object)
+        );
       });
     });
 

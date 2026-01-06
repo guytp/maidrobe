@@ -5,6 +5,7 @@ Handles OAuth token exchange for connecting a user's Google Calendar.
 ## Purpose
 
 When a user chooses to connect their Google Calendar, this Edge Function:
+
 1. Accepts the OAuth authorization code from Google
 2. Exchanges it for access and refresh tokens with Google OAuth API
 3. Encrypts the tokens using AES-256-GCM
@@ -41,17 +42,17 @@ Content-Type: application/json
 
 ### Request Body
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| code | string | Yes | Authorization code from Google OAuth flow |
-| redirectUri | string | Yes | Must match the URI configured in Google Cloud Console |
+| Field       | Type   | Required | Description                                           |
+| ----------- | ------ | -------- | ----------------------------------------------------- |
+| code        | string | Yes      | Authorization code from Google OAuth flow             |
+| redirectUri | string | Yes      | Must match the URI configured in Google Cloud Console |
 
 ### Headers
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| Authorization | Yes | Bearer token with user's JWT |
-| X-Correlation-ID | No | UUID for request tracing. Auto-generated if not provided. |
+| Header           | Required | Description                                               |
+| ---------------- | -------- | --------------------------------------------------------- |
+| Authorization    | Yes      | Bearer token with user's JWT                              |
+| X-Correlation-ID | No       | UUID for request tracing. Auto-generated if not provided. |
 
 ## Response
 
@@ -82,30 +83,30 @@ Content-Type: application/json
 
 ### Errors
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| auth | 401 | Not authenticated or missing/invalid Authorization header |
-| validation | 400 | Invalid request body (missing code or redirectUri) |
-| oauth | 400 | Failed to exchange authorization code with Google |
-| server | 500 | Database error or unexpected exception |
-| encryption | 500 | Token encryption failed |
+| Code       | HTTP Status | Description                                               |
+| ---------- | ----------- | --------------------------------------------------------- |
+| auth       | 401         | Not authenticated or missing/invalid Authorization header |
+| validation | 400         | Invalid request body (missing code or redirectUri)        |
+| oauth      | 400         | Failed to exchange authorization code with Google         |
+| server     | 500         | Database error or unexpected exception                    |
+| encryption | 500         | Token encryption failed                                   |
 
 ## Environment Variables
 
 ### Required
 
-| Variable | Description |
-|----------|-------------|
-| SUPABASE_URL | Your Supabase project URL |
-| SUPABASE_ANON_KEY | Supabase anonymous key |
+| Variable                | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------------ |
+| SUPABASE_URL            | Your Supabase project URL                                                |
+| SUPABASE_ANON_KEY       | Supabase anonymous key                                                   |
 | CALENDAR_ENCRYPTION_KEY | 32-byte encryption key for tokens. Generate with: `openssl rand -hex 32` |
-| GOOGLE_CLIENT_ID | Google OAuth 2.0 Client ID |
-| GOOGLE_CLIENT_SECRET | Google OAuth 2.0 Client Secret |
+| GOOGLE_CLIENT_ID        | Google OAuth 2.0 Client ID                                               |
+| GOOGLE_CLIENT_SECRET    | Google OAuth 2.0 Client Secret                                           |
 
 ### Optional (for logging)
 
-| Variable | Description |
-|----------|-------------|
+| Variable    | Description                               |
+| ----------- | ----------------------------------------- |
 | ENVIRONMENT | 'development', 'staging', or 'production' |
 
 ## Database Changes
@@ -148,11 +149,13 @@ INSERT INTO calendar_integrations (
 ## Google OAuth Details
 
 This function uses the Google OAuth 2.0 token endpoint:
+
 - Endpoint: `https://oauth2.googleapis.com/token`
 - Method: `POST`
 - Body: URL-encoded parameters
 
 **Token Exchange Parameters:**
+
 - `code`: Authorization code
 - `client_id`: From GOOGLE_CLIENT_ID
 - `client_secret`: From GOOGLE_CLIENT_SECRET
@@ -160,6 +163,7 @@ This function uses the Google OAuth 2.0 token endpoint:
 - `grant_type`: `authorization_code`
 
 **Token Response:**
+
 ```json
 {
   "access_token": "ya29.a0...",
@@ -178,15 +182,12 @@ This function uses the Google OAuth 2.0 token endpoint:
 import { supabase } from './supabase';
 
 async function connectGoogleCalendar(code: string, redirectUri: string) {
-  const { data, error } = await supabase.functions.invoke(
-    'connect-google-calendar',
-    {
-      body: {
-        code,
-        redirectUri,
-      },
-    }
-  );
+  const { data, error } = await supabase.functions.invoke('connect-google-calendar', {
+    body: {
+      code,
+      redirectUri,
+    },
+  });
 
   if (error) {
     console.error('Connection failed:', error.message);
@@ -220,11 +221,11 @@ const [request, response, promptAsync] = AuthSession.useAuthRequest(
 // When user taps "Connect Google Calendar"
 const handleConnect = async () => {
   const result = await promptAsync();
-  
+
   if (result.type === 'success') {
     // Extract authorization code
     const { code } = result.params;
-    
+
     // Call Edge Function
     await connectGoogleCalendar(code, 'com.yourapp.app://oauth/callback');
   }

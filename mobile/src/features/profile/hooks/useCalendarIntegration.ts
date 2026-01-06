@@ -12,7 +12,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { getCalendarIntegration, CalendarIntegrationError } from '../api/calendarIntegrationRepository';
+import {
+  getCalendarIntegration,
+  CalendarIntegrationError,
+} from '../api/calendarIntegrationRepository';
 import { type CalendarIntegration, type CalendarProvider } from '../types';
 
 /**

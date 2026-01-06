@@ -5,6 +5,7 @@ Handles OAuth token revocation and disconnects a user's Google Calendar integrat
 ## Purpose
 
 When a user chooses to disconnect their Google Calendar from the app, this Edge Function:
+
 1. Revokes OAuth tokens with Google's revocation API
 2. Clears tokens from the database (encrypted storage)
 3. Marks the integration as disconnected (`is_connected = false`)
@@ -35,16 +36,16 @@ X-Correlation-ID: <uuid>
 
 ### Request Body
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| provider | string | Yes | Calendar provider. Currently only `"google"` is supported. |
+| Field    | Type   | Required | Description                                                |
+| -------- | ------ | -------- | ---------------------------------------------------------- |
+| provider | string | Yes      | Calendar provider. Currently only `"google"` is supported. |
 
 ### Headers
 
-| Header | Required | Description |
-|--------|----------|-------------|
-| Authorization | Yes | Bearer token with user's JWT |
-| X-Correlation-ID | No | UUID for request tracing. Auto-generated if not provided. |
+| Header           | Required | Description                                               |
+| ---------------- | -------- | --------------------------------------------------------- |
+| Authorization    | Yes      | Bearer token with user's JWT                              |
+| X-Correlation-ID | No       | UUID for request tracing. Auto-generated if not provided. |
 
 ## Response
 
@@ -75,18 +76,19 @@ X-Correlation-ID: <uuid>
 
 ### Errors
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| auth | 401 | Not authenticated or missing/invalid Authorization header |
-| validation | 400 | Invalid request body (missing or invalid provider) |
-| notFound | 200 | Integration doesn't exist (treated as success - idempotent) |
-| network | 500 | Cannot reach Google OAuth revocation API |
-| server | 500 | Database error or unexpected exception |
-| oauth | 500 | OAuth token revocation failed (logged but doesn't fail operation) |
+| Code       | HTTP Status | Description                                                       |
+| ---------- | ----------- | ----------------------------------------------------------------- |
+| auth       | 401         | Not authenticated or missing/invalid Authorization header         |
+| validation | 400         | Invalid request body (missing or invalid provider)                |
+| notFound   | 200         | Integration doesn't exist (treated as success - idempotent)       |
+| network    | 500         | Cannot reach Google OAuth revocation API                          |
+| server     | 500         | Database error or unexpected exception                            |
+| oauth      | 500         | OAuth token revocation failed (logged but doesn't fail operation) |
 
 ### Idempotency
 
 Calling this endpoint multiple times is safe:
+
 - If integration is already disconnected → returns success
 - If integration doesn't exist → returns success
 - If tokens already cleared → returns success (already revoked or never connected)
@@ -97,16 +99,16 @@ Google's revocation API is also idempotent - revoking already revoked tokens ret
 
 ### Required
 
-| Variable | Description |
-|----------|-------------|
-| SUPABASE_URL | Your Supabase project URL |
-| SUPABASE_ANON_KEY | Supabase anonymous key |
+| Variable                | Description                                                              |
+| ----------------------- | ------------------------------------------------------------------------ |
+| SUPABASE_URL            | Your Supabase project URL                                                |
+| SUPABASE_ANON_KEY       | Supabase anonymous key                                                   |
 | CALENDAR_ENCRYPTION_KEY | 32-byte encryption key for tokens. Generate with: `openssl rand -hex 32` |
 
 ### Optional (for logging)
 
-| Variable | Description |
-|----------|-------------|
+| Variable    | Description                               |
+| ----------- | ----------------------------------------- |
 | ENVIRONMENT | 'development', 'staging', or 'production' |
 
 ## Database Changes
@@ -115,7 +117,7 @@ Updates the `calendar_integrations` table:
 
 ```sql
 UPDATE calendar_integrations
-SET 
+SET
   is_connected = false,
   access_token = null,
   refresh_token = null,
@@ -125,13 +127,14 @@ SET
   last_error = null,
   error_count = 0,
   updated_at = NOW()
-WHERE user_id = auth.uid() 
+WHERE user_id = auth.uid()
   AND provider = 'google'
 ```
 
 ## Google OAuth Details
 
 This function uses the Google OAuth 2.0 token revocation endpoint:
+
 - Endpoint: `https://oauth2.googleapis.com/revoke`
 - Method: POST
 - Body: `token={token}` (either access_token or refresh_token)
@@ -146,12 +149,9 @@ Prefer to revoke the refresh token when available, as revoking a refresh token r
 import { supabase } from './supabase';
 
 async function disconnectGoogleCalendar() {
-  const { data, error } = await supabase.functions.invoke(
-    'disconnect-google-calendar',
-    {
-      body: { provider: 'google' },
-    }
-  );
+  const { data, error } = await supabase.functions.invoke('disconnect-google-calendar', {
+    body: { provider: 'google' },
+  });
 
   if (error) {
     console.error('Failed to disconnect:', error.message);
@@ -161,7 +161,7 @@ async function disconnectGoogleCalendar() {
 
   console.log('Successfully disconnected');
   console.log('Integration:', data.integration);
-  
+
   // Update UI state, show success toast
   // Refetch integration status if needed
 }

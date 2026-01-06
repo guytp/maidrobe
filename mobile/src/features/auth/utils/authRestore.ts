@@ -268,19 +268,15 @@ async function executeRestore(): Promise<void> {
 
           // If still null after retries, log error for monitoring
           if (!profile) {
-            logError(
-              new Error('Profile fetch failed after retries for existing user'),
-              'server',
-              {
-                feature: 'auth',
-                operation: 'auth-restore-profile-fetch',
-                metadata: {
-                  userId: data.user.id,
-                  accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
-                  retriesAttempted: 2,
-                },
-              }
-            );
+            logError(new Error('Profile fetch failed after retries for existing user'), 'server', {
+              feature: 'auth',
+              operation: 'auth-restore-profile-fetch',
+              metadata: {
+                userId: data.user.id,
+                accountAgeMinutes: Math.floor(accountAgeMs / (60 * 1000)),
+                retriesAttempted: 2,
+              },
+            });
           }
         }
 
@@ -542,17 +538,13 @@ async function executeRestore(): Promise<void> {
     const i18nKey = mapLogoutReasonToI18nKey('restore-failed-error');
     useStore.getState().markUnauthenticated(i18nKey);
 
-    logError(
-      error instanceof Error ? error : new Error('Unknown restore error'),
-      'server',
-      {
-        feature: 'auth',
-        operation: 'restore',
-        metadata: {
-          reason: 'unexpected_error',
-        },
-      }
-    );
+    logError(error instanceof Error ? error : new Error('Unknown restore error'), 'server', {
+      feature: 'auth',
+      operation: 'restore',
+      metadata: {
+        reason: 'unexpected_error',
+      },
+    });
 
     logAuthEvent('auth-restore-failed-stale', {
       outcome: 'failure',
