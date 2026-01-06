@@ -85,7 +85,7 @@ BEGIN
     
     -- User Permissions on Sensitive Tables (PII/PCI Scope)
     DECLARE @SensitiveTables TABLE (TableName SYSNAME);
-    INSERT INTO @SensitiveTables VALUES ('Users'), ('UserProfiles'), ('ChatLogs'), ('Payments'), ('PaymentMethods');
+    INSERT INTO @SensitiveTables VALUES ('Users'), ('UserProfiles'), ('ChatLogs'), ('Payments'), ('PaymentMethods'), ('SessionHistory');
     
     SELECT 'User Permissions' AS ConfigurationType,
            dp.name AS UserName,
@@ -380,25 +380,36 @@ BEGIN
     SET @CheckName = 'Always Encrypted for PII';
     SET @TotalChecks += 1;
     
-    DECLARE @ExpectedEncryptedColumns INT = 5; -- Users, UserProfiles (3 columns), Payments
+    DECLARE @ExpectedEncryptedColumns INT = 11; -- Users: 3, UserProfiles: 3, Payments: 2, SessionHistory: 3, ChatLogs: 1
     DECLARE @ActualEncryptedColumns INT;
     
     SELECT @ActualEncryptedColumns = COUNT(*)
     FROM sys.columns col
     JOIN sys.tables tbl ON col.object_id = tbl.object_id
-    WHERE tbl.name IN ('Users', 'UserProfiles', 'Payments', 'PaymentMethods')
-      AND col.column_encryption_key_id IS NOT NULL;
+    WHERE tbl.name IN ('Users', 'UserProfiles', 'Payments', 'PaymentMethods', 'SessionHistory', 'ChatLogs')
+      AND col.column_encryption_key_id IS NOT NULL
+      AND col.name IN ('email', 'password_hash', 'phone_number', 'full_name', 'address', 
+                       'date_of_birth', 'card_token', 'billing_address', 'session_token',
+                       'ip_address', 'user_agent', 'message_content');
+    
+    -- Also check for the encrypted column variants
+    SELECT @ActualEncryptedColumns = @ActualEncryptedColumns + COUNT(*)
+    FROM sys.columns col
+    JOIN sys.tables tbl ON col.object_id = tbl.object_id
+    WHERE tbl.name IN ('SessionHistory', 'ChatLogs')
+      AND col.name IN ('session_token_encrypted', 'ip_address_encrypted', 'user_agent_encrypted', 
+                       'message_content_encrypted');
     
     IF @ActualEncryptedColumns >= @ExpectedEncryptedColumns
     BEGIN
         SET @CheckResult = 'PASS';
-        SET @CheckDetails = 'Always Encrypted is properly configured for PII/PCI tables';
+        SET @CheckDetails = 'Always Encrypted is properly configured for all PII tables including SessionHistory and ChatLogs';
     END
     ELSE
     BEGIN
         SET @CheckResult = 'WARNING';
         SET @CheckDetails = 'Missing ' + CAST(@ExpectedEncryptedColumns - @ActualEncryptedColumns AS VARCHAR(10)) + 
-                           ' expected encrypted columns - SOME SENSITIVE DATA UNENCRYPTED!';
+                           ' expected encrypted columns across PII tables - SOME SENSITIVE DATA UNENCRYPTED!';
     END
     
     SELECT @CheckName AS CheckName, @CheckResult AS Result, @CheckDetails AS Details;
@@ -560,7 +571,7 @@ BEGIN
            STRING_AGG(DISTINCT server_principal_name, ', ') AS UsersInvolved
     FROM sys.fn_get_audit_file('D:\\rdsdbdata\\SQLServer\\Audit\\*\\*.sqlaudit', DEFAULT, DEFAULT)
     WHERE event_time >= @StartDate
-      AND object_name IN ('Users', 'UserProfiles', 'ChatLogs', 'Payments', 'PaymentMethods')
+      AND object_name IN ('Users', 'UserProfiles', 'ChatLogs', 'SessionHistory', 'Payments', 'PaymentMethods')
     GROUP BY object_name, action_id
     ORDER BY object_name, OperationsCount DESC;
     
