@@ -115,21 +115,17 @@ export function useProfile(userId: string | undefined): UseQueryResult<Profile |
                   return null;
                 } else {
                   // Existing user - missing profile is a data integrity issue
-                  logError(
-                    new Error('Profile not found for existing user'),
-                    'server',
-                    {
-                      feature: 'auth',
-                      operation: 'fetchProfile',
-                      metadata: {
-                        userId,
-                        errorCode: 'PGRST116',
-                        accountAgeMinutes,
-                        isBrandNewUser,
-                        note: 'Data integrity issue: existing user has no profile row',
-                      },
-                    }
-                  );
+                  logError(new Error('Profile not found for existing user'), 'server', {
+                    feature: 'auth',
+                    operation: 'fetchProfile',
+                    metadata: {
+                      userId,
+                      errorCode: 'PGRST116',
+                      accountAgeMinutes,
+                      isBrandNewUser,
+                      note: 'Data integrity issue: existing user has no profile row',
+                    },
+                  });
                   // Still return null to allow app to continue with degraded functionality
                   return null;
                 }
@@ -342,22 +338,18 @@ export async function fetchProfileWithCache(
               return null;
             } else {
               // Existing user - missing profile is a data integrity issue
-              logError(
-                new Error('Profile not found for existing user'),
-                'server',
-                {
-                  feature: 'auth',
-                  operation: 'fetchProfileWithCache',
-                  metadata: {
-                    userId,
-                    errorCode: 'PGRST116',
-                    accountAgeMinutes,
-                    isBrandNewUser,
-                    forceNetwork,
-                    note: 'Data integrity issue: existing user has no profile row',
-                  },
-                }
-              );
+              logError(new Error('Profile not found for existing user'), 'server', {
+                feature: 'auth',
+                operation: 'fetchProfileWithCache',
+                metadata: {
+                  userId,
+                  errorCode: 'PGRST116',
+                  accountAgeMinutes,
+                  isBrandNewUser,
+                  forceNetwork,
+                  note: 'Data integrity issue: existing user has no profile row',
+                },
+              });
               // Update cache with null but allow retry by React Query
               queryClient.setQueryData(['profile', userId], null);
               return null;
@@ -523,21 +515,17 @@ export async function fetchProfile(userId: string): Promise<Profile | null> {
               return null;
             } else {
               // Existing user - missing profile is a data integrity issue
-              logError(
-                new Error('Profile not found for existing user'),
-                'server',
-                {
-                  feature: 'auth',
-                  operation: 'fetchProfileDirect',
-                  metadata: {
-                    userId,
-                    errorCode: 'PGRST116',
-                    accountAgeMinutes,
-                    isBrandNewUser,
-                    note: 'Data integrity issue: existing user has no profile row',
-                  },
-                }
-              );
+              logError(new Error('Profile not found for existing user'), 'server', {
+                feature: 'auth',
+                operation: 'fetchProfileDirect',
+                metadata: {
+                  userId,
+                  errorCode: 'PGRST116',
+                  accountAgeMinutes,
+                  isBrandNewUser,
+                  note: 'Data integrity issue: existing user has no profile row',
+                },
+              });
               // Still return null to allow app to continue
               return null;
             }

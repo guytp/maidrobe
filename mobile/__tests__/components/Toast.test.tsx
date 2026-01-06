@@ -493,10 +493,9 @@ describe('Toast', () => {
     });
 
     it('should handle empty message', () => {
-      const { getByText } = render(
-        <Toast visible={true} message="" onDismiss={mockOnDismiss} />,
-        { wrapper: TestWrapper }
-      );
+      const { getByText } = render(<Toast visible={true} message="" onDismiss={mockOnDismiss} />, {
+        wrapper: TestWrapper,
+      });
 
       // Component should still render even with empty message
       const messageText = getByText('');
@@ -504,10 +503,9 @@ describe('Toast', () => {
     });
 
     it('should accept custom duration prop', () => {
-      render(
-        <Toast visible={true} message="Test" duration={1000} onDismiss={mockOnDismiss} />,
-        { wrapper: TestWrapper }
-      );
+      render(<Toast visible={true} message="Test" duration={1000} onDismiss={mockOnDismiss} />, {
+        wrapper: TestWrapper,
+      });
 
       jest.advanceTimersByTime(1000);
 

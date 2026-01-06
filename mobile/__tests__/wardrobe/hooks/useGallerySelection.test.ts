@@ -10,7 +10,10 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { Alert } from 'react-native';
-import { useGallerySelection, UseGallerySelectionOptions } from '../../../src/features/wardrobe/hooks/useGallerySelection';
+import {
+  useGallerySelection,
+  UseGallerySelectionOptions,
+} from '../../../src/features/wardrobe/hooks/useGallerySelection';
 import { CaptureImagePayload } from '../../../src/core/types/capture';
 import * as telemetry from '../../../src/core/telemetry';
 import * as imageValidation from '../../../src/core/utils/imageValidation';
@@ -569,7 +572,8 @@ describe('useGallerySelection', () => {
         await result.current.handleGallerySelection();
       });
 
-      const payload = (defaultOptions.setPayload as jest.Mock).mock.calls[0][0] as CaptureImagePayload;
+      const payload = (defaultOptions.setPayload as jest.Mock).mock
+        .calls[0][0] as CaptureImagePayload;
 
       expect(payload).toEqual({
         uri: 'file:///image.jpg',

@@ -4,7 +4,10 @@ import { Platform } from 'react-native';
 import { supabase } from '../../../services/supabase';
 import { logAuthEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
-import { checkFeatureFlag, clearOutfitRecommendationStubFlagCache } from '../../../core/featureFlags';
+import {
+  checkFeatureFlag,
+  clearOutfitRecommendationStubFlagCache,
+} from '../../../core/featureFlags';
 import { resetInterceptor } from '../../../services/supabaseInterceptor';
 import { clearStoredSession } from '../storage/sessionPersistence';
 import { handleAuthError } from '../utils/authErrorHandler';

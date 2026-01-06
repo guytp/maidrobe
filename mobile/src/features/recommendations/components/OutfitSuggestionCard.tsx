@@ -307,11 +307,7 @@ function OutfitSuggestionCardComponent({
               accessibilityLabel={t('screens.wearHistory.accessibility.syncingIndicator')}
             >
               <ActivityIndicator size="small" color={colors.textSecondary} />
-              <Text
-                style={styles.syncingText}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.syncingText} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
                 {t('screens.wearHistory.syncing')}
               </Text>
             </View>
@@ -326,11 +322,7 @@ function OutfitSuggestionCardComponent({
               )}
             >
               <Text style={styles.wornCheckmark}>✓</Text>
-              <Text
-                style={styles.wornText}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.wornText} allowFontScaling={true} maxFontSizeMultiplier={1.5}>
                 {t('screens.wearHistory.wornToday')}
               </Text>
             </View>

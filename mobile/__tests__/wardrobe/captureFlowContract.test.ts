@@ -7,10 +7,7 @@
  * @module __tests__/wardrobe/captureFlowContract
  */
 
-import {
-  CaptureImagePayload,
-  isCaptureImagePayload,
-} from '../../src/core/types/capture';
+import { CaptureImagePayload, isCaptureImagePayload } from '../../src/core/types/capture';
 
 describe('capture flow contract', () => {
   describe('CaptureImagePayload structure', () => {

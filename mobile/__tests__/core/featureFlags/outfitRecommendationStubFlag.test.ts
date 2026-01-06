@@ -534,7 +534,10 @@ describe('outfitRecommendationStubFlag', () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(cachedValue));
       mockedGetAppEnvironment.mockReturnValue('staging');
 
-      const result = await initializeOutfitRecommendationStubFlagFromCache(mockUserId, mockUserRole);
+      const result = await initializeOutfitRecommendationStubFlagFromCache(
+        mockUserId,
+        mockUserRole
+      );
 
       expect(result).not.toBeNull();
       expect(result?.enabled).toBe(true);
@@ -544,7 +547,10 @@ describe('outfitRecommendationStubFlag', () => {
     it('should return null when no cache exists', async () => {
       (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
-      const result = await initializeOutfitRecommendationStubFlagFromCache(mockUserId, mockUserRole);
+      const result = await initializeOutfitRecommendationStubFlagFromCache(
+        mockUserId,
+        mockUserRole
+      );
 
       expect(result).toBeNull();
     });
@@ -584,7 +590,10 @@ describe('outfitRecommendationStubFlag', () => {
       await evalPromise;
 
       // Now call initialize - should return session cache, not read AsyncStorage
-      const result = await initializeOutfitRecommendationStubFlagFromCache(mockUserId, mockUserRole);
+      const result = await initializeOutfitRecommendationStubFlagFromCache(
+        mockUserId,
+        mockUserRole
+      );
 
       expect(result?.source).toBe('remote'); // From evaluation, not 'cached'
     });
@@ -1156,7 +1165,9 @@ describe('outfitRecommendationStubFlag', () => {
 
     it('should handle fetch exception gracefully', async () => {
       mockedGetAppEnvironment.mockReturnValue('production');
-      (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Connection reset'));
+      (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(
+        new Error('Connection reset')
+      );
 
       const resultPromise = evaluateOutfitRecommendationStubFlag('user-123', 'standard');
       jest.runAllTimers();

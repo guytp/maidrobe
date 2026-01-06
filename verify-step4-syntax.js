@@ -64,9 +64,15 @@ console.log('===================================================================
 // Section 1: File Existence
 console.log('[1] CHECKING FILE EXISTENCE\n');
 checkFileExists('src/features/wardrobe/components/WardrobeScreen.tsx', 'Wardrobe Screen');
-checkFileExists('src/features/onboarding/components/FirstItemScreen.tsx', 'Onboarding First Item Screen');
+checkFileExists(
+  'src/features/onboarding/components/FirstItemScreen.tsx',
+  'Onboarding First Item Screen'
+);
 checkFileExists('src/features/wardrobe/components/CaptureScreen.tsx', 'Capture Screen');
-checkFileExists('src/features/wardrobe/components/CaptureCameraScreen.tsx', 'Capture Camera Screen');
+checkFileExists(
+  'src/features/wardrobe/components/CaptureCameraScreen.tsx',
+  'Capture Camera Screen'
+);
 checkFileExists('app/capture/index.tsx', 'Capture Route');
 checkFileExists('app/capture/camera/index.tsx', 'Camera Route');
 checkFileExists('src/core/state/captureSlice.ts', 'Capture Slice');

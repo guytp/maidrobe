@@ -19,6 +19,7 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Location:** Multiple files implementing validation
 
 **Camera Validation (CaptureCameraScreen.tsx):**
+
 - Lines 177-189: Explicit dimension validation before main validation
 - Lines 193-198: validateCapturedImage() call with uri, width, height, type
 - Lines 200-246: Comprehensive validation error handling with specific error codes
@@ -29,12 +30,14 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
   - invalid_format
 
 **Gallery Validation (useGalleryPicker.ts):**
+
 - Lines 125-147: validateCapturedImage() call for gallery images
 - Lines 132-146: Validation failure handling with error tracking
 - Lines 151-171: Explicit dimension validation (width > 0, height > 0)
 - Returns error in result object for non-blocking error display
 
 **Validation Utility:**
+
 - validateCapturedImage() imported from core/utils/imageValidation.ts
 - Checks image type/format
 - Validates dimensions are within acceptable ranges
@@ -49,6 +52,7 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Implementation Status:** COMPLETE
 
 **Camera Error Handling (CaptureCameraScreen.tsx):**
+
 - Lines 206-230: Specific error messages per validation failure type:
   - t('screens.captureCamera.errors.imageTooLarge')
   - t('screens.captureCamera.errors.imageTooSmall')
@@ -62,6 +66,7 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
 - All errors tracked via telemetry with specific error codes
 
 **Gallery Error Handling (useGalleryPicker.ts):**
+
 - Returns errors in result object: { success: false, reason, error }
 - Non-blocking - returns to previous screen state
 - Calling code can display errors as needed
@@ -76,6 +81,7 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Implementation Status:** COMPLETE
 
 **Type Definition (src/core/types/capture.ts):**
+
 - Lines 65-108: CaptureImagePayload interface fully defined:
   - uri: string (local file URI)
   - width: number (pixels)
@@ -87,6 +93,7 @@ Step 6 requirements are **FULLY SATISFIED** by the existing implementation. All 
 
 **Camera Payload Construction (CaptureCameraScreen.tsx):**
 Lines 249-256:
+
 ```typescript
 const payload: CaptureImagePayload = {
   uri: photo.uri,
@@ -100,6 +107,7 @@ const payload: CaptureImagePayload = {
 
 **Gallery Payload Construction (useGallerySelection.ts):**
 Lines 139-146 (estimated based on hook structure):
+
 ```typescript
 const payload: CaptureImagePayload = {
   uri: result.uri,
@@ -112,6 +120,7 @@ const payload: CaptureImagePayload = {
 ```
 
 **Features:**
+
 - All fields populated with validated data
 - ISO 8601 timestamp via new Date().toISOString()
 - Type-safe construction
@@ -126,6 +135,7 @@ const payload: CaptureImagePayload = {
 **Implementation Status:** COMPLETE
 
 **State Management (captureSlice.ts):**
+
 - Lines 93-99: payload field defined in CaptureState
 - Lines 193-217: setPayload action documentation
 - Lines 219-235: clearPayload action documentation
@@ -140,14 +150,17 @@ const payload: CaptureImagePayload = {
   ```
 
 **Camera Flow (CaptureCameraScreen.tsx):**
+
 - Line 51: const setPayload = useStore((state) => state.setPayload)
 - Line 259: setPayload(payload) stores constructed payload
 
 **Gallery Flow (useGallerySelection.ts):**
+
 - setPayload called from options parameter
 - Stores gallery-selected image payload
 
 **Payload Retrieval (crop/index.tsx):**
+
 - Line 56: const payload = useStore((state) => state.payload)
 - Line 57: const clearPayload = useStore((state) => state.clearPayload)
 
@@ -160,14 +173,17 @@ const payload: CaptureImagePayload = {
 **Implementation Status:** COMPLETE
 
 **Camera Navigation (CaptureCameraScreen.tsx):**
+
 - Line 271: router.push('/crop') navigates to crop screen
 - Line 274: setTimeout clears navigation flag after NAVIGATION_DEBOUNCE_MS
 
 **Gallery Navigation (useGallerySelection.ts):**
+
 - router.push('/crop') after successful gallery selection
 - Shared logic between CaptureScreen and CaptureCameraScreen
 
 **Navigation Flow:**
+
 1. Validate image
 2. Construct payload
 3. Store in Zustand: setPayload(payload)
@@ -186,11 +202,13 @@ const payload: CaptureImagePayload = {
 **Crop Screen (app/crop/index.tsx):**
 
 **Payload Validation:**
+
 - Line 56: const payload = useStore((state) => state.payload)
 - Line 60: const isValid = isCaptureImagePayload(payload)
 - Uses type guard to validate all required fields
 
 **Error Handling (Lines 62-69):**
+
 ```typescript
 useEffect(() => {
   if (!isValid) {
@@ -200,12 +218,14 @@ useEffect(() => {
 ```
 
 **Error UI (Lines 174-210):**
+
 - Shows error icon and title
 - Displays user-friendly message: t('screens.crop.errors.invalidPayload')
 - Provides "Go Back" button with handleGoBack action
 - Accessible with proper labels
 
 **Origin-Based Navigation (Lines 76-94):**
+
 ```typescript
 const handleGoBack = () => {
   clearPayload();
@@ -226,6 +246,7 @@ const handleGoBack = () => {
 ```
 
 **Features:**
+
 - Defensive validation on mount
 - Clear error messaging
 - Safe back navigation based on origin
@@ -243,11 +264,13 @@ const handleGoBack = () => {
 **Cleanup Actions:**
 
 **1. clearPayload Action (captureSlice.ts):**
+
 - Lines 219-235: Clears payload from store
 - Called by crop screen after processing
 - Called on error/invalid payload
 
 **2. resetCapture Action (captureSlice.ts):**
+
 - Lines 237-252: Resets all capture flow state
 - Called on cancellation
 - Clears: origin, source, isNavigating, errorMessage, payload, navigationTimeoutId
@@ -271,6 +294,7 @@ const handleGoBack = () => {
   ```
 
 **3. CaptureScreen Cleanup (CaptureScreen.tsx):**
+
 - Lines 212-215: useEffect cleanup
   ```typescript
   return () => {
@@ -280,11 +304,13 @@ const handleGoBack = () => {
 - Clears state when unmounting
 
 **4. Crop Screen Cleanup (crop/index.tsx):**
+
 - Lines 62-69: Clears invalid payload on mount
 - Line 78: clearPayload() in handleGoBack
 - Ensures no stale data remains
 
 **Image Resource Notes:**
+
 - Image URIs are temporary file paths in app-scoped storage
 - expo-camera and expo-image-picker handle file lifecycle
 - Files automatically cleaned by OS when app terminates
@@ -301,6 +327,7 @@ const handleGoBack = () => {
 **Verification:**
 
 **No Network Calls in Capture Flow:**
+
 - CaptureScreen: Local UI only, no API calls
 - CaptureCameraScreen: expo-camera is local device access
 - useGalleryPicker: expo-image-picker is local gallery access
@@ -308,18 +335,21 @@ const handleGoBack = () => {
 - Crop screen placeholder: No network operations
 
 **No Backend Integration:**
+
 - No item creation API calls
 - No image upload to cloud storage
 - No network requests for validation
 - All validation is client-side
 
 **Offline Capable:**
+
 - User can capture/select images offline
 - Validation works without network
 - Payload storage is in-memory (Zustand)
 - Navigation is client-side only
 
 **Future Network Operations:**
+
 - Will occur after crop screen in item creation flow
 - Separate concern from capture flow
 - Outside scope of Story #199
@@ -406,6 +436,7 @@ const handleGoBack = () => {
     - Params: None (onboarding analytics)
 
 **PII Compliance:**
+
 - All events use userId only (not email, name, etc.)
 - No image content included
 - Only metadata: dimensions, origin, source, timestamps
@@ -413,6 +444,7 @@ const handleGoBack = () => {
 - No location or device-identifying information
 
 **Telemetry Integration:**
+
 - Uses trackCaptureEvent() from core/telemetry
 - Consistent event naming
 - Structured event parameters
@@ -552,31 +584,31 @@ Image Validation Layers:
 
 ## Requirements Compliance Matrix
 
-| Requirement | Location | Status |
-|-------------|----------|--------|
+| Requirement                              | Location                                                     | Status   |
+| ---------------------------------------- | ------------------------------------------------------------ | -------- |
 | Image validation after capture/selection | CaptureCameraScreen.tsx:177-246, useGalleryPicker.ts:125-171 | COMPLETE |
-| User-friendly error messages | CaptureCameraScreen.tsx:206-230, error overlay 498-538 | COMPLETE |
-| Retry on validation failure | CaptureCameraScreen.tsx:293-296 handleRetry | COMPLETE |
-| CaptureImagePayload construction | CaptureCameraScreen.tsx:249-256, useGallerySelection.ts | COMPLETE |
-| Payload includes validated URI | Payload construction includes photo.uri/result.uri | COMPLETE |
-| Payload includes origin | Payload includes origin from state/params | COMPLETE |
-| Payload includes source | Payload includes 'camera' or 'gallery' | COMPLETE |
-| Payload includes createdAt ISO timestamp | new Date().toISOString() | COMPLETE |
-| Store payload in shared store | captureSlice.ts setPayload action | COMPLETE |
-| Navigate to crop route | router.push('/crop') after setPayload | COMPLETE |
-| Pass payload via store | Zustand payload field | COMPLETE |
-| Crop screen defensive logic | crop/index.tsx:60-69 validation | COMPLETE |
-| Show error if payload missing | crop/index.tsx:174-210 error UI | COMPLETE |
-| Safe back navigation by origin | crop/index.tsx:76-94 handleGoBack | COMPLETE |
-| Cleanup temporary resources | resetCapture, clearPayload actions | COMPLETE |
-| Cleanup on cancel | CaptureScreen.tsx:212-215 | COMPLETE |
-| Cleanup on reset | captureSlice resetCapture implementation | COMPLETE |
-| Network-independent flow | No API calls in capture/validation | COMPLETE |
-| capture_flow_opened telemetry | CaptureScreen.tsx:182-185, 206-209 | COMPLETE |
-| capture_source_selected telemetry | CaptureScreen.tsx:96-100, 144-148 | COMPLETE |
-| gallery_picker_cancelled telemetry | useGalleryPicker.ts:95-98 | COMPLETE |
-| capture_cancelled telemetry | CaptureScreen.tsx:226-229, CaptureCameraScreen.tsx:104-108 | COMPLETE |
-| capture_handoff_to_crop telemetry | CaptureCameraScreen.tsx:262-268 | COMPLETE |
+| User-friendly error messages             | CaptureCameraScreen.tsx:206-230, error overlay 498-538       | COMPLETE |
+| Retry on validation failure              | CaptureCameraScreen.tsx:293-296 handleRetry                  | COMPLETE |
+| CaptureImagePayload construction         | CaptureCameraScreen.tsx:249-256, useGallerySelection.ts      | COMPLETE |
+| Payload includes validated URI           | Payload construction includes photo.uri/result.uri           | COMPLETE |
+| Payload includes origin                  | Payload includes origin from state/params                    | COMPLETE |
+| Payload includes source                  | Payload includes 'camera' or 'gallery'                       | COMPLETE |
+| Payload includes createdAt ISO timestamp | new Date().toISOString()                                     | COMPLETE |
+| Store payload in shared store            | captureSlice.ts setPayload action                            | COMPLETE |
+| Navigate to crop route                   | router.push('/crop') after setPayload                        | COMPLETE |
+| Pass payload via store                   | Zustand payload field                                        | COMPLETE |
+| Crop screen defensive logic              | crop/index.tsx:60-69 validation                              | COMPLETE |
+| Show error if payload missing            | crop/index.tsx:174-210 error UI                              | COMPLETE |
+| Safe back navigation by origin           | crop/index.tsx:76-94 handleGoBack                            | COMPLETE |
+| Cleanup temporary resources              | resetCapture, clearPayload actions                           | COMPLETE |
+| Cleanup on cancel                        | CaptureScreen.tsx:212-215                                    | COMPLETE |
+| Cleanup on reset                         | captureSlice resetCapture implementation                     | COMPLETE |
+| Network-independent flow                 | No API calls in capture/validation                           | COMPLETE |
+| capture_flow_opened telemetry            | CaptureScreen.tsx:182-185, 206-209                           | COMPLETE |
+| capture_source_selected telemetry        | CaptureScreen.tsx:96-100, 144-148                            | COMPLETE |
+| gallery_picker_cancelled telemetry       | useGalleryPicker.ts:95-98                                    | COMPLETE |
+| capture_cancelled telemetry              | CaptureScreen.tsx:226-229, CaptureCameraScreen.tsx:104-108   | COMPLETE |
+| capture_handoff_to_crop telemetry        | CaptureCameraScreen.tsx:262-268                              | COMPLETE |
 
 **COMPLIANCE: 24/24 (100%)**
 
@@ -636,6 +668,7 @@ All Step 6 requirements are fully satisfied by the existing implementation.
 ## Next Steps
 
 Step 6 is complete. The implementation already handles:
+
 - Image selection and validation
 - Payload construction and storage
 - Navigation to crop screen
@@ -650,6 +683,7 @@ Ready to proceed with Story #205: Implement actual crop UI with image editing ca
 Step 6 verification confirms that all image selection, validation, temporary storage handling, and handoff to crop screen functionality is fully implemented and production-ready.
 
 The implementation provides:
+
 - Comprehensive image validation with specific error messages
 - Type-safe payload construction and storage
 - Defensive crop screen logic with error recovery

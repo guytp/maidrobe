@@ -5,6 +5,7 @@ This Edge Function verifies Google reCAPTCHA v3 tokens to protect against bot ab
 ## Overview
 
 When a client attempts a sensitive action (password reset, login, etc.), this function:
+
 1. Receives the reCAPTCHA token from the client
 2. Calls Google's reCAPTCHA verification API
 3. Validates the token and checks the risk score
@@ -51,6 +52,7 @@ RECAPTCHA_SCORE_THRESHOLD=0.5
 ## Response Format
 
 ### Success - Verification Passed
+
 ```json
 {
   "success": true,
@@ -60,6 +62,7 @@ RECAPTCHA_SCORE_THRESHOLD=0.5
 ```
 
 ### Failure - Verification Failed
+
 ```json
 {
   "success": false,
@@ -69,6 +72,7 @@ RECAPTCHA_SCORE_THRESHOLD=0.5
 ```
 
 ### Error - Service Unavailable (Fail Open)
+
 ```json
 {
   "success": true,
@@ -89,6 +93,7 @@ Google reCAPTCHA v3 returns a score between 0.0 and 1.0:
 **Recommended threshold: 0.5** (balanced security)
 
 Adjust based on your needs:
+
 - Higher threshold (0.7+): More secure, may block some legitimate users
 - Lower threshold (0.3): More permissive, may allow some bots
 
@@ -133,6 +138,7 @@ The client currently generates mock tokens for testing. When the backend receive
 ### Testing with Real Tokens
 
 To test with real tokens:
+
 1. Set up reCAPTCHA site key in client
 2. Implement WebView-based token generation (see client README)
 3. Set RECAPTCHA_SECRET_KEY environment variable
@@ -157,7 +163,7 @@ The mobile app calls this function via:
 
 ```typescript
 const { data, error } = await supabase.functions.invoke('verify-recaptcha', {
-  body: { token, action }
+  body: { token, action },
 });
 
 if (!data?.success) {
@@ -170,11 +176,13 @@ See `mobile/src/features/auth/hooks/useRecaptcha.ts` for the full implementation
 ## Monitoring
 
 Monitor verification attempts via:
+
 - Supabase Edge Function logs
 - Google reCAPTCHA admin console (analytics)
 - Client-side telemetry events
 
 Key metrics to track:
+
 - Verification success/failure rate
 - Average score distribution
 - Error rate (service unavailable, etc.)
@@ -183,16 +191,19 @@ Key metrics to track:
 ## Troubleshooting
 
 ### "Invalid token" errors
+
 - Ensure RECAPTCHA_SECRET_KEY matches the site key used on client
 - Verify client is generating tokens correctly
 - Check that tokens aren't being reused
 
 ### Low scores for legitimate users
+
 - Lower RECAPTCHA_SCORE_THRESHOLD
 - Check for accessibility issues (screen readers, automation tools)
 - Review geographic distribution (some regions score lower)
 
 ### "Service unavailable" errors
+
 - Check Google reCAPTCHA API status
 - Verify network connectivity from Edge Function
 - Review rate limits on Google's API

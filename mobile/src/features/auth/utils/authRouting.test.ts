@@ -7,11 +7,7 @@
  * authRouting.ts lines 154-181.
  */
 
-import {
-  deriveInitialRouteFromAuthState,
-  AuthRoutingInput,
-  AuthRoute,
-} from './authRouting';
+import { deriveInitialRouteFromAuthState, AuthRoutingInput, AuthRoute } from './authRouting';
 
 /**
  * Creates a complete AuthRoutingInput with default values for onboarding fields.
@@ -821,9 +817,7 @@ describe('deriveInitialRouteFromAuthState', () => {
         isVerified: false,
       });
 
-      const results = Array.from({ length: 100 }, () =>
-        deriveInitialRouteFromAuthState(input)
-      );
+      const results = Array.from({ length: 100 }, () => deriveInitialRouteFromAuthState(input));
 
       // All results should be identical
       expect(new Set(results).size).toBe(1);

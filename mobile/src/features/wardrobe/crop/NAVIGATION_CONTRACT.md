@@ -13,6 +13,7 @@ in the wardrobe item capture flow.
 
 The Crop & Adjust screen receives its data via **Zustand store** (not route params).
 This approach was chosen because:
+
 1. Image payloads contain complex data (URIs, dimensions) that don't serialize well to URL params
 2. Zustand provides type-safe access with validation via type guards
 3. The ephemeral nature of capture state aligns with in-memory storage
@@ -23,28 +24,31 @@ The crop screen expects a `CaptureImagePayload` object in the Zustand store:
 
 ```typescript
 interface CaptureImagePayload {
-  uri: string;           // Local file URI (file:/// scheme)
-  width: number;         // Image width in pixels (must be > 0)
-  height: number;        // Image height in pixels (must be > 0)
+  uri: string; // Local file URI (file:/// scheme)
+  width: number; // Image width in pixels (must be > 0)
+  height: number; // Image height in pixels (must be > 0)
   origin: CaptureOrigin; // 'wardrobe' | 'onboarding' - determines back navigation
   source: CaptureSource; // 'camera' | 'gallery' - for telemetry and UX
-  createdAt: string;     // ISO 8601 timestamp of capture/selection
+  createdAt: string; // ISO 8601 timestamp of capture/selection
 }
 ```
 
 ## Optional Parameters
 
 Currently, no optional parameters are supported. Future iterations may add:
+
 - `debugMode: boolean` - Enable debug overlays and logging
 - `skipValidation: boolean` - Bypass dimension validation (dev only)
 
 ## Feature Flag Control
 
 The crop flow is controlled by the `capture.cropScreen` feature flag:
+
 - When **enabled**: Camera/gallery navigates to `/crop`
 - When **disabled**: Camera/gallery skips crop and goes directly to item creation
 
 Check the flag synchronously:
+
 ```typescript
 const cropScreenFlag = checkFeatureFlagSync('capture.cropScreen');
 const cropEnabled = cropScreenFlag.enabled && !cropScreenFlag.requiresUpdate;
@@ -87,6 +91,7 @@ const cropEnabled = cropScreenFlag.enabled && !cropScreenFlag.requiresUpdate;
 ## Validation
 
 The crop screen validates the payload on mount using `isCaptureImagePayload()`:
+
 - Checks all required fields are present
 - Validates dimensions are positive numbers
 - Validates origin and source are valid enum values
@@ -96,6 +101,7 @@ If validation fails, an error screen is shown with a "Go Back" button.
 ## Telemetry Events
 
 The crop screen emits these events through `trackCaptureEvent()`:
+
 - `crop_screen_opened` - On successful mount with valid payload
 - `crop_processing_started` - When Confirm is tapped
 - `crop_processing_completed` - On successful processing

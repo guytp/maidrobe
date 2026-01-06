@@ -76,10 +76,7 @@ import type {
  * // }
  * ```
  */
-export function handleAuthError(
-  rawError: unknown,
-  context: AuthErrorContext
-): NormalizedAuthError {
+export function handleAuthError(rawError: unknown, context: AuthErrorContext): NormalizedAuthError {
   try {
     // Extract error information defensively
     const errorInfo = extractErrorInfo(rawError);

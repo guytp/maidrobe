@@ -16,18 +16,21 @@ jest.mock('../../../core/i18n', () => ({
     const translations: Record<string, string> = {
       'screens.home.recommendations.fallbackContext': 'Outfit suggestion',
       'screens.home.recommendations.accessibility.cardLabel': 'Outfit for {context}. {reason}',
-      'screens.home.recommendations.accessibility.cardLabelNoContext': 'Outfit suggestion. {reason}',
+      'screens.home.recommendations.accessibility.cardLabelNoContext':
+        'Outfit suggestion. {reason}',
       'screens.home.recommendations.itemChip.missingItem': 'Item unavailable',
       'screens.home.recommendations.itemChip.loadingItems': 'Loading items...',
       'screens.home.recommendations.itemChip.placeholderItem': 'Item {number}',
-      'screens.home.recommendations.itemChip.accessibility.itemCount': '{resolved} of {total} items',
+      'screens.home.recommendations.itemChip.accessibility.itemCount':
+        '{resolved} of {total} items',
       'screens.wearHistory.wearThisToday': 'Wear this today',
       'screens.wearHistory.markAsWorn': 'Mark as worn...',
       'screens.wearHistory.wornToday': 'Worn today',
       'screens.wearHistory.accessibility.wearTodayButton': 'Wear this outfit today',
       'screens.wearHistory.accessibility.wearTodayHint': 'Mark this outfit as worn for today',
       'screens.wearHistory.accessibility.markAsWornButton': 'Mark outfit as worn',
-      'screens.wearHistory.accessibility.markAsWornHint': 'Open date picker to mark when you wore this outfit',
+      'screens.wearHistory.accessibility.markAsWornHint':
+        'Open date picker to mark when you wore this outfit',
       'screens.wearHistory.accessibility.wornIndicator': 'Outfit worn on {date}',
     };
     return translations[key] || key;
@@ -297,11 +300,7 @@ describe('OutfitSuggestionCard', () => {
       // Update to worn state
       rerender(
         <ThemeProvider colorScheme="light">
-          <OutfitSuggestionCard
-            {...defaultProps}
-            onWearToday={onWearToday}
-            isWornToday={true}
-          />
+          <OutfitSuggestionCard {...defaultProps} onWearToday={onWearToday} isWornToday={true} />
         </ThemeProvider>
       );
 

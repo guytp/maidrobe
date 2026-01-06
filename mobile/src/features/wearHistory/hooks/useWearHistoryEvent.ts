@@ -16,7 +16,12 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useStore } from '../../../core/state/store';
-import { wearHistoryQueryKey, WearHistoryClientError, QUERY_KEY_NO_USER, QUERY_KEY_NO_ID } from '../api/wearHistoryClient';
+import {
+  wearHistoryQueryKey,
+  WearHistoryClientError,
+  QUERY_KEY_NO_USER,
+  QUERY_KEY_NO_ID,
+} from '../api/wearHistoryClient';
 import { getWearHistoryEventById, WearHistoryError } from '../api/wearHistoryRepository';
 import type { WearHistoryRow } from '../types';
 

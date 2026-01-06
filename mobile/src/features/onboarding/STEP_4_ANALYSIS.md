@@ -11,6 +11,7 @@ All requirements for Step 4 have been satisfied by the existing implementation. 
 ## Requirements Summary
 
 Step 4 requires:
+
 1. React Query mutation hook (useSavePrefs) for saving preferences
 2. Accept payload with current selections and metadata
 3. For new users: Skip write when empty OR create row with populated fields only
@@ -38,10 +39,11 @@ export function useSavePrefs(): UseMutationResult<
   Error,
   SavePrefsRequest,
   SavePrefsMutationContext
->
+>;
 ```
 
 **Request Type (lines 22-26):**
+
 ```typescript
 export interface SavePrefsRequest {
   userId: string;
@@ -53,6 +55,7 @@ export interface SavePrefsRequest {
 **Status:** PASS - Mutation hook exists with proper typing
 
 **Features:**
+
 - Returns mutation result with mutate/mutateAsync functions
 - Accepts userId, form data, and optional existing data
 - Exposes isPending state for UI loading indicators
@@ -67,6 +70,7 @@ export interface SavePrefsRequest {
 **Implementation:** Lines 180-221 (mutationFn)
 
 **How metadata is determined:**
+
 ```typescript
 const { userId, data, existingData } = request;
 const isUpdate = !!existingData;
@@ -75,6 +79,7 @@ const isUpdate = !!existingData;
 **Status:** PASS - Metadata derived from existingData presence
 
 **Logic:**
+
 - existingData present = UPDATE operation (user has existing prefs)
 - existingData absent/null = INSERT operation (new user)
 - Changed fields computed via getChangedFields(data, existingData)
@@ -82,6 +87,7 @@ const isUpdate = !!existingData;
 
 **Alternative Approach Considered:**
 Could have explicit "touched" fields tracking, but current approach is simpler:
+
 - Changed fields automatically detected via comparison
 - Cleared states handled by mapping functions
 - No need for complex form state tracking
@@ -95,6 +101,7 @@ Could have explicit "touched" fields tracking, but current approach is simpler:
 **Implementation:** PrefsScreen.tsx lines 157-164 + useSavePrefs.ts lines 206-221
 
 **Skip Logic (PrefsScreen.tsx:158):**
+
 ```typescript
 const shouldSave = prefsRow !== null || hasAnyData(formData);
 
@@ -106,6 +113,7 @@ if (!shouldSave) {
 ```
 
 **hasAnyData Function (prefsMapping.ts:442-464):**
+
 ```typescript
 export function hasAnyData(form: PrefsFormData): boolean {
   if (form.colourTendency !== 'not_sure') return true;
@@ -117,6 +125,7 @@ export function hasAnyData(form: PrefsFormData): boolean {
 ```
 
 **Create Logic (useSavePrefs.ts:208):**
+
 ```typescript
 else {
   // Create complete row for insert
@@ -125,6 +134,7 @@ else {
 ```
 
 **toPrefsRow Behavior (prefsMapping.ts:377-385):**
+
 - Maps all form fields to database format
 - Neutral/empty values map to database nulls/empty arrays:
   - not_sure -> [] (empty colour_prefs)
@@ -166,6 +176,7 @@ else {
 **Implementation:** useSavePrefs.ts lines 190-205 + prefsMapping.ts lines 494-526
 
 **PATCH Logic (useSavePrefs.ts:190-194):**
+
 ```typescript
 if (isUpdate) {
   // Compute only changed fields for PATCH-like semantics
@@ -174,6 +185,7 @@ if (isUpdate) {
 ```
 
 **getChangedFields Function (prefsMapping.ts:494-526):**
+
 ```typescript
 export function getChangedFields(
   current: PrefsFormData,
@@ -213,12 +225,14 @@ export function getChangedFields(
 **Status:** PASS - Only changed fields included in update payload
 
 **Comparison Logic:**
+
 - Colour tendency: Direct equality check
 - Exclusions: Deep comparison (sorted arrays + trimmed free-text)
 - No-repeat window: Direct equality check
 - Comfort notes: Trimmed string comparison
 
 **Result:**
+
 - Unchanged fields NOT included in payload
 - Database UPDATE only modifies changed columns
 - Untouched fields remain as-is in database
@@ -245,6 +259,7 @@ export function getChangedFields(
 ### 5. Handle Cleared States Correctly
 
 **Requirement:** Cleared states map correctly:
+
 - Colour tendency to 'Not sure yet' -> colour_prefs empty array
 - Checklist exclusions cleared -> tags removed
 - Free-text exclusions cleared -> remove all 'free:' entries
@@ -253,6 +268,7 @@ export function getChangedFields(
 **Implementation:** Mapping functions in prefsMapping.ts
 
 **Colour Tendency Cleared (lines 96-101):**
+
 ```typescript
 function mapColourTendencyToPrefs(tendency: ColourTendency): string[] {
   if (tendency === 'not_sure') {
@@ -265,6 +281,7 @@ function mapColourTendencyToPrefs(tendency: ColourTendency): string[] {
 **Status:** PASS - 'not_sure' -> []
 
 **Checklist Exclusions Cleared (lines 181-205):**
+
 ```typescript
 function joinExclusions(data: ExclusionsData): string[] {
   const result: string[] = [];
@@ -278,6 +295,7 @@ function joinExclusions(data: ExclusionsData): string[] {
 ```
 
 **Example:**
+
 - Before: {checklist: ["skirts", "heels"], freeText: ""}
 - User clears "skirts": {checklist: ["heels"], freeText: ""}
 - joinExclusions returns: ["heels"]
@@ -287,6 +305,7 @@ function joinExclusions(data: ExclusionsData): string[] {
 **Status:** PASS - Unchecked items excluded from result array
 
 **Free-text Exclusions Cleared (lines 188-202):**
+
 ```typescript
 if (data.freeText.trim()) {
   const lines = data.freeText
@@ -305,6 +324,7 @@ if (data.freeText.trim()) {
 ```
 
 **Example:**
+
 - Before: {checklist: [], freeText: "no wool\nno silk"}
 - User clears freeText: {checklist: [], freeText: ""}
 - joinExclusions returns: []
@@ -314,6 +334,7 @@ if (data.freeText.trim()) {
 **Status:** PASS - Empty freeText not processed, no "free:" entries added
 
 **Comfort Notes Cleared (lines 313-316):**
+
 ```typescript
 function notesToDatabase(notes: string): string | null {
   const trimmed = notes.trim();
@@ -322,6 +343,7 @@ function notesToDatabase(notes: string): string | null {
 ```
 
 **Example:**
+
 - Before: "some notes"
 - User clears: ""
 - notesToDatabase returns: null
@@ -332,6 +354,7 @@ function notesToDatabase(notes: string): string | null {
 
 **Combined Cleared State:**
 All cleared states handled correctly:
+
 - 'not_sure' -> []
 - Unchecked exclusions -> removed from array
 - Empty freeText -> no "free:" entries
@@ -358,6 +381,7 @@ const { data: responseData, error } = await supabase
 **Status:** PASS - RLS-safe Supabase client usage
 
 **RLS Compliance:**
+
 - Uses global supabase client (src/services/supabase.ts)
 - Client configured with user's auth session
 - RLS policies on prefs table enforce user_id matching
@@ -366,6 +390,7 @@ const { data: responseData, error } = await supabase
 - User can only access their own prefs row
 
 **Upsert Operation:**
+
 - Atomic insert-or-update based on primary key (user_id)
 - INSERT if row doesn't exist
 - UPDATE if row exists
@@ -373,6 +398,7 @@ const { data: responseData, error } = await supabase
 - RLS applies to both INSERT and UPDATE paths
 
 **Select + Single:**
+
 - Returns inserted/updated row
 - Verifies operation succeeded
 - Provides data for cache update
@@ -387,6 +413,7 @@ const { data: responseData, error } = await supabase
 **Implementation:** useSavePrefs.ts lines 196-221
 
 **Update Payload Validation (lines 196-205):**
+
 ```typescript
 try {
   PrefsUpdatePayloadSchema.parse(payload);
@@ -401,6 +428,7 @@ try {
 ```
 
 **Complete Row Validation (lines 211-220):**
+
 ```typescript
 try {
   PrefsRowSchema.parse(payload);
@@ -415,6 +443,7 @@ try {
 ```
 
 **Response Validation (lines 254-263):**
+
 ```typescript
 try {
   const validatedResponse = PrefsRowSchema.parse(responseData);
@@ -432,16 +461,19 @@ try {
 **Status:** PASS - Comprehensive Zod validation at all stages
 
 **Validation Points:**
+
 1. Request payload (before database write)
 2. Response data (after database write)
 3. Different schemas for update vs insert
 
 **Schemas Used:**
+
 - PrefsUpdatePayloadSchema: Partial update validation
 - PrefsRowSchema: Complete row validation
 - Both defined in prefsValidation.ts
 
 **Benefits:**
+
 - Type safety at runtime
 - Catches schema mismatches
 - Prevents invalid data writes
@@ -457,6 +489,7 @@ try {
 **Implementation:** getChangedFields function (prefsMapping.ts:494-526)
 
 **Key Behavior:**
+
 ```typescript
 const changes: PrefsUpdatePayload = {};
 
@@ -472,6 +505,7 @@ return changes;
 **Status:** PASS - Unchanged fields omitted from payload
 
 **How it works:**
+
 1. Start with empty object: {}
 2. Compare each field individually
 3. Only add field to object if changed
@@ -481,34 +515,36 @@ return changes;
 **Example:**
 
 User changes only comfort notes:
+
 ```typescript
 current = {
   colourTendency: 'neutrals',
-  exclusions: {checklist: [], freeText: ''},
+  exclusions: { checklist: [], freeText: '' },
   noRepeatWindow: 7,
-  comfortNotes: 'updated notes'
-}
+  comfortNotes: 'updated notes',
+};
 
 previous = {
   colourTendency: 'neutrals',
-  exclusions: {checklist: [], freeText: ''},
+  exclusions: { checklist: [], freeText: '' },
   noRepeatWindow: 7,
-  comfortNotes: 'old notes'
-}
+  comfortNotes: 'old notes',
+};
 
-Result:
-{
-  comfort_notes: 'updated notes'
+Result: {
+  comfort_notes: 'updated notes';
 }
 ```
 
 Only comfort_notes in payload. Other fields:
+
 - NOT included in payload object
 - NOT sent to Supabase
 - NOT updated in database
 - Remain unchanged in database row
 
 **Benefits:**
+
 - Minimal payload size
 - Reduced database writes
 - Fewer trigger executions
@@ -516,6 +552,7 @@ Only comfort_notes in payload. Other fields:
 - Better performance
 
 **Important Distinction:**
+
 - Cleared field: Included in payload with null/[]
   - Example: comfort_notes: null (user cleared notes)
 - Unchanged field: NOT included in payload
@@ -532,6 +569,7 @@ This distinction preserves cleared states while skipping untouched fields.
 **Implementation:** useSavePrefs.ts lines 42-76, 232-280, 311-326
 
 **Error Classification Function (lines 42-76):**
+
 ```typescript
 function classifyPrefsError(error: unknown): ErrorClassification {
   if (error instanceof z.ZodError) {
@@ -575,6 +613,7 @@ function classifyPrefsError(error: unknown): ErrorClassification {
 **Error Logging (multiple locations):**
 
 1. Validation errors (lines 199-204, 214-219, 258-263):
+
 ```typescript
 logError(validationError, 'schema', {
   feature: 'onboarding',
@@ -584,6 +623,7 @@ logError(validationError, 'schema', {
 ```
 
 2. Supabase errors (lines 233-239):
+
 ```typescript
 const classification = classifyPrefsError(error);
 logError(error, classification, {
@@ -594,6 +634,7 @@ logError(error, classification, {
 ```
 
 3. Unknown errors (lines 272-278):
+
 ```typescript
 logError(unknownError, classification, {
   feature: 'onboarding',
@@ -603,6 +644,7 @@ logError(unknownError, classification, {
 ```
 
 **Error Telemetry (onError callback, lines 311-326):**
+
 ```typescript
 onError: (_error, _variables, context) => {
   const latency = context?.startTime ? Date.now() - context.startTime : undefined;
@@ -614,12 +656,13 @@ onError: (_error, _variables, context) => {
     latency,
     timestamp: new Date().toISOString(),
   });
-}
+};
 ```
 
 **Status:** PASS - Comprehensive error logging with telemetry
 
 **Telemetry Pattern:**
+
 - Consistent feature/operation tags
 - Error classification for analysis
 - Metadata for debugging (no PII)
@@ -628,6 +671,7 @@ onError: (_error, _variables, context) => {
 - Uses core telemetry module (logError, logSuccess)
 
 **Classifications:**
+
 - user: User input validation errors
 - network: Connection/fetch failures
 - server: Supabase server errors
@@ -642,6 +686,7 @@ onError: (_error, _variables, context) => {
 **Implementation:** useSavePrefs.ts lines 283-308
 
 **Success Logging (lines 293-308):**
+
 ```typescript
 logSuccess('onboarding', 'savePrefs', {
   latency,
@@ -661,6 +706,7 @@ logSuccess('onboarding', 'savePrefs', {
 **Status:** PASS - Only boolean flags logged, no free-text
 
 **What IS logged:**
+
 - noRepeatSet: boolean (field present or not)
 - colourTendencySelected: boolean (field present or not)
 - exclusionsSelected: boolean (field present or not)
@@ -668,12 +714,14 @@ logSuccess('onboarding', 'savePrefs', {
 - latency: number (performance metric)
 
 **What is NEVER logged:**
+
 - comfort_notes actual text
 - exclusions array contents
 - Free-text entries from exclusions.freeText
 - Any user-entered strings
 
 **Privacy Compliance:**
+
 - GDPR compliant (no personal data logged)
 - Analytics still useful (presence/absence flags)
 - Debugging enabled (error types, not content)
@@ -682,6 +730,7 @@ logSuccess('onboarding', 'savePrefs', {
 **Additional Privacy Measures:**
 
 Error logging (lines 199-204):
+
 ```typescript
 metadata: { userId, isUpdate: true }
 ```
@@ -689,6 +738,7 @@ metadata: { userId, isUpdate: true }
 Only userId (identifier) and boolean flags. No form data.
 
 Comment in code (lines 94-95):
+
 ```
 * Privacy Compliance:
 * - Free-text values (comfortNotes, exclusions.freeText) are NEVER logged
@@ -707,6 +757,7 @@ Comment in code (lines 94-95):
 **Implementation:** useSavePrefs.ts lines 142-170
 
 **Retry Logic (lines 144-159):**
+
 ```typescript
 retry: (failureCount, error) => {
   // Don't retry user validation errors or schema errors
@@ -722,10 +773,11 @@ retry: (failureCount, error) => {
 
   // Retry up to 3 times for transient errors
   return failureCount < 3;
-}
+};
 ```
 
 **Retry Delay (lines 163-170):**
+
 ```typescript
 retryDelay: (attemptIndex) => {
   const baseDelay = 1000; // 1 second
@@ -734,10 +786,11 @@ retryDelay: (attemptIndex) => {
   const totalDelay = exponentialDelay + jitter;
   const maxDelay = 30000; // Cap at 30 seconds
   return Math.min(totalDelay, maxDelay);
-}
+};
 ```
 
 **Benefit:**
+
 - Transient network errors auto-retry
 - Exponential backoff prevents server overload
 - Jitter prevents thundering herd
@@ -757,10 +810,11 @@ onSuccess: (data, _variables, context) => {
   }
 
   // ... logging
-}
+};
 ```
 
 **Benefit:**
+
 - Cache stays fresh after mutation
 - useUserPrefs refetches latest data
 - UI shows updated values immediately
@@ -771,26 +825,30 @@ onSuccess: (data, _variables, context) => {
 **Implementation:** Lines 172-177, 285, 313
 
 **onMutate (lines 172-177):**
+
 ```typescript
 onMutate: (request) => {
   return {
     startTime: Date.now(),
     userId: request.userId,
   };
-}
+};
 ```
 
 **onSuccess (line 285):**
+
 ```typescript
 const latency = context?.startTime ? Date.now() - context.startTime : undefined;
 ```
 
 **onError (line 313):**
+
 ```typescript
 const latency = context?.startTime ? Date.now() - context.startTime : undefined;
 ```
 
 **Benefit:**
+
 - Performance monitoring
 - Identify slow operations
 - Debug network issues
@@ -805,6 +863,7 @@ throw new Error(getUserFriendlyMessage(classification));
 ```
 
 **Benefit:**
+
 - Users see actionable messages
 - Not raw error codes/stack traces
 - Classification determines message
@@ -817,11 +876,13 @@ throw new Error(getUserFriendlyMessage(classification));
 **File:** mobile/src/features/onboarding/components/PrefsScreen.tsx
 
 **Hook Usage (line 66):**
+
 ```typescript
 const savePrefs = useSavePrefs();
 ```
 
 **Save Logic (lines 140-196):**
+
 ```typescript
 const handleNext = useCallback(async () => {
   setErrorMessage(null);
@@ -877,6 +938,7 @@ const handleNext = useCallback(async () => {
 ```
 
 **Integration Points:**
+
 1. useSavePrefs hook initialization (line 66)
 2. Skip logic with hasAnyData (line 158)
 3. Mutation call with proper request (lines 168-172)
@@ -890,6 +952,7 @@ const handleNext = useCallback(async () => {
 ## Files Involved
 
 ### API Hook
+
 1. mobile/src/features/onboarding/api/useSavePrefs.ts
    - useSavePrefs hook (lines 133-328)
    - SavePrefsRequest interface (lines 22-26)
@@ -897,6 +960,7 @@ const handleNext = useCallback(async () => {
    - Validation, retry, logging logic
 
 ### Mapping Utilities
+
 2. mobile/src/features/onboarding/utils/prefsMapping.ts
    - toPrefsRow (lines 377-385): UI -> Database (INSERT)
    - toUpdatePayload (lines 408-415): UI -> Database (UPDATE, full)
@@ -908,11 +972,13 @@ const handleNext = useCallback(async () => {
    - mapNoRepeatWindowToDays (lines 274-276): Window to days
 
 ### Validation Schemas
+
 3. mobile/src/features/onboarding/utils/prefsValidation.ts
    - PrefsRowSchema: Complete row validation
    - PrefsUpdatePayloadSchema: Partial update validation
 
 ### Type Definitions
+
 4. mobile/src/features/onboarding/utils/prefsTypes.ts
    - PrefsRow type
    - PrefsFormData type
@@ -920,6 +986,7 @@ const handleNext = useCallback(async () => {
    - DEFAULT_PREFS_FORM_DATA constant
 
 ### Component Integration
+
 5. mobile/src/features/onboarding/components/PrefsScreen.tsx
    - useSavePrefs hook usage (line 66)
    - handleNext save logic (lines 140-196)
@@ -931,6 +998,7 @@ const handleNext = useCallback(async () => {
 ## Testing Considerations
 
 ### Unit Tests Needed
+
 1. useSavePrefs hook:
    - Insert operation (new user with data)
    - Update operation (existing user with changes)
@@ -952,6 +1020,7 @@ const handleNext = useCallback(async () => {
    - Each field individually
 
 ### Integration Tests Needed
+
 1. End-to-end save flow:
    - New user saves prefs
    - Existing user updates prefs
@@ -986,6 +1055,7 @@ All 10 requirements for Step 4 have been fully satisfied:
 10. PASS - Free-text content never logged (privacy-safe)
 
 **Additional Features:**
+
 - Retry strategy with exponential backoff
 - Query cache invalidation
 - Latency tracking for observability
