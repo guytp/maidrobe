@@ -83,7 +83,7 @@ export function getSQLServerConfig(environment: string): SQLServerConfig {
     
     audit: {
       enabled: true,
-      logLevel: 'ALL',
+      logLevel: 'ALL' as const,
       cloudWatchLogGroup: process.env.CLOUDWATCH_AUDIT_LOG_GROUP || '/buzz-tutor/audit'
     }
   };
@@ -111,7 +111,7 @@ export function getSQLServerConfig(environment: string): SQLServerConfig {
         database: 'BuzzTutorStaging',
         audit: {
           ...baseConfig.audit,
-          logLevel: 'SECURITY'  // Only log security events in staging
+          logLevel: 'SECURITY' as const  // Only log security events in staging
         }
       };
 

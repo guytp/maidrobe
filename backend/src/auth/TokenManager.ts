@@ -131,7 +131,7 @@ export class TokenManager {
       });
 
       // Log successful token generation
-      await this.auditLogger.logAuthEvent('token-generated', {
+      await this.auditLogger.logAuthEvent('TOKEN_GENERATED', {
         userId,
         correlationId,
         sessionId,
@@ -161,7 +161,7 @@ export class TokenManager {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Log failure
-      await this.auditLogger.logAuthEvent('token-generation-failed', {
+      await this.auditLogger.logAuthEvent('TOKEN_GENERATION_FAILED', {
         userId,
         correlationId,
         errorCode: 'TOKEN_GENERATION_ERROR',
@@ -213,7 +213,7 @@ export class TokenManager {
       await this.updateSessionActivity(payload.sessionId!);
 
       // Log successful verification
-      await this.auditLogger.logAuthEvent('token-verified', {
+      await this.auditLogger.logAuthEvent('TOKEN_VERIFIED', {
         userId: payload.sub,
         correlationId: payload.correlationId,
         sessionId: payload.sessionId
@@ -233,7 +233,7 @@ export class TokenManager {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Log verification failure
-      await this.auditLogger.logAuthEvent('token-verify-failed', {
+      await this.auditLogger.logAuthEvent('TOKEN_VERIFY_FAILED', {
         correlationId: uuidv4(),
         errorCode: 'INVALID_TOKEN',
         errorMessage
@@ -297,10 +297,10 @@ export class TokenManager {
       );
 
       // Invalidate old session
-      await this.invalidateSession(session.SessionId);
+      await this.invalidateSession(session.SessionId, correlationId);
 
       // Log successful refresh
-      await this.auditLogger.logAuthEvent('token-refreshed', {
+      await this.auditLogger.logAuthEvent('TOKEN_REFRESHED', {
         userId,
         correlationId,
         oldSessionId: session.SessionId,
@@ -322,7 +322,7 @@ export class TokenManager {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       // Log refresh failure
-      await this.auditLogger.logAuthEvent('token-refresh-failed', {
+      await this.auditLogger.logAuthEvent('TOKEN_REFRESH_FAILED', {
         userId,
         correlationId,
         errorCode: 'TOKEN_REFRESH_ERROR',
@@ -356,7 +356,7 @@ export class TokenManager {
       // Update session to inactive in SQL Server
       // This would be an UPDATE query
       
-      await this.auditLogger.logAuthEvent('session-invalidated', {
+      await this.auditLogger.logAuthEvent('SESSION_INVALIDATED', {
         sessionId,
         correlationId
       });
@@ -365,7 +365,7 @@ export class TokenManager {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
-      await this.auditLogger.logAuthEvent('session-invalidation-failed', {
+      await this.auditLogger.logAuthEvent('SESSION_INVALIDATION_FAILED', {
         sessionId,
         correlationId,
         errorMessage

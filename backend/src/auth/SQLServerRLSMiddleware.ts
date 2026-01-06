@@ -42,7 +42,7 @@ export class SQLServerRLSMiddleware {
         const authHeader = req.headers.authorization;
         
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return res.status(401).json({
+          return _res.status(401).json({
             error: 'Authentication required',
             errorCode: 'MISSING_TOKEN'
           });
@@ -53,7 +53,7 @@ export class SQLServerRLSMiddleware {
         const validationResult = await this.tokenManager.verifyToken(token);
         
         if (!validationResult.valid) {
-          return res.status(401).json({
+          return _res.status(401).json({
             error: validationResult.error || 'Invalid token',
             errorCode: validationResult.errorCode || 'INVALID_TOKEN'
           });
@@ -72,7 +72,7 @@ export class SQLServerRLSMiddleware {
           path: req.path
         });
 
-        return res.status(500).json({
+        return _res.status(500).json({
           error: 'Authentication service error',
           errorCode: 'AUTH_SERVICE_ERROR'
         });
@@ -90,7 +90,7 @@ export class SQLServerRLSMiddleware {
       const userId = req.user?.sub;
       
       if (!userId) {
-        return res.status(401).json({
+        return _res.status(401).json({
           error: 'User not authenticated',
           errorCode: 'UNAUTHENTICATED'
         });
@@ -137,7 +137,7 @@ export class SQLServerRLSMiddleware {
       const body = req.body;
 
       if (!userId) {
-        return res.status(401).json({
+        return _res.status(401).json({
           error: 'User not authenticated',
           errorCode: 'UNAUTHENTICATED'
         });
@@ -147,7 +147,7 @@ export class SQLServerRLSMiddleware {
       const userIdField = body.UserId || body.user_id;
       
       if (userIdField && userIdField !== userId) {
-        return res.status(403).json({
+        return _res.status(403).json({
           error: 'Forbidden: Cannot create records for other users',
           errorCode: 'FORBIDDEN_CROSS_USER'
         });
@@ -174,7 +174,7 @@ export class SQLServerRLSMiddleware {
       const user = req.user;
       
       if (!user) {
-        return res.status(401).json({
+        return _res.status(401).json({
           error: 'Authentication required',
           errorCode: 'UNAUTHENTICATED'
         });
@@ -183,7 +183,7 @@ export class SQLServerRLSMiddleware {
       const isServiceRole = user.roles.includes('service_role');
       
       if (!isServiceRole) {
-        return res.status(403).json({
+        return _res.status(403).json({
           error: 'Forbidden: Administrative access required',
           errorCode: 'FORBIDDEN_ADMIN_REQUIRED'
         });
@@ -238,7 +238,7 @@ export class SQLServerRLSMiddleware {
       const roles = req.user?.roles || [];
 
       if (!userId) {
-        return res.status(401).json({
+        return _res.status(401).json({
           error: 'User not authenticated',
           errorCode: 'UNAUTHENTICATED'
         });

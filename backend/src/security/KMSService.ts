@@ -112,6 +112,8 @@ export class KMSService {
         operation: 'CREATE',
         performedBy,
         userId,
+        reason: 'Failed to initialize user encryption',
+        kmsKeyArn: keySet.cmkArn,
         success: false,
         errorMessage,
         correlationId,
@@ -166,7 +168,7 @@ export class KMSService {
       const rotationResult: KeyRotationResult = {
         success: true,
         oldKeyVersion: oldVersion || 1,
-        newKeyVersion,
+        newKeyVersion: newVersion,
         rotatedAt: rotationTime,
         correlationId
       };
@@ -178,7 +180,7 @@ export class KMSService {
         userId,
         reason: `Automated ${this.KEY_ROTATION_DAYS}-day key rotation`,
         oldKeyVersion: oldVersion || 1,
-        newKeyVersion,
+        newKeyVersion: newVersion,
         kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
         success: true,
         correlationId,
@@ -200,6 +202,8 @@ export class KMSService {
         operation: 'ROTATE',
         performedBy,
         userId,
+        reason: `Automated ${this.KEY_ROTATION_DAYS}-day key rotation`,
+        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
         success: false,
         errorMessage,
         correlationId,
@@ -275,6 +279,7 @@ export class KMSService {
         operation: 'REVOKE',
         performedBy,
         reason,
+        kmsKeyArn: process.env.AWS_KMS_USER_DATA_CMK_ARN!,
         success: false,
         errorMessage,
         correlationId,

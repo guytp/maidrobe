@@ -13,7 +13,9 @@ import * as AWS from 'aws-sdk';
 
 export type AuditEventType = 
   | 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE'  // Data operations
-  | 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED'  // Auth events
+  | 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED' | 'TOKEN_GENERATION_FAILED'  // Auth events
+  | 'TOKEN_VERIFIED' | 'TOKEN_VERIFY_FAILED' | 'TOKEN_REFRESHED' | 'TOKEN_REFRESH_FAILED'  // Token validation
+  | 'SESSION_INVALIDATED' | 'SESSION_INVALIDATION_FAILED'  // Session management
   | 'KEY_CREATE' | 'KEY_ROTATE' | 'KEY_REVOKE'  // Key management
   | 'GDPR_RIGHT_TO_ACCESS' | 'GDPR_RIGHT_TO_ERASURE' | 'GDPR_DATA_EXPORT'  // GDPR compliance
   | 'PAYMENT_PROCESSED' | 'PAYMENT_FAILED' | 'PAYMENT_REFUNDED'  // Payment operations
@@ -33,7 +35,9 @@ export interface AuditLogEntry {
 }
 
 export interface AuthEventAuditLog extends AuditLogEntry {
-  eventType: 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED';
+  eventType: 'LOGIN' | 'LOGOUT' | 'TOKEN_GENERATED' | 'TOKEN_REFRESHED' | 'TOKEN_REVOKED' | 
+             'TOKEN_GENERATION_FAILED' | 'TOKEN_VERIFIED' | 'TOKEN_VERIFY_FAILED' | 
+             'TOKEN_REFRESH_FAILED' | 'SESSION_INVALIDATED' | 'SESSION_INVALIDATION_FAILED';
   sessionId?: string;
   roles?: string[];
   clientInfo?: {
@@ -115,6 +119,8 @@ export class SQLServerAuditLogger {
     metadata: {
       userId?: string;
       sessionId?: string;
+      oldSessionId?: string;
+      newSessionId?: string;
       roles?: string[];
       correlationId: string;
       clientInfo?: {
@@ -132,6 +138,8 @@ export class SQLServerAuditLogger {
       correlationId: metadata.correlationId,
       operationDetails: JSON.stringify({
         sessionId: metadata.sessionId,
+        oldSessionId: metadata.oldSessionId,
+        newSessionId: metadata.newSessionId,
         roles: metadata.roles,
         clientInfo: metadata.clientInfo,
         errorCode: metadata.errorCode,
