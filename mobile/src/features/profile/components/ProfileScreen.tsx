@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,8 @@ import { t } from '../../../core/i18n';
 import { useTheme } from '../../../core/theme';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
+import { useCalendarIntegration } from '../hooks/useCalendarIntegration';
+import type { CalendarIntegration } from '../types';
 
 /**
  * Minimum touch target size for accessibility (WCAG 2.1 AA).
@@ -110,6 +112,89 @@ export function ProfileScreen(): React.JSX.Element {
       isNavigatingRef.current = false;
     }, NAVIGATION_DEBOUNCE_MS);
   }, [router, user?.id]);
+
+  /**
+   * Handles navigation to calendar integration screen.
+   */
+  const handleNavigateToCalendarIntegration = useCallback(() => {
+    // Prevent double-tap navigation
+    if (isNavigatingRef.current) {
+      return;
+    }
+
+    isNavigatingRef.current = true;
+
+    // Track navigation event
+    trackCaptureEvent('calendar_integration_navigation_clicked', {
+      userId: user?.id,
+      metadata: { source: 'profile_screen' },
+    });
+
+    router.push('/profile/calendar-integration');
+
+    // Reset navigation lock after debounce period
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, NAVIGATION_DEBOUNCE_MS);
+  }, [router, user?.id]);
+
+  /**
+   * Subcomponent that renders the calendar connection status.
+   *
+   * Shows different states based on the integration status:
+   * - Loading: Activity indicator
+   * - Connected: Green text with email address
+   * - Disconnected: Gray text indicating no connection
+   * - Error: Red text indicating connection failed
+   */
+  const CalendarConnectionStatus = useCallback(() => {
+    const { integration, isLoading, isError } = useCalendarIntegration('google');
+
+    if (isLoading) {
+      return (
+        <ActivityIndicator
+          size="small"
+          color={colors.textSecondary}
+          style={{ marginTop: 4 }}
+        />
+      );
+    }
+
+    if (isError) {
+      return (
+        <Text
+          style={[styles.navigationItemSubtitle, { color: colors.error }]}
+          allowFontScaling
+          maxFontSizeMultiplier={1.5}
+        >
+          {t('screens.profile.navigation.googleCalendarError')}
+        </Text>
+      );
+    }
+
+    if (integration?.isConnected) {
+      return (
+        <Text
+          style={[styles.navigationItemSubtitle, { color: colors.success }]}
+          allowFontScaling
+          maxFontSizeMultiplier={1.5}
+        >
+          {t('screens.profile.navigation.googleCalendarConnected')}
+          {integration.connectedEmail && ` • ${integration.connectedEmail}`}
+        </Text>
+      );
+    }
+
+    return (
+      <Text
+        style={styles.navigationItemSubtitle}
+        allowFontScaling
+        maxFontSizeMultiplier={1.5}
+      >
+        {t('screens.profile.navigation.googleCalendarDisconnected')}
+      </Text>
+    );
+  }, [colors]);
 
   const styles = useMemo(
     () =>
@@ -312,6 +397,41 @@ export function ProfileScreen(): React.JSX.Element {
               >
                 {t('screens.profile.navigation.stylingPreferencesDescription')}
               </Text>
+            </View>
+            <Text style={styles.navigationItemArrow}>→</Text>
+          </Pressable>
+        </View>
+
+        {/* Integrations Section */}
+        <View style={styles.section}>
+          <Text
+            style={styles.sectionTitle}
+            allowFontScaling
+            maxFontSizeMultiplier={1.5}
+          >
+            {t('screens.profile.sections.integrations')}
+          </Text>
+
+          {/* Google Calendar Integration Item */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.navigationItem,
+              pressed && styles.navigationItemPressed,
+            ]}
+            onPress={handleNavigateToCalendarIntegration}
+            accessibilityLabel={t('screens.profile.navigation.googleCalendar')}
+            accessibilityHint="Manage Google Calendar connection"
+            accessibilityRole="button"
+          >
+            <View style={styles.navigationItemContent}>
+              <Text
+                style={styles.navigationItemTitle}
+                allowFontScaling
+                maxFontSizeMultiplier={1.5}
+              >
+                {t('screens.profile.navigation.googleCalendar')}
+              </Text>
+              <CalendarConnectionStatus />
             </View>
             <Text style={styles.navigationItemArrow}>→</Text>
           </Pressable>

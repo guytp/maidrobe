@@ -287,6 +287,44 @@
         }
       }
     },
+    "profile": {
+      "title": "Profile",
+      "accessibility": {
+        "screenLabel": "Profile screen",
+        "screenHint": "View profile and settings",
+        "backButton": "Go back",
+        "backButtonHint": "Return to previous screen"
+      },
+      "sections": {
+        "activity": "Activity",
+        "preferences": "Preferences",
+        "integrations": "Integrations"
+      },
+      "navigation": {
+        "wearHistory": "Wear History",
+        "wearHistoryDescription": "View what you've worn and when",
+        "wearHistoryLabel": "Wear History",
+        "wearHistoryHint": "Navigate to wear history",
+        "stylingPreferences": "Styling Preferences",
+        "stylingPreferencesDescription": "Manage outfit repeat settings",
+        "stylingPreferencesLabel": "Styling preferences",
+        "stylingPreferencesHint": "Navigate to styling preferences",
+        "googleCalendar": "Google Calendar",
+        "googleCalendarDisconnected": "No calendar connected",
+        "googleCalendarConnected": "Connected",
+        "googleCalendarError": "Connection failed"
+      },
+      "calendar": {
+        "disconnectTitle": "Disconnect Google Calendar?",
+        "disconnectMessage": "This will revoke access and stop calendar sync. You can reconnect anytime.",
+        "disconnectConfirm": "Disconnect",
+        "disconnectCancel": "Cancel",
+        "disconnectedSuccess": "Calendar disconnected successfully",
+        "disconnectedError": "Failed to disconnect calendar",
+        "connectSuccess": "Calendar connected successfully",
+        "connectError": "Failed to connect calendar"
+      }
+    },
     "shared": {
       "itemTypes": {
         "top": "Top",
