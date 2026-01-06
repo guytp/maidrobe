@@ -21,7 +21,7 @@ const files = [
   'mobile/app/crop/index.tsx',
   'mobile/src/features/wardrobe/crop/components/CropScreen.tsx',
   'mobile/src/features/wardrobe/components/WardrobeScreen.tsx',
-  'mobile/src/features/onboarding/components/FirstItemScreen.tsx'
+  'mobile/src/features/onboarding/components/FirstItemScreen.tsx',
 ];
 
 let totalChecks = 0;
@@ -30,7 +30,7 @@ let errors = [];
 
 console.log('[1] FILE EXISTENCE CHECKS\n');
 
-files.forEach(file => {
+files.forEach((file) => {
   totalChecks++;
   const fileName = path.basename(file);
   if (fs.existsSync(file)) {
@@ -44,7 +44,7 @@ files.forEach(file => {
 
 console.log('\n[2] SYNTAX VALIDATION\n');
 
-files.forEach(file => {
+files.forEach((file) => {
   if (!fs.existsSync(file)) return;
 
   const fileName = path.basename(file);
@@ -90,7 +90,7 @@ if (errors.length === 0) {
 
 console.log('\n[3] IMPORT/EXPORT VALIDATION\n');
 
-files.forEach(file => {
+files.forEach((file) => {
   if (!fs.existsSync(file)) return;
 
   const fileName = path.basename(file);
@@ -98,7 +98,7 @@ files.forEach(file => {
 
   // Check that all imports are complete (not checking for from on same line anymore)
   totalChecks++;
-  const hasValidImports = !content.split('\n').some(line => {
+  const hasValidImports = !content.split('\n').some((line) => {
     // Skip comments
     if (line.trim().startsWith('//') || line.trim().startsWith('/*')) return false;
     // Check for import keyword without proper structure
@@ -126,7 +126,7 @@ if (errors.length === 0) {
 
 console.log('\n[4] CODE STANDARDS COMPLIANCE\n');
 
-files.forEach(file => {
+files.forEach((file) => {
   if (!fs.existsSync(file)) return;
 
   const fileName = path.basename(file);
@@ -165,7 +165,10 @@ console.log('\n[5] INTEGRATION CHECKS\n');
 
 // Check that entry points use the capture flow
 totalChecks++;
-const wardrobeScreen = fs.readFileSync('mobile/src/features/wardrobe/components/WardrobeScreen.tsx', 'utf8');
+const wardrobeScreen = fs.readFileSync(
+  'mobile/src/features/wardrobe/components/WardrobeScreen.tsx',
+  'utf8'
+);
 if (wardrobeScreen.includes('/capture?origin=wardrobe')) {
   console.log('  ✓ Wardrobe screen navigates to capture flow');
   passedChecks++;
@@ -175,7 +178,10 @@ if (wardrobeScreen.includes('/capture?origin=wardrobe')) {
 }
 
 totalChecks++;
-const onboardingScreen = fs.readFileSync('mobile/src/features/onboarding/components/FirstItemScreen.tsx', 'utf8');
+const onboardingScreen = fs.readFileSync(
+  'mobile/src/features/onboarding/components/FirstItemScreen.tsx',
+  'utf8'
+);
 if (onboardingScreen.includes('/capture?origin=onboarding')) {
   console.log('  ✓ Onboarding screen navigates to capture flow');
   passedChecks++;
@@ -187,7 +193,11 @@ if (onboardingScreen.includes('/capture?origin=onboarding')) {
 // Check type definitions
 totalChecks++;
 const captureTypes = fs.readFileSync('mobile/src/core/types/capture.ts', 'utf8');
-if (captureTypes.includes('CaptureOrigin') && captureTypes.includes('CaptureSource') && captureTypes.includes('CaptureImagePayload')) {
+if (
+  captureTypes.includes('CaptureOrigin') &&
+  captureTypes.includes('CaptureSource') &&
+  captureTypes.includes('CaptureImagePayload')
+) {
   console.log('  ✓ All capture types defined');
   passedChecks++;
 } else {
@@ -198,7 +208,11 @@ if (captureTypes.includes('CaptureOrigin') && captureTypes.includes('CaptureSour
 // Check state management
 totalChecks++;
 const captureSlice = fs.readFileSync('mobile/src/core/state/captureSlice.ts', 'utf8');
-if (captureSlice.includes('setOrigin') && captureSlice.includes('setPayload') && captureSlice.includes('clearPayload')) {
+if (
+  captureSlice.includes('setOrigin') &&
+  captureSlice.includes('setPayload') &&
+  captureSlice.includes('clearPayload')
+) {
   console.log('  ✓ Capture state slice has required actions');
   passedChecks++;
 } else {
@@ -208,8 +222,14 @@ if (captureSlice.includes('setOrigin') && captureSlice.includes('setPayload') &&
 
 // Check crop screen integration
 totalChecks++;
-const cropScreenComponent = fs.readFileSync('mobile/src/features/wardrobe/crop/components/CropScreen.tsx', 'utf8');
-if (cropScreenComponent.includes('isCaptureImagePayload') && cropScreenComponent.includes('clearPayload')) {
+const cropScreenComponent = fs.readFileSync(
+  'mobile/src/features/wardrobe/crop/components/CropScreen.tsx',
+  'utf8'
+);
+if (
+  cropScreenComponent.includes('isCaptureImagePayload') &&
+  cropScreenComponent.includes('clearPayload')
+) {
   console.log('  ✓ Crop screen has payload validation');
   passedChecks++;
 } else {
@@ -228,7 +248,7 @@ console.log(`Success rate: ${((passedChecks / totalChecks) * 100).toFixed(1)}%\n
 
 if (errors.length > 0) {
   console.log('CRITICAL ERRORS:');
-  errors.forEach(e => console.log(`  ✗ ${e}`));
+  errors.forEach((e) => console.log(`  ✗ ${e}`));
   console.log('');
   console.log('✗ COMPILATION CHECK FAILED - Errors must be fixed\n');
   process.exit(1);

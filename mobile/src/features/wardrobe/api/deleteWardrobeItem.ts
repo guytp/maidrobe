@@ -115,9 +115,7 @@ interface EdgeFunctionResponse {
  * }
  * ```
  */
-export async function deleteWardrobeItem(
-  params: DeleteWardrobeItemParams
-): Promise<void> {
+export async function deleteWardrobeItem(params: DeleteWardrobeItemParams): Promise<void> {
   const { itemId } = params;
 
   // Generate correlation ID for request tracing
@@ -142,11 +140,7 @@ export async function deleteWardrobeItem(
         error.message?.includes('Failed to fetch') ||
         error.message?.includes('timeout')
       ) {
-        throw new DeleteWardrobeItemError(
-          'Unable to connect to server',
-          'network',
-          error
-        );
+        throw new DeleteWardrobeItemError('Unable to connect to server', 'network', error);
       }
 
       // Check for auth errors
@@ -155,27 +149,16 @@ export async function deleteWardrobeItem(
         error.message?.includes('401') ||
         error.message?.includes('403')
       ) {
-        throw new DeleteWardrobeItemError(
-          'Authentication required',
-          'auth',
-          error
-        );
+        throw new DeleteWardrobeItemError('Authentication required', 'auth', error);
       }
 
       // Generic server error
-      throw new DeleteWardrobeItemError(
-        'Failed to delete item',
-        'server',
-        error
-      );
+      throw new DeleteWardrobeItemError('Failed to delete item', 'server', error);
     }
 
     // Handle response from Edge Function
     if (!data) {
-      throw new DeleteWardrobeItemError(
-        'No response from server',
-        'server'
-      );
+      throw new DeleteWardrobeItemError('No response from server', 'server');
     }
 
     // Check for Edge Function-level errors
@@ -189,19 +172,13 @@ export async function deleteWardrobeItem(
             'auth'
           );
         case 'validation':
-          throw new DeleteWardrobeItemError(
-            data.error || 'Invalid request',
-            'validation'
-          );
+          throw new DeleteWardrobeItemError(data.error || 'Invalid request', 'validation');
         case 'notFound':
           // Not found is success for idempotency - don't throw
           return;
         case 'server':
         default:
-          throw new DeleteWardrobeItemError(
-            data.error || 'Failed to delete item',
-            'server'
-          );
+          throw new DeleteWardrobeItemError(data.error || 'Failed to delete item', 'server');
       }
     }
 
@@ -215,18 +192,10 @@ export async function deleteWardrobeItem(
 
     // Check for network errors from fetch
     if (error instanceof TypeError && error.message?.includes('fetch')) {
-      throw new DeleteWardrobeItemError(
-        'Unable to connect to server',
-        'network',
-        error
-      );
+      throw new DeleteWardrobeItemError('Unable to connect to server', 'network', error);
     }
 
     // Unknown error
-    throw new DeleteWardrobeItemError(
-      'An unexpected error occurred',
-      'unknown',
-      error
-    );
+    throw new DeleteWardrobeItemError('An unexpected error occurred', 'unknown', error);
   }
 }

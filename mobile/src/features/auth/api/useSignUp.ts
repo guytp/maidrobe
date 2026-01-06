@@ -45,7 +45,6 @@ interface SignUpMutationContext {
   startTime: number;
 }
 
-
 /**
  * React Query mutation hook for user signup with email and password.
  *
@@ -238,11 +237,13 @@ export function useSignUp() {
       // Some Supabase configurations require email confirmation before auto-login
       if (data.session) {
         // Cast to Session type - we know this comes from Supabase signUp
-        saveSessionFromSupabase(data.session as Session, new Date().toISOString()).catch((error) => {
-          // Log error but don't throw - session save failures are non-critical
-          // eslint-disable-next-line no-console
-          console.error('[SignUp] Failed to save session bundle:', error);
-        });
+        saveSessionFromSupabase(data.session as Session, new Date().toISOString()).catch(
+          (error) => {
+            // Log error but don't throw - session save failures are non-critical
+            // eslint-disable-next-line no-console
+            console.error('[SignUp] Failed to save session bundle:', error);
+          }
+        );
       }
 
       // Log success with latency for observability and SLO tracking

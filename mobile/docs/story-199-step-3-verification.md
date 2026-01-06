@@ -19,56 +19,59 @@ Step 3 requirements are **FULLY SATISFIED** by the existing implementation. The 
 **Functions Implemented:**
 
 #### Camera Permission Functions:
+
 - `isCameraAvailable()` - Line 63
-  * Checks if camera hardware is available
-  * Returns Promise<boolean>
-  * Graceful fallback (assumes available)
+  - Checks if camera hardware is available
+  - Returns Promise<boolean>
+  - Graceful fallback (assumes available)
 
 - `checkCameraPermission()` - Line 74
-  * Checks current camera permission without requesting
-  * Returns Promise<PermissionStatus>
-  * Error handling with telemetry logging
-  * Safe fallback to 'undetermined' on error
+  - Checks current camera permission without requesting
+  - Returns Promise<PermissionStatus>
+  - Error handling with telemetry logging
+  - Safe fallback to 'undetermined' on error
 
 - `requestCameraPermission()` - Line 97
-  * Requests camera permission from user
-  * Shows OS permission dialog
-  * Returns Promise<PermissionStatus>
-  * Error handling with telemetry logging
-  * Safe fallback to 'denied' on error
+  - Requests camera permission from user
+  - Shows OS permission dialog
+  - Returns Promise<PermissionStatus>
+  - Error handling with telemetry logging
+  - Safe fallback to 'denied' on error
 
 - `ensureCameraPermission()` - Line 212
-  * Convenience function: checks then requests if needed
-  * Encapsulates common pattern
-  * Returns final permission status
-  * Handles blocked state correctly
+  - Convenience function: checks then requests if needed
+  - Encapsulates common pattern
+  - Returns final permission status
+  - Handles blocked state correctly
 
 #### Gallery Permission Functions:
+
 - `checkGalleryPermission()` - Line 118
-  * Checks current gallery permission without requesting
-  * Returns Promise<PermissionStatus>
-  * Error handling with telemetry logging
-  * Safe fallback to 'undetermined' on error
+  - Checks current gallery permission without requesting
+  - Returns Promise<PermissionStatus>
+  - Error handling with telemetry logging
+  - Safe fallback to 'undetermined' on error
 
 - `requestGalleryPermission()` - Line 141
-  * Requests gallery permission from user
-  * Shows OS permission dialog
-  * Returns Promise<PermissionStatus>
-  * Error handling with telemetry logging
-  * Safe fallback to 'denied' on error
+  - Requests gallery permission from user
+  - Shows OS permission dialog
+  - Returns Promise<PermissionStatus>
+  - Error handling with telemetry logging
+  - Safe fallback to 'denied' on error
 
 - `ensureMediaLibraryPermission()` - Line 254
-  * Convenience function: checks then requests if needed
-  * Encapsulates common pattern
-  * Returns final permission status
-  * Handles blocked state correctly
+  - Convenience function: checks then requests if needed
+  - Encapsulates common pattern
+  - Returns final permission status
+  - Handles blocked state correctly
 
 #### Settings Navigation:
+
 - `openAppSettings()` - Line 165
-  * Opens app-specific settings page
-  * Platform-specific implementation (iOS and Android)
-  * Returns Promise<boolean> indicating success
-  * Error handling with telemetry logging
+  - Opens app-specific settings page
+  - Platform-specific implementation (iOS and Android)
+  - Returns Promise<boolean> indicating success
+  - Error handling with telemetry logging
 
 **Status:** ✓ ALL REQUIRED FUNCTIONS IMPLEMENTED
 
@@ -77,14 +80,16 @@ Step 3 requirements are **FULLY SATISFIED** by the existing implementation. The 
 **Requirement:** Use expo-camera and expo-image-picker
 
 **Implementation:**
+
 ```typescript
-import { Camera } from 'expo-camera';              // Line 10
-import * as ImagePicker from 'expo-image-picker';  // Line 11
-import * as Linking from 'expo-linking';           // Line 12
-import { Platform } from 'react-native';           // Line 13
+import { Camera } from 'expo-camera'; // Line 10
+import * as ImagePicker from 'expo-image-picker'; // Line 11
+import * as Linking from 'expo-linking'; // Line 12
+import { Platform } from 'react-native'; // Line 13
 ```
 
 **Usage:**
+
 - Camera.getCameraPermissionsAsync() - Line 76
 - Camera.requestCameraPermissionsAsync() - Line 100
 - ImagePicker.getMediaLibraryPermissionsAsync() - Line 120
@@ -100,11 +105,13 @@ import { Platform } from 'react-native';           // Line 13
 **Implementation:**
 
 Type Definition (Line 24):
+
 ```typescript
 export type PermissionStatus = 'granted' | 'denied' | 'blocked' | 'undetermined';
 ```
 
 Normalization Function (Lines 39-52):
+
 ```typescript
 function normalizePermissionStatus(response: {
   status: string;
@@ -123,6 +130,7 @@ function normalizePermissionStatus(response: {
 ```
 
 **Normalization Logic:**
+
 - Expo 'granted' -> 'granted'
 - Expo 'denied' + canAskAgain=true -> 'denied' (can retry)
 - Expo 'denied' + canAskAgain=false -> 'blocked' (must open settings)
@@ -140,10 +148,10 @@ function normalizePermissionStatus(response: {
 export async function openAppSettings(): Promise<boolean> {
   try {
     if (Platform.OS === 'ios') {
-      await Linking.openSettings();  // iOS: app-specific settings
+      await Linking.openSettings(); // iOS: app-specific settings
       return true;
     } else if (Platform.OS === 'android') {
-      await Linking.openSettings();  // Android: app info page
+      await Linking.openSettings(); // Android: app info page
       return true;
     }
     return false;
@@ -159,6 +167,7 @@ export async function openAppSettings(): Promise<boolean> {
 ```
 
 **Features:**
+
 - Platform-specific implementation
 - iOS: Opens app-specific settings page
 - Android: Opens app info/permissions page
@@ -174,13 +183,13 @@ export async function openAppSettings(): Promise<boolean> {
 **Implementation:** `mobile/src/features/wardrobe/hooks/useCapturePermissions.ts`
 
 **Hook Signature (Lines 89-91):**
+
 ```typescript
-export function useCapturePermissions(
-  origin: 'wardrobe' | 'onboarding' | null
-): CapturePermissions
+export function useCapturePermissions(origin: 'wardrobe' | 'onboarding' | null): CapturePermissions;
 ```
 
 **Return Type (Lines 53-60):**
+
 ```typescript
 export interface CapturePermissions {
   camera: CameraPermissionState;
@@ -198,6 +207,7 @@ export interface CapturePermissions {
 **Implementation:**
 
 Camera Request (Lines 150-194):
+
 ```typescript
 const requestCamera = useCallback(async (): Promise<PermissionStatus> => {
   setIsLoading(true);
@@ -230,6 +240,7 @@ const requestCamera = useCallback(async (): Promise<PermissionStatus> => {
 ```
 
 Gallery Request (Lines 199-243):
+
 ```typescript
 const requestGallery = useCallback(async (): Promise<PermissionStatus> => {
   // Similar implementation for gallery
@@ -237,6 +248,7 @@ const requestGallery = useCallback(async (): Promise<PermissionStatus> => {
 ```
 
 **Features:**
+
 - Loading state management
 - Telemetry tracking (request, granted, denied, blocked)
 - Error handling with safe fallbacks
@@ -252,13 +264,16 @@ const requestGallery = useCallback(async (): Promise<PermissionStatus> => {
 **Implementation:**
 
 Detection in Utility:
+
 - normalizePermissionStatus() returns 'blocked' when canAskAgain=false
 
 Handling in Hook:
+
 - requestCamera and requestGallery track 'blocked' events
 - openSettings callback provided for blocked state
 
 openSettings Implementation (Lines 249-286):
+
 ```typescript
 const handleOpenSettings = useCallback(async () => {
   trackCaptureEvent('settings_opened', {
@@ -299,6 +314,7 @@ const handleOpenSettings = useCallback(async () => {
 ```
 
 **Features:**
+
 - Opens platform-specific settings
 - Subscribes to AppState changes
 - Automatically re-checks permissions when app resumes
@@ -314,6 +330,7 @@ const handleOpenSettings = useCallback(async () => {
 **Implementation:** AppState monitoring in openSettings callback (Line 264)
 
 **Flow:**
+
 1. User taps "Open Settings"
 2. App opens system settings (backgrounded)
 3. AppState listener registered
@@ -324,6 +341,7 @@ const handleOpenSettings = useCallback(async () => {
 8. Listener cleaned up after first re-check
 
 **Cleanup (Lines 291-299):**
+
 ```typescript
 useEffect(() => {
   return () => {
@@ -336,6 +354,7 @@ useEffect(() => {
 ```
 
 **Features:**
+
 - Automatic permission re-checking on app resume
 - Single-use listener (cleans up after first check)
 - Proper cleanup on component unmount
@@ -350,6 +369,7 @@ useEffect(() => {
 **Implementation:**
 
 Initial Check (Lines 106-144):
+
 ```typescript
 useEffect(() => {
   let mounted = true;
@@ -387,11 +407,13 @@ useEffect(() => {
 ```
 
 Debouncing:
+
 - isLoading flag prevents concurrent requests (Lines 98, 151, 200)
 - Requests are serialized through loading state
 - UI can disable buttons while isLoading=true
 
 State Updates:
+
 - Initial check on mount
 - After permission requests
 - After returning from settings (AppState)
@@ -405,17 +427,18 @@ State Updates:
 **Implementation:**
 
 Return Object (Lines 301-314):
+
 ```typescript
 return {
   camera: {
     status: cameraStatus,
     isAvailable: cameraAvailable,
-    request: requestCamera,          // ← Camera request callback
+    request: requestCamera, // ← Camera request callback
     openSettings: handleOpenSettings, // ← Settings callback
   },
   gallery: {
     status: galleryStatus,
-    request: requestGallery,          // ← Gallery request callback
+    request: requestGallery, // ← Gallery request callback
     openSettings: handleOpenSettings, // ← Settings callback
   },
   isLoading,
@@ -423,12 +446,14 @@ return {
 ```
 
 **Callback Signatures:**
+
 - `camera.request: () => Promise<PermissionStatus>`
 - `gallery.request: () => Promise<PermissionStatus>`
 - `camera.openSettings: () => Promise<void>`
 - `gallery.openSettings: () => Promise<void>`
 
 **Usage Example:**
+
 ```typescript
 const permissions = useCapturePermissions('wardrobe');
 
@@ -487,6 +512,7 @@ The implementation exceeds requirements with:
 The hook is used correctly in:
 
 **CaptureScreen.tsx:**
+
 - Line 56: `const permissions = useCapturePermissions(origin);`
 - Line 92: Checks `permissions.camera.status === 'granted'`
 - Line 105: Checks `permissions.camera.status === 'blocked'`
@@ -494,6 +520,7 @@ The hook is used correctly in:
 - Line 114: Calls `permissions.camera.openSettings()`
 
 **CaptureCameraScreen.tsx:**
+
 - Line 75: `const permissions = useCapturePermissions(origin);`
 - Uses permission status for camera initialization
 
@@ -503,7 +530,8 @@ The hook is used correctly in:
 
 Test files verify implementation:
 
-**__tests__/wardrobe/hooks/useCapturePermissions.test.ts**
+\***\*tests**/wardrobe/hooks/useCapturePermissions.test.ts\*\*
+
 - Tests initial permission checks
 - Tests request callbacks
 - Tests AppState monitoring
@@ -516,12 +544,14 @@ Test files verify implementation:
 The implementation supports:
 
 **iOS:**
+
 - expo-camera for camera permissions
 - expo-image-picker for gallery permissions
 - Linking.openSettings() opens app settings
 - AppState monitoring works correctly
 
 **Android:**
+
 - expo-camera for camera permissions
 - expo-image-picker for gallery permissions
 - Linking.openSettings() opens app info

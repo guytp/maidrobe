@@ -231,17 +231,10 @@ export function ProfileScreen(): React.JSX.Element {
       </View>
 
       {/* Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Activity Section */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.sections.activity')}
           </Text>
 
@@ -257,11 +250,7 @@ export function ProfileScreen(): React.JSX.Element {
             accessibilityRole="button"
           >
             <View style={styles.navigationItemContent}>
-              <Text
-                style={styles.navigationItemTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.navigationItemTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.wearHistory')}
               </Text>
               <Text
@@ -278,11 +267,7 @@ export function ProfileScreen(): React.JSX.Element {
 
         {/* Preferences Section */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sectionTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
             {t('screens.profile.sections.preferences')}
           </Text>
 
@@ -298,11 +283,7 @@ export function ProfileScreen(): React.JSX.Element {
             accessibilityRole="button"
           >
             <View style={styles.navigationItemContent}>
-              <Text
-                style={styles.navigationItemTitle}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.navigationItemTitle} allowFontScaling maxFontSizeMultiplier={1.5}>
                 {t('screens.profile.navigation.stylingPreferences')}
               </Text>
               <Text

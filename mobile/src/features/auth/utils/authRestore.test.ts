@@ -475,9 +475,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('network error')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('network error'));
 
       await restoreAuthStateOnLaunch();
 
@@ -502,9 +500,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('unknown error')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('unknown error'));
 
       await restoreAuthStateOnLaunch();
 
@@ -625,9 +621,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('Token has expired')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('Token has expired'));
 
       await restoreAuthStateOnLaunch();
 
@@ -663,9 +657,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('Access forbidden')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('Access forbidden'));
 
       await restoreAuthStateOnLaunch();
 
@@ -701,9 +693,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('INVALID TOKEN')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('INVALID TOKEN'));
 
       await restoreAuthStateOnLaunch();
 
@@ -730,9 +720,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('Request timeout')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('Request timeout'));
 
       await restoreAuthStateOnLaunch();
 
@@ -756,9 +744,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('Fetch failed')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('Fetch failed'));
 
       await restoreAuthStateOnLaunch();
 
@@ -806,9 +792,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('Device is offline')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('Device is offline'));
 
       await restoreAuthStateOnLaunch();
 
@@ -856,9 +840,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        'random string error'
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue('random string error');
 
       await restoreAuthStateOnLaunch();
 
@@ -908,9 +890,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('some random error')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('some random error'));
 
       await restoreAuthStateOnLaunch();
 
@@ -943,9 +923,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('some random error')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('some random error'));
 
       await restoreAuthStateOnLaunch();
 
@@ -989,9 +967,7 @@ describe('restoreAuthStateOnLaunch', () => {
     });
 
     it('should verify trust window boundary at exactly 7 days', async () => {
-      const exactlySevenDays = new Date(
-        Date.now() - 7 * 24 * 60 * 60 * 1000
-      ).toISOString();
+      const exactlySevenDays = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const mockBundle = {
         session: {
@@ -1005,9 +981,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('network error')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('network error'));
 
       await restoreAuthStateOnLaunch();
 
@@ -1045,9 +1019,7 @@ describe('restoreAuthStateOnLaunch', () => {
       };
 
       (loadStoredSession as jest.Mock).mockResolvedValue(mockBundle);
-      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(
-        new Error('EXPIRED TOKEN')
-      );
+      (supabase.auth.refreshSession as jest.Mock).mockRejectedValue(new Error('EXPIRED TOKEN'));
 
       await restoreAuthStateOnLaunch();
 

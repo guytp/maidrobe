@@ -23,7 +23,12 @@ describe('imageValidation', () => {
       });
 
       it('accepts valid content:// URI (Android)', () => {
-        const result = validateCapturedImage('content://media/external/images/1', 1920, 1080, 'image/jpeg');
+        const result = validateCapturedImage(
+          'content://media/external/images/1',
+          1920,
+          1080,
+          'image/jpeg'
+        );
         expect(result.isValid).toBe(true);
         expect(result.error).toBeUndefined();
       });
@@ -57,14 +62,24 @@ describe('imageValidation', () => {
       });
 
       it('rejects http:// scheme', () => {
-        const result = validateCapturedImage('http://example.com/image.jpg', 1920, 1080, 'image/jpeg');
+        const result = validateCapturedImage(
+          'http://example.com/image.jpg',
+          1920,
+          1080,
+          'image/jpeg'
+        );
         expect(result.isValid).toBe(false);
         expect(result.error).toBe('invalid_uri');
         expect(result.errorMessage).toContain('file:// or content://');
       });
 
       it('rejects https:// scheme', () => {
-        const result = validateCapturedImage('https://example.com/image.jpg', 1920, 1080, 'image/jpeg');
+        const result = validateCapturedImage(
+          'https://example.com/image.jpg',
+          1920,
+          1080,
+          'image/jpeg'
+        );
         expect(result.isValid).toBe(false);
         expect(result.error).toBe('invalid_uri');
         expect(result.errorMessage).toContain('file:// or content://');
@@ -326,9 +341,7 @@ describe('imageValidation', () => {
     });
 
     it('returns default message for invalid error code', () => {
-      const message = getValidationErrorMessage(
-        'not_a_real_error' as unknown as 'invalid_uri'
-      );
+      const message = getValidationErrorMessage('not_a_real_error' as unknown as 'invalid_uri');
       expect(message).toContain('validation failed');
     });
   });

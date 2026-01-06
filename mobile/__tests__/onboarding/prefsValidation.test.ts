@@ -34,15 +34,19 @@ import {
   validateUpdatePayload,
   MAX_COMFORT_NOTES_LENGTH,
 } from '../../src/features/onboarding/utils/prefsValidation';
-import type {
-  PrefsFormData,
-  PrefsRow,
-} from '../../src/features/onboarding/utils/prefsTypes';
+import type { PrefsFormData, PrefsRow } from '../../src/features/onboarding/utils/prefsTypes';
 
 describe('prefsValidation', () => {
   describe('ExclusionTagSchema', () => {
     it('validates known exclusion tags', () => {
-      const validTags = ['skirts', 'shorts', 'crop_tops', 'heels', 'suits_blazers', 'sleeveless_tops'];
+      const validTags = [
+        'skirts',
+        'shorts',
+        'crop_tops',
+        'heels',
+        'suits_blazers',
+        'sleeveless_tops',
+      ];
       validTags.forEach((tag) => {
         expect(() => ExclusionTagSchema.parse(tag)).not.toThrow();
       });
@@ -377,7 +381,14 @@ describe('prefsValidation', () => {
 
   describe('isValidExclusionTag', () => {
     it('returns true for valid exclusion tags', () => {
-      const validTags = ['skirts', 'shorts', 'crop_tops', 'heels', 'suits_blazers', 'sleeveless_tops'];
+      const validTags = [
+        'skirts',
+        'shorts',
+        'crop_tops',
+        'heels',
+        'suits_blazers',
+        'sleeveless_tops',
+      ];
       validTags.forEach((tag) => {
         expect(isValidExclusionTag(tag)).toBe(true);
       });

@@ -175,9 +175,7 @@ function classifySupabaseError(error: unknown): UpdateWardrobeItemErrorCode {
  * console.log(updatedItem.name, updatedItem.tags);
  * ```
  */
-export async function updateWardrobeItem(
-  params: UpdateWardrobeItemParams
-): Promise<ItemDetail> {
+export async function updateWardrobeItem(params: UpdateWardrobeItemParams): Promise<ItemDetail> {
   const { userId, itemId, name, tags } = params;
 
   // Validate required parameters

@@ -39,7 +39,9 @@ function createTestStore() {
 /**
  * Helper to create a valid pending event input.
  */
-function createEventInput(overrides: Partial<AddPendingWearEventInput> = {}): AddPendingWearEventInput {
+function createEventInput(
+  overrides: Partial<AddPendingWearEventInput> = {}
+): AddPendingWearEventInput {
   return {
     outfitId: 'outfit-1',
     itemIds: ['item-1', 'item-2'],
@@ -95,20 +97,26 @@ describe('pendingWearEventsSlice', () => {
       it('should add multiple events with different outfitId and wornDate combinations', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-16',
+          })
+        );
 
         const events = store.getState().pendingEvents;
         expect(events).toHaveLength(3);
@@ -117,15 +125,19 @@ describe('pendingWearEventsSlice', () => {
       it('should generate unique localIds for each event', () => {
         const store = createTestStore();
 
-        const localId1 = store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        const localId1 = store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        const localId2 = store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-16',
-        }));
+        const localId2 = store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-16',
+          })
+        );
 
         expect(localId1).not.toBe(localId2);
       });
@@ -160,20 +172,24 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add first event
-        const firstLocalId = store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'First context',
-        }));
+        const firstLocalId = store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'First context',
+          })
+        );
 
         expect(store.getState().pendingEvents).toHaveLength(1);
 
         // Add duplicate (same outfitId + wornDate)
-        const secondLocalId = store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'Updated context',
-        }));
+        const secondLocalId = store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'Updated context',
+          })
+        );
 
         // Should still have only one event
         const events = store.getState().pendingEvents;
@@ -188,64 +204,78 @@ describe('pendingWearEventsSlice', () => {
       it('should not deduplicate events with same outfitId but different wornDate', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-16',
+          })
+        );
 
         const events = store.getState().pendingEvents;
         expect(events).toHaveLength(2);
-        expect(events.map(e => e.wornDate)).toContain('2024-01-15');
-        expect(events.map(e => e.wornDate)).toContain('2024-01-16');
+        expect(events.map((e) => e.wornDate)).toContain('2024-01-15');
+        expect(events.map((e) => e.wornDate)).toContain('2024-01-16');
       });
 
       it('should not deduplicate events with same wornDate but different outfitId', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-15',
+          })
+        );
 
         const events = store.getState().pendingEvents;
         expect(events).toHaveLength(2);
-        expect(events.map(e => e.outfitId)).toContain('outfit-1');
-        expect(events.map(e => e.outfitId)).toContain('outfit-2');
+        expect(events.map((e) => e.outfitId)).toContain('outfit-1');
+        expect(events.map((e) => e.outfitId)).toContain('outfit-2');
       });
 
       it('should reset status and attemptCount when replacing existing event', () => {
         const store = createTestStore();
 
         // Add first event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
         // Simulate the event being marked as failed with retries
         store.getState().markEventSyncing(store.getState().pendingEvents[0].localId);
-        store.getState().markEventFailed(store.getState().pendingEvents[0].localId, 'Network error');
+        store
+          .getState()
+          .markEventFailed(store.getState().pendingEvents[0].localId, 'Network error');
 
         // Verify it's in failed state
         expect(store.getState().pendingEvents[0].status).toBe('failed');
         expect(store.getState().pendingEvents[0].attemptCount).toBe(1);
 
         // Add duplicate - should replace with fresh event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'Retry context',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'Retry context',
+          })
+        );
 
         const event = store.getState().pendingEvents[0];
         expect(event.status).toBe('pending');
@@ -257,25 +287,31 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add initial event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'First',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'First',
+          })
+        );
 
         // Replace it
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'Second',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'Second',
+          })
+        );
 
         // Replace it again
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-          context: 'Third',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+            context: 'Third',
+          })
+        );
 
         const events = store.getState().pendingEvents;
         expect(events).toHaveLength(1);
@@ -286,37 +322,45 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add multiple events
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-16',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-3',
-          wornDate: '2024-01-17',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-3',
+            wornDate: '2024-01-17',
+          })
+        );
 
         expect(store.getState().pendingEvents).toHaveLength(3);
 
         // Replace middle event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-16',
-          context: 'Updated outfit-2',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-16',
+            context: 'Updated outfit-2',
+          })
+        );
 
         const events = store.getState().pendingEvents;
         expect(events).toHaveLength(3);
 
         // Verify all events are present with correct data
-        const outfit1 = events.find(e => e.outfitId === 'outfit-1');
-        const outfit2 = events.find(e => e.outfitId === 'outfit-2');
-        const outfit3 = events.find(e => e.outfitId === 'outfit-3');
+        const outfit1 = events.find((e) => e.outfitId === 'outfit-1');
+        const outfit2 = events.find((e) => e.outfitId === 'outfit-2');
+        const outfit3 = events.find((e) => e.outfitId === 'outfit-3');
 
         expect(outfit1).toBeDefined();
         expect(outfit2).toBeDefined();
@@ -357,10 +401,12 @@ describe('pendingWearEventsSlice', () => {
 
         // Add exactly MAX events
         for (let i = 0; i < MAX_PENDING_WEAR_EVENTS; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+            })
+          );
         }
 
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
@@ -381,34 +427,44 @@ describe('pendingWearEventsSlice', () => {
         // Add MAX events with incrementing timestamps
         for (let i = 0; i < MAX_PENDING_WEAR_EVENTS; i++) {
           mockTime = new Date('2024-01-01T00:00:00.000Z').getTime() + i * 1000; // 1 second apart
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+            })
+          );
         }
 
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
 
         // The first event should be outfit-0
-        const hasOutfit0Before = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-0');
+        const hasOutfit0Before = store
+          .getState()
+          .pendingEvents.some((e) => e.outfitId === 'outfit-0');
         expect(hasOutfit0Before).toBe(true);
 
         // Add one more event (the newest)
         mockTime = new Date('2024-01-01T00:00:00.000Z').getTime() + MAX_PENDING_WEAR_EVENTS * 1000;
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-new',
-          wornDate: '2024-12-31',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-new',
+            wornDate: '2024-12-31',
+          })
+        );
 
         // Should still be at MAX
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
 
         // The oldest event (outfit-0) should have been evicted
-        const hasOutfit0After = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-0');
+        const hasOutfit0After = store
+          .getState()
+          .pendingEvents.some((e) => e.outfitId === 'outfit-0');
         expect(hasOutfit0After).toBe(false);
 
         // The new event should be present
-        const hasNewOutfit = store.getState().pendingEvents.some(e => e.outfitId === 'outfit-new');
+        const hasNewOutfit = store
+          .getState()
+          .pendingEvents.some((e) => e.outfitId === 'outfit-new');
         expect(hasNewOutfit).toBe(true);
 
         // Restore Date
@@ -422,13 +478,17 @@ describe('pendingWearEventsSlice', () => {
         const totalEventsToAdd = MAX_PENDING_WEAR_EVENTS + 20;
 
         for (let i = 0; i < totalEventsToAdd; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+            })
+          );
 
           // Verify at each step that we never exceed the limit
-          expect(store.getState().pendingEvents.length).toBeLessThanOrEqual(MAX_PENDING_WEAR_EVENTS);
+          expect(store.getState().pendingEvents.length).toBeLessThanOrEqual(
+            MAX_PENDING_WEAR_EVENTS
+          );
         }
 
         // Final state should be exactly at the limit
@@ -453,10 +513,12 @@ describe('pendingWearEventsSlice', () => {
         // Add MAX + 5 events
         const totalEvents = MAX_PENDING_WEAR_EVENTS + 5;
         for (let i = 0; i < totalEvents; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+            })
+          );
         }
 
         jest.restoreAllMocks();
@@ -466,13 +528,15 @@ describe('pendingWearEventsSlice', () => {
 
         // The first 5 events (outfit-0 through outfit-4) should have been evicted
         for (let i = 0; i < 5; i++) {
-          const hasOldEvent = store.getState().pendingEvents.some(e => e.outfitId === `outfit-${i}`);
+          const hasOldEvent = store
+            .getState()
+            .pendingEvents.some((e) => e.outfitId === `outfit-${i}`);
           expect(hasOldEvent).toBe(false);
         }
 
         // Events outfit-5 through outfit-(MAX+4) should still be present
         for (let i = 5; i < totalEvents; i++) {
-          const hasEvent = store.getState().pendingEvents.some(e => e.outfitId === `outfit-${i}`);
+          const hasEvent = store.getState().pendingEvents.some((e) => e.outfitId === `outfit-${i}`);
           expect(hasEvent).toBe(true);
         }
       });
@@ -482,29 +546,35 @@ describe('pendingWearEventsSlice', () => {
 
         // Add MAX-1 events
         for (let i = 0; i < MAX_PENDING_WEAR_EVENTS - 1; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-01-${String(i + 1).padStart(2, '0')}`,
+            })
+          );
         }
 
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS - 1);
 
         // Add a duplicate (same outfitId + wornDate as outfit-0)
         // This should replace, not add, so count stays at MAX-1
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-0',
-          wornDate: '2024-01-01',
-          context: 'Updated context',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-0',
+            wornDate: '2024-01-01',
+            context: 'Updated context',
+          })
+        );
 
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS - 1);
 
         // Add one more new event to reach exactly MAX
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-new',
-          wornDate: '2024-12-31',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-new',
+            wornDate: '2024-12-31',
+          })
+        );
 
         expect(store.getState().pendingEvents).toHaveLength(MAX_PENDING_WEAR_EVENTS);
       });
@@ -533,13 +603,15 @@ describe('pendingWearEventsSlice', () => {
 
         // Add MAX + 1 events with specific data
         for (let i = 0; i <= MAX_PENDING_WEAR_EVENTS; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-${i}`,
-            wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
-            itemIds: [`item-${i}-a`, `item-${i}-b`],
-            context: `Context for outfit ${i}`,
-            source: 'ai_recommendation',
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-${i}`,
+              wornDate: `2024-${String(Math.floor(i / 28) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+              itemIds: [`item-${i}-a`, `item-${i}-b`],
+              context: `Context for outfit ${i}`,
+              source: 'ai_recommendation',
+            })
+          );
         }
 
         jest.restoreAllMocks();
@@ -549,9 +621,12 @@ describe('pendingWearEventsSlice', () => {
         expect(events).toHaveLength(MAX_PENDING_WEAR_EVENTS);
 
         // Check a surviving event has all its data intact
-        const lastEvent = events.find(e => e.outfitId === `outfit-${MAX_PENDING_WEAR_EVENTS}`);
+        const lastEvent = events.find((e) => e.outfitId === `outfit-${MAX_PENDING_WEAR_EVENTS}`);
         expect(lastEvent).toBeDefined();
-        expect(lastEvent?.itemIds).toEqual([`item-${MAX_PENDING_WEAR_EVENTS}-a`, `item-${MAX_PENDING_WEAR_EVENTS}-b`]);
+        expect(lastEvent?.itemIds).toEqual([
+          `item-${MAX_PENDING_WEAR_EVENTS}-a`,
+          `item-${MAX_PENDING_WEAR_EVENTS}-b`,
+        ]);
         expect(lastEvent?.context).toBe(`Context for outfit ${MAX_PENDING_WEAR_EVENTS}`);
         expect(lastEvent?.source).toBe('ai_recommendation');
         expect(lastEvent?.status).toBe('pending');
@@ -598,9 +673,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should reset syncing status to pending on rehydration', () => {
         const validState = {
-          pendingEvents: [
-            createValidPendingEvent({ status: 'syncing' }),
-          ],
+          pendingEvents: [createValidPendingEvent({ status: 'syncing' })],
         };
 
         const result = validatePersistedPendingEventsState(validState);
@@ -610,9 +683,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should preserve pending status on rehydration', () => {
         const validState = {
-          pendingEvents: [
-            createValidPendingEvent({ status: 'pending' }),
-          ],
+          pendingEvents: [createValidPendingEvent({ status: 'pending' })],
         };
 
         const result = validatePersistedPendingEventsState(validState);
@@ -622,9 +693,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should preserve failed status on rehydration', () => {
         const validState = {
-          pendingEvents: [
-            createValidPendingEvent({ status: 'failed' }),
-          ],
+          pendingEvents: [createValidPendingEvent({ status: 'failed' })],
         };
 
         const result = validatePersistedPendingEventsState(validState);
@@ -705,9 +774,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should filter out events with missing localId', () => {
         const invalidState = {
-          pendingEvents: [
-            { ...createValidPendingEvent(), localId: undefined },
-          ],
+          pendingEvents: [{ ...createValidPendingEvent(), localId: undefined }],
         };
 
         const result = validatePersistedPendingEventsState(invalidState);
@@ -717,9 +784,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should filter out events with missing outfitId', () => {
         const invalidState = {
-          pendingEvents: [
-            { ...createValidPendingEvent(), outfitId: undefined },
-          ],
+          pendingEvents: [{ ...createValidPendingEvent(), outfitId: undefined }],
         };
 
         const result = validatePersistedPendingEventsState(invalidState);
@@ -729,9 +794,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should filter out events with invalid source', () => {
         const invalidState = {
-          pendingEvents: [
-            { ...createValidPendingEvent(), source: 'invalid_source' },
-          ],
+          pendingEvents: [{ ...createValidPendingEvent(), source: 'invalid_source' }],
         };
 
         const result = validatePersistedPendingEventsState(invalidState);
@@ -741,9 +804,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should filter out events with invalid status', () => {
         const invalidState = {
-          pendingEvents: [
-            { ...createValidPendingEvent(), status: 'invalid_status' },
-          ],
+          pendingEvents: [{ ...createValidPendingEvent(), status: 'invalid_status' }],
         };
 
         const result = validatePersistedPendingEventsState(invalidState);
@@ -753,9 +814,7 @@ describe('pendingWearEventsSlice', () => {
 
       it('should filter out events with non-array itemIds', () => {
         const invalidState = {
-          pendingEvents: [
-            { ...createValidPendingEvent(), itemIds: 'not-an-array' },
-          ],
+          pendingEvents: [{ ...createValidPendingEvent(), itemIds: 'not-an-array' }],
         };
 
         const result = validatePersistedPendingEventsState(invalidState);
@@ -775,7 +834,7 @@ describe('pendingWearEventsSlice', () => {
         const result = validatePersistedPendingEventsState(mixedState);
 
         expect(result.pendingEvents).toHaveLength(2);
-        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+        expect(result.pendingEvents.map((e) => e.localId)).toEqual(['valid-1', 'valid-2']);
       });
     });
   });
@@ -785,33 +844,41 @@ describe('pendingWearEventsSlice', () => {
       it('should return events for specific outfit', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-16',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-15',
+          })
+        );
 
         const outfit1Events = store.getState().getPendingEventsForOutfit('outfit-1');
         expect(outfit1Events).toHaveLength(2);
-        expect(outfit1Events.every(e => e.outfitId === 'outfit-1')).toBe(true);
+        expect(outfit1Events.every((e) => e.outfitId === 'outfit-1')).toBe(true);
       });
 
       it('should return empty array if no events for outfit', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
         const events = store.getState().getPendingEventsForOutfit('outfit-nonexistent');
         expect(events).toHaveLength(0);
@@ -822,10 +889,12 @@ describe('pendingWearEventsSlice', () => {
       it('should return true if outfit has pending events', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
         expect(store.getState().hasPendingEventsForOutfit('outfit-1')).toBe(true);
       });
@@ -833,10 +902,12 @@ describe('pendingWearEventsSlice', () => {
       it('should return false if outfit has no pending events', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
         expect(store.getState().hasPendingEventsForOutfit('outfit-2')).toBe(false);
       });
@@ -863,15 +934,19 @@ describe('pendingWearEventsSlice', () => {
       it('should not affect other events when removing', () => {
         const store = createTestStore();
 
-        const localId1 = store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        const localId1 = store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-16',
+          })
+        );
 
         store.getState().removePendingEvent(localId1);
 
@@ -885,15 +960,19 @@ describe('pendingWearEventsSlice', () => {
       it('should remove events matching outfitId and wornDate', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-16',
+          })
+        );
 
         store.getState().removePendingEventsForOutfitDate('outfit-1', '2024-01-15');
 
@@ -907,15 +986,19 @@ describe('pendingWearEventsSlice', () => {
       it('should remove all events from queue', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-15',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-16',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-16',
+          })
+        );
 
         expect(store.getState().pendingEvents).toHaveLength(2);
 
@@ -981,15 +1064,17 @@ describe('pendingWearEventsSlice', () => {
         const originalToISOString = Date.prototype.toISOString;
 
         // Create an event with a timestamp 8 days ago (older than 7-day threshold)
-        const eightDaysAgo = Date.now() - (8 * 24 * 60 * 60 * 1000);
+        const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(eightDaysAgo));
         });
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-outfit',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-outfit',
+            wornDate: '2024-01-01',
+          })
+        );
 
         jest.restoreAllMocks();
 
@@ -1009,15 +1094,17 @@ describe('pendingWearEventsSlice', () => {
         const originalToISOString = Date.prototype.toISOString;
 
         // Create an event with a timestamp 1 day ago (well within 7-day threshold)
-        const oneDayAgo = Date.now() - (1 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = Date.now() - 1 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(oneDayAgo));
         });
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'fresh-outfit',
-          wornDate: '2024-01-15',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'fresh-outfit',
+            wornDate: '2024-01-15',
+          })
+        );
 
         jest.restoreAllMocks();
 
@@ -1038,37 +1125,43 @@ describe('pendingWearEventsSlice', () => {
         const originalToISOString = Date.prototype.toISOString;
 
         // Create events with timestamps 10 days ago
-        const tenDaysAgo = Date.now() - (10 * 24 * 60 * 60 * 1000);
+        const tenDaysAgo = Date.now() - 10 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(tenDaysAgo));
         });
 
         // Add pending event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-pending',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-pending',
+            wornDate: '2024-01-01',
+          })
+        );
 
         // Add syncing event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-syncing',
-          wornDate: '2024-01-02',
-        }));
-        const syncingLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'stale-syncing'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-syncing',
+            wornDate: '2024-01-02',
+          })
+        );
+        const syncingLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'stale-syncing')?.localId;
         if (syncingLocalId) {
           store.getState().markEventSyncing(syncingLocalId);
         }
 
         // Add failed event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-failed',
-          wornDate: '2024-01-03',
-        }));
-        const failedLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'stale-failed'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-failed',
+            wornDate: '2024-01-03',
+          })
+        );
+        const failedLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'stale-failed')?.localId;
         if (failedLocalId) {
           store.getState().markEventSyncing(failedLocalId);
           store.getState().markEventFailed(failedLocalId, 'Network error');
@@ -1079,7 +1172,7 @@ describe('pendingWearEventsSlice', () => {
         expect(store.getState().pendingEvents).toHaveLength(3);
 
         // Verify we have all three statuses
-        const statuses = store.getState().pendingEvents.map(e => e.status);
+        const statuses = store.getState().pendingEvents.map((e) => e.status);
         expect(statuses).toContain('pending');
         expect(statuses).toContain('syncing');
         expect(statuses).toContain('failed');
@@ -1107,10 +1200,12 @@ describe('pendingWearEventsSlice', () => {
           return originalToISOString.call(new Date(justOverThreshold));
         });
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'threshold-outfit',
-          wornDate: '2024-01-08',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'threshold-outfit',
+            wornDate: '2024-01-08',
+          })
+        );
 
         // Restore toISOString but keep Date.now mocked
         jest.spyOn(Date.prototype, 'toISOString').mockRestore();
@@ -1137,15 +1232,17 @@ describe('pendingWearEventsSlice', () => {
         jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
         // Create event at STALE_EVENT_AGE_MS - 1 hour ago (just under threshold)
-        const justUnderThreshold = fixedNow - STALE_EVENT_AGE_MS + (60 * 60 * 1000);
+        const justUnderThreshold = fixedNow - STALE_EVENT_AGE_MS + 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(justUnderThreshold));
         });
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'threshold-outfit',
-          wornDate: '2024-01-08',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'threshold-outfit',
+            wornDate: '2024-01-08',
+          })
+        );
 
         // Restore toISOString but keep Date.now mocked
         jest.spyOn(Date.prototype, 'toISOString').mockRestore();
@@ -1173,44 +1270,52 @@ describe('pendingWearEventsSlice', () => {
         jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
         // Add a stale event (10 days old)
-        const tenDaysAgo = fixedNow - (10 * 24 * 60 * 60 * 1000);
+        const tenDaysAgo = fixedNow - 10 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(tenDaysAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-outfit-1',
-          wornDate: '2024-01-05',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-outfit-1',
+            wornDate: '2024-01-05',
+          })
+        );
 
         // Add a fresh event (1 day old)
-        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = fixedNow - 1 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(oneDayAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'fresh-outfit-1',
-          wornDate: '2024-01-14',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'fresh-outfit-1',
+            wornDate: '2024-01-14',
+          })
+        );
 
         // Add another stale event (8 days old)
-        const eightDaysAgo = fixedNow - (8 * 24 * 60 * 60 * 1000);
+        const eightDaysAgo = fixedNow - 8 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(eightDaysAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-outfit-2',
-          wornDate: '2024-01-07',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-outfit-2',
+            wornDate: '2024-01-07',
+          })
+        );
 
         // Add another fresh event (3 days old)
-        const threeDaysAgo = fixedNow - (3 * 24 * 60 * 60 * 1000);
+        const threeDaysAgo = fixedNow - 3 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(threeDaysAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'fresh-outfit-2',
-          wornDate: '2024-01-12',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'fresh-outfit-2',
+            wornDate: '2024-01-12',
+          })
+        );
 
         // Restore toISOString but keep Date.now mocked
         jest.spyOn(Date.prototype, 'toISOString').mockRestore();
@@ -1223,7 +1328,7 @@ describe('pendingWearEventsSlice', () => {
         // Only fresh events should remain
         expect(store.getState().pendingEvents).toHaveLength(2);
 
-        const remainingOutfitIds = store.getState().pendingEvents.map(e => e.outfitId);
+        const remainingOutfitIds = store.getState().pendingEvents.map((e) => e.outfitId);
         expect(remainingOutfitIds).toContain('fresh-outfit-1');
         expect(remainingOutfitIds).toContain('fresh-outfit-2');
         expect(remainingOutfitIds).not.toContain('stale-outfit-1');
@@ -1261,35 +1366,39 @@ describe('pendingWearEventsSlice', () => {
         jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
         // Add a stale event to ensure pruning runs
-        const tenDaysAgo = fixedNow - (10 * 24 * 60 * 60 * 1000);
+        const tenDaysAgo = fixedNow - 10 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(tenDaysAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'stale-outfit',
-          wornDate: '2024-01-05',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'stale-outfit',
+            wornDate: '2024-01-05',
+          })
+        );
 
         // Add a fresh event with specific data
-        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = fixedNow - 1 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(oneDayAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'fresh-outfit',
-          wornDate: '2024-01-14',
-          itemIds: ['item-a', 'item-b', 'item-c'],
-          context: 'Special occasion',
-          source: 'saved_outfit',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'fresh-outfit',
+            wornDate: '2024-01-14',
+            itemIds: ['item-a', 'item-b', 'item-c'],
+            context: 'Special occasion',
+            source: 'saved_outfit',
+          })
+        );
 
         // Restore toISOString but keep Date.now mocked
         jest.spyOn(Date.prototype, 'toISOString').mockRestore();
 
         // Mark the fresh event as syncing then failed to test all data preserved
-        const freshEvent = store.getState().pendingEvents.find(
-          e => e.outfitId === 'fresh-outfit'
-        );
+        const freshEvent = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'fresh-outfit');
         if (freshEvent) {
           store.getState().markEventSyncing(freshEvent.localId);
           store.getState().markEventFailed(freshEvent.localId, 'Server error');
@@ -1328,14 +1437,16 @@ describe('pendingWearEventsSlice', () => {
 
         // Create an event with a recent createdAt but an old wornDate
         // This simulates marking an old date as worn recently
-        const oneDayAgo = fixedNow - (1 * 24 * 60 * 60 * 1000);
+        const oneDayAgo = fixedNow - 1 * 24 * 60 * 60 * 1000;
         jest.spyOn(Date.prototype, 'toISOString').mockImplementation(function () {
           return originalToISOString.call(new Date(oneDayAgo));
         });
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'recent-creation-old-worndate',
-          wornDate: '2023-06-15', // Very old worn date, but created recently
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'recent-creation-old-worndate',
+            wornDate: '2023-06-15', // Very old worn date, but created recently
+          })
+        );
 
         // Restore toISOString but keep Date.now mocked
         jest.spyOn(Date.prototype, 'toISOString').mockRestore();
@@ -1541,14 +1652,14 @@ describe('pendingWearEventsSlice', () => {
         expect(result.pendingEvents).toHaveLength(4);
 
         // Verify status transformations
-        const event1 = result.pendingEvents.find(e => e.localId === 'event-1');
-        const event2 = result.pendingEvents.find(e => e.localId === 'event-2');
-        const event3 = result.pendingEvents.find(e => e.localId === 'event-3');
-        const event4 = result.pendingEvents.find(e => e.localId === 'event-4');
+        const event1 = result.pendingEvents.find((e) => e.localId === 'event-1');
+        const event2 = result.pendingEvents.find((e) => e.localId === 'event-2');
+        const event3 = result.pendingEvents.find((e) => e.localId === 'event-3');
+        const event4 = result.pendingEvents.find((e) => e.localId === 'event-4');
 
         expect(event1?.status).toBe('pending'); // Preserved
         expect(event2?.status).toBe('pending'); // Reset from syncing
-        expect(event3?.status).toBe('failed');  // Preserved
+        expect(event3?.status).toBe('failed'); // Preserved
         expect(event4?.status).toBe('pending'); // Reset from syncing
       });
     });
@@ -1747,7 +1858,11 @@ describe('pendingWearEventsSlice', () => {
         const result = validatePersistedPendingEventsState(persistedState);
 
         expect(result.pendingEvents).toHaveLength(3);
-        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2', 'valid-3']);
+        expect(result.pendingEvents.map((e) => e.localId)).toEqual([
+          'valid-1',
+          'valid-2',
+          'valid-3',
+        ]);
       });
     });
 
@@ -1861,7 +1976,7 @@ describe('pendingWearEventsSlice', () => {
 
         // Only valid events should remain
         expect(result.pendingEvents).toHaveLength(2);
-        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+        expect(result.pendingEvents.map((e) => e.localId)).toEqual(['valid-1', 'valid-2']);
       });
 
       it('should handle pendingEvents containing undefined elements', () => {
@@ -1877,7 +1992,7 @@ describe('pendingWearEventsSlice', () => {
 
         // Only valid events should remain
         expect(result.pendingEvents).toHaveLength(2);
-        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+        expect(result.pendingEvents.map((e) => e.localId)).toEqual(['valid-1', 'valid-2']);
       });
 
       it('should handle pendingEvents containing primitive values', () => {
@@ -1895,7 +2010,7 @@ describe('pendingWearEventsSlice', () => {
 
         // Only valid events should remain
         expect(result.pendingEvents).toHaveLength(2);
-        expect(result.pendingEvents.map(e => e.localId)).toEqual(['valid-1', 'valid-2']);
+        expect(result.pendingEvents.map((e) => e.localId)).toEqual(['valid-1', 'valid-2']);
       });
     });
 
@@ -2128,19 +2243,23 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add a pending event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-01',
+          })
+        );
 
         // Add a failed event with attemptCount < MAX_SYNC_ATTEMPTS
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-02',
-        }));
-        const failedLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-2'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-02',
+          })
+        );
+        const failedLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-2')?.localId;
         if (failedLocalId) {
           store.getState().markEventSyncing(failedLocalId);
           store.getState().markEventFailed(failedLocalId, 'Network error');
@@ -2154,10 +2273,12 @@ describe('pendingWearEventsSlice', () => {
       it('should return events with status failed and attemptCount >= MAX_SYNC_ATTEMPTS', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2178,10 +2299,12 @@ describe('pendingWearEventsSlice', () => {
       it('should not include failed events with attemptCount < MAX_SYNC_ATTEMPTS', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retryable',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retryable',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2203,19 +2326,23 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add pending event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-pending',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-pending',
+            wornDate: '2024-01-01',
+          })
+        );
 
         // Add syncing event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-syncing',
-          wornDate: '2024-01-02',
-        }));
-        const syncingLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-syncing'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-syncing',
+            wornDate: '2024-01-02',
+          })
+        );
+        const syncingLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing')?.localId;
         if (syncingLocalId) {
           // Mark syncing 3 times to get attemptCount = 3
           for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
@@ -2224,9 +2351,9 @@ describe('pendingWearEventsSlice', () => {
         }
 
         // Verify attemptCount is at MAX but status is syncing
-        const syncingEvent = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-syncing'
-        );
+        const syncingEvent = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing');
         expect(syncingEvent?.attemptCount).toBe(MAX_SYNC_ATTEMPTS);
         expect(syncingEvent?.status).toBe('syncing');
 
@@ -2240,14 +2367,16 @@ describe('pendingWearEventsSlice', () => {
 
         // Create 3 permanently failed events
         for (let i = 1; i <= 3; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-perm-failed-${i}`,
-            wornDate: `2024-01-0${i}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-perm-failed-${i}`,
+              wornDate: `2024-01-0${i}`,
+            })
+          );
 
-          const localId = store.getState().pendingEvents.find(
-            e => e.outfitId === `outfit-perm-failed-${i}`
-          )?.localId;
+          const localId = store
+            .getState()
+            .pendingEvents.find((e) => e.outfitId === `outfit-perm-failed-${i}`)?.localId;
 
           if (localId) {
             for (let j = 0; j < MAX_SYNC_ATTEMPTS; j++) {
@@ -2260,7 +2389,7 @@ describe('pendingWearEventsSlice', () => {
         const permanentlyFailed = store.getState().getPermanentlyFailedEvents();
 
         expect(permanentlyFailed).toHaveLength(3);
-        expect(permanentlyFailed.map(e => e.outfitId)).toEqual([
+        expect(permanentlyFailed.map((e) => e.outfitId)).toEqual([
           'outfit-perm-failed-1',
           'outfit-perm-failed-2',
           'outfit-perm-failed-3',
@@ -2270,10 +2399,12 @@ describe('pendingWearEventsSlice', () => {
       it('should include events with attemptCount > MAX_SYNC_ATTEMPTS', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-over-max',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-over-max',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2303,18 +2434,22 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add pending and retryable failed events
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-1',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-1',
+            wornDate: '2024-01-01',
+          })
+        );
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-2',
-          wornDate: '2024-01-02',
-        }));
-        const localId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-2'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-2',
+            wornDate: '2024-01-02',
+          })
+        );
+        const localId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-2')?.localId;
         if (localId) {
           store.getState().markEventSyncing(localId);
           store.getState().markEventFailed(localId, 'Retryable error');
@@ -2326,10 +2461,12 @@ describe('pendingWearEventsSlice', () => {
       it('should return true when at least one event is permanently failed', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2344,10 +2481,12 @@ describe('pendingWearEventsSlice', () => {
       it('should return false for failed events under MAX_SYNC_ATTEMPTS', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retryable',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retryable',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2365,10 +2504,12 @@ describe('pendingWearEventsSlice', () => {
       it('should reset permanently failed events to pending with attemptCount 0', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2392,10 +2533,12 @@ describe('pendingWearEventsSlice', () => {
       it('should clear lastError and lastAttemptAt on retry', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2420,31 +2563,37 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add a pending event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-pending',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-pending',
+            wornDate: '2024-01-01',
+          })
+        );
 
         // Add a syncing event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-syncing',
-          wornDate: '2024-01-02',
-        }));
-        const syncingLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-syncing'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-syncing',
+            wornDate: '2024-01-02',
+          })
+        );
+        const syncingLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing')?.localId;
         if (syncingLocalId) {
           store.getState().markEventSyncing(syncingLocalId);
         }
 
         // Add a permanently failed event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-03',
-        }));
-        const permFailedLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-perm-failed'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-03',
+          })
+        );
+        const permFailedLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-perm-failed')?.localId;
         if (permFailedLocalId) {
           for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
             store.getState().markEventSyncing(permFailedLocalId);
@@ -2453,8 +2602,12 @@ describe('pendingWearEventsSlice', () => {
         }
 
         // Get statuses before retry
-        const pendingEvent = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-pending');
-        const syncingEvent = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-syncing');
+        const pendingEvent = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-pending');
+        const syncingEvent = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing');
 
         expect(pendingEvent?.status).toBe('pending');
         expect(pendingEvent?.attemptCount).toBe(0);
@@ -2465,8 +2618,12 @@ describe('pendingWearEventsSlice', () => {
         store.getState().retryPermanentlyFailedEvents();
 
         // Verify pending and syncing events are unchanged
-        const pendingAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-pending');
-        const syncingAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-syncing');
+        const pendingAfter = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-pending');
+        const syncingAfter = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing');
 
         expect(pendingAfter?.status).toBe('pending');
         expect(pendingAfter?.attemptCount).toBe(0);
@@ -2474,7 +2631,9 @@ describe('pendingWearEventsSlice', () => {
         expect(syncingAfter?.attemptCount).toBe(1);
 
         // Verify permanently failed event was reset
-        const permFailedAfter = store.getState().pendingEvents.find(e => e.outfitId === 'outfit-perm-failed');
+        const permFailedAfter = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-perm-failed');
         expect(permFailedAfter?.status).toBe('pending');
         expect(permFailedAfter?.attemptCount).toBe(0);
       });
@@ -2483,10 +2642,12 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add a retryable failed event (2 attempts)
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retryable',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retryable',
+            wornDate: '2024-01-01',
+          })
+        );
         const retryableLocalId = store.getState().pendingEvents[0].localId;
         store.getState().markEventSyncing(retryableLocalId);
         store.getState().markEventFailed(retryableLocalId, 'First failure');
@@ -2510,14 +2671,16 @@ describe('pendingWearEventsSlice', () => {
 
         // Create 3 permanently failed events
         for (let i = 1; i <= 3; i++) {
-          store.getState().addPendingWearEvent(createEventInput({
-            outfitId: `outfit-perm-failed-${i}`,
-            wornDate: `2024-01-0${i}`,
-          }));
+          store.getState().addPendingWearEvent(
+            createEventInput({
+              outfitId: `outfit-perm-failed-${i}`,
+              wornDate: `2024-01-0${i}`,
+            })
+          );
 
-          const localId = store.getState().pendingEvents.find(
-            e => e.outfitId === `outfit-perm-failed-${i}`
-          )?.localId;
+          const localId = store
+            .getState()
+            .pendingEvents.find((e) => e.outfitId === `outfit-perm-failed-${i}`)?.localId;
 
           if (localId) {
             for (let j = 0; j < MAX_SYNC_ATTEMPTS; j++) {
@@ -2535,7 +2698,7 @@ describe('pendingWearEventsSlice', () => {
         // All should be reset
         expect(store.getState().getPermanentlyFailedEvents()).toHaveLength(0);
 
-        store.getState().pendingEvents.forEach(event => {
+        store.getState().pendingEvents.forEach((event) => {
           expect(event.status).toBe('pending');
           expect(event.attemptCount).toBe(0);
           expect(event.lastError).toBeUndefined();
@@ -2546,13 +2709,15 @@ describe('pendingWearEventsSlice', () => {
       it('should preserve other event data when retrying', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-with-data',
-          wornDate: '2024-01-15',
-          itemIds: ['item-a', 'item-b', 'item-c'],
-          context: 'Special occasion',
-          source: 'saved_outfit',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-with-data',
+            wornDate: '2024-01-15',
+            itemIds: ['item-a', 'item-b', 'item-c'],
+            context: 'Special occasion',
+            source: 'saved_outfit',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
         const originalCreatedAt = store.getState().pendingEvents[0].createdAt;
@@ -2580,10 +2745,12 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add a permanently failed event
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-01',
+          })
+        );
         const localId = store.getState().pendingEvents[0].localId;
         for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
           store.getState().markEventSyncing(localId);
@@ -2598,10 +2765,12 @@ describe('pendingWearEventsSlice', () => {
       it('should include failed events under MAX_SYNC_ATTEMPTS in retryable events', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retryable',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retryable',
+            wornDate: '2024-01-01',
+          })
+        );
         const localId = store.getState().pendingEvents[0].localId;
         store.getState().markEventSyncing(localId);
         store.getState().markEventFailed(localId, 'First failure');
@@ -2617,10 +2786,12 @@ describe('pendingWearEventsSlice', () => {
       it('should include pending events in retryable events', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-pending',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-pending',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const retryable = store.getState().getRetryableEvents();
 
@@ -2632,32 +2803,38 @@ describe('pendingWearEventsSlice', () => {
         const store = createTestStore();
 
         // Add pending event (retryable)
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-pending',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-pending',
+            wornDate: '2024-01-01',
+          })
+        );
 
         // Add retryable failed event (retryable)
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retryable-failed',
-          wornDate: '2024-01-02',
-        }));
-        const retryableLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-retryable-failed'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retryable-failed',
+            wornDate: '2024-01-02',
+          })
+        );
+        const retryableLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-retryable-failed')?.localId;
         if (retryableLocalId) {
           store.getState().markEventSyncing(retryableLocalId);
           store.getState().markEventFailed(retryableLocalId, 'Error');
         }
 
         // Add permanently failed event (not retryable)
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-perm-failed',
-          wornDate: '2024-01-03',
-        }));
-        const permFailedLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-perm-failed'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-perm-failed',
+            wornDate: '2024-01-03',
+          })
+        );
+        const permFailedLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-perm-failed')?.localId;
         if (permFailedLocalId) {
           for (let i = 0; i < MAX_SYNC_ATTEMPTS; i++) {
             store.getState().markEventSyncing(permFailedLocalId);
@@ -2666,13 +2843,15 @@ describe('pendingWearEventsSlice', () => {
         }
 
         // Add syncing event (not retryable - currently being synced)
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-syncing',
-          wornDate: '2024-01-04',
-        }));
-        const syncingLocalId = store.getState().pendingEvents.find(
-          e => e.outfitId === 'outfit-syncing'
-        )?.localId;
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-syncing',
+            wornDate: '2024-01-04',
+          })
+        );
+        const syncingLocalId = store
+          .getState()
+          .pendingEvents.find((e) => e.outfitId === 'outfit-syncing')?.localId;
         if (syncingLocalId) {
           store.getState().markEventSyncing(syncingLocalId);
         }
@@ -2680,7 +2859,7 @@ describe('pendingWearEventsSlice', () => {
         const retryable = store.getState().getRetryableEvents();
 
         expect(retryable).toHaveLength(2);
-        const retryableOutfitIds = retryable.map(e => e.outfitId);
+        const retryableOutfitIds = retryable.map((e) => e.outfitId);
         expect(retryableOutfitIds).toContain('outfit-pending');
         expect(retryableOutfitIds).toContain('outfit-retryable-failed');
         expect(retryableOutfitIds).not.toContain('outfit-perm-failed');
@@ -2692,10 +2871,12 @@ describe('pendingWearEventsSlice', () => {
       it('should transition event to permanently failed after MAX_SYNC_ATTEMPTS failures', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-lifecycle',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-lifecycle',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2734,10 +2915,12 @@ describe('pendingWearEventsSlice', () => {
       it('should allow permanently failed events to be retried and fail again', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-retry-cycle',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-retry-cycle',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 
@@ -2771,10 +2954,12 @@ describe('pendingWearEventsSlice', () => {
       it('should allow event to succeed after retry', () => {
         const store = createTestStore();
 
-        store.getState().addPendingWearEvent(createEventInput({
-          outfitId: 'outfit-eventual-success',
-          wornDate: '2024-01-01',
-        }));
+        store.getState().addPendingWearEvent(
+          createEventInput({
+            outfitId: 'outfit-eventual-success',
+            wornDate: '2024-01-01',
+          })
+        );
 
         const localId = store.getState().pendingEvents[0].localId;
 

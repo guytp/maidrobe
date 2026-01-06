@@ -63,25 +63,42 @@ if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /han
   fail('handleTakePhoto function not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /handleChooseGallery/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /handleChooseGallery/)
+) {
   pass('handleChooseGallery function exists');
 } else {
   fail('handleChooseGallery function not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.isAvailable/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.isAvailable/
+  )
+) {
   pass('Camera availability check exists');
 } else {
   fail('Camera availability check not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /screens\.capture\.choiceTitle/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /screens\.capture\.choiceTitle/
+  )
+) {
   pass('Title text exists');
 } else {
   fail('Title text not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /screens\.capture\.guidance/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /screens\.capture\.guidance/
+  )
+) {
   pass('Guidance text exists');
 } else {
   fail('Guidance text not found');
@@ -104,7 +121,12 @@ if (checkFileExists('src/features/wardrobe/components/CaptureCameraScreen.tsx'))
   fail('CaptureCameraScreen.tsx not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /from 'expo-camera'/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureCameraScreen.tsx',
+    /from 'expo-camera'/
+  )
+) {
   pass('expo-camera imported');
 } else {
   fail('expo-camera not imported');
@@ -116,13 +138,17 @@ if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx'
   fail('CameraView component not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleCapture/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleCapture/)
+) {
   pass('handleCapture function exists');
 } else {
   fail('handleCapture function not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleFlashToggle/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleFlashToggle/)
+) {
   pass('Flash toggle function exists');
 } else {
   fail('Flash toggle function not found');
@@ -140,7 +166,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx'
   fail('Guidance text overlay not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /shutterButton/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /shutterButton/)
+) {
   pass('Shutter button styled');
 } else {
   fail('Shutter button not found');
@@ -157,31 +185,56 @@ console.log('');
 // Section 3: Permission-Aware Behavior
 console.log('[3] PERMISSION-AWARE BEHAVIOR\n');
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.status === 'granted'/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.status === 'granted'/
+  )
+) {
   pass('Permission granted state handled');
 } else {
   fail('Permission granted state not handled');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.status === 'blocked'/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.status === 'blocked'/
+  )
+) {
   pass('Permission blocked state handled');
 } else {
   fail('Permission blocked state not handled');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.status === 'denied'/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.status === 'denied'/
+  )
+) {
   pass('Permission denied state handled');
 } else {
   fail('Permission denied state not handled');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.openSettings/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.openSettings/
+  )
+) {
   pass('Open settings function used');
 } else {
   fail('Open settings not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /permissions\.camera\.request/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureScreen.tsx',
+    /permissions\.camera\.request/
+  )
+) {
   pass('Permission request function used');
 } else {
   fail('Permission request not found');
@@ -204,13 +257,17 @@ if (checkFileExists('src/features/wardrobe/hooks/useGalleryPicker.ts')) {
   fail('useGalleryPicker hook not found');
 }
 
-if (checkFileContains('src/features/wardrobe/hooks/useGalleryPicker.ts', /from 'expo-image-picker'/)) {
+if (
+  checkFileContains('src/features/wardrobe/hooks/useGalleryPicker.ts', /from 'expo-image-picker'/)
+) {
   pass('expo-image-picker imported');
 } else {
   fail('expo-image-picker not imported');
 }
 
-if (checkFileContains('src/features/wardrobe/hooks/useGalleryPicker.ts', /launchImageLibraryAsync/)) {
+if (
+  checkFileContains('src/features/wardrobe/hooks/useGalleryPicker.ts', /launchImageLibraryAsync/)
+) {
   pass('launchImageLibraryAsync used');
 } else {
   fail('launchImageLibraryAsync not found');
@@ -234,7 +291,9 @@ if (checkFileExists('src/features/wardrobe/hooks/useGallerySelection.ts')) {
   fail('useGallerySelection hook not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleGallery/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleGallery/)
+) {
   pass('In-camera gallery shortcut exists');
 } else {
   fail('In-camera gallery shortcut not found');
@@ -251,19 +310,31 @@ if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /acc
   fail('CaptureScreen missing accessibility labels');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /accessibilityLabel/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureCameraScreen.tsx',
+    /accessibilityLabel/
+  )
+) {
   pass('CaptureCameraScreen has accessibility labels');
 } else {
   fail('CaptureCameraScreen missing accessibility labels');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /accessibilityRole/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /accessibilityRole/)
+) {
   pass('Accessibility roles defined');
 } else {
   fail('Accessibility roles not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /minWidth: 44|minHeight: 44/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureCameraScreen.tsx',
+    /minWidth: 44|minHeight: 44/
+  )
+) {
   pass('Minimum tap target sizes met');
 } else {
   fail('Minimum tap target sizes not met');
@@ -275,7 +346,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /use
   fail('Dark mode support not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /maxFontSizeMultiplier/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /maxFontSizeMultiplier/)
+) {
   pass('Large text support configured');
 } else {
   fail('Large text support not configured');
@@ -292,7 +365,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx'
   fail('Error message state not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleCameraError/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /handleCameraError/)
+) {
   pass('Camera error handler exists');
 } else {
   fail('Camera error handler not found');
@@ -316,7 +391,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx'
   fail('Error overlay not found');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /processingOverlay/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /processingOverlay/)
+) {
   pass('Processing overlay exists');
 } else {
   fail('Processing overlay not found');
@@ -333,13 +410,20 @@ console.log('');
 // Section 7: Code Quality
 console.log('[7] CODE QUALITY AND ARCHITECTURE\n');
 
-if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /useCapturePermissions/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /useCapturePermissions/)
+) {
   pass('Permission hook integrated in CaptureScreen');
 } else {
   fail('Permission hook not integrated in CaptureScreen');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /useCapturePermissions/)) {
+if (
+  checkFileContains(
+    'src/features/wardrobe/components/CaptureCameraScreen.tsx',
+    /useCapturePermissions/
+  )
+) {
   pass('Permission hook integrated in CaptureCameraScreen');
 } else {
   fail('Permission hook not integrated in CaptureCameraScreen');
@@ -351,7 +435,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /use
   fail('Gallery picker hook not integrated in CaptureScreen');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /useGalleryPicker/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /useGalleryPicker/)
+) {
   pass('Gallery picker hook integrated in CaptureCameraScreen');
 } else {
   fail('Gallery picker hook not integrated in CaptureCameraScreen');
@@ -363,7 +449,9 @@ if (checkFileContains('src/features/wardrobe/components/CaptureScreen.tsx', /tra
   fail('Telemetry not integrated in CaptureScreen');
 }
 
-if (checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /trackCaptureEvent/)) {
+if (
+  checkFileContains('src/features/wardrobe/components/CaptureCameraScreen.tsx', /trackCaptureEvent/)
+) {
   pass('Telemetry integrated in CaptureCameraScreen');
 } else {
   fail('Telemetry not integrated in CaptureCameraScreen');

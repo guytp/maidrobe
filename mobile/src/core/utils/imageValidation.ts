@@ -139,9 +139,7 @@ export function validateCapturedImage(
  * @param error - Error code from validation result
  * @returns User-friendly error message
  */
-export function getValidationErrorMessage(
-  error: ImageValidationResult['error']
-): string {
+export function getValidationErrorMessage(error: ImageValidationResult['error']): string {
   switch (error) {
     case 'invalid_uri':
       return 'The image could not be accessed. Please try again.';

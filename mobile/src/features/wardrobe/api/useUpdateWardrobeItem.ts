@@ -172,12 +172,12 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
         const latency = Date.now() - startTime;
 
         // Determine what changed for telemetry
-        const nameChanged = params.originalName !== undefined
-          ? params.name !== params.originalName
-          : true; // If original not provided, assume changed
-        const tagsChanged = params.originalTags !== undefined
-          ? JSON.stringify(params.tags) !== JSON.stringify(params.originalTags)
-          : true; // If original not provided, assume changed
+        const nameChanged =
+          params.originalName !== undefined ? params.name !== params.originalName : true; // If original not provided, assume changed
+        const tagsChanged =
+          params.originalTags !== undefined
+            ? JSON.stringify(params.tags) !== JSON.stringify(params.originalTags)
+            : true; // If original not provided, assume changed
 
         // Legacy event for backward compatibility
         trackCaptureEvent('wardrobe_item_updated', {
@@ -223,10 +223,7 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
     onSuccess: (data, variables) => {
       // Update the detail query cache with server response
       if (userId) {
-        queryClient.setQueryData(
-          wardrobeItemsQueryKey.detail(userId, variables.itemId),
-          data
-        );
+        queryClient.setQueryData(wardrobeItemsQueryKey.detail(userId, variables.itemId), data);
 
         // Invalidate all user's wardrobe queries to ensure grid shows fresh data
         // This triggers a refetch when user navigates back to the grid
@@ -236,11 +233,7 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
           predicate: (query) => {
             const key = query.queryKey;
             // Keep the detail query we just updated
-            if (
-              Array.isArray(key) &&
-              key.includes('detail') &&
-              key.includes(variables.itemId)
-            ) {
+            if (Array.isArray(key) && key.includes('detail') && key.includes(variables.itemId)) {
               return false;
             }
             return true;
@@ -262,11 +255,7 @@ export function useUpdateWardrobeItem(): UseUpdateWardrobeItemResult {
     },
     // Don't retry on validation or notFound errors
     retry: (failureCount, error) => {
-      if (
-        error.code === 'validation' ||
-        error.code === 'notFound' ||
-        error.code === 'auth'
-      ) {
+      if (error.code === 'validation' || error.code === 'notFound' || error.code === 'auth') {
         return false;
       }
       // Retry network/server errors up to 2 times

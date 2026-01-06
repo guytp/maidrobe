@@ -62,7 +62,7 @@ jest.mock('./SyncFailureBanner', () => ({
         testID={props.testID}
       />
     ) : null,
-}))
+}));
 
 describe('WearHistorySyncProvider', () => {
   const defaultSyncResult = {

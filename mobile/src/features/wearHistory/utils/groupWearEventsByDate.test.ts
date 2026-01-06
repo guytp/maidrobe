@@ -9,7 +9,11 @@
  * @module features/wearHistory/utils/groupWearEventsByDate.test
  */
 
-import { groupWearEventsByDate, formatDateLabel, type WearHistorySection } from './groupWearEventsByDate';
+import {
+  groupWearEventsByDate,
+  formatDateLabel,
+  type WearHistorySection,
+} from './groupWearEventsByDate';
 import type { WearHistoryRow } from '../types';
 
 // Mock i18n
@@ -150,9 +154,21 @@ describe('groupWearEventsByDate', () => {
 
   describe('Multiple events same date', () => {
     it('should group events with same worn_date into single section', () => {
-      const event1 = createMockWearEvent({ id: 'event-1', worn_date: '2024-12-01', worn_at: '2024-12-01T10:00:00Z' });
-      const event2 = createMockWearEvent({ id: 'event-2', worn_date: '2024-12-01', worn_at: '2024-12-01T14:00:00Z' });
-      const event3 = createMockWearEvent({ id: 'event-3', worn_date: '2024-12-01', worn_at: '2024-12-01T18:00:00Z' });
+      const event1 = createMockWearEvent({
+        id: 'event-1',
+        worn_date: '2024-12-01',
+        worn_at: '2024-12-01T10:00:00Z',
+      });
+      const event2 = createMockWearEvent({
+        id: 'event-2',
+        worn_date: '2024-12-01',
+        worn_at: '2024-12-01T14:00:00Z',
+      });
+      const event3 = createMockWearEvent({
+        id: 'event-3',
+        worn_date: '2024-12-01',
+        worn_at: '2024-12-01T18:00:00Z',
+      });
 
       const result = groupWearEventsByDate([event1, event2, event3]);
 

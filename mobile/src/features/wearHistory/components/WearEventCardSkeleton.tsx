@@ -52,9 +52,7 @@ const PLACEHOLDER_THUMBNAIL_COUNT = 3;
  * @param props - Component props
  * @returns Skeleton placeholder component
  */
-function WearEventCardSkeletonComponent({
-  testID,
-}: WearEventCardSkeletonProps): React.JSX.Element {
+function WearEventCardSkeletonComponent({ testID }: WearEventCardSkeletonProps): React.JSX.Element {
   const { colors, spacing, radius } = useTheme();
 
   const styles = useMemo(

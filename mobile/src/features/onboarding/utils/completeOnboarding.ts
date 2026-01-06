@@ -220,11 +220,7 @@ export async function completeOnboardingForCurrentUser(
     // Fire legacy skipped_all event for backward compatibility
     // NOTE: trackOnboardingSkippedAll is not part of the AC9 spec but maintained
     // for backward compatibility with existing analytics dashboards
-    void trackOnboardingSkippedAll(
-      options.originStep || 'welcome',
-      completedSteps,
-      skippedSteps
-    );
+    void trackOnboardingSkippedAll(options.originStep || 'welcome', completedSteps, skippedSteps);
 
     // Fire exit_to_home event with skipped_entire_flow method (AC9)
     void trackOnboardingExitToHome('skipped_entire_flow', hasItems, options.originStep);

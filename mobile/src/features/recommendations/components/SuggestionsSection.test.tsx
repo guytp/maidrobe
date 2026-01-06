@@ -68,14 +68,16 @@ jest.mock('../../../core/i18n', () => ({
       'screens.home.recommendations.accessibility.cardLabelNoContext': 'Outfit. {reason}',
       'screens.home.recommendations.itemChip.loadingItems': 'Loading items...',
       'screens.home.recommendations.itemChip.placeholderItem': 'Item {number}',
-      'screens.home.recommendations.itemChip.accessibility.itemCount': '{resolved} of {total} items',
+      'screens.home.recommendations.itemChip.accessibility.itemCount':
+        '{resolved} of {total} items',
       'screens.wearHistory.wearThisToday': 'Wear this today',
       'screens.wearHistory.markAsWorn': 'Mark as worn...',
       'screens.wearHistory.wornToday': 'Worn today',
       'screens.wearHistory.accessibility.wearTodayButton': 'Wear this outfit today',
       'screens.wearHistory.accessibility.wearTodayHint': 'Mark as worn for today',
       'screens.wearHistory.accessibility.markAsWornButton': 'Mark outfit as worn',
-      'screens.wearHistory.accessibility.markAsWornHint': 'Open date picker to mark when you wore this outfit',
+      'screens.wearHistory.accessibility.markAsWornHint':
+        'Open date picker to mark when you wore this outfit',
       'screens.wearHistory.accessibility.wornIndicator': 'Worn on {date}',
     };
     return translations[key] || key;

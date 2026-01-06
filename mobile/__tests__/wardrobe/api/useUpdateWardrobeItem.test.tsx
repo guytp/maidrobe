@@ -35,11 +35,7 @@ jest.mock('../../../src/features/wardrobe/api/updateWardrobeItem', () => ({
     public readonly mockCode: string;
     public readonly mockOriginalError?: unknown;
 
-    constructor(
-      message: string,
-      mockCode: string,
-      mockOriginalError?: unknown
-    ) {
+    constructor(message: string, mockCode: string, mockOriginalError?: unknown) {
       super(message);
       this.name = 'UpdateWardrobeItemError';
       this.mockCode = mockCode;
@@ -251,10 +247,7 @@ describe('useUpdateWardrobeItem', () => {
     });
 
     it('handles network errors', async () => {
-      const networkError = new mockUpdateModule.UpdateWardrobeItemError(
-        'Network error',
-        'network'
-      );
+      const networkError = new mockUpdateModule.UpdateWardrobeItemError('Network error', 'network');
       // Use mockRejectedValue (not Once) because network errors are retried
       mockUpdateModule.updateWardrobeItem.mockRejectedValue(networkError);
 
@@ -308,10 +301,7 @@ describe('useUpdateWardrobeItem', () => {
     });
 
     it('emits telemetry events on failure', async () => {
-      const serverError = new mockUpdateModule.UpdateWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockUpdateModule.UpdateWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockUpdateModule.updateWardrobeItem.mockRejectedValue(serverError);
 
@@ -357,10 +347,7 @@ describe('useUpdateWardrobeItem', () => {
     });
 
     it('logs errors to observability stack', async () => {
-      const serverError = new mockUpdateModule.UpdateWardrobeItemError(
-        'Server error',
-        'server'
-      );
+      const serverError = new mockUpdateModule.UpdateWardrobeItemError('Server error', 'server');
       // Use mockRejectedValue (not Once) because server errors are retried
       mockUpdateModule.updateWardrobeItem.mockRejectedValue(serverError);
 

@@ -13,65 +13,81 @@ The capture flow implementation is **COMPLETE** and fully meets the user story r
 ### FULLY IMPLEMENTED COMPONENTS
 
 #### 1. Core Type Definitions
+
 **Location:** `mobile/src/core/types/capture.ts`
+
 - CaptureOrigin type: 'wardrobe' | 'onboarding'
 - CaptureSource type: 'camera' | 'gallery'
 - CaptureImagePayload interface with uri, width, height, origin, source, createdAt
 - Type guards: isCaptureOrigin(), isCaptureSource(), isCaptureImagePayload()
-**Status:** Complete with comprehensive JSDoc documentation
+  **Status:** Complete with comprehensive JSDoc documentation
 
 #### 2. Zustand State Management
+
 **Location:** `mobile/src/core/state/captureSlice.ts`
+
 - Complete CaptureState with origin, source, isNavigating, navigationTimeoutId, errorMessage, payload
 - All actions: setOrigin, setSource, setIsNavigating, setErrorMessage, setPayload, clearPayload, resetCapture
 - Safety timeout mechanism (5s) for isNavigating to prevent permanent blocking
-**Status:** Complete with automatic cleanup
+  **Status:** Complete with automatic cleanup
 
 #### 3. Permissions Utilities
+
 **Location:** `mobile/src/core/utils/permissions.ts`
+
 - PermissionStatus type: 'granted' | 'denied' | 'blocked' | 'undetermined'
 - Camera functions: isCameraAvailable, checkCameraPermission, requestCameraPermission, ensureCameraPermission
 - Gallery functions: checkGalleryPermission, requestGalleryPermission, ensureMediaLibraryPermission
 - openAppSettings() for both iOS and Android
 - Error logging integrated with telemetry
-**Status:** Complete with platform-specific handling
+  **Status:** Complete with platform-specific handling
 
 #### 4. Image Validation
+
 **Location:** `mobile/src/core/utils/imageValidation.ts`
+
 - validateCapturedImage() with URI, type, dimension checks
 - MIN_DIMENSION = 256px, MAX_DIMENSION = 8000px
 - Supported types: JPEG, PNG
 - getValidationErrorMessage() for user-friendly messages
-**Status:** Complete with clear error codes
+  **Status:** Complete with clear error codes
 
 #### 5. Permissions Hook
+
 **Location:** `mobile/src/features/wardrobe/hooks/useCapturePermissions.ts`
+
 - Manages camera and gallery permission states
 - AppState-based permission re-checking after returning from settings
 - Telemetry integration for all permission events
 - Cleanup of AppState subscriptions
-**Status:** Complete with proper lifecycle management
+  **Status:** Complete with proper lifecycle management
 
 #### 6. Gallery Picker Hook
+
 **Location:** `mobile/src/features/wardrobe/hooks/useGalleryPicker.ts`
+
 - expo-image-picker integration
 - Image validation with explicit dimension checks
 - Returns GalleryPickerResult with success/failure states
 - Handles cancellation, permission denied, invalid selections
 - Telemetry tracking integrated
-**Status:** Complete with comprehensive error handling
+  **Status:** Complete with comprehensive error handling
 
 #### 7. Gallery Selection Hook
+
 **Location:** `mobile/src/features/wardrobe/hooks/useGallerySelection.ts`
+
 - Shared logic for CaptureScreen and CaptureCameraScreen
 - Permission handling with blocked/denied/granted states
 - Alert dialogs for all permission scenarios
 - Payload construction and navigation to /crop
 - Camera fallback option (for CaptureScreen)
-**Status:** Complete with reusable pattern
+  **Status:** Complete with reusable pattern
 
 #### 8. Capture Screen Component
+
 **Location:** `mobile/src/features/wardrobe/components/CaptureScreen.tsx`
+
 - Initial choice UI with "Take photo" and "Choose from gallery"
 - Origin param extraction and validation
 - Permission checks before navigating to camera
@@ -80,10 +96,12 @@ The capture flow implementation is **COMPLETE** and fully meets the user story r
 - Debounced navigation with isNavigating flag
 - Accessibility labels and hints
 - Telemetry tracking for all events
-**Status:** Complete with full accessibility support
+  **Status:** Complete with full accessibility support
 
 #### 9. Camera Screen Component
+
 **Location:** `mobile/src/features/wardrobe/components/CaptureCameraScreen.tsx`
+
 - CameraView with expo-camera integration
 - Shutter button with capture logic
 - Flash toggle (off/on/auto)
@@ -97,15 +115,17 @@ The capture flow implementation is **COMPLETE** and fully meets the user story r
 - Origin-based cancel navigation
 - Accessibility support
 - Telemetry tracking integrated
-**Status:** Complete with comprehensive error handling
+  **Status:** Complete with comprehensive error handling
 
 #### 10. Route Definitions
+
 - `/capture` route: `mobile/app/capture/index.tsx` - Wraps CaptureScreen with auth
 - `/capture/camera` route: `mobile/app/capture/camera/index.tsx` - Wraps CaptureCameraScreen with auth
 - `/crop` route: `mobile/app/crop/index.tsx` - Placeholder (validates payload, Story #205 will add full UI)
-**Status:** Complete routing infrastructure
+  **Status:** Complete routing infrastructure
 
 #### 11. Entry Points
+
 - **Wardrobe:** `mobile/src/features/wardrobe/components/WardrobeScreen.tsx`
   - "Add item" button navigates to /capture?origin=wardrobe
   - Debounced navigation with isNavigating
@@ -114,21 +134,25 @@ The capture flow implementation is **COMPLETE** and fully meets the user story r
   - "Add your first item" button navigates to /capture?origin=onboarding
   - Updated in Story #199 Step 2 to use new capture flow
   - Debounced navigation
-**Status:** Both entry points complete
+    **Status:** Both entry points complete
 
 #### 12. Constants
+
 **Location:** `mobile/src/features/wardrobe/constants.ts`
+
 - NAVIGATION_DEBOUNCE_MS = 500
 - SETTINGS_RETURN_DELAY_MS = 500
-**Status:** Complete
+  **Status:** Complete
 
 #### 13. Telemetry Integration
+
 **Location:** `mobile/src/core/telemetry/index.ts`
+
 - CaptureEventType with all required events
 - trackCaptureEvent() function
 - PII sanitization
 - Sentry and OpenTelemetry integration
-**Status:** Complete with privacy-safe logging
+  **Status:** Complete with privacy-safe logging
 
 ## User Story Requirements Coverage
 
@@ -190,6 +214,7 @@ The capture flow implementation is **COMPLETE** and fully meets the user story r
 
 **Functional ACs 1-12:** ALL IMPLEMENTED
 **Non-Functional ACs 13-16:** ALL IMPLEMENTED
+
 - Performance: Debouncing and navigation flags in place
 - Security & privacy: Temporary storage only, no backend calls
 - Cross-platform compatibility: iOS and Android supported
@@ -258,6 +283,7 @@ Since the implementation is complete, Steps 2-6 should focus on:
 5. **Step 6:** Verify image validation and crop handoff (likely no changes needed)
 
 Each step should involve:
+
 - Code review and verification
 - Testing edge cases
 - Minor refinements if gaps discovered
@@ -272,6 +298,7 @@ The only placeholder is the /crop screen UI itself, which is explicitly scoped t
 ## Testing Notes
 
 The codebase includes comprehensive test files:
+
 - `__tests__/core/types/capture.test.ts`
 - `__tests__/wardrobe/hooks/useCapturePermissions.test.ts`
 - `__tests__/wardrobe/hooks/useGalleryPicker.test.ts`
