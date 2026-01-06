@@ -1464,7 +1464,23 @@ WHERE code LIKE 'TEST_%';
 --
 -- In production, always create new migrations that ALTER/CREATE rather than DROP.
 -- ============================================================================
--- MIGRATION COMPLETE
+-- REVERSIBILITY & ROLLBACK
+-- ============================================================================
+-- This migration uses IF [NOT] EXISTS clauses and is idempotent (safe to re-run).
+-- For manual rollback in development ONLY, use the commands below.
+-- 
+-- WARNING: Never rollback in production. Always create new forward migrations.
+--
+-- Manual rollback commands (for testing only):
+-- DROP TABLE IF EXISTS public.user_settings CASCADE;
+-- DROP TABLE IF EXISTS public.user_roles CASCADE;
+-- DROP TABLE IF EXISTS public.roles CASCADE;
+-- DROP TABLE IF EXISTS public.users CASCADE;
+--
+-- In production, always create new migrations that ALTER/CREATE rather than DROP.
+
+-- ============================================================================
+-- MIGRATION COMPLETE - STEP 5
 -- ============================================================================
 -- REVERSIBILITY & ROLLBACK
 -- ============================================================================
