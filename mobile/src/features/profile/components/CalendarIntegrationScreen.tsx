@@ -61,6 +61,8 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
   // Local UI state
   const [showDisconnectSuccess, setShowDisconnectSuccess] = useState(false);
   const [showDisconnectError, setShowDisconnectError] = useState(false);
+  const [showConnectSuccess, setShowConnectSuccess] = useState(false);
+  const [showConnectError, setShowConnectError] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // Fetch calendar integration status
@@ -91,6 +93,40 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       refetch();
     }, 100);
   }, [user?.id, refetch]);
+
+  /**
+   * Handles successful connection
+   */
+  const handleConnectSuccess = useCallback(() => {
+    // Show success toast
+    setShowConnectSuccess(true);
+
+    // Track successful connection
+    trackCaptureEvent('calendar_connected', {
+      userId: user?.id,
+      provider: 'google',
+    });
+
+    // Refetch integration status to update UI
+    setTimeout(() => {
+      refetch();
+    }, 100);
+  }, [user?.id, refetch]);
+
+  /**
+   * Handles connection failure
+   */
+  const handleConnectError = useCallback(() => {
+    // Show error toast
+    setShowConnectError(true);
+
+    // Track connection failure
+    trackCaptureEvent('calendar_connect_failed', {
+      userId: user?.id,
+      provider: 'google',
+      error_type: 'network',
+    });
+  }, [user?.id]);
 
   /**
    * Handles disconnection failure
@@ -145,8 +181,88 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
   }, [user?.id, handleDisconnectSuccess, handleDisconnectError]);
 
   /**
-   * Shows confirmation dialog before disconnect
+   * Handles Google OAuth connection using expo-auth-session
    */
+  const handleConnectPress = useCallback(async () => {
+    if (!user?.id) {
+      return;
+    }
+
+    // Track connect button click
+    trackCaptureEvent('calendar_connect_clicked', {
+      userId: user.id,
+      provider: 'google',
+    });
+
+    try {
+      // Import auth session
+      const { makeRedirectUri, useAuthRequest } = await import('expo-auth-session');
+      const { GOOGLE_CLIENT_ID } = await import('@env');
+
+      // Create redirect URI
+      const redirectUri = makeRedirectUri({
+        scheme: 'com.maidrobe.app',
+        path: 'oauth/callback',
+      });
+
+      // Initialize auth request
+      const [request, response, promptAsync] = useAuthRequest(
+        {
+          clientId: GOOGLE_CLIENT_ID,
+          scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+          redirectUri,
+        },
+        {
+          authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+        }
+      );
+
+      // Start OAuth flow
+      const result = await promptAsync();
+
+      if (result?.type === 'success') {
+        // Track OAuth completion
+        trackCaptureEvent('calendar_oauth_completed', {
+          userId: user.id,
+          provider: 'google',
+        });
+
+        // Show success toast
+        setShowConnectSuccess(true);
+
+        // Refetch integration status
+        setTimeout(() => {
+          refetch();
+        }, 500);
+      } else if (result?.type === 'error') {
+        // Track OAuth error
+        trackCaptureEvent('calendar_oauth_failed', {
+          userId: user.id,
+          provider: 'google',
+          error: result.error?.message,
+        });
+
+        // Show error toast
+        setShowConnectError(true);
+      } else if (result?.type === 'cancel') {
+        // Track OAuth cancellation
+        trackCaptureEvent('calendar_oauth_cancelled', {
+          userId: user.id,
+          provider: 'google',
+        });
+      }
+    } catch (error) {
+      console.error('OAuth error:', error);
+      
+      trackCaptureEvent('calendar_oauth_failed', {
+        userId: user?.id,
+        provider: 'google',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      setShowConnectError(true);
+    }
+  }, [user?.id, refetch]);
   const handleDisconnectPress = useCallback(() => {
     // Track disconnect button click
     trackCaptureEvent('calendar_disconnect_clicked', {
@@ -489,13 +605,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
               styles.actionButtonPrimary,
               pressed && styles.actionButtonDisabled,
             ]}
-            onPress={() => {
-              // TODO: Implement OAuth connection flow in Step 5
-              trackCaptureEvent('calendar_connect_clicked', {
-                userId: user?.id,
-                provider: 'google',
-              });
-            }}
+            onPress={handleConnectPress}
             accessibilityLabel={t('screens.profile.calendar.connectButton')}
             accessibilityHint={t('screens.profile.calendar.connectButtonHint')}
             accessibilityRole="button"
@@ -515,6 +625,20 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
 
       {/* Toast Notifications */}
+      <Toast
+        visible={showConnectSuccess}
+        message={t('screens.profile.calendar.connectSuccess')}
+        type="success"
+        onDismiss={() => setShowConnectSuccess(false)}
+      />
+
+      <Toast
+        visible={showConnectError}
+        message={t('screens.profile.calendar.connectError')}
+        type="error"
+        onDismiss={() => setShowConnectError(false)}
+      />
+
       <Toast
         visible={showDisconnectSuccess}
         message={t('screens.profile.calendar.disconnectedSuccess')}
