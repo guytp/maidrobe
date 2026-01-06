@@ -1,6 +1,7 @@
 # ADR 0003: User Management Database Schema Design
 
 ## Status
+
 Proposed
 
 ## Context
@@ -27,12 +28,14 @@ The Maidrobe project uses Supabase with PostgreSQL and established conventions:
 ### Requirements from User Story #6
 
 **Core Tables:**
+
 1. `users` - Central user table with soft-delete and audit fields
-2. `roles` - RBAC role definitions  
+2. `roles` - RBAC role definitions
 3. `user_roles` - Many-to-many join table
 4. `user_settings` - User preferences and configuration
 
 **Key Requirements:**
+
 - UUID primary keys for all entities
 - Soft-delete capability on `users` table
 - Full audit trail (created_at, updated_at, created_by, updated_by)
@@ -48,17 +51,19 @@ The Maidrobe project uses Supabase with PostgreSQL and established conventions:
 **Decision**: Use `TEXT` with `CHECK` constraints for both `user_status` and `auth_provider` fields.
 
 **Rationale**:
+
 - **Consistency**: Existing `profiles.role` column uses this pattern: `TEXT NOT NULL CHECK (role IN ('internal', 'beta', 'standard'))`
 - **Portability**: TEXT is database-agnostic and works across PostgreSQL, MySQL, and SQLite; native PostgreSQL enums require database-specific ALTER TYPE commands
 - **Flexibility**: Adding new values only requires dropping and re-adding the constraint in a migration, rather than database-specific enum modifications
 - **Simplicity**: Avoids database-specific syntax and maintains migration portability
 
 **Implementation Pattern**:
+
 ```sql
 status TEXT NOT NULL DEFAULT 'PENDING'
   CHECK (status IN ('ACTIVE', 'PENDING', 'SUSPENDED', 'DELETED'))
 
-auth_provider TEXT NOT NULL DEFAULT 'local' 
+auth_provider TEXT NOT NULL DEFAULT 'local'
   CHECK (auth_provider IN ('local', 'google', 'facebook', 'saml'))
 ```
 
@@ -69,6 +74,7 @@ auth_provider TEXT NOT NULL DEFAULT 'local'
 **Decision**: Implement soft-delete at the application level with hard-delete cascade at the database level.
 
 **Rationale**:
+
 - **Story Requirement**: Explicitly requires `is_deleted` and `deleted_at` fields on the `users` table for "soft-delete and potential anonymisation"
 - **Compliance**: Supports GDPR "right to erasure" - soft-delete for immediate deactivation, hard-delete for permanent removal when legally mandated
 - **Existing Pattern**: The `items` table uses `is_deleted` boolean pattern (documented in `items.md`), confirming this is an established pattern in the codebase
@@ -77,11 +83,11 @@ auth_provider TEXT NOT NULL DEFAULT 'local'
 
 **Behavior Matrix**:
 
-| Operation | Application Layer | Database Layer | ON DELETE Action |
-|-----------|-------------------|----------------|------------------|
-| **User Deactivation** | Set `is_deleted = true`, `deleted_at = NOW()` | Maintain FK relationships | No cascade (FKs remain intact for potential restoration) |
-| **User Restoration** | Set `is_deleted = false`, `deleted_at = NULL` | Restore normal operation | No changes needed |
-| **Permanent Deletion** | Execute `DELETE FROM users WHERE id = ?` | CASCADE deletes all related records | CASCADE on all user FKs (roles, settings) |
+| Operation              | Application Layer                             | Database Layer                      | ON DELETE Action                                         |
+| ---------------------- | --------------------------------------------- | ----------------------------------- | -------------------------------------------------------- |
+| **User Deactivation**  | Set `is_deleted = true`, `deleted_at = NOW()` | Maintain FK relationships           | No cascade (FKs remain intact for potential restoration) |
+| **User Restoration**   | Set `is_deleted = false`, `deleted_at = NULL` | Restore normal operation            | No changes needed                                        |
+| **Permanent Deletion** | Execute `DELETE FROM users WHERE id = ?`      | CASCADE deletes all related records | CASCADE on all user FKs (roles, settings)                |
 
 **GDPR Compliance**: The CASCADE behavior supports complete data removal when legally required, while soft-delete provides the intermediate "anonymization-ready" state mentioned in the story's non-functional requirements.
 
@@ -89,11 +95,11 @@ auth_provider TEXT NOT NULL DEFAULT 'local'
 
 **Decision Matrix**:
 
-| Foreign Key | Referenced Table | ON DELETE Action | Justification |
-|-------------|------------------|------------------|---------------|
-| `user_roles.user_id` | `users.id` | **CASCADE** | When a user is permanently deleted, their role assignments must be cleaned up automatically. This aligns with the existing `profiles` → `auth.users` relationship pattern used in the codebase. |
-| `user_roles.role_id` | `roles.id` | **RESTRICT** | Prevents deleting a role that has active user assignments. Requires explicit removal of all user assignments first, protecting data integrity. |
-| `user_settings.user_id` | `users.id` | **CASCADE** | User settings are intrinsically tied to the user. Permanently deleting a user should automatically clean up their settings. |
+| Foreign Key             | Referenced Table | ON DELETE Action | Justification                                                                                                                                                                                   |
+| ----------------------- | ---------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `user_roles.user_id`    | `users.id`       | **CASCADE**      | When a user is permanently deleted, their role assignments must be cleaned up automatically. This aligns with the existing `profiles` → `auth.users` relationship pattern used in the codebase. |
+| `user_roles.role_id`    | `roles.id`       | **RESTRICT**     | Prevents deleting a role that has active user assignments. Requires explicit removal of all user assignments first, protecting data integrity.                                                  |
+| `user_settings.user_id` | `users.id`       | **CASCADE**      | User settings are intrinsically tied to the user. Permanently deleting a user should automatically clean up their settings.                                                                     |
 
 **Data Consistency**: These choices ensure referential integrity while supporting both soft-delete (FKs maintained) and hard-delete (automatic cleanup) operations.
 
@@ -102,12 +108,14 @@ auth_provider TEXT NOT NULL DEFAULT 'local'
 **Decision**: Use `uuid_generate_v4()` with `uuid-ossp` extension.
 
 **Rationale**:
+
 - **Existing Pattern**: All existing migrations explicitly call `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`
 - **Code Consistency**: Using the same pattern as existing tables maintains codebase uniformity
 - **Explicit Control**: Generating UUIDs at the database layer provides predictable behavior
 - **Portability**: While PostgreSQL 13+ includes `gen_random_uuid()`, using the extension maintains compatibility with existing migration patterns
 
-**Implementation**: 
+**Implementation**:
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
@@ -119,14 +127,15 @@ id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
 
 **Implementation Pattern**:
 
-| Field | Type | Nullability | Default | Notes |
-|-------|------|-------------|---------|-------|
-| `created_at` | `TIMESTAMPTZ` | NOT NULL | `NOW()` | Set once at creation |
-| `created_by` | `UUID` | Nullable | NULL | References `users.id`, nullable for system operations |
-| `updated_at` | `TIMESTAMPTZ` | NOT NULL | `NOW()` | Managed by `handle_updated_at()` trigger |
-| `updated_by` | `UUID` | Nullable | NULL | References `users.id`, nullable for system operations |
+| Field        | Type          | Nullability | Default | Notes                                                 |
+| ------------ | ------------- | ----------- | ------- | ----------------------------------------------------- |
+| `created_at` | `TIMESTAMPTZ` | NOT NULL    | `NOW()` | Set once at creation                                  |
+| `created_by` | `UUID`        | Nullable    | NULL    | References `users.id`, nullable for system operations |
+| `updated_at` | `TIMESTAMPTZ` | NOT NULL    | `NOW()` | Managed by `handle_updated_at()` trigger              |
+| `updated_by` | `UUID`        | Nullable    | NULL    | References `users.id`, nullable for system operations |
 
 **Rationale**:
+
 - **Story Requirement**: Explicitly requires `created_by` and `updated_by` columns
 - **Existing Pattern**: All tables have `created_at` and `updated_at`; we extend this pattern with the `_by` fields
 - **System Operations**: Both `_by` fields are nullable to support system-initiated operations (e.g., user registration trigger, migration backfills)
@@ -142,26 +151,31 @@ id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
 **Policy Design by Table**:
 
 **`users` Table**:
+
 - `authenticated` role: SELECT own record only (`auth.uid() = id`)
 - `service_role` role: SELECT/UPDATE/INSERT/DELETE all records (admin operations)
 - Rationale: Authentication flows need to query user status during login; application logic enforces business rules
 
 **`roles` Table**:
+
 - `authenticated` role: SELECT all records (UI needs to display role names/options)
 - `service_role` role: CREATE/UPDATE/DELETE (admin role management)
 - Rationale: Users need to see their available roles and role descriptions; role assignments are managed through `user_roles`
 
 **`user_roles` Table** (Join Table):
+
 - `authenticated` role: SELECT own assignments (`auth.uid() = user_id`)
 - `service_role` role: Full CRUD (admin assigns/revokes roles)
 - Rationale: Prevents users from self-assigning roles; maintains RBAC integrity
 
 **`user_settings` Table**:
+
 - `authenticated` role: SELECT/UPDATE/INSERT own settings (`auth.uid() = user_id`)
 - `service_role` role: Full CRUD (admin override capability)
 - Rationale: Users manage their own preferences; admins can assist or override when needed
 
 **RLS Enablement Pattern**:
+
 ```sql
 ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
 ```
@@ -196,7 +210,7 @@ SELECT u.*, array_agg(r.code) as roles
 FROM users u
 LEFT JOIN user_roles ur ON u.id = ur.user_id
 LEFT JOIN roles r ON ur.role_id = r.id
-WHERE u.email = $1 
+WHERE u.email = $1
   AND u.is_deleted = false
   AND u.status = 'ACTIVE'
 GROUP BY u.id;
@@ -208,18 +222,19 @@ GROUP BY u.id;
 
 **Decision**: Implement all required unique constraints to ensure data integrity.
 
-| Table | Unique Constraint | Purpose |
-|-------|-------------------|---------|
-| `users` | `email` (partial: `is_deleted = false`) | Prevents duplicate active accounts with same email |
-| `roles` | `code` | Ensures role codes are globally unique identifiers |
-| `user_roles` | Composite: `(user_id, role_id)` | Prevents duplicate role assignments to same user |
-| `user_settings` | `user_id` | Enforces 1:1 relationship between users and settings |
+| Table           | Unique Constraint                       | Purpose                                              |
+| --------------- | --------------------------------------- | ---------------------------------------------------- |
+| `users`         | `email` (partial: `is_deleted = false`) | Prevents duplicate active accounts with same email   |
+| `roles`         | `code`                                  | Ensures role codes are globally unique identifiers   |
+| `user_roles`    | Composite: `(user_id, role_id)`         | Prevents duplicate role assignments to same user     |
+| `user_settings` | `user_id`                               | Enforces 1:1 relationship between users and settings |
 
 **Partial Unique Index for Users.Email**:
+
 ```sql
 -- Allows reusing email after user is soft-deleted
-CREATE UNIQUE INDEX idx_users_unique_email_active 
-ON users(email) 
+CREATE UNIQUE INDEX idx_users_unique_email_active
+ON users(email)
 WHERE is_deleted = false;
 ```
 
@@ -230,12 +245,14 @@ WHERE is_deleted = false;
 **Decision**: Sensible defaults for all columns to ensure data integrity.
 
 **Users Table Defaults**:
+
 - `status`: `'PENDING'` (new users require activation/verification)
 - `auth_provider`: `'local'` (default to local authentication)
 - `is_deleted`: `false` (new users are active by default)
 - `deleted_at`: `NULL` (not deleted)
 
 **User Settings Defaults**:
+
 - `timezone`: `'UTC'` (safe default, user can customize)
 - `language_code`: `'en-GB'` (UK-based platform default)
 - `receive_email_reminders`: `true` (opt-in by default)
@@ -245,6 +262,7 @@ WHERE is_deleted = false;
 - `extra_settings`: `'{}'` (empty JSON object)
 
 **Audit Field Defaults**:
+
 - `created_at`: `NOW()` (automatic at creation)
 - `created_by`: `NULL` (system operations may not have a user context)
 - `updated_at`: `NOW()` (automatic at creation and updates)
@@ -257,11 +275,12 @@ WHERE is_deleted = false;
 **File Name**: `20241204000001_create_user_management_schema.sql`
 
 **Migration Structure**:
+
 ```sql
 -- Header comments (purpose, dependencies, idempotency)
 -- Enable uuid-ossp extension
 -- Create users table
--- Create roles table  
+-- Create roles table
 -- Create user_roles table
 -- Create user_settings table
 -- Create all indexes
@@ -272,6 +291,7 @@ WHERE is_deleted = false;
 ```
 
 **Rationale**:
+
 - **Atomicity**: All tables created together ensures referential integrity
 - **Dependency Management**: No complex inter-migration dependencies
 - **Rollback**: Single migration is easier to rollback if needed
