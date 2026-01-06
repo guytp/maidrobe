@@ -235,7 +235,7 @@ generate_compliance_evidence() {
 ### 2. What Data Was Processed
 - Technical Implementation: object_name, statement columns
 - Data Source: SQL Server audit logs
-- Coverage: Users, UserProfiles, ChatLogs, Payments, PaymentMethods tables
+- Coverage: Users, UserProfiles, ChatLogs, SessionHistory, Payments, PaymentMethods tables
 
 ### 3. When Processing Occurred
 - Technical Implementation: event_time column (UTC with milliseconds)
