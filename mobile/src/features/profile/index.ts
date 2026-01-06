@@ -16,6 +16,10 @@ export type {
   CalendarIntegrationRow,
   CalendarIntegration,
   CreateCalendarIntegrationParams,
+  OAuthTokens,
+  ConnectCalendarParams,
+  UpdateTokensParams,
+  fromCalendarIntegrationRow,
 } from './types';
 
 // Hooks

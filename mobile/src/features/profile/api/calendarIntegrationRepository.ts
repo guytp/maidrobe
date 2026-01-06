@@ -127,6 +127,12 @@ function classifySupabaseError(error: unknown): 'network' | 'server' | 'auth' | 
 /**
  * Transforms database row to client-side representation.
  */
+/**
+ * Transforms database row to client-side calendar integration.
+ *
+ * Converts snake_case to camelCase and excludes sensitive token fields.
+ * Tokens should only be handled server-side by Edge Functions.
+ */
 function fromDatabaseRow(row: CalendarIntegrationRow): CalendarIntegration {
   return {
     id: row.id,
@@ -134,9 +140,13 @@ function fromDatabaseRow(row: CalendarIntegrationRow): CalendarIntegration {
     provider: row.provider,
     isConnected: row.is_connected,
     connectedEmail: row.connected_email,
+    tokenExpiresAt: row.token_expires_at,
+    scope: row.scope,
     connectedAt: row.connected_at,
     disconnectedAt: row.disconnected_at,
+    lastSyncAt: row.last_sync_at,
     lastError: row.last_error,
+    errorCount: row.error_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -310,7 +320,12 @@ export async function upsertCalendarIntegration(
       provider,
       is_connected: params.isConnected,
       connected_email: params.connectedEmail ?? null,
+      token_expires_at: params.tokenExpiresAt ?? null,
+      scope: params.scope ?? null,
+      connected_at: params.connectedAt ?? null,
+      disconnected_at: params.disconnectedAt ?? null,
       last_error: params.lastError ?? null,
+      error_count: params.errorCount ?? 0,
       updated_at: new Date().toISOString(),
     };
 
