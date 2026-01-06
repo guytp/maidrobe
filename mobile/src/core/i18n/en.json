@@ -322,7 +322,19 @@
         "disconnectedSuccess": "Calendar disconnected successfully",
         "disconnectedError": "Failed to disconnect calendar",
         "connectSuccess": "Calendar connected successfully",
-        "connectError": "Failed to connect calendar"
+        "connectError": "Failed to connect calendar",
+        "statusSection": "Status",
+        "connectedDescription": "Your calendar is connected and syncing",
+        "disconnectedDescription": "Connect your calendar to sync events",
+        "disconnectButton": "Disconnect Google Calendar",
+        "disconnectButtonHint": "Tap to disconnect your Google Calendar",
+        "connectButton": "Connect Google Calendar",
+        "connectButtonHint": "Tap to connect your Google Calendar",
+        "errorLoading": "Failed to load calendar status",
+        "accessibility": {
+          "screenLabel": "Calendar Integration screen",
+          "screenHint": "Manage your Google Calendar connection"
+        }
       }
     },
     "shared": {
