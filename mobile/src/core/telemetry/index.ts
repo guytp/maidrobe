@@ -381,7 +381,20 @@ export type CaptureEventType =
   | 'no_repeat_prefs_changed'
   // No-repeat filtering observability events (story #448)
   | 'recommendations_filtered_by_no_repeat'
-  | 'no_repeat_fallback_triggered';
+  | 'no_repeat_fallback_triggered'
+  // Calendar integration events (story #368)
+  | 'calendar_integration_navigation_clicked'
+  | 'calendar_disconnect_clicked'
+  | 'calendar_disconnect_cancelled'
+  | 'calendar_disconnect_confirmed'
+  | 'calendar_connect_clicked'
+  | 'calendar_oauth_completed'
+  | 'calendar_oauth_cancelled'
+  | 'calendar_oauth_failed'
+  | 'calendar_connected'
+  | 'calendar_connect_failed'
+  | 'calendar_disconnected'
+  | 'calendar_disconnect_failed';
 
 /**
  * Metadata for authentication event logging.
@@ -737,10 +750,14 @@ export interface CaptureEventMetadata {
   context?: 'wardrobe' | 'onboarding';
   /** Image source - camera or gallery */
   source?: 'camera' | 'gallery';
+  /** OAuth provider for calendar integration */
+  provider?: 'google';
   /** Error code or classification if failure */
   errorCode?: string;
   /** Error message for debugging (never include PII) */
   errorMessage?: string;
+  /** Error message (shorter alias for errorMessage) */
+  error?: string;
   /** Image width in pixels */
   width?: number;
   /** Image height in pixels */

@@ -10,9 +10,9 @@
 
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { CalendarIntegrationScreen } from '../../../../src/features/profile';
-import { useProtectedRoute } from '../../../../src/features/auth/hooks/useProtectedRoute';
-import { useTheme } from '../../../../src/core/theme';
+import { CalendarIntegrationScreen } from '@/features/profile';
+import { useProtectedRoute } from '@/features/auth/hooks/useProtectedRoute';
+import { useTheme } from '@/core/theme';
 
 /**
  * Calendar Integration route for managing Google Calendar connection.

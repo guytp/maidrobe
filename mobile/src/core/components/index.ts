@@ -6,3 +6,5 @@
 
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant } from './Button';
+export { Toast } from './Toast';
+export type { ToastProps, ToastType } from './Toast';

@@ -11,7 +11,7 @@
  * @module features/profile/components/ProfileScreen
  */
 
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useRef, type JSX } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -21,7 +21,6 @@ import { useTheme } from '../../../core/theme';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { useStore } from '../../../core/state/store';
 import { useCalendarIntegration } from '../hooks/useCalendarIntegration';
-import type { CalendarIntegration } from '../types';
 
 /**
  * Component that renders the calendar connection status.

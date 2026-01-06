@@ -8,7 +8,7 @@
  */
 
 // Components
-export { ProfileScreen, StylingPreferencesScreen } from './components';
+export { ProfileScreen, StylingPreferencesScreen, CalendarIntegrationScreen } from './components';
 
 // Types
 export type {

@@ -38,6 +38,8 @@ import { t } from '../../../core/i18n';
 import { trackCaptureEvent } from '../../../core/telemetry';
 import { Toast } from '../../../core/components';
 import { useCalendarIntegration } from '../hooks/useCalendarIntegration';
+import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
+import { GOOGLE_CLIENT_ID } from '@env';
 
 /**
  * Minimum touch target size for accessibility (WCAG 2.1 AA)
@@ -68,6 +70,27 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
   // Fetch calendar integration status
   const { integration, isLoading, isError, refetch } = useCalendarIntegration('google');
 
+  // Initialize OAuth request
+  const redirectUri = useMemo(
+    () =>
+      makeRedirectUri({
+        scheme: 'com.maidrobe.app',
+        path: 'oauth/callback',
+      }),
+    []
+  );
+
+  const [, , promptAsync] = useAuthRequest(
+    {
+      clientId: GOOGLE_CLIENT_ID,
+      scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+      redirectUri,
+    },
+    {
+      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+    }
+  );
+
   /**
    * Handles back navigation to profile screen
    */
@@ -93,40 +116,6 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
       refetch();
     }, 100);
   }, [user?.id, refetch]);
-
-  /**
-   * Handles successful connection
-   */
-  const handleConnectSuccess = useCallback(() => {
-    // Show success toast
-    setShowConnectSuccess(true);
-
-    // Track successful connection
-    trackCaptureEvent('calendar_connected', {
-      userId: user?.id,
-      provider: 'google',
-    });
-
-    // Refetch integration status to update UI
-    setTimeout(() => {
-      refetch();
-    }, 100);
-  }, [user?.id, refetch]);
-
-  /**
-   * Handles connection failure
-   */
-  const handleConnectError = useCallback(() => {
-    // Show error toast
-    setShowConnectError(true);
-
-    // Track connection failure
-    trackCaptureEvent('calendar_connect_failed', {
-      userId: user?.id,
-      provider: 'google',
-      error_type: 'network',
-    });
-  }, [user?.id]);
 
   /**
    * Handles disconnection failure
@@ -156,7 +145,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
 
     try {
       // Import supabase client
-      const { supabase } = await import('../../../../services/supabase');
+      const { supabase } = await import('@/services/supabase');
 
       // Call the disconnect Edge Function
       const { error } = await supabase.functions.invoke(
@@ -195,29 +184,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
     });
 
     try {
-      // Import auth session
-      const { makeRedirectUri, useAuthRequest } = await import('expo-auth-session');
-      const { GOOGLE_CLIENT_ID } = await import('@env');
-
-      // Create redirect URI
-      const redirectUri = makeRedirectUri({
-        scheme: 'com.maidrobe.app',
-        path: 'oauth/callback',
-      });
-
-      // Initialize auth request
-      const [request, response, promptAsync] = useAuthRequest(
-        {
-          clientId: GOOGLE_CLIENT_ID,
-          scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-          redirectUri,
-        },
-        {
-          authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
-        }
-      );
-
-      // Start OAuth flow
+      // Start OAuth flow using the pre-initialized promptAsync
       const result = await promptAsync();
 
       if (result?.type === 'success') {
@@ -262,7 +229,7 @@ export function CalendarIntegrationScreen(): React.JSX.Element {
 
       setShowConnectError(true);
     }
-  }, [user?.id, refetch]);
+  }, [user?.id, refetch, promptAsync]);
   const handleDisconnectPress = useCallback(() => {
     // Track disconnect button click
     trackCaptureEvent('calendar_disconnect_clicked', {
