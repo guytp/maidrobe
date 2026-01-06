@@ -131,11 +131,7 @@ function formatWearTime(wornAt: string): string {
  * />
  * ```
  */
-function WearEventCardComponent({
-  event,
-  onPress,
-  testID,
-}: WearEventCardProps): React.JSX.Element {
+function WearEventCardComponent({ event, onPress, testID }: WearEventCardProps): React.JSX.Element {
   const { colors, spacing, radius, fontSize } = useTheme();
 
   // Track image errors by item ID
@@ -312,21 +308,13 @@ function WearEventCardComponent({
       if (isLoadingItems && !thumbnail.imageUrl) {
         // Show loading skeleton while batch is fetching
         return (
-          <View
-            key={thumbnail.id}
-            style={styles.thumbnailLoading}
-            accessibilityElementsHidden
-          />
+          <View key={thumbnail.id} style={styles.thumbnailLoading} accessibilityElementsHidden />
         );
       }
 
       if (showPlaceholder) {
         return (
-          <View
-            key={thumbnail.id}
-            style={styles.thumbnailPlaceholder}
-            accessibilityElementsHidden
-          >
+          <View key={thumbnail.id} style={styles.thumbnailPlaceholder} accessibilityElementsHidden>
             <MaterialIcons
               name="checkroom"
               size={PLACEHOLDER_ICON_SIZE}
@@ -379,11 +367,7 @@ function WearEventCardComponent({
                 String(overflowCount)
               )}
             >
-              <Text
-                style={styles.overflowText}
-                allowFontScaling
-                maxFontSizeMultiplier={1.5}
-              >
+              <Text style={styles.overflowText} allowFontScaling maxFontSizeMultiplier={1.5}>
                 +{overflowCount}
               </Text>
             </View>
@@ -407,18 +391,10 @@ function WearEventCardComponent({
 
         {/* Bottom row: source and time */}
         <View style={styles.bottomRow}>
-          <Text
-            style={styles.sourceText}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.sourceText} allowFontScaling maxFontSizeMultiplier={1.5}>
             {sourceLabel}
           </Text>
-          <Text
-            style={styles.timeText}
-            allowFontScaling
-            maxFontSizeMultiplier={1.5}
-          >
+          <Text style={styles.timeText} allowFontScaling maxFontSizeMultiplier={1.5}>
             {timeLabel}
           </Text>
         </View>

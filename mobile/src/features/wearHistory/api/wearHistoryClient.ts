@@ -378,7 +378,11 @@ export async function createOrUpdateWearEventForClient(
   if (!itemIds || itemIds.length === 0) {
     return {
       success: false,
-      error: new WearHistoryClientError('Outfit must contain at least one item', 'validation', false),
+      error: new WearHistoryClientError(
+        'Outfit must contain at least one item',
+        'validation',
+        false
+      ),
     };
   }
 
@@ -498,7 +502,10 @@ export function validateWearDate(dateString: string): {
   thirtyDaysAgo.setDate(today.getDate() - 30);
 
   if (inputDate < thirtyDaysAgo) {
-    return { isValid: false, errorMessage: 'Cannot mark outfits as worn for dates older than 30 days' };
+    return {
+      isValid: false,
+      errorMessage: 'Cannot mark outfits as worn for dates older than 30 days',
+    };
   }
 
   return { isValid: true };

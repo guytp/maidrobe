@@ -302,13 +302,7 @@ describe('imageProcessing', () => {
           height: 1600,
         });
 
-        const result = await cropAndProcessImage(
-          defaultUri,
-          defaultCropRect,
-          'camera',
-          1920,
-          1080
-        );
+        const result = await cropAndProcessImage(defaultUri, defaultCropRect, 'camera', 1920, 1080);
 
         expect(result).toEqual({
           uri: 'file:///processed/image.jpg',
@@ -325,13 +319,7 @@ describe('imageProcessing', () => {
           height: 1000,
         });
 
-        const result = await cropAndProcessImage(
-          defaultUri,
-          defaultCropRect,
-          'camera',
-          1920,
-          1080
-        );
+        const result = await cropAndProcessImage(defaultUri, defaultCropRect, 'camera', 1920, 1080);
 
         expect(result.source).toBe('camera');
       });

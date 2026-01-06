@@ -5,6 +5,7 @@ This Edge Function enforces the security requirement: "Disallow reuse of last th
 ## Overview
 
 When a user attempts to reset their password, this function:
+
 1. Receives the user ID and new password
 2. Queries the `password_history` table for the user's last 3 password hashes
 3. Uses bcrypt to compare the new password against each historical hash
@@ -82,6 +83,7 @@ CREATE TRIGGER trigger_record_password_change
 ## Response Format
 
 ### Success - Password Not Reused
+
 ```json
 {
   "isReused": false
@@ -89,6 +91,7 @@ CREATE TRIGGER trigger_record_password_change
 ```
 
 ### Success - Password Reused
+
 ```json
 {
   "isReused": true
@@ -96,6 +99,7 @@ CREATE TRIGGER trigger_record_password_change
 ```
 
 ### Error (Fail-Open)
+
 ```json
 {
   "isReused": false,
@@ -117,6 +121,7 @@ This ensures users are never locked out due to infrastructure issues.
 ## Environment Variables
 
 Required environment variables (automatically provided by Supabase):
+
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_SERVICE_ROLE_KEY`: Service role key for database access
 
@@ -154,7 +159,7 @@ The mobile app calls this function via:
 
 ```typescript
 const { data, error } = await supabase.functions.invoke('check-password-reuse', {
-  body: { userId, newPassword }
+  body: { userId, newPassword },
 });
 
 if (data?.isReused) {

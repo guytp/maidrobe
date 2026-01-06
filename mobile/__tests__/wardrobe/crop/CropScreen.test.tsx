@@ -93,9 +93,9 @@ jest.mock('../../../src/core/i18n', () => ({
       'screens.crop.accessibility.retakeHint': 'Return to camera',
       'screens.crop.accessibility.retryButton': 'Retry processing',
       'screens.crop.accessibility.retryHint': 'Retry the image processing',
-      'processing_image': 'Processing image...',
-      'processing_failed': 'Failed to process image',
-      'retry': 'Retry',
+      processing_image: 'Processing image...',
+      processing_failed: 'Failed to process image',
+      retry: 'Retry',
     };
     return translations[key] || key;
   },
@@ -150,8 +150,10 @@ const mockUseStore = require('../../../src/core/state/store').useStore;
 const mockTrackCaptureEvent = require('../../../src/core/telemetry').trackCaptureEvent;
 const mockLogError = require('../../../src/core/telemetry').logError;
 const mockLogSuccess = require('../../../src/core/telemetry').logSuccess;
-const mockCropAndProcessImage = require('../../../src/features/wardrobe/crop/utils/imageProcessing').cropAndProcessImage;
-const mockComputeCropRectangle = require('../../../src/features/wardrobe/crop/utils/imageProcessing').computeCropRectangle;
+const mockCropAndProcessImage =
+  require('../../../src/features/wardrobe/crop/utils/imageProcessing').cropAndProcessImage;
+const mockComputeCropRectangle =
+  require('../../../src/features/wardrobe/crop/utils/imageProcessing').computeCropRectangle;
 const mockIsCaptureImagePayload = require('../../../src/core/types/capture').isCaptureImagePayload;
 const mockLockAsync = require('expo-screen-orientation').lockAsync;
 const mockDeleteAsync = require('expo-file-system').deleteAsync;
@@ -408,10 +410,9 @@ describe('CropScreen', () => {
       fireEvent.press(getByText('Confirm'));
 
       await waitFor(() => {
-        expect(mockDeleteAsync).toHaveBeenCalledWith(
-          'file:///test/image.jpg',
-          { idempotent: true }
-        );
+        expect(mockDeleteAsync).toHaveBeenCalledWith('file:///test/image.jpg', {
+          idempotent: true,
+        });
       });
     });
   });

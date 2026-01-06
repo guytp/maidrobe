@@ -6,3 +6,4 @@
 
 export { ProfileScreen } from './ProfileScreen';
 export { StylingPreferencesScreen } from './StylingPreferencesScreen';
+export { CalendarIntegrationScreen } from './CalendarIntegrationScreen';

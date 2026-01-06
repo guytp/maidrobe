@@ -72,9 +72,7 @@ export interface UseLatestWearEventForOutfitResult {
  * }
  * ```
  */
-export function useLatestWearEventForOutfit(
-  outfitId?: string
-): UseLatestWearEventForOutfitResult {
+export function useLatestWearEventForOutfit(outfitId?: string): UseLatestWearEventForOutfitResult {
   const user = useStore((state) => state.user);
   const userId = user?.id;
 

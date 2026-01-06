@@ -15,14 +15,17 @@ import { SyncFailureBanner, SyncFailureBannerProps } from './SyncFailureBanner';
 jest.mock('../../../core/i18n', () => ({
   t: (key: string) => {
     const translations: Record<string, string> = {
-      'screens.wearHistory.syncFailure.message': 'Some items couldn\'t sync',
+      'screens.wearHistory.syncFailure.message': "Some items couldn't sync",
       'screens.wearHistory.syncFailure.itemCount.one': '1 item failed to sync',
       'screens.wearHistory.syncFailure.itemCount.other': '{count} items failed to sync',
       'screens.wearHistory.syncFailure.retry': 'Try again',
       'screens.wearHistory.syncFailure.accessibility.retryButton': 'Retry syncing failed items',
-      'screens.wearHistory.syncFailure.accessibility.retryHint': 'Attempt to sync the failed wear records again',
-      'screens.wearHistory.syncFailure.accessibility.dismissButton': 'Dismiss sync failure notification',
-      'screens.wearHistory.syncFailure.accessibility.dismissHint': 'Hide this notification without retrying',
+      'screens.wearHistory.syncFailure.accessibility.retryHint':
+        'Attempt to sync the failed wear records again',
+      'screens.wearHistory.syncFailure.accessibility.dismissButton':
+        'Dismiss sync failure notification',
+      'screens.wearHistory.syncFailure.accessibility.dismissHint':
+        'Hide this notification without retrying',
     };
     return translations[key] ?? key;
   },
@@ -176,7 +179,9 @@ describe('SyncFailureBanner', () => {
       render(<SyncFailureBanner {...defaultProps} />);
 
       const retryButton = screen.getByTestId('sync-failure-banner-retry');
-      expect(retryButton.props.accessibilityHint).toBe('Attempt to sync the failed wear records again');
+      expect(retryButton.props.accessibilityHint).toBe(
+        'Attempt to sync the failed wear records again'
+      );
     });
 
     it('should have button role on dismiss button', () => {
@@ -245,7 +250,14 @@ describe('SyncFailureBanner', () => {
     });
 
     it('should not add testID to buttons when testID is not provided', () => {
-      render(<SyncFailureBanner failedCount={1} visible={true} onRetry={jest.fn()} onDismiss={jest.fn()} />);
+      render(
+        <SyncFailureBanner
+          failedCount={1}
+          visible={true}
+          onRetry={jest.fn()}
+          onDismiss={jest.fn()}
+        />
+      );
 
       // Buttons should still render but without testIDs
       expect(screen.getByText('Try again')).toBeTruthy();

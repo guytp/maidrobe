@@ -18,14 +18,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  Platform,
-} from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CameraView, CameraType, FlashMode } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';

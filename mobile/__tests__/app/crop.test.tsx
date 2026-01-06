@@ -142,7 +142,8 @@ jest.mock('../../src/core/types/capture', () => ({
 }));
 
 const mockUseRouter = require('expo-router').useRouter;
-const mockUseProtectedRoute = require('../../src/features/auth/hooks/useProtectedRoute').useProtectedRoute;
+const mockUseProtectedRoute =
+  require('../../src/features/auth/hooks/useProtectedRoute').useProtectedRoute;
 const mockCheckFeatureFlagSync = require('../../src/core/featureFlags').checkFeatureFlagSync;
 const mockUseStore = require('../../src/core/state/store').useStore;
 const mockIsCaptureImagePayload = require('../../src/core/types/capture').isCaptureImagePayload;

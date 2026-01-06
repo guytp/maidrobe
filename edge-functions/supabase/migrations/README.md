@@ -5,6 +5,7 @@ This directory contains SQL migration files for the Maidrobe database schema.
 ## Overview
 
 Migrations are ordered SQL files that incrementally build and modify the database schema. They are designed to be:
+
 - **Idempotent**: Safe to run multiple times without adverse effects
 - **Backwards compatible**: Allow gradual rollout without breaking older clients
 - **Versioned**: Timestamped filenames ensure correct execution order
@@ -43,6 +44,7 @@ supabase db push --linked   # Push to linked remote project
 ```
 
 Or use the Supabase Dashboard:
+
 1. Go to SQL Editor
 2. Copy migration content
 3. Execute manually
@@ -52,6 +54,7 @@ Or use the Supabase Dashboard:
 ### 1. Create Profiles Table (20241118000001)
 
 Creates the `public.profiles` table with:
+
 - Core fields: `id`, `created_at`, `updated_at`
 - Foreign key to `auth.users(id)`
 - Row Level Security (RLS) policies
@@ -59,6 +62,7 @@ Creates the `public.profiles` table with:
 - Auto-creation trigger for new users
 
 **RLS Policies:**
+
 - Users can view their own profile
 - Users can update their own profile
 - Users can insert their own profile
@@ -66,6 +70,7 @@ Creates the `public.profiles` table with:
 ### 2. Add has_onboarded Column (20241118000002)
 
 Adds `has_onboarded` boolean column to profiles:
+
 - Initially nullable (no default)
 - Allows gradual migration
 - Indexed for query performance
@@ -73,6 +78,7 @@ Adds `has_onboarded` boolean column to profiles:
 ### 3. Backfill has_onboarded (20241118000003)
 
 Backfills existing profiles:
+
 - Sets `has_onboarded = true` for all existing users
 - Prevents existing users from seeing onboarding flow
 - Idempotent: only updates NULL values
@@ -80,6 +86,7 @@ Backfills existing profiles:
 ### 4. Finalize has_onboarded Constraints (20241118000004)
 
 Applies final constraints:
+
 - Sets `NOT NULL` constraint
 - Sets `DEFAULT false` for new users
 - Completes backwards-compatible migration
@@ -87,6 +94,7 @@ Applies final constraints:
 ### 5. Update handle_new_user with has_onboarded (20241119000001)
 
 Updates the `handle_new_user` trigger function:
+
 - Explicitly sets `has_onboarded = false` for new user profiles
 - Makes initialization explicit rather than relying solely on DEFAULT constraint
 - Ensures consistent behavior across all new user signups
@@ -96,21 +104,25 @@ Updates the `handle_new_user` trigger function:
 The `has_onboarded` column uses a three-phase migration strategy:
 
 **Phase 1: Add Column (Nullable)**
+
 - Add column without constraints
 - Existing rows remain valid
 - Older clients continue to function
 
 **Phase 2: Backfill Data**
+
 - Set existing users to `has_onboarded = true`
 - Ensures they skip onboarding
 - Idempotent operation
 
 **Phase 3: Add Constraints**
+
 - Enforce `NOT NULL` constraint
 - Set `DEFAULT false` for new users
 - Complete data integrity
 
 This approach allows:
+
 - Zero-downtime deployment
 - Gradual client rollout
 - Safe rollback if needed
@@ -125,6 +137,7 @@ supabase db reset
 ```
 
 For production rollbacks:
+
 1. Create a new migration that reverses changes
 2. Test thoroughly in staging
 3. Apply via `supabase db push --linked`
@@ -163,6 +176,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ### RLS Policy Patterns
 
 **Read own data:**
+
 ```sql
 CREATE POLICY "policy_name"
   ON table_name
@@ -172,6 +186,7 @@ CREATE POLICY "policy_name"
 ```
 
 **Write own data:**
+
 ```sql
 CREATE POLICY "policy_name"
   ON table_name
@@ -209,6 +224,7 @@ END $$;
 ### Migration fails: "relation does not exist"
 
 Ensure migrations run in order:
+
 - Check timestamp prefix
 - Verify dependencies listed in migration header
 - Run `supabase db reset` to reapply all migrations

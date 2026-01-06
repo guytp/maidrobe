@@ -23,7 +23,14 @@ jest.mock('expo-camera', () => {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
   const { View, Text } = require('react-native');
   return {
-    CameraView: ({ onCameraReady, onMountError, ...props }: { onCameraReady?: () => void; onMountError?: () => void }) => {
+    CameraView: ({
+      onCameraReady,
+      onMountError,
+      ...props
+    }: {
+      onCameraReady?: () => void;
+      onMountError?: () => void;
+    }) => {
       return (
         <View testID="camera-view">
           <Text>Camera Preview</Text>

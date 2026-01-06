@@ -12,7 +12,7 @@ const files = [
   'mobile/src/core/types/capture.ts',
   'mobile/src/core/state/captureSlice.ts',
   'mobile/app/capture/index.tsx',
-  'mobile/app/crop/index.tsx'
+  'mobile/app/crop/index.tsx',
 ];
 
 let errors = [];
@@ -22,7 +22,7 @@ console.log('===================================================================
 console.log('CODE STANDARDS AND SYNTAX VERIFICATION');
 console.log('================================================================================\n');
 
-files.forEach(file => {
+files.forEach((file) => {
   try {
     const content = fs.readFileSync(file, 'utf8');
     const fileName = path.basename(file);
@@ -45,13 +45,15 @@ files.forEach(file => {
     const openBrackets = (content.match(/\[/g) || []).length;
     const closeBrackets = (content.match(/\]/g) || []).length;
     if (openBrackets !== closeBrackets) {
-      errors.push(`${fileName}: Mismatched brackets (${openBrackets} open, ${closeBrackets} close)`);
+      errors.push(
+        `${fileName}: Mismatched brackets (${openBrackets} open, ${closeBrackets} close)`
+      );
     }
 
     // Check for imports without from (allowing multiline imports)
     // Match complete import statements including multiline ones
     const importStatements = content.match(/import\s+\{[^}]*\}[^;]*/gs) || [];
-    importStatements.forEach(stmt => {
+    importStatements.forEach((stmt) => {
       const normalized = stmt.replace(/\s+/g, ' ');
       if (!normalized.includes('from')) {
         // Only report if it's a destructured import without 'from'
@@ -84,7 +86,6 @@ files.forEach(file => {
     }
 
     console.log(`  ✓ ${fileName} passed basic checks`);
-
   } catch (e) {
     errors.push(`${file}: Cannot read file - ${e.message}`);
   }
@@ -96,13 +97,13 @@ console.log('===================================================================
 
 if (errors.length > 0) {
   console.log('ERRORS FOUND:');
-  errors.forEach(e => console.log('  ✗ ' + e));
+  errors.forEach((e) => console.log('  ✗ ' + e));
   console.log('');
 }
 
 if (warnings.length > 0) {
   console.log('WARNINGS:');
-  warnings.forEach(w => console.log('  ⚠ ' + w));
+  warnings.forEach((w) => console.log('  ⚠ ' + w));
   console.log('');
 }
 

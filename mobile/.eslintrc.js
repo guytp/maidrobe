@@ -7,4 +7,14 @@ module.exports = {
       jsx: true,
     },
   },
+  settings: {
+    'import/resolver': {
+      node: {
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
+      },
+    },
+  },
+  rules: {
+    'import/no-unresolved': ['error', { ignore: ['@env'] }],
+  },
 };

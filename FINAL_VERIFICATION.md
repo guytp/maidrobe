@@ -52,6 +52,7 @@ This document provides final verification that all requirements from User Story 
    - Lines 200-221: State transition guard
 
 **Verification Result: PASS**
+
 - Column exists with NOT NULL constraint and false default
 - Existing users backfilled to true
 - RLS enforces user can only update own profile
@@ -99,6 +100,7 @@ This document provides final verification that all requirements from User Story 
    - ActivityIndicator with accessibility label
 
 **Verification Result: PASS**
+
 - Gate waits for auth hydration before routing
 - hasOnboarded=false routes to /onboarding/welcome
 - hasOnboarded=true routes to /home
@@ -130,7 +132,7 @@ This document provides final verification that all requirements from User Story 
    - Retry logic with exponential backoff (3 attempts)
    - Lines 357-530: Complete implementation
 
-4. **Completion Integration** (mobile/app/onboarding/_layout.tsx)
+4. **Completion Integration** (mobile/app/onboarding/\_layout.tsx)
    - useCompleteOnboarding() hook called on completion (line 75)
    - handleOnboardingComplete() wrapper (lines 106-135)
    - Triggered on success screen (line 148)
@@ -151,6 +153,7 @@ This document provides final verification that all requirements from User Story 
    - User never sees onboarding again
 
 **Verification Result: PASS**
+
 - New users start with hasOnboarded=false
 - First login routes to onboarding
 - Completion/skip sets hasOnboarded=true
@@ -173,7 +176,7 @@ This document provides final verification that all requirements from User Story 
    - User is never blocked in onboarding
    - Lines 519-527: Navigation logic
 
-2. **User Feedback on Failure** (mobile/app/onboarding/_layout.tsx)
+2. **User Feedback on Failure** (mobile/app/onboarding/\_layout.tsx)
    - Toast component for sync failure feedback (lines 491-503)
    - onSyncFailure callback shows Toast (lines 126-131)
    - Message: "Onboarding saved locally. Profile sync will retry automatically."
@@ -206,6 +209,7 @@ This document provides final verification that all requirements from User Story 
    - Error appears in telemetry for investigation
 
 **Verification Result: PASS**
+
 - User navigates to home regardless of backend success
 - Toast shows on sync failure (non-blocking)
 - Errors logged with full context (userId, error type, retry count)
@@ -228,7 +232,7 @@ This document provides final verification that all requirements from User Story 
    - Local onboarding progress cleared
    - Lines 330-335: Server state wins
 
-2. **Gate Enforcement** (mobile/app/onboarding/_layout.tsx)
+2. **Gate Enforcement** (mobile/app/onboarding/\_layout.tsx)
    - Layout checks hasOnboarded on mount (line 244)
    - If hasOnboarded=true: redirects to /home and clears state (lines 246-263)
    - Prevents routing into onboarding flow
@@ -262,6 +266,7 @@ This document provides final verification that all requirements from User Story 
    - Lines 285-303: Session bundle usage
 
 **Verification Result: PASS**
+
 - Server hasOnboarded=true always wins over local state
 - Local onboarding state cleared when hasOnboarded=true detected
 - No scenario routes user to onboarding if hasOnboarded=true
@@ -309,7 +314,7 @@ This document provides final verification that all requirements from User Story 
 5. **Analytics Pipeline**
    - Console logging for development visibility
    - Sentry breadcrumbs (category: 'onboarding', level: 'info')
-   - OpenTelemetry spans (namespace: 'onboarding.*')
+   - OpenTelemetry spans (namespace: 'onboarding.\*')
    - Configurable via environment variables:
      - EXPO_PUBLIC_SENTRY_ENABLED
      - EXPO_PUBLIC_OTEL_ENABLED
@@ -320,6 +325,7 @@ This document provides final verification that all requirements from User Story 
    - Applied to all gate events (line 567)
 
 **Verification Result: PASS**
+
 - All three required events implemented and emitted
 - Events include userId and hasOnboarded properties
 - Analytics wrapper architecture supports future providers
@@ -378,6 +384,7 @@ This document provides final verification that all requirements from User Story 
    - Lines 267-286: Error handling
 
 **Verification Result: PASS**
+
 - onboarding.gate flag defined and exposed
 - Environment variable configuration working
 - Flag enabled: Full gate logic applies
@@ -416,6 +423,7 @@ This document provides final verification that all requirements from User Story 
    - Lines in authRestore.ts: 285-303
 
 **Verification Result: PASS**
+
 - Loading state prevents flicker
 - Profile fetch reused from auth restore
 - Optimistic routing using cached data
@@ -452,6 +460,7 @@ This document provides final verification that all requirements from User Story 
    - Applied to all telemetry
 
 **Verification Result: PASS**
+
 - RLS enforces user can only update own profile
 - Client code only sets false -> true
 - Database constraint prevents reversal
@@ -494,6 +503,7 @@ This document provides final verification that all requirements from User Story 
    - Integration with Sentry and OpenTelemetry
 
 **Verification Result: PASS**
+
 - Migration is backwards compatible
 - Scripts are idempotent and safe to re-run
 - Feature flag enables safe rollout and rollback
@@ -508,6 +518,7 @@ This document provides final verification that all requirements from User Story 
 **Question:** Confirm canonical route names for home, onboarding entry, and gate component.
 
 **Resolution:**
+
 - Main app home: /home (mobile/app/index.tsx:227)
 - Onboarding entry: /onboarding/welcome (mobile/app/index.tsx:214)
 - Gate component: app/index.tsx (root route)
@@ -521,6 +532,7 @@ This document provides final verification that all requirements from User Story 
 **Question:** Should we introduce local-only flag to prevent re-onboarding if completion happened offline but server never persisted?
 
 **Resolution:**
+
 - Session bundle caches hasOnboarded value (authRestore.ts:285-303)
 - Offline completion navigates to home immediately
 - Backend update retried in background (3 attempts with backoff)
@@ -536,6 +548,7 @@ This document provides final verification that all requirements from User Story 
 **Question:** Confirm name and signature of shared analytics wrapper.
 
 **Resolution:**
+
 - Function: trackOnboardingGateEvent(eventType, metadata)
 - Also available: logSuccess(feature, operation, metadata)
 - Generic: trackEvent() not used for onboarding gate
@@ -549,15 +562,15 @@ This document provides final verification that all requirements from User Story 
 
 ### All Acceptance Criteria: VERIFIED AND COMPLETE
 
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| AC1: hasOnboarded flag exists and is secure | PASS | 5 migrations, RLS policies, client types, one-way logic |
-| AC2: Post-login routing uses hasOnboarded | PASS | Gate component, routing logic, auth restore integration |
-| AC3: New user sees onboarding once | PASS | New user flow, completion function, state updates |
-| AC4: Error handling on flag update | PASS | Non-blocking nav, Toast feedback, retry logic, error logging |
-| AC5: State precedence and consistency | PASS | Server state wins, gate enforcement, multi-tier fallback |
-| AC6: Analytics hook points | PASS | Three events emitted with correct metadata and PII protection |
-| AC7: Feature flag behaviour | PASS | onboarding.gate flag, runtime toggleable, fail-safe defaults |
+| Criterion                                   | Status | Evidence                                                      |
+| ------------------------------------------- | ------ | ------------------------------------------------------------- |
+| AC1: hasOnboarded flag exists and is secure | PASS   | 5 migrations, RLS policies, client types, one-way logic       |
+| AC2: Post-login routing uses hasOnboarded   | PASS   | Gate component, routing logic, auth restore integration       |
+| AC3: New user sees onboarding once          | PASS   | New user flow, completion function, state updates             |
+| AC4: Error handling on flag update          | PASS   | Non-blocking nav, Toast feedback, retry logic, error logging  |
+| AC5: State precedence and consistency       | PASS   | Server state wins, gate enforcement, multi-tier fallback      |
+| AC6: Analytics hook points                  | PASS   | Three events emitted with correct metadata and PII protection |
+| AC7: Feature flag behaviour                 | PASS   | onboarding.gate flag, runtime toggleable, fail-safe defaults  |
 
 ### All Functional Requirements: IMPLEMENTED
 

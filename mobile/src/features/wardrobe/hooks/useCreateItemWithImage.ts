@@ -756,11 +756,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
               .single();
 
             if (dbError) {
-              throw new CreateItemWithImageError(
-                ERROR_MESSAGES.database,
-                'database',
-                dbError
-              );
+              throw new CreateItemWithImageError(ERROR_MESSAGES.database, 'database', dbError);
             }
 
             // Success - break out of retry loop
@@ -799,10 +795,7 @@ export function useCreateItemWithImage(): UseCreateItemWithImageState &
                 lowerMessage.includes('connection')
               ) {
                 errorType = 'network';
-              } else if (
-                lowerMessage.includes('storage') ||
-                lowerMessage.includes('upload')
-              ) {
+              } else if (lowerMessage.includes('storage') || lowerMessage.includes('upload')) {
                 errorType = 'storage';
               }
               lastError = new CreateItemWithImageError(

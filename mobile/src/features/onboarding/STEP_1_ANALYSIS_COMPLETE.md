@@ -56,12 +56,14 @@ mobile/
 ### 1. Step Order and Navigation
 
 **Step Order (defined in onboardingSlice.ts):**
+
 ```
 ['welcome', 'prefs', 'firstItem', 'success']
 ```
 
 **Navigation Pattern:**
-- _layout.tsx is the single control point for step ordering
+
+- \_layout.tsx is the single control point for step ordering
 - Two-effect initialization pattern:
   1. Initialization effect: Determines if onboarding should run, prepares state
   2. Navigation effect: Routes to currentStep after initialization completes
@@ -69,6 +71,7 @@ mobile/
 - hasOnboarded gate: Redirects completed users to /home
 
 **State Management:**
+
 - Zustand store with AsyncStorage persistence
 - State: currentStep, completedSteps, skippedSteps
 - Actions: startOnboarding, markStepCompleted, markStepSkipped, setCurrentStep, resetOnboardingState
@@ -77,6 +80,7 @@ mobile/
 ### 2. Prefs Data Model
 
 **Database Schema (PrefsRow - snake_case):**
+
 ```typescript
 {
   user_id: string;              // UUID, primary key
@@ -90,16 +94,18 @@ mobile/
 ```
 
 **UI View Model (PrefsFormData - camelCase):**
+
 ```typescript
 {
-  colourTendency: ColourTendency;     // 'neutrals' | 'some_colour' | 'bold_colours' | 'not_sure'
-  exclusions: ExclusionsData;         // {checklist: ExclusionTag[], freeText: string}
-  noRepeatWindow: NoRepeatWindow;     // 0 | 7 | 14 | null
-  comfortNotes: string;               // Up to 500 chars, never null in UI
+  colourTendency: ColourTendency; // 'neutrals' | 'some_colour' | 'bold_colours' | 'not_sure'
+  exclusions: ExclusionsData; // {checklist: ExclusionTag[], freeText: string}
+  noRepeatWindow: NoRepeatWindow; // 0 | 7 | 14 | null
+  comfortNotes: string; // Up to 500 chars, never null in UI
 }
 ```
 
 **Exclusion Tags:**
+
 - Canonical tags: 'skirts', 'shorts', 'crop_tops', 'heels', 'suits_blazers', 'sleeveless_tops'
 - Free-text prefix: "free:" (e.g., "free:no itchy wool")
 - Stored in single array, separated in UI
@@ -107,6 +113,7 @@ mobile/
 ### 3. Data Mapping Utilities (prefsMapping.ts)
 
 **Database -> UI:**
+
 - `toFormData(row: PrefsRow | null): PrefsFormData`
 - Handles null row (returns defaults)
 - Maps colour_prefs array to single colourTendency
@@ -115,6 +122,7 @@ mobile/
 - Converts null comfort_notes to empty string
 
 **UI -> Database:**
+
 - `toPrefsRow(form: PrefsFormData, userId: string): PrefsRow` - Complete row for INSERT
 - `toUpdatePayload(form: PrefsFormData): PrefsUpdatePayload` - Full update
 - `getChangedFields(current, previous): PrefsUpdatePayload` - PATCH semantics (delta only)
@@ -123,6 +131,7 @@ mobile/
 ### 4. API Hooks
 
 **useUserPrefs() - Fetch preferences:**
+
 - React Query hook with cache key: `['prefs', userId]`
 - Uses maybeSingle() - returns null if no row exists
 - Validates with Zod schema
@@ -131,6 +140,7 @@ mobile/
 - Non-blocking: Returns null on error, screen still renders
 
 **useSavePrefs() - Create/update preferences:**
+
 - React Query mutation
 - Uses Supabase upsert for atomic insert-or-update
 - Supports PATCH semantics via existingData parameter
@@ -143,6 +153,7 @@ mobile/
 ### 5. PrefsScreen Component
 
 **Already fully implemented with:**
+
 - Four form sections: colour tendencies, exclusions, no-repeat window, comfort notes
 - Local state: formData (current), initialFormData (for delta comparison)
 - Data loading: useUserPrefs with loading/error states
@@ -154,6 +165,7 @@ mobile/
 - 500 character limit on comfort notes
 
 **Next Button Behavior:**
+
 - Determines if user has existing prefs
 - If new user with no data: Skip save (don't create empty record)
 - If new user with data: Create new record with INSERT
@@ -162,6 +174,7 @@ mobile/
 - On failure: Show non-blocking message, still navigate forward
 
 **Skip Button Behavior:**
+
 - No write to database
 - Existing prefs remain unchanged
 - Navigate to next step
@@ -170,6 +183,7 @@ mobile/
 ### 6. OnboardingFooter Integration
 
 **Features:**
+
 - Consumes OnboardingProvider context
 - Conditional button rendering based on currentStep
 - Primary action with customPrimaryHandler support
@@ -180,11 +194,13 @@ mobile/
 ### 7. Analytics Functions (Fixed)
 
 **Three prefs-specific functions:**
+
 - `trackPrefsViewed(isResume)` - Screen view tracking
 - `trackPrefsSaved(noRepeatSet, colourTendencySelected, exclusionsSelected, notesPresent)` - Save success
 - `trackPrefsSkipped()` - Skip tracking
 
 **Privacy compliance:**
+
 - Only boolean flags logged (no free-text content)
 - Fire-and-forget operations (never block user flow)
 - Silently fail with console.warn
@@ -197,11 +213,13 @@ mobile/
 ### Syntax Errors in onboardingAnalytics.ts
 
 **Issue 1: trackPrefsViewed() was completely missing**
+
 - Function was referenced in imports and PrefsScreen.tsx
 - No implementation existed in the file
 - **Fixed:** Added complete implementation with proper JSDoc
 
 **Issue 2: trackPrefsSaved() had broken syntax**
+
 - Missing closing braces for data object and logSuccess call
 - Missing timestamp field
 - Missing catch block
@@ -209,6 +227,7 @@ mobile/
 - **Fixed:** Completed function with all required fields and proper error handling
 
 **Issue 3: trackPrefsSkipped() had broken syntax**
+
 - Missing closing braces for data object and logSuccess call
 - Missing timestamp field
 - Missing catch block
@@ -216,6 +235,7 @@ mobile/
 - **Fixed:** Completed function with all required fields and proper error handling
 
 **Commit:**
+
 ```
 fix(onboarding): complete analytics tracking functions for prefs step
 ```
@@ -251,7 +271,13 @@ type PrefsFormData = {
 // Supporting types
 type ColourTendency = 'neutrals' | 'some_colour' | 'bold_colours' | 'not_sure';
 type NoRepeatWindow = 0 | 7 | 14 | null;
-type ExclusionTag = 'skirts' | 'shorts' | 'crop_tops' | 'heels' | 'suits_blazers' | 'sleeveless_tops';
+type ExclusionTag =
+  | 'skirts'
+  | 'shorts'
+  | 'crop_tops'
+  | 'heels'
+  | 'suits_blazers'
+  | 'sleeveless_tops';
 type ExclusionsData = {
   checklist: ExclusionTag[];
   freeText: string;
@@ -262,7 +288,14 @@ type PrefsUpdatePayload = Omit<Partial<PrefsRow>, 'user_id' | 'created_at' | 'up
 ### Constants
 
 ```typescript
-const EXCLUSION_TAGS = ['skirts', 'shorts', 'crop_tops', 'heels', 'suits_blazers', 'sleeveless_tops'];
+const EXCLUSION_TAGS = [
+  'skirts',
+  'shorts',
+  'crop_tops',
+  'heels',
+  'suits_blazers',
+  'sleeveless_tops',
+];
 const COLOUR_TAGS = ['neutrals', 'some_colour', 'bold_colours'];
 const DEFAULT_PREFS_FORM_DATA: PrefsFormData = {
   colourTendency: 'not_sure',
@@ -278,7 +311,7 @@ const FREE_TEXT_PREFIX = 'free:';
 
 ## Navigation and State Flow
 
-### Onboarding Initialization (_layout.tsx)
+### Onboarding Initialization (\_layout.tsx)
 
 1. Wait for auth hydration (isHydrating = false)
 2. Check hasOnboarded flag from user profile
@@ -292,20 +325,23 @@ const FREE_TEXT_PREFIX = 'free:';
 ### Step Transition Flow
 
 **User taps Next:**
+
 1. OnboardingFooter calls customPrimaryHandler (if set) or onNext
 2. For prefs step: PrefsScreen's custom handler triggers save
-3. After save: _layout.handleNext marks step completed
+3. After save: \_layout.handleNext marks step completed
 4. markStepCompleted advances currentStep to next step in STEP_ORDER
 5. Navigation effect reacts to currentStep change and routes to new step
 
 **User taps Skip Step:**
+
 1. OnboardingFooter calls onSkipStep
-2. _layout.handleSkipStep marks step as skipped
+2. \_layout.handleSkipStep marks step as skipped
 3. markStepSkipped advances currentStep to next step
 4. Navigation effect routes to new step
 
 **User taps Back:**
-1. _layout.handleBack calls getPreviousStep(currentStep)
+
+1. \_layout.handleBack calls getPreviousStep(currentStep)
 2. setCurrentStep sets currentStep to previous step
 3. Navigation effect routes to previous step
 4. Does NOT modify completedSteps or skippedSteps
@@ -328,12 +364,14 @@ All components access navigation handlers via useOnboardingContext().
 ## Security and Privacy
 
 ### Database Security
+
 - Row Level Security (RLS) enforced at Supabase level
 - Users can only access their own prefs row (user_id = auth.uid())
 - All requests use authenticated Supabase client
 - HTTPS enforced
 
 ### Privacy Compliance
+
 - Free-text fields (comfortNotes, exclusions.freeText) NEVER logged
 - Analytics include only boolean flags (noRepeatSet, notesPresent, etc.)
 - Error logs exclude free-text content
@@ -344,12 +382,14 @@ All components access navigation handlers via useOnboardingContext().
 ## Non-Functional Requirements Met
 
 ### Performance
+
 - Screen interactive within ~500ms (React state, no heavy computations)
 - One save request per action (debounced via footer loading state)
 - Smooth local interactions (no jank)
 - React Query caching reduces redundant fetches
 
 ### Accessibility
+
 - Dynamic text scaling (allowFontScaling, maxFontSizeMultiplier)
 - Screen reader support (accessibilityRole, accessibilityLabel, accessibilityHint)
 - Logical focus order
@@ -357,6 +397,7 @@ All components access navigation handlers via useOnboardingContext().
 - Platform contrast standards
 
 ### Error Handling
+
 - Non-blocking: Errors never prevent navigation
 - Graceful offline: Screen renders with defaults
 - User-friendly messages shown via errorMessage state
@@ -369,7 +410,7 @@ All components access navigation handlers via useOnboardingContext().
 The implementation uses the hasOnboarded gate pattern rather than explicit feature flags. To add feature flag support:
 
 1. Add feature.onboarding_prefs_enabled flag
-2. Check flag in _layout.tsx initialization
+2. Check flag in \_layout.tsx initialization
 3. Skip prefs step if flag disabled
 4. Adjust STEP_ORDER dynamically based on flag
 
@@ -384,6 +425,7 @@ Current implementation assumes prefs step is always enabled.
 The Style and Usage Preferences onboarding step (Story #116) has been fully implemented and is ready for use. All infrastructure, components, hooks, utilities, and analytics tracking are in place.
 
 **What was done in this step:**
+
 1. Reviewed entire onboarding feature structure
 2. Identified and documented all prefs-related types and utilities
 3. Analyzed navigation flow and state management
@@ -392,12 +434,14 @@ The Style and Usage Preferences onboarding step (Story #116) has been fully impl
 6. Documented architecture patterns and data flow
 
 **Next steps (if needed):**
+
 - Run full compilation and linting (npm run typecheck && npm run lint)
 - Run unit tests (npm test)
 - Manual testing on device
 - Verify acceptance criteria still met after analytics fixes
 
 **Key files for next steps:**
+
 - PrefsScreen.tsx - Main component
 - useUserPrefs.ts - Data fetching
 - useSavePrefs.ts - Data persistence

@@ -14,7 +14,14 @@
     "module": "esnext",
     "lib": ["esnext"],
     "allowJs": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/features/*": ["src/features/*"],
+      "@/core/*": ["src/core/*"],
+      "@/services/*": ["src/services/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
   "exclude": ["node_modules"]

@@ -7,6 +7,7 @@
 // Set required environment variables for tests
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+process.env.GOOGLE_CLIENT_ID = 'test-google-client-id';
 
 // Mock AsyncStorage for Jest tests
 // AsyncStorage requires native modules which aren't available in Node test environment

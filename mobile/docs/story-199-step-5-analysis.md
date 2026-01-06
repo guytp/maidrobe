@@ -142,6 +142,7 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
    - Handles both first-time and previously-denied states
 
 **Permissions Hook Integration (Line 56):**
+
 - Uses `useCapturePermissions(origin)`
 - Returns camera.status, camera.isAvailable, camera.request, camera.openSettings
 - AppState monitoring for permission changes
@@ -215,6 +216,7 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
    - Fallback options provided
 
 **In-Camera Gallery Shortcut (CaptureCameraScreen.tsx Lines 590-599):**
+
 - Gallery button in bottom controls
 - Positioned next to shutter button
 - Calls handleGallery (from useGallerySelection hook)
@@ -233,6 +235,7 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Accessibility Labels Found:**
 
 **CaptureScreen:**
+
 - Screen label/hint (lines 292-293)
 - Title role="header" (line 300)
 - Take photo button label/hint (lines 312-313)
@@ -240,6 +243,7 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
 - Cancel button label/hint (lines 331-332)
 
 **CaptureCameraScreen:**
+
 - Screen label/hint (lines 544-545)
 - Cancel button label/hint/role (lines 562-564)
 - Flash toggle label/hint/role (lines 572-574)
@@ -253,10 +257,12 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Tap Target Sizes:**
 
 **CaptureScreen:**
+
 - Uses Button component (meets platform standards)
 - buttonContainer with gap: spacing.md (proper separation)
 
 **CaptureCameraScreen:**
+
 - controlButton: minWidth: 44, minHeight: 44 (line 352-353)
 - galleryButton: minWidth: 44, minHeight: 44 (lines 400-401)
 - shutterButton: width: 70, height: 70 (line 415-416) - EXCEEDS minimum
@@ -265,12 +271,14 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Dark Mode Support:**
 
 **CaptureScreen:**
+
 - Uses theme colors from useTheme hook (line 41)
 - colors.background, colors.textPrimary, colors.textSecondary
 - StatusBar style based on colorScheme (line 338)
 - Button component has built-in dark mode support
 
 **CaptureCameraScreen:**
+
 - Black background (#000) for camera (line 332)
 - Semi-transparent overlays work in all modes
 - StatusBar always 'light' on camera (line 622)
@@ -279,12 +287,14 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
 **Large Text Layouts:**
 
 **CaptureScreen:**
+
 - allowFontScaling={true} on all Text components (lines 298, 304)
 - maxFontSizeMultiplier={2} prevents extreme scaling (lines 299, 304)
 - Flexible layouts with justifyContent: 'center'
 - No fixed heights that would clip text
 
 **CaptureCameraScreen:**
+
 - Camera preview is responsive (flex: 1)
 - Absolute positioning with percentage-based values
 - Controls use minHeight instead of fixed height
@@ -336,6 +346,7 @@ Step 5 requirements are **FULLY SATISFIED** by the existing implementation. All 
    - Clears after operation completes
 
 **Error Message Sources:**
+
 - All use i18n keys (t() function)
 - Consistent error message structure
 - User-friendly language
@@ -528,30 +539,30 @@ All errors tracked via telemetry with specific error codes and context.
 
 ## Requirements Compliance Matrix
 
-| Requirement | Location | Status |
-|-------------|----------|--------|
-| Choice screen with dual actions | CaptureScreen.tsx:308-326 | COMPLETE |
-| Camera unavailable handling | CaptureScreen.tsx:72-89 | COMPLETE |
-| Guidance text | CaptureScreen.tsx:296-306 | COMPLETE |
-| Live camera preview | CaptureCameraScreen.tsx:547-554 | COMPLETE |
-| Shutter button | CaptureCameraScreen.tsx:601-610 | COMPLETE |
-| Cancel/back button | CaptureCameraScreen.tsx:559-567 | COMPLETE |
-| Flash control | CaptureCameraScreen.tsx:569-577 | COMPLETE |
-| Framing guide | CaptureCameraScreen.tsx:580-581 | COMPLETE |
-| Guidance overlay | CaptureCameraScreen.tsx:583-586 | COMPLETE |
-| Permission: unavailable | CaptureScreen.tsx:72-89 | COMPLETE |
-| Permission: granted | CaptureScreen.tsx:92-104 | COMPLETE |
-| Permission: blocked | CaptureScreen.tsx:105-126 | COMPLETE |
-| Permission: denied/undetermined | CaptureScreen.tsx:127-162 | COMPLETE |
-| Gallery via expo-image-picker | useGalleryPicker.ts:86-91 | COMPLETE |
-| Gallery cancellation handling | useGalleryPicker.ts:94-104 | COMPLETE |
-| Gallery error handling | useGalleryPicker.ts:132-219 | COMPLETE |
-| In-camera gallery shortcut | CaptureCameraScreen.tsx:590-599 | COMPLETE |
-| Accessibility labels | Multiple locations | COMPLETE |
-| Tap target sizes | Multiple locations | COMPLETE |
-| Dark mode support | Multiple locations | COMPLETE |
-| Large text layouts | Multiple locations | COMPLETE |
-| Inline error display | Multiple locations | COMPLETE |
+| Requirement                     | Location                        | Status   |
+| ------------------------------- | ------------------------------- | -------- |
+| Choice screen with dual actions | CaptureScreen.tsx:308-326       | COMPLETE |
+| Camera unavailable handling     | CaptureScreen.tsx:72-89         | COMPLETE |
+| Guidance text                   | CaptureScreen.tsx:296-306       | COMPLETE |
+| Live camera preview             | CaptureCameraScreen.tsx:547-554 | COMPLETE |
+| Shutter button                  | CaptureCameraScreen.tsx:601-610 | COMPLETE |
+| Cancel/back button              | CaptureCameraScreen.tsx:559-567 | COMPLETE |
+| Flash control                   | CaptureCameraScreen.tsx:569-577 | COMPLETE |
+| Framing guide                   | CaptureCameraScreen.tsx:580-581 | COMPLETE |
+| Guidance overlay                | CaptureCameraScreen.tsx:583-586 | COMPLETE |
+| Permission: unavailable         | CaptureScreen.tsx:72-89         | COMPLETE |
+| Permission: granted             | CaptureScreen.tsx:92-104        | COMPLETE |
+| Permission: blocked             | CaptureScreen.tsx:105-126       | COMPLETE |
+| Permission: denied/undetermined | CaptureScreen.tsx:127-162       | COMPLETE |
+| Gallery via expo-image-picker   | useGalleryPicker.ts:86-91       | COMPLETE |
+| Gallery cancellation handling   | useGalleryPicker.ts:94-104      | COMPLETE |
+| Gallery error handling          | useGalleryPicker.ts:132-219     | COMPLETE |
+| In-camera gallery shortcut      | CaptureCameraScreen.tsx:590-599 | COMPLETE |
+| Accessibility labels            | Multiple locations              | COMPLETE |
+| Tap target sizes                | Multiple locations              | COMPLETE |
+| Dark mode support               | Multiple locations              | COMPLETE |
+| Large text layouts              | Multiple locations              | COMPLETE |
+| Inline error display            | Multiple locations              | COMPLETE |
 
 **COMPLIANCE: 23/23 (100%)**
 

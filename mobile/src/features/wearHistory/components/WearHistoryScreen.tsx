@@ -172,11 +172,7 @@ export function WearHistoryScreen(): React.JSX.Element {
    */
   const renderItem = useCallback(
     ({ item }: SectionListRenderItemInfo<WearHistoryRow, WearHistorySection>) => (
-      <WearEventCard
-        event={item}
-        onPress={handleEventPress}
-        testID={`wear-event-${item.id}`}
-      />
+      <WearEventCard event={item} onPress={handleEventPress} testID={`wear-event-${item.id}`} />
     ),
     [handleEventPress]
   );
@@ -185,11 +181,7 @@ export function WearHistoryScreen(): React.JSX.Element {
    * Renders a section header (date label).
    */
   const renderSectionHeader = useCallback(
-    ({
-      section,
-    }: {
-      section: SectionListData<WearHistoryRow, WearHistorySection>;
-    }) => (
+    ({ section }: { section: SectionListData<WearHistoryRow, WearHistorySection> }) => (
       <View
         style={{
           backgroundColor: colors.background,
@@ -273,11 +265,7 @@ export function WearHistoryScreen(): React.JSX.Element {
           accessibilityLabel={t('screens.history.empty.iconLabel')}
           accessibilityRole="image"
         >
-          <MaterialIcons
-            name="event"
-            size={EMPTY_STATE_ICON_SIZE}
-            color={colors.textSecondary}
-          />
+          <MaterialIcons name="event" size={EMPTY_STATE_ICON_SIZE} color={colors.textSecondary} />
         </View>
         <Text
           style={{
@@ -440,10 +428,7 @@ export function WearHistoryScreen(): React.JSX.Element {
             </Text>
           </View>
         </View>
-        <View
-          style={styles.skeletonContainer}
-          accessibilityLabel={t('screens.history.loading')}
-        >
+        <View style={styles.skeletonContainer} accessibilityLabel={t('screens.history.loading')}>
           {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
             <WearEventCardSkeleton key={`skeleton-${index}`} testID={`skeleton-${index}`} />
           ))}
@@ -482,11 +467,7 @@ export function WearHistoryScreen(): React.JSX.Element {
           </View>
         </View>
         <View style={styles.errorContainer}>
-          <Text
-            style={styles.errorText}
-            allowFontScaling
-            maxFontSizeMultiplier={2}
-          >
+          <Text style={styles.errorText} allowFontScaling maxFontSizeMultiplier={2}>
             {t('screens.history.error.loadFailed')}
           </Text>
           <Button
@@ -533,11 +514,7 @@ export function WearHistoryScreen(): React.JSX.Element {
             {t('screens.history.title')}
           </Text>
           {totalCount > 0 && (
-            <Text
-              style={styles.headerSubtitle}
-              allowFontScaling
-              maxFontSizeMultiplier={1.5}
-            >
+            <Text style={styles.headerSubtitle} allowFontScaling maxFontSizeMultiplier={1.5}>
               {t('screens.history.eventCount').replace('{count}', String(totalCount))}
             </Text>
           )}

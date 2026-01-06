@@ -247,11 +247,11 @@ The Crop & Adjust feature relies on three Expo SDK modules. These were already p
 
 ### Dependencies Used
 
-| Module | Version | Purpose in Crop & Adjust |
-|--------|---------|--------------------------|
-| expo-file-system | ^19.0.19 | Temporary file cleanup after processing |
-| expo-image-manipulator | ^14.0.7 | Core image processing (crop, resize, compress) |
-| expo-screen-orientation | ^9.0.7 | Portrait lock during cropping |
+| Module                  | Version  | Purpose in Crop & Adjust                       |
+| ----------------------- | -------- | ---------------------------------------------- |
+| expo-file-system        | ^19.0.19 | Temporary file cleanup after processing        |
+| expo-image-manipulator  | ^14.0.7  | Core image processing (crop, resize, compress) |
+| expo-screen-orientation | ^9.0.7   | Portrait lock during cropping                  |
 
 ### Bundle Size Impact
 
@@ -277,6 +277,7 @@ These modules contribute to the app binary in two ways:
 Each module is critical for the Crop & Adjust experience:
 
 **expo-image-manipulator (Critical)**
+
 - Provides the only Expo-compatible way to crop, resize, and compress images on-device
 - Required for the 4:5 aspect ratio enforcement
 - Required for the pre-downscaling strategy that prevents OOM crashes
@@ -284,12 +285,14 @@ Each module is critical for the Crop & Adjust experience:
 - No viable alternative exists within the Expo ecosystem
 
 **expo-file-system (Critical)**
+
 - Required for cleanup of temporary image files after processing
 - Prevents storage bloat from accumulating cropped images
 - Used via `FileSystem.deleteAsync()` for non-blocking cleanup
 - Already a transitive dependency of expo-image-manipulator
 
 **expo-screen-orientation (Important but not Critical)**
+
 - Locks screen to portrait during cropping for consistent UX
 - Prevents disorienting layout changes if user rotates device mid-crop
 - Graceful degradation: if orientation lock fails, the feature still works

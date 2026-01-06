@@ -8,4 +8,26 @@
  */
 
 // Components
-export { ProfileScreen, StylingPreferencesScreen } from './components';
+export { ProfileScreen, StylingPreferencesScreen, CalendarIntegrationScreen } from './components';
+
+// Types
+export type {
+  CalendarProvider,
+  CalendarIntegrationRow,
+  CalendarIntegration,
+  CreateCalendarIntegrationParams,
+  OAuthTokens,
+  ConnectCalendarParams,
+  UpdateTokensParams,
+  fromCalendarIntegrationRow,
+} from './types';
+
+// Hooks
+export { useCalendarIntegration } from './hooks/useCalendarIntegration';
+
+// API
+export {
+  getCalendarIntegration,
+  upsertCalendarIntegration,
+  CalendarIntegrationError,
+} from './api/calendarIntegrationRepository';
