@@ -115,15 +115,29 @@ Introduce user-controlled "no-repeat" preferences in Settings to let users confi
 
 ---
 
-#### ⏳ Step 5: Persistence & Error Handling (PENDING)
-**Goal**: Wire up React Query, rollback logic, and analytics
+#### ✅ Step 5: Persistence & Error Handling (COMPLETE)
+**Status**: Already fully implemented in StylingPreferencesScreen
 
-**Requirements**:
-- Optimistic UI updates
-- Rollback on failure with error message
-- Retry capability
-- Single analytics event per change
-- Default handling for users without explicit prefs
+**Verified Complete**:
+- [x] React Query integration (useUserPrefs, useSavePrefs hooks)
+- [x] Optimistic UI updates with cache manipulation
+- [x] Complete rollback on failure (cache + UI state)
+- [x] Non-blocking inline error display
+- [x] Retry capability via pendingRetryData and handleRetry
+- [x] Single analytics event per successful change (no_repeat_prefs_changed)
+- [x] Ref-based previous value tracking (previousFormDataRef)
+- [x] Default handling: 7 days, 'item' mode applied on first fetch
+- [x] Transparent persistence via upsert on first save
+- [x] No disruption to other profile flows
+
+**Files**:
+- Same StylingPreferencesScreen.tsx component (lines 167-256 for persistence)
+- `useUserPrefs.ts`, `useSavePrefs.ts` (React Query hooks)
+- `prefsMapping.ts` (default application logic)
+- `STEP_5_ANALYSIS.md` (962 lines, comprehensive analysis)
+- `STEP_5_IMPLEMENTATION.md` (implementation verification)
+
+**Commit**: `8172351` - docs(step-5): analyze persistence, rollback, and analytics requirements
 
 ---
 
@@ -224,4 +238,4 @@ npm run edge:dev                     # Start local Supabase
 - No-repeat filtering logic already exists in recommendations engine
 - Design system tokens defined in `/mobile/src/core/theme/`
 
-**Last Updated**: 2026-01-09 (Steps 1-4 complete, Step 5 mostly complete)
+**Last Updated**: 2026-01-09 (Steps 1-5 complete)
