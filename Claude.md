@@ -35,15 +35,27 @@ Introduce user-controlled "no-repeat" preferences in Settings to let users confi
 
 ---
 
-#### 🔄 Step 2: Backend Data Access Layer (IN PROGRESS)
-**Goal**: Update edge functions, types, and Zod schemas to support `no_repeat_days` and `no_repeat_mode`
+#### ✅ Step 2: Backend Data Access Layer (COMPLETE)
+**Status**: All backend logic already fully implemented
 
-**Tasks**:
-- [ ] Update TypeScript types for prefs structure
-- [ ] Update Zod schemas for validation
-- [ ] Update edge function queries (get-outfit-recommendations, etc.)
-- [ ] Ensure default values (7, 'item') when fields are null
-- [ ] Test no-repeat rules engine integration
+**Verified Complete**:
+- [x] Edge functions include `no_repeat_days` and `no_repeat_mode` in queries
+- [x] TypeScript types defined in get-outfit-recommendations/index.ts
+- [x] Value normalization and clamping (0-90 for UI, 0-180 for DB)
+- [x] Default handling when null (0/'item' in edge, 7/'item' in mobile)
+- [x] No-repeat rules engine consumes both fields correctly
+- [x] Mobile app types (PrefsRow, PrefsFormData) include fields
+- [x] Mobile app Zod schemas validate UI (0-90) and DB (0-180) ranges
+- [x] Mobile app API hooks (useUserPrefs, useSavePrefs) support fields
+- [x] Mapping layer handles snake_case/camelCase conversion
+- [x] Backward compatibility maintained
+
+**Files**:
+- Edge: `get-outfit-recommendations/index.ts`, `_shared/noRepeatRules.ts`
+- Mobile: `prefsTypes.ts`, `prefsValidation.ts`, `prefsMapping.ts`, API hooks
+- `STEP_2_VERIFICATION.md` (comprehensive verification)
+
+**Commit**: `b8f55ce` - docs(step-2): verify backend data-access layer supports no-repeat prefs
 
 ---
 
@@ -185,4 +197,4 @@ npm run edge:dev                     # Start local Supabase
 - No-repeat filtering logic already exists in recommendations engine
 - Design system tokens defined in `/mobile/src/core/theme/`
 
-**Last Updated**: 2026-01-09 (Step 1 complete)
+**Last Updated**: 2026-01-09 (Steps 1-2 complete)
