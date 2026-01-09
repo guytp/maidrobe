@@ -91,6 +91,26 @@ Introduce user-controlled "no-repeat" preferences in Settings to let users confi
 #### ✅ Step 4: Advanced Controls (COMPLETE)
 **Status**: Already implemented as part of StylingPreferencesScreen
 
+**Verified Complete**:
+- [x] Collapsible Advanced section (collapsed by default, toggle button)
+- [x] Custom numeric input (0-90 days) with maxLength=2
+- [x] Client-side validation blocking invalid values
+- [x] Inline error messages with auto-dismiss
+- [x] Mode selector (item vs outfit) with radio buttons
+- [x] Preset state synchronization (bidirectional)
+- [x] Auto-expand for custom values on load
+- [x] Same persistence function as presets (optimistic updates)
+- [x] Single analytics event with before/after values
+
+**Files**:
+- Same StylingPreferencesScreen.tsx component (lines 858-999 for advanced section)
+- `STEP_4_ANALYSIS.md` (comprehensive requirements analysis)
+- `STEP_4_IMPLEMENTATION.md` (verification document)
+
+**Commits**:
+- `da83627` - docs(step-4): analyze advanced controls requirements
+- `bb41463` - docs(step-4): verify advanced controls implementation complete
+
 **Note**: Steps 3 and 4 were implemented together in a single comprehensive screen component
 
 ---
