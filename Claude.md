@@ -59,32 +59,39 @@ Introduce user-controlled "no-repeat" preferences in Settings to let users confi
 
 ---
 
-#### ⏳ Step 3: Styling Preferences UI - Presets (PENDING)
-**Goal**: Create Settings UI with preset controls (Off, 3, 7, 14, 30 days)
+#### ✅ Step 3: Styling Preferences UI (COMPLETE)
+**Status**: Complete implementation found including Step 4 advanced controls
 
-**Requirements**:
-- New "Styling Preferences" section in Settings
-- "No-repeat window" card with explanatory copy
-- 5 preset buttons (0, 3, 7, 14, 30 days)
-- Immediate persistence with optimistic updates
-- Analytics event: `no_repeat_prefs_changed`
+**Verified Complete**:
+- [x] New ProfileScreen with navigation to Styling Preferences
+- [x] Protected route at `/profile/styling-preferences`
+- [x] StylingPreferencesScreen with all 5 preset buttons (Off, 3, 7, 14, 30 days)
+- [x] Optimistic updates with React Query cache management
+- [x] Success feedback ("Saved" message, auto-dismiss after 2s)
+- [x] Analytics event `no_repeat_prefs_changed` with previous/new values
+- [x] Advanced section with custom numeric input (0-90 validation)
+- [x] Mode selector (item vs outfit) with explanatory text
+- [x] Error handling with rollback and retry capability
+- [x] Inline validation messages
+- [x] WCAG AA accessibility compliance
+- [x] Full i18n support for all strings
+- [x] Theme-aware styling (light/dark mode)
 
-**Design System**:
-- Colors: Charcoal #1F1F23, Off-White #F7F7F8, Eucalyptus #3FAF9F, Cobalt #3B6EFF
-- Touch targets: 44px minimum
-- Accessibility: WCAG AA, screen reader support
+**Files**:
+- `/mobile/src/features/profile/components/StylingPreferencesScreen.tsx` (1007 lines)
+- `/mobile/src/features/profile/components/ProfileScreen.tsx`
+- `/mobile/app/profile/styling-preferences/index.tsx` (route)
+- `/mobile/src/core/components/Toast.tsx` (success feedback)
+- `STEP_3_VERIFICATION.md` (comprehensive verification)
+
+**Commit**: `27fea52` - docs(step-3): verify Styling Preferences UI implementation
 
 ---
 
-#### ⏳ Step 4: Advanced Controls (PENDING)
-**Goal**: Add expandable Advanced section with custom input and mode selector
+#### ✅ Step 4: Advanced Controls (COMPLETE)
+**Status**: Already implemented as part of StylingPreferencesScreen
 
-**Requirements**:
-- Collapsible Advanced section
-- Numeric input/slider (0-90 days) with validation
-- Mode selector: "Key items (recommended)" vs "Exact outfit only"
-- Inline error messages for invalid values
-- Same persistence/analytics as presets
+**Note**: Steps 3 and 4 were implemented together in a single comprehensive screen component
 
 ---
 
@@ -171,23 +178,23 @@ npm run edge:dev                     # Start local Supabase
 - [x] Default values (7, 'item') configured
 - [x] Backfill for existing users
 
-### AC2: Styling Preferences UI ⏳
-- [ ] Settings shows Styling Preferences section
-- [ ] No-repeat window card with 5 presets
-- [ ] Preset selection persists values
+### AC2: Styling Preferences UI ✅
+- [x] Settings shows Styling Preferences section
+- [x] No-repeat window card with 5 presets
+- [x] Preset selection persists values
 
-### AC3: Advanced Controls ⏳
-- [ ] Advanced section with custom input (0-90)
-- [ ] Mode selector (item vs outfit)
-- [ ] Validation for invalid values
+### AC3: Advanced Controls ✅
+- [x] Advanced section with custom input (0-90)
+- [x] Mode selector (item vs outfit)
+- [x] Validation for invalid values
 
-### AC4: Error Handling ⏳
-- [ ] Failed saves revert UI state
-- [ ] Error message with retry option
+### AC4: Error Handling ✅
+- [x] Failed saves revert UI state
+- [x] Error message with retry option
 
-### AC5: Analytics ⏳
-- [ ] `no_repeat_prefs_changed` event emitted
-- [ ] Includes previous vs new values
+### AC5: Analytics ✅
+- [x] `no_repeat_prefs_changed` event emitted
+- [x] Includes previous vs new values
 
 ---
 
@@ -197,4 +204,4 @@ npm run edge:dev                     # Start local Supabase
 - No-repeat filtering logic already exists in recommendations engine
 - Design system tokens defined in `/mobile/src/core/theme/`
 
-**Last Updated**: 2026-01-09 (Steps 1-2 complete)
+**Last Updated**: 2026-01-09 (Steps 1-4 complete, Step 5 mostly complete)
